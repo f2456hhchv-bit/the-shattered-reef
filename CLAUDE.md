@@ -77,15 +77,16 @@ whether the core loop and the AI can handle both.
 - **Not built yet:** economy/shop, AI, all UI. `src/main.mjs` only proves
   the data loads in a browser — there is nothing to play yet.
 - **Next up:** economy/shop logic (step 3) — buy/sell/reroll/upgrade, and
-  the Reef Shard shop mechanics from `docs/design/reef-shards.md` (its open
-  questions need answers before this step starts).
+  the Reef Shard shop mechanics, now fully specced in
+  `docs/design/reef-shards.md` (locked 2026-09-27, see Decisions log).
 
 ## Reef Shard / Fathom design
 
 Spec lives in `docs/design/reef-shards.md` — read it before building the
-economy engine, since shard-feeding is a shop-phase action. It has open
-questions (shard-ability pool contents, appearance rate) that need answers
-before that engine work starts.
+economy engine, since shard-feeding is a shop-phase action. **Locked**:
+scheduled events every 4 rounds from round 3, choice of 3 from a Lesser/
+Greater ability pool (10 abilities total, Board + Shop types), Fathom only
+grows.
 
 ## Decisions log
 
@@ -101,9 +102,14 @@ before that engine work starts.
   shard-fed, which the trigger system doesn't model. First case of this
   pattern; if more cards need it, consider a proper passive-effect system
   rather than one-off flags.
+- 2026-09-27: Reef Shard events are scheduled (every 4 rounds from round 3,
+  choice of 3), not randomly available in the shop — researched Battlegrounds
+  Trinkets, TFT Augments and Storybook Brawl Treasures first; none of them
+  use pure random-availability, all use scheduled guaranteed choices. Full
+  ability pool locked in `docs/design/reef-shards.md`.
 
 ## Known open questions (do not silently resolve — ask)
 
-- Reef Shard ability pool (what a fed minion actually gets) — undefined.
-- Reef Shard appearance rate in the shop — undefined.
-- Whether the Fathom can decay, or only grows — provisionally only grows.
+- Exact UI copy/flavor text for the 10 shard abilities — deferred to step 5.
+- Whether Shoal Call and Drowned Favor stack cleanly if both are rolled in
+  one run — provisionally yes, revisit if playtesting shows it's degenerate.
