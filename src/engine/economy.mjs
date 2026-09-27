@@ -24,11 +24,20 @@ const TAVERN_ODDS = {
   3: { 1: 0.4, 2: 0.4, 3: 0.2 },
 };
 const UPGRADE_COST = { 1: 5, 2: 7 }; // cost to go FROM this tier to the next
-const MAX_TAVERN_TIER = 3; // slice cap — tiers 4-6 don't exist yet (Content phase)
-const BOARD_CAP = 7;
+export const MAX_TAVERN_TIER = 3; // slice cap — tiers 4-6 don't exist yet (Content phase)
+export const BOARD_CAP = 7;
 const SHOP_SIZE = 3;
 const REROLL_BASE_COST = 1;
 const SELL_VALUE = 1;
+
+// Exported so callers (the AI engine, tests) never have to re-derive these
+// from the raw constants above — single source of truth.
+export function rerollCost(state) {
+  return Math.max(REROLL_BASE_COST - state.rerollDiscount, 0);
+}
+export function nextUpgradeCost(state) {
+  return UPGRADE_COST[state.tavernTier];
+}
 
 const incomeForRound = (round) => Math.min(round + 2, 10);
 export const isReefShardRound = (round) => round >= 3 && (round - 3) % 4 === 0;
@@ -125,7 +134,7 @@ function drawShopSlot(state, pool, rng, { forceFaction = null } = {}) {
 
 export function refreshShop(state, pool, rng, { free = false } = {}) {
   if (!free) {
-    const cost = Math.max(REROLL_BASE_COST - state.rerollDiscount, 0);
+    const cost = rerollCost(state);
     if (state.gold < cost) throw new Error('Not enough gold to reroll');
     state.gold -= cost;
   }
@@ -218,7 +227,7 @@ export function sellMinion(state, pool, instanceId) {
 
 export function upgradeTavern(state) {
   if (state.tavernTier >= MAX_TAVERN_TIER) throw new Error('Already at the vertical slice\'s tavern cap');
-  const cost = UPGRADE_COST[state.tavernTier];
+  const cost = nextUpgradeCost(state);
   if (state.gold < cost) throw new Error('Not enough gold to upgrade');
   state.gold -= cost;
   state.tavernTier += 1;

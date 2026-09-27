@@ -36,8 +36,8 @@ headless before anything touches a screen:
 1. **Data schema** (minions/factions/keywords) — ✅ done
 2. **Combat simulator** (pure function, two boards in → resolution out) — ✅ done
 3. **Economy/shop logic** (buy/sell/reroll/upgrade) — ✅ done
-4. **AI decision engine** (sits on top of 2 + 3) — next
-5. Board/shop UI, touch input, positioning
+4. **AI decision engine** (sits on top of 2 + 3) — ✅ done
+5. Board/shop UI, touch input, positioning — next
 6. Round loop, health, win/loss
 7. Reef Shard + Fathom visuals/feedback
 8. Polish pass
@@ -110,10 +110,47 @@ whether the core loop and the AI can handle both.
   - New tests for all five in `tests/combat.test.mjs` (Titanic was already
     covered in `tests/economy.test.mjs`). **49/49 tests pass** across the
     whole repo.
-- **Not built yet:** AI, all UI. `src/main.mjs` only proves the data loads
-  in a browser — there is nothing to play yet.
-- **Next up:** AI decision engine (step 4) — the shard-ability gap that
-  would have complicated it is now closed, so step 4 can proceed cleanly.
+- **Phase:** 3 (Vertical Slice), step 4 of 8 (AI decision engine) complete.
+- **Just shipped:** `src/engine/ai.mjs` + `src/data/ai-tuning.mjs` — an
+  AI-controlled player's full shopping-phase logic, built entirely on top
+  of economy.mjs's own public functions (never touching player state
+  directly), so it's indistinguishable from a human player to every other
+  system.
+  - `scoreMinion` — heuristic value from stats + keywords + effects
+    (weighted by how reliably each trigger actually pays off — see
+    `TRIGGER_WEIGHT` in the tuning file).
+  - `synergyBonus` — rewards committing to the board's dominant faction,
+    capped so it can't swamp raw stats.
+  - `runAiTurn(state, pool, round, rng)` — one full round: upgrades the
+    tavern opportunistically toward a round-based target tier, then loops
+    buy → (sell-and-swap once the board is full) → reroll, spending the
+    *entire* budget every round on the theory that unspent gold is wasted
+    (confirmed by rereading economy.mjs: gold never carries over between
+    rounds, so there's no genre-typical "banking" strategy here — hoarding
+    is strictly worse than spending). Freezes the shop instead of
+    rerolling it away when it's holding something good it can't yet
+    afford, so that card survives to next round's bigger budget.
+  - `chooseReefShardPick(state, choices)` — picks the best-fitting board
+    minion for whichever offered ability scores highest net value (fit
+    minus a faction-lockout penalty that scales with how committed the
+    board already is), or declines (always free) when the board is empty.
+  - All tuning numbers (weights, thresholds, the tavern curve, shard-fit
+    formulas) live in `src/data/ai-tuning.mjs`, not the engine, matching
+    the project's data-driven-content rule — retuning AI behavior should
+    never mean touching `ai.mjs` itself.
+  - Small economy.mjs tidy-up along the way: exported `BOARD_CAP`,
+    `MAX_TAVERN_TIER`, `rerollCost()` and `nextUpgradeCost()` (previously
+    internal constants/inline formulas) so the AI engine — and any other
+    future caller — never has to re-derive them.
+  - New tests in `tests/ai.test.mjs` (scoring, synergy, full-turn spending
+    behavior, board-cap/swap correctness, freeze-vs-reroll, all six Reef
+    Shard fit heuristics, a 15-round simulation staying within the tavern
+    cap). **61/61 tests pass** across the whole repo.
+- **Not built yet:** all UI. `src/main.mjs` only proves the data loads in a
+  browser — there is nothing to play yet.
+- **Next up:** step 5, board/shop UI + touch input. The AI engine is ready
+  to drive up to 7 opponent players headlessly once the round loop (step 6)
+  exists to actually call it each round.
 
 ## Reef Shard / Fathom design
 
@@ -151,6 +188,16 @@ what's still a gap in `combat.mjs`).
   always patch an inconsistency against already-written work as soon as
   it's found. Introduced `maxHealth` on minion instances as part of that
   patch (needed for Vampiric's "heal to full").
+- 2026-09-27: The AI always spends its entire gold budget every round
+  (buying, upgrading, or rerolling to find something worth buying) rather
+  than ever holding gold back — a direct consequence of economy.mjs's own
+  no-carryover rule, not an independent design choice. If gold carryover is
+  ever added (it isn't planned to be), this behavior needs revisiting.
+- 2026-09-27: AI tuning numbers (score weights, buy/swap/freeze thresholds,
+  the tavern-upgrade curve, Reef Shard ability-fit formulas) live in
+  `src/data/ai-tuning.mjs`, separate from `src/engine/ai.mjs` — same
+  data-driven-content principle as minion/faction data, so retuning the AI
+  never means touching engine logic.
 
 ## Known open questions (do not silently resolve — ask)
 
