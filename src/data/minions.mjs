@@ -179,7 +179,7 @@ export const MINIONS = [
     cost: costForTier(2),
     keywords: [],
     effects: [
-      { trigger: 'battlecry', action: { type: 'gain_reef_shard' } },
+      { trigger: 'battlecry', action: { type: 'trigger_bonus_shard_event' } },
     ],
     flavor: 'She can always find one more shard.',
   },

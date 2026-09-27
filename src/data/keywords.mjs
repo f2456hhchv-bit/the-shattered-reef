@@ -24,7 +24,7 @@ export const ACTION_TYPES = /** @type {const} */ ([
   'summon',                       // { minionId, count }
   'damage_random_enemy',          // { amount }
   'gain_gold',                    // { amount }
-  'gain_reef_shard',              // adds a Reef Shard to the shop/hand — no extra fields
+  'trigger_bonus_shard_event',    // triggers an immediate bonus Reef Shard choice (Lesser pool, choice of 1) — no extra fields
   'fathom_grow',                  // { attack, health } — grows the caster's Fathom by this much
   'fathom_double',                // doubles the caster's current Fathom stats — no extra fields
   'fathom_to_board',               // spawns a minion with the Fathom's current stats — no extra fields
