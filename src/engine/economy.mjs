@@ -35,6 +35,13 @@ const SELL_VALUE = 1;
 export function rerollCost(state) {
   return Math.max(REROLL_BASE_COST - state.rerollDiscount, 0);
 }
+// What a reroll will actually cost right now, accounting for a banked free
+// refresh (Wandering Merchant) — distinct from rerollCost() because the
+// bank is spent on the very next refreshShop() call regardless of gold, so
+// any caller deciding "can/should I reroll" needs this, not the raw cost.
+export function effectiveRerollCost(state) {
+  return state.freeRerollBanked > 0 ? 0 : rerollCost(state);
+}
 export function nextUpgradeCost(state) {
   return UPGRADE_COST[state.tavernTier];
 }
@@ -84,6 +91,7 @@ export function createPlayerState() {
     rerollDiscount: 0,     // from Bargain Tide
     guaranteedFactionActive: false, // from Drowned Favor
     pendingBonusShardEvents: 0, // queued by Fathom Priestess's battlecry
+    freeRerollBanked: 0, // from Wandering Merchant's end_of_combat_won (refresh_shop_free)
   };
 }
 
@@ -133,7 +141,9 @@ function drawShopSlot(state, pool, rng, { forceFaction = null } = {}) {
 }
 
 export function refreshShop(state, pool, rng, { free = false } = {}) {
-  if (!free) {
+  if (!free && state.freeRerollBanked > 0) {
+    state.freeRerollBanked -= 1; // Wandering Merchant's banked free refresh, spent here
+  } else if (!free) {
     const cost = rerollCost(state);
     if (state.gold < cost) throw new Error('Not enough gold to reroll');
     state.gold -= cost;

@@ -18,7 +18,7 @@
 
 import {
   buyMinion, sellMinion, refreshShop, freezeShop, upgradeTavern,
-  rerollCost, nextUpgradeCost, BOARD_CAP, MAX_TAVERN_TIER,
+  effectiveRerollCost, nextUpgradeCost, BOARD_CAP, MAX_TAVERN_TIER,
 } from './economy.mjs';
 import { MINION_BY_ID } from '../data/minions.mjs';
 import {
@@ -140,7 +140,7 @@ export function runAiTurn(state, pool, round, rng) {
 
     // Otherwise the current shop is worth nothing to us — since unspent
     // gold is wasted at round end, reroll and try again rather than sit on it.
-    const cost = rerollCost(state);
+    const cost = effectiveRerollCost(state);
     if (rerolls < MAX_REROLLS_PER_TURN && state.gold >= cost) {
       refreshShop(state, pool, rng);
       rerolls += 1;

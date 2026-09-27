@@ -38,8 +38,8 @@ headless before anything touches a screen:
 3. **Economy/shop logic** (buy/sell/reroll/upgrade) — ✅ done
 4. **AI decision engine** (sits on top of 2 + 3) — ✅ done
 5. **Board/shop UI, touch input, positioning** — ✅ done
-6. Round loop, health, win/loss — next
-7. Reef Shard + Fathom visuals/feedback
+6. **Round loop, health, win/loss** — ✅ done
+7. Reef Shard + Fathom visuals/feedback — next
 8. Polish pass
 
 This is phase 3 (Vertical Slice) of the PRD's 8 build phases. Full 6-faction
@@ -181,12 +181,64 @@ whether the core loop and the AI can handle both.
     rather than just `node --check`: buy, sell, reroll, freeze, upgrade,
     round-advance, and drag-to-reorder all confirmed working with no
     console errors, plus a couple of screenshots to sanity-check layout.
-- **Not built yet:** opponents, combat, health/win-loss, Reef Shard picker
-  UI, Fathom visuals.
-- **Next up:** step 6, round loop + health + win/loss. The AI engine
-  (step 4) is ready to drive up to 7 opponent players headlessly once this
-  exists to call it each round; combat.mjs (step 2) is ready to resolve
-  the fights.
+- **Phase:** 3 (Vertical Slice), step 6 of 8 (round loop, health, win/loss)
+  complete. **This is the first version of the game that's actually
+  playable start to finish.**
+- **Just shipped:** `src/engine/roundloop.mjs` — the piece that turns the
+  shop engine + combat simulator + AI into a real 8-seat match (you + up
+  to 7 AI, `src/data/ai-opponents.mjs` for their names/flavor).
+  - `createLobby` / `beginRound` (heals survivors to `maxHealth`, shuffles
+    shop order each round since the pool is shared/contested, starts every
+    alive player's shop phase) / `runAiShopPhase` / `runAiReefShardPhase` /
+    `pairPlayers` (shuffles alive players, avoids an immediate rematch when
+    an alternative exists, gives an odd-one-out a damage-free bye) /
+    `runCombatPhase` (runs every pairing through `combat.simulateCombat`,
+    applies loser damage + Fathom/external effects, marks eliminations) /
+    `checkGameOver` (winner + full finishing-position placements, not just
+    win/lose).
+  - **Design decision this module had to make, since neither the PRD nor
+    reef-shards.md specified it:** a minion that survives a fight heals
+    back to `maxHealth` at the start of the next round (permanent buffs,
+    which also raised `maxHealth`, persist) — only that one fight's damage
+    is wiped. A minion that dies is gone for good; a deathrattle summon
+    that survives its first fight persists afterward like any other
+    minion.
+  - **Bug caught and patched in the same pass (existing code, not new):**
+    Wandering Merchant's `refresh_shop_free` effect set a flag
+    (`freeRerollBanked`) that nothing ever consumed — a fully dead card
+    ability. `economy.refreshShop()` now spends it; added
+    `effectiveRerollCost()` so callers (the AI, the UI) that need to know
+    "will my next reroll actually cost anything" don't have to duplicate
+    that logic. Re-pointed `ai.mjs` and `app.mjs` at it.
+  - `src/ui/app.mjs` rewritten to drive the full loop: an 8-seat lobby, a
+    standings strip (health bars for all 8, dead ones dimmed), a
+    functional (but visually plain — see below) Reef Shard picker sheet, a
+    combat-result sheet (won/lost/draw/bye + damage + updated health), and
+    a game-over sheet with full placement order and a Play Again button.
+    When the human is eliminated before the match actually ends, the UI
+    keeps simulating the remaining AI-only rounds headlessly so the human
+    still learns their final position.
+  - The Reef Shard picker is deliberately plain (no glow, no Fathom-bar
+    animation, no growth flourish) — it had to exist because the round
+    loop can't skip the event (Wyrdtide's whole mechanic depends on it),
+    but the actual "visuals/feedback" polish is step 7 by design. Each
+    player independently draws their own choice of 3 (not a shared trio
+    for the whole table) — matches genre precedent (Battlegrounds
+    Trinkets, TFT Augments) better than forcing everyone to see the same
+    offer.
+  - New tests in `tests/roundloop.test.mjs` (pairing correctness including
+    rematch-avoidance and odd-count byes, healing-between-rounds, AI shop/
+    shard phases never touching the human, combat damage + elimination,
+    full placement ordering, and a seeded 8-player match simulated to
+    completion without throwing). **72/72 tests pass** across the whole
+    repo.
+  - Verified end-to-end in a real headless browser (Playwright/Chromium):
+    a full multi-round match including a Reef Shard round and reaching
+    the game-over screen with a correct placement list, no console
+    errors.
+- **Not built yet:** Reef Shard/Fathom visual polish, general combat
+  animation/feedback, a proper title/menu screen.
+- **Next up:** step 7, Reef Shard + Fathom visuals/feedback.
 
 ## Reef Shard / Fathom design
 
@@ -246,6 +298,19 @@ what's still a gap in `combat.mjs`).
   `src/data/minions.mjs`. They only had `flavor` (mood text) before —
   fine for step 1-4 since nothing rendered a card, but the shop UI needs
   actual rules text, not flavor, to be legible.
+- 2026-09-27: Minions heal back to `maxHealth` between rounds; only the
+  fight itself does lasting damage to health this round. Permanent buffs
+  persist (they raised `maxHealth` too), and surviving deathrattle
+  summons stick around like any other minion. Not specified anywhere
+  before this session — roundloop.mjs is the source of truth for it now.
+- 2026-09-27: Each player's Reef Shard offer is their own independent draw
+  of 3, not a shared trio shown to the whole table — matches how
+  Battlegrounds Trinkets and TFT Augments actually work; nothing in
+  reef-shards.md required a shared draw, and an independent one is a
+  better fit for an 8-player lobby anyway.
+- 2026-09-27: Lobby size is 8 (you + up to 7 AI, named in
+  `src/data/ai-opponents.mjs`), matching the original "plays against 8"
+  design intent from the very first design conversation.
 
 ## Known open questions (do not silently resolve — ask)
 
