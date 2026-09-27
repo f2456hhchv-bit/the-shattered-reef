@@ -24,6 +24,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'battlecry', action: { type: 'buff_random_friendly_faction', attack: 1, health: 0, count: 1 } },
     ],
+    text: 'Battlecry: Give another random friendly Reaver +1/+0.',
     flavor: 'First one up the rigging, first one to the prize.',
   },
   {
@@ -38,6 +39,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'deathrattle', action: { type: 'damage_random_enemy', amount: 1 } },
     ],
+    text: 'Deathrattle: Deal 1 damage to a random enemy.',
     flavor: 'Small hands, short fuses.',
   },
   {
@@ -50,6 +52,7 @@ export const MINIONS = [
     cost: costForTier(1),
     keywords: [],
     effects: [],
+    text: '',
     flavor: 'No ability. Just very good at hitting things.',
   },
   {
@@ -64,6 +67,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'battlecry', action: { type: 'buff_all_friendly_faction', attack: 1, health: 0 } },
     ],
+    text: 'Battlecry: Give all friendly Reavers +1/+0.',
     flavor: 'Raises her blade; the whole crew raises theirs.',
   },
   {
@@ -78,6 +82,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'end_of_combat_won', action: { type: 'buff_self', attack: 1, health: 1 } },
     ],
+    text: 'Taunt. After she survives a won combat, gain +1/+1.',
     flavor: 'Every fight she walks away from, she walks away stronger.',
   },
   {
@@ -92,6 +97,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'deathrattle', action: { type: 'summon', minionId: 'reaver-deckhand', count: 2 } },
     ],
+    text: 'Deathrattle: Summon two 2/2 Deckhands.',
     flavor: 'Sinks fast, but not before the crew jumps clear.',
   },
   {
@@ -106,6 +112,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'battlecry', action: { type: 'buff_random_friendly_faction', attack: 2, health: 1, count: 2 } },
     ],
+    text: 'Battlecry: Give two random friendly Reavers +2/+1.',
     flavor: 'She doesn’t give orders twice.',
   },
   {
@@ -123,6 +130,7 @@ export const MINIONS = [
     // docs/design/reef-shards.md. Recorded here as a flag the engine reads.
     passive: { onFriendlyReaverShardFed: { attack: 2, health: 2 } },
     effects: [],
+    text: 'Whenever another friendly Reaver is fed a Reef Shard, gain +2/+2.',
     flavor: 'What the sea takes from your crew, it pays to her.',
   },
 
@@ -141,6 +149,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'battlecry', action: { type: 'buff_self_if_shard_used', attack: 1, health: 1 } },
     ],
+    text: 'Battlecry: If a Reef Shard has been fed this game, gain +1/+1.',
     flavor: 'It remembers the first shard fed to it.',
   },
   {
@@ -155,6 +164,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'battlecry', action: { type: 'fathom_grow', attack: 1, health: 1 } },
     ],
+    text: 'Battlecry: Grow the Fathom by +1/+1.',
     flavor: 'Goes down for shards nobody else will touch.',
   },
   {
@@ -167,6 +177,7 @@ export const MINIONS = [
     cost: costForTier(1),
     keywords: [],
     effects: [],
+    text: '',
     flavor: 'No ability. Just very good at standing there.',
   },
   {
@@ -181,6 +192,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'battlecry', action: { type: 'trigger_bonus_shard_event' } },
     ],
+    text: 'Battlecry: Trigger a bonus Reef Shard choice.',
     flavor: 'She can always find one more shard.',
   },
   {
@@ -195,6 +207,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'on_fathom_growth', action: { type: 'buff_self', attack: 1, health: 1 } },
     ],
+    text: 'Taunt. Whenever the Fathom grows, gain +1/+1.',
     flavor: 'Grows however the deep grows.',
   },
   {
@@ -209,6 +222,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'deathrattle', action: { type: 'fathom_grow', attack: 2, health: 2 } },
     ],
+    text: 'Taunt. Deathrattle: Grow the Fathom by +2/+2.',
     flavor: 'Even in death, it feeds the deep.',
   },
   {
@@ -223,6 +237,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'battlecry', action: { type: 'fathom_double' } },
     ],
+    text: 'Battlecry: Double the Fathom’s current stats.',
     flavor: 'Speaks once. The tide answers twice.',
   },
   {
@@ -237,6 +252,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'deathrattle', action: { type: 'fathom_to_board' } },
     ],
+    text: 'Deathrattle: Summon a copy of the Fathom onto your board.',
     flavor: 'Its death is the Fathom made flesh.',
   },
 
@@ -255,6 +271,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'battlecry', action: { type: 'gain_gold', amount: 1 } },
     ],
+    text: 'Battlecry: Gain 1 gold.',
     flavor: 'One coin’s as good as the next.',
   },
   {
@@ -267,6 +284,7 @@ export const MINIONS = [
     cost: costForTier(1),
     keywords: ['taunt'],
     effects: [],
+    text: 'Taunt.',
     flavor: 'Been wrecked twice. Still first off the boat.',
   },
   {
@@ -281,6 +299,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'deathrattle', action: { type: 'buff_random_friendly_faction', attack: 1, health: 1, count: 1 } },
     ],
+    text: 'Deathrattle: Give a random friendly minion +1/+1.',
     flavor: 'Slow to fall, generous on the way down.',
   },
   {
@@ -295,6 +314,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'end_of_combat_won', action: { type: 'refresh_shop_free' } },
     ],
+    text: 'After winning a combat, your next shop refresh is free.',
     flavor: 'Always has something new, if you survive to ask.',
   },
   {
@@ -309,6 +329,7 @@ export const MINIONS = [
     effects: [
       { trigger: 'deathrattle', action: { type: 'damage_random_enemy', amount: 2 } },
     ],
+    text: 'Deathrattle: Deal 2 damage to a random enemy.',
     flavor: 'A warning, briefly, before it goes out.',
   },
 ];

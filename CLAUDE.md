@@ -37,8 +37,8 @@ headless before anything touches a screen:
 2. **Combat simulator** (pure function, two boards in → resolution out) — ✅ done
 3. **Economy/shop logic** (buy/sell/reroll/upgrade) — ✅ done
 4. **AI decision engine** (sits on top of 2 + 3) — ✅ done
-5. Board/shop UI, touch input, positioning — next
-6. Round loop, health, win/loss
+5. **Board/shop UI, touch input, positioning** — ✅ done
+6. Round loop, health, win/loss — next
 7. Reef Shard + Fathom visuals/feedback
 8. Polish pass
 
@@ -146,11 +146,47 @@ whether the core loop and the AI can handle both.
     behavior, board-cap/swap correctness, freeze-vs-reroll, all six Reef
     Shard fit heuristics, a 15-round simulation staying within the tavern
     cap). **61/61 tests pass** across the whole repo.
-- **Not built yet:** all UI. `src/main.mjs` only proves the data loads in a
-  browser — there is nothing to play yet.
-- **Next up:** step 5, board/shop UI + touch input. The AI engine is ready
-  to drive up to 7 opponent players headlessly once the round loop (step 6)
-  exists to actually call it each round.
+- **Phase:** 3 (Vertical Slice), step 5 of 8 (board/shop UI, touch input,
+  positioning) complete.
+- **Just shipped:** a real, playable shop/board screen — `src/ui/app.mjs`
+  (controller), `src/ui/cards.mjs` (card rendering), `src/ui/dragdrop.mjs`
+  (touch reordering), `src/ui/styles.css`. DOM+CSS throughout, no Canvas,
+  per the stack rule. `src/main.mjs` now boots this instead of the old
+  data-loaded proof text.
+  - HUD: round, gold/maxGold, health, tavern tier + upgrade button.
+  - Board: 7 touch-reorderable slots. Cards render in a **compact token
+    form** (cost badge, keyword icons, atk/hp only — no name or rules
+    text) rather than full shop-card layout: 7 columns on a phone screen
+    genuinely don't have the width for name + rules text per card (tried
+    it, looked bad — see decisions log), and real mobile Battlegrounds-
+    likes handle a full board the same way. Tap a board card to open a
+    sell confirmation sheet.
+  - Shop: 3(+bonus) full-size cards with name, keywords, rules text
+    (added a `text` field to all 21 minion definitions in
+    `src/data/minions.mjs` for this — they had `flavor` but no rules text
+    before), cost badge, and a dimmed/grayscale unaffordable state. Tap to
+    buy.
+  - Controls: Reroll (shows live cost), Freeze (single-use per round, per
+    economy.mjs — button disables once active), End Turn.
+  - Reef Shard tags on a fed minion show as a small badge + a lock icon;
+    picking/declining a Shard event itself is NOT built here — that's
+    step 7 per the build order. `onEndTurn` detects a Reef Shard round
+    (`isReefShardRound`) and surfaces it as a toast so the gap is visible,
+    not silently skipped.
+  - `onEndTurn` is a deliberate placeholder: it only advances the
+    shop/economy round (`startRound`). No opponent, no combat, no
+    health loss, no win/loss yet — that's step 6. Health is displayed but
+    static at 25 until step 6 wires up something that can change it.
+  - Verified end-to-end in a real headless browser (Playwright, Chromium)
+    rather than just `node --check`: buy, sell, reroll, freeze, upgrade,
+    round-advance, and drag-to-reorder all confirmed working with no
+    console errors, plus a couple of screenshots to sanity-check layout.
+- **Not built yet:** opponents, combat, health/win-loss, Reef Shard picker
+  UI, Fathom visuals.
+- **Next up:** step 6, round loop + health + win/loss. The AI engine
+  (step 4) is ready to drive up to 7 opponent players headlessly once this
+  exists to call it each round; combat.mjs (step 2) is ready to resolve
+  the fights.
 
 ## Reef Shard / Fathom design
 
@@ -198,6 +234,18 @@ what's still a gap in `combat.mjs`).
   `src/data/ai-tuning.mjs`, separate from `src/engine/ai.mjs` — same
   data-driven-content principle as minion/faction data, so retuning the AI
   never means touching engine logic.
+- 2026-09-27: Board minions render as compact tokens (icons + stats, no
+  name/text), shop minions render as full cards (name + keywords + rules
+  text). Tried full-text cards on the board first — 7 columns on a phone
+  screen makes each card ~45-50px wide, and cramming a name plus rules
+  text in there looked broken, not just tight. Real mobile Battlegrounds
+  clients handle a full board the same compact way; tapping a board
+  minion (which opens the sell sheet) is where its full name shows.
+- 2026-09-27: Added a `text` field (short rules text, e.g. "Battlecry:
+  Give another random friendly Reaver +1/+0.") to every minion in
+  `src/data/minions.mjs`. They only had `flavor` (mood text) before —
+  fine for step 1-4 since nothing rendered a card, but the shop UI needs
+  actual rules text, not flavor, to be legible.
 
 ## Known open questions (do not silently resolve — ask)
 
