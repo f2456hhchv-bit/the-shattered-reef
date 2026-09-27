@@ -5,11 +5,10 @@
 // gold or the shop — the two only meet through a minion instance handed
 // from one to the other.
 //
-// Known gap, tracked in CLAUDE.md: the five Board-type shard abilities
-// (Vampiric, Barnacled, Riptide, Undying, Twinned, Maelstrom) are recorded
-// here as tags on the instance (`instance.shardAbilities`), but combat.mjs
-// doesn't read that array yet — it was built before this step. Wiring
-// those tags into fights is follow-up work, not silently skipped.
+// The five Board-type shard abilities (Vampiric, Barnacled, Riptide, Undying,
+// Twinned, Maelstrom) are recorded here as tags on the instance
+// (`instance.shardAbilities`) and interpreted during a fight by combat.mjs.
+// Titanic is the exception — it doubles base stats immediately, below.
 
 import { MINIONS, MINION_BY_ID, instantiate } from '../data/minions.mjs';
 
@@ -167,18 +166,21 @@ function runBattlecry(state, minion) {
         const t = pool[Math.floor(Math.random() * pool.length)];
         t.attack += a.attack;
         t.health += a.health;
+        t.maxHealth += a.health; // permanent buff — keep Vampiric's "full health" in sync
       }
     } else if (a.type === 'buff_all_friendly_faction') {
       for (const m of state.board) {
         if (m !== minion && m.faction === minion.faction) {
           m.attack += a.attack;
           m.health += a.health;
+          m.maxHealth += a.health;
         }
       }
     } else if (a.type === 'buff_self_if_shard_used') {
       if (state.fathom.attack > 0 || state.fathom.health > 0) {
         minion.attack += a.attack;
         minion.health += a.health;
+        minion.maxHealth += a.health;
       }
     } else if (a.type === 'fathom_grow') {
       state.fathom.attack += a.attack;
@@ -278,6 +280,7 @@ export function applyReefShardChoice(state, instanceId, ability) {
     if (ability.id === 'titanic') {
       minion.attack *= 2;
       minion.health *= 2;
+      minion.maxHealth *= 2;
     } else {
       minion.shardAbilities.push(ability.id);
     }
@@ -302,6 +305,7 @@ export function applyReefShardChoice(state, instanceId, ability) {
       if (def.passive?.onFriendlyReaverShardFed) {
         other.attack += def.passive.onFriendlyReaverShardFed.attack;
         other.health += def.passive.onFriendlyReaverShardFed.health;
+        other.maxHealth += def.passive.onFriendlyReaverShardFed.health;
       }
     }
   }

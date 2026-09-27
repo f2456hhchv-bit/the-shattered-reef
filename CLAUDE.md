@@ -60,7 +60,8 @@ whether the core loop and the AI can handle both.
 
 ## Current status (update this every session)
 
-- **Phase:** 3 (Vertical Slice), step 3 of 8 (economy/shop engine) complete.
+- **Phase:** 3 (Vertical Slice), step 3 of 8 (economy/shop engine) complete,
+  plus a same-session follow-up patch closing a gap that step introduced.
 - **Just shipped:** `src/engine/economy.mjs` — shared card pool (finite
   copies, contested pool ready for AI to draw from in step 4), player
   state, income (`round+2`, capped at 10, no gold carryover), tavern-tier-
@@ -69,27 +70,50 @@ whether the core loop and the AI can handle both.
   Reef Shard event flow: `isReefShardRound`, `offerReefShardChoices`
   (choice of 3, Lesser rounds 3-10 / Greater 11+), `applyReefShardChoice`
   (universal lockout + Fathom growth, Shoal Call/Bargain Tide/Drowned Favor
-  shop effects, The Kraken's Due exception). 43/43 tests pass across the
-  whole repo (`tests/economy.test.mjs` + existing combat/data tests).
+  shop effects, The Kraken's Due exception).
 - **Data fix along the way:** Fathom Priestess's battlecry was still
   `gain_reef_shard`, a leftover from the old "shards appear in the shop"
   design. Changed to `trigger_bonus_shard_event` (queues a bonus Lesser-pool
   choice) to match the locked scheduled-event design — updated
   `src/data/minions.mjs` and `src/data/keywords.mjs`'s `ACTION_TYPES`.
-- **Known gap, not silently skipped:** the five Board-type shard abilities
-  (Vampiric, Barnacled, Riptide, Undying, Twinned, Maelstrom) are recorded
-  as tags on the instance (`instance.shardAbilities`), but `combat.mjs` was
-  built in step 2, before this existed, and doesn't read that array yet.
-  Titanic is the exception — it mutates base stats immediately, so it
-  already works in combat with no further wiring. **This needs a follow-up
-  patch to `combat.mjs`** before Reef Shard board abilities actually do
-  anything in a fight — flag it if picking up step 4 or 5 without
-  addressing this first.
+- **Follow-up patch, same session (gap closed immediately per standing
+  instruction — always patch inconsistencies as soon as they're found,
+  never defer):** `combat.mjs` now reads `instance.shardAbilities` and
+  fully implements all five Board-type shard abilities in a real fight —
+  Titanic still needs no combat-time logic since it doubles base stats
+  immediately in `economy.mjs`.
+  - Added `maxHealth` to `instantiate()` (`src/data/minions.mjs`) — a new
+    "full health" reference point, since Vampiric needs to know what
+    "full" means. Every existing permanent-stat-buff site in both
+    `combat.mjs` and `economy.mjs` (deathrattle buffs, `on_fathom_growth`
+    reactions, `end_of_combat_won buff_self`, battlecry buffs, Titanic's
+    doubling, The Kraken's Due's passive) now keeps `maxHealth` in sync
+    alongside `health`. Damage still only touches `health`.
+  - Vampiric: heals to `maxHealth` whenever the tagged minion's hit (main
+    exchange or its own Riptide splash) kills an enemy, provided it
+    survives the exchange itself.
+  - Barnacled: +1/+1 (and `maxHealth`), the first time it's the defender
+    and survives an exchange, tracked via a per-combat `Set` so it can
+    only fire once even though it may be attacked many more times in the
+    same fight.
+  - Riptide: attacking also splashes 1 damage onto a second random living
+    enemy, distinct from the primary defender.
+  - Undying: the first time this minion would drop to ≤0 health each
+    combat, it's set to 1 instead — tracked via a per-combat `Set`, checked
+    inside `processDeaths()` before the dead-filter runs, so a saved
+    minion is never treated as dead.
+  - Twinned: deathrattle effects fire twice.
+  - Maelstrom: after its own deathrattle resolves on death, its
+    deathrattle effects (never the Maelstrom tag itself, to avoid
+    unbounded recursive spread) are copied permanently onto two other
+    random living friendly minions.
+  - New tests for all five in `tests/combat.test.mjs` (Titanic was already
+    covered in `tests/economy.test.mjs`). **49/49 tests pass** across the
+    whole repo.
 - **Not built yet:** AI, all UI. `src/main.mjs` only proves the data loads
   in a browser — there is nothing to play yet.
-- **Next up:** AI decision engine (step 4) — but consider patching the
-  shard-ability gap in `combat.mjs` first, since the AI engine will need to
-  evaluate boards that may carry these tags.
+- **Next up:** AI decision engine (step 4) — the shard-ability gap that
+  would have complicated it is now closed, so step 4 can proceed cleanly.
 
 ## Reef Shard / Fathom design
 
@@ -121,12 +145,15 @@ what's still a gap in `combat.mjs`).
   are approximations in the genre's spirit, not measured against a live
   game — expect to retune during step 7 (Testing) once there's real play
   data.
+- 2026-09-27: When `combat.mjs` was found not to read the `shardAbilities`
+  tags `economy.mjs` already attaches, patched it immediately in the same
+  session rather than deferring to step 4 — per standing instruction:
+  always patch an inconsistency against already-written work as soon as
+  it's found. Introduced `maxHealth` on minion instances as part of that
+  patch (needed for Vampiric's "heal to full").
 
 ## Known open questions (do not silently resolve — ask)
 
 - Exact UI copy/flavor text for the 10 shard abilities — deferred to step 5.
 - Whether Shoal Call and Drowned Favor stack cleanly if both are rolled in
   one run — provisionally yes, revisit if playtesting shows it's degenerate.
-- **combat.mjs doesn't yet read `instance.shardAbilities`** — see Current
-  status. Needs a patch before Vampiric/Barnacled/Riptide/Undying/Twinned/
-  Maelstrom do anything in a real fight.

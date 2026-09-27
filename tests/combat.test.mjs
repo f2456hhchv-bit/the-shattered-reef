@@ -147,3 +147,106 @@ test('two empty boards is a draw', () => {
   assert.equal(result.winner, 'draw');
   assert.equal(result.damageToLoser, 0);
 });
+
+// --- Reef Shard board abilities (Vampiric, Barnacled, Riptide, Undying,
+// Twinned, Maelstrom) — patched in after the shard tags existed in
+// economy.mjs but combat.mjs didn't read them yet. See CLAUDE.md. ---
+
+test('Vampiric heals to full whenever this minion kills an enemy, and only then', () => {
+  const rng = makeSeededRng(20);
+  // Bilge Rigger (3/2, tagged Vampiric) vs Powder Rat (1/3): the trade drops
+  // the Rigger to 1 health but kills the Rat, so Vampiric should heal it
+  // back to its max (2) before Powder Rat's own deathrattle (1 damage to a
+  // random enemy) lands — without the heal, that follow-up hit would kill
+  // the Rigger outright (1 - 1 = 0); with it, the Rigger ends at 1 (2 - 1).
+  const vampire = instantiate('reaver-bilge-rigger', 'vamp');
+  vampire.shardAbilities = ['vampiric'];
+  const result = simulateCombat([vampire], [instantiate('reaver-powder-rat', 'rat')], { rng });
+  const healed = result.log.some((e) => e.type === 'vampiric_heal' && e.targetId === 'vamp');
+  assert.ok(healed, 'expected Vampiric to trigger on the kill');
+  assert.equal(result.winner, 'A');
+  assert.equal(result.boardA.length, 1);
+  assert.equal(result.boardA[0].health, 1); // healed to 2, then took the deathrattle's 1
+  assert.equal(result.boardB.length, 0);
+});
+
+test('Barnacled grants +1/+1 the first time it survives being attacked, and never again this combat', () => {
+  const rng = makeSeededRng(21);
+  // Two attackers vs a lone taunt (tagged Barnacled) — it will be forced to
+  // defend repeatedly over the course of the fight, but the buff must land
+  // exactly once no matter how many times it's hit.
+  const warden = instantiate('wyrdtide-barnacle-warden', 'warden'); // 1/5, taunt
+  warden.shardAbilities = ['barnacled'];
+  const boardA = [instantiate('reaver-bilge-rigger', 'a1'), instantiate('reaver-bilge-rigger', 'a2')];
+  const result = simulateCombat(boardA, [warden], { rng });
+  const triggers = result.log.filter((e) => e.type === 'barnacled_trigger' && e.targetId === 'warden');
+  assert.equal(triggers.length, 1);
+});
+
+test('Riptide splashes 1 damage onto a second random enemy distinct from the primary defender', () => {
+  const rng = makeSeededRng(22);
+  // A taunt on the enemy side forces the primary defender deterministically,
+  // so the splash can only ever land on the other (non-taunt) minion.
+  // Side A outnumbers side B (3 vs 2), which forces A to attack first and
+  // guarantees the Riptide attacker (first in board order) gets its swing
+  // in while both enemy minions are still alive.
+  const attacker = instantiate('reaver-bilge-rigger', 'riptide');
+  attacker.shardAbilities = ['riptide'];
+  const boardA = [attacker, instantiate('wyrdtide-driftwood-golem', 'pad1'), instantiate('wyrdtide-driftwood-golem', 'pad2')];
+  const boardB = [instantiate('neutral-old-sea-dog', 'tank'), instantiate('wyrdtide-driftwood-golem', 'splash')];
+  const result = simulateCombat(boardA, boardB, { rng });
+  const splash = result.log.find((e) => e.type === 'riptide_splash' && e.targetId === 'splash');
+  assert.ok(splash, 'expected Riptide to splash the non-taunt minion');
+  assert.equal(splash.amount, 1);
+});
+
+test('Undying survives its first lethal hit each combat at 1 health, but not a second', () => {
+  const rng = makeSeededRng(23);
+  // X (5 attack) vs Y (2 attack/3 health, tagged Undying): the first hit
+  // would drop Y to -2 — saved to 1 instead — but Y's own retaliation turn
+  // exposes it to a second lethal hit, which is not saved.
+  const x = instantiate('reaver-bilge-rigger', 'X');
+  x.attack = 5;
+  x.health = 4;
+  const y = instantiate('reaver-bilge-rigger', 'Y');
+  y.attack = 2;
+  y.health = 3;
+  y.shardAbilities = ['undying'];
+  const result = simulateCombat([x], [y], { rng });
+  const saves = result.log.filter((e) => e.type === 'undying_save' && e.targetId === 'Y');
+  assert.equal(saves.length, 1);
+  assert.equal(result.boardB.length, 0); // the second lethal hit was not saved
+});
+
+test('Twinned fires a deathrattle twice', () => {
+  const rng = makeSeededRng(24);
+  // Powder Rat (1/3, tagged Twinned) deals 1 deathrattle damage — twice —
+  // to Driftwood Golem (3/3, no abilities), instead of once.
+  const rat = instantiate('reaver-powder-rat', 'rat');
+  rat.shardAbilities = ['twinned'];
+  const result = simulateCombat([rat], [instantiate('wyrdtide-driftwood-golem', 'golem')], { rng });
+  const hits = result.log.filter((e) => e.type === 'deathrattle_damage' && e.targetId === 'golem');
+  assert.equal(hits.length, 2);
+});
+
+test('Maelstrom copies its deathrattle onto two other friendly minions, never the tag itself', () => {
+  const rng = makeSeededRng(25);
+  // Ghost Light (1/1, tagged Maelstrom) dies to Bilge Rigger's counter-hit,
+  // its own deathrattle chain-kills the Rigger, and then its deathrattle
+  // effect (not the Maelstrom tag) should be copied onto both allies.
+  const ghost = instantiate('neutral-ghost-light', 'ghost');
+  ghost.shardAbilities = ['maelstrom'];
+  const boardA = [ghost, instantiate('wyrdtide-driftwood-golem', 'ally1'), instantiate('wyrdtide-driftwood-golem', 'ally2')];
+  const result = simulateCombat(boardA, [instantiate('reaver-bilge-rigger', 'enemy')], { rng });
+  assert.equal(result.winner, 'A');
+  assert.equal(result.boardA.length, 2);
+  for (const ally of result.boardA) {
+    const copied = ally.effects.filter((e) => e.trigger === 'deathrattle' && e.action.type === 'damage_random_enemy' && e.action.amount === 2);
+    assert.equal(copied.length, 1, `expected ${ally.instanceId} to have received the copied deathrattle`);
+    assert.ok(!hasMaelstrom(ally), `${ally.instanceId} must not inherit the Maelstrom tag itself`);
+  }
+});
+
+function hasMaelstrom(minion) {
+  return Array.isArray(minion.shardAbilities) && minion.shardAbilities.includes('maelstrom');
+}

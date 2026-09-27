@@ -329,6 +329,7 @@ export function instantiate(defId, instanceId) {
     tier: def.tier,
     attack: def.attack,
     health: def.health,
+    maxHealth: def.health, // "full health" reference point for Vampiric and any permanent buff
     keywords: [...def.keywords],
     effects: def.effects.map((e) => ({ ...e, action: { ...e.action } })),
   };

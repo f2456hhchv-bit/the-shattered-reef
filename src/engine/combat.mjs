@@ -16,6 +16,11 @@
 //     effects are faction buffs that would need it (buff_random_friendly_
 //     faction only fires from Barrelback Turtle, a neutral). Add the check
 //     to applyBuffRandomFriendlyFaction() when a card needs it.
+//
+// Reef Shard board abilities (Vampiric, Barnacled, Riptide, Undying,
+// Twinned, Maelstrom) ARE implemented here — see hasShard() and its call
+// sites below. Titanic isn't handled in this file: it doubles base stats
+// immediately in economy.mjs, so combat never needs to know about it.
 
 import { instantiate } from '../data/minions.mjs';
 
@@ -23,7 +28,16 @@ let summonCounter = 0;
 const nextSummonId = (defId) => `${defId}-summon-${++summonCounter}`;
 
 function cloneInstance(m) {
-  return { ...m, keywords: [...m.keywords], effects: m.effects.map((e) => ({ ...e, action: { ...e.action } })) };
+  return {
+    ...m,
+    keywords: [...m.keywords],
+    effects: m.effects.map((e) => ({ ...e, action: { ...e.action } })),
+    shardAbilities: m.shardAbilities ? [...m.shardAbilities] : undefined,
+  };
+}
+
+function hasShard(minion, id) {
+  return Array.isArray(minion.shardAbilities) && minion.shardAbilities.includes(id);
 }
 
 function aliveOf(board) {
@@ -74,6 +88,7 @@ function applyBuffRandomFriendlyFaction(sourceSide, sourceMinion, boards, attack
     const target = pool[Math.floor(rng() * pool.length)];
     target.attack += attack;
     target.health += health;
+    target.maxHealth += health; // permanent buff — keep Vampiric's "full health" in sync
     log.push({ type: 'deathrattle_buff', side: sourceSide, targetId: target.instanceId, attack, health });
   }
 }
@@ -88,13 +103,14 @@ function applyFathomGrowth(side, boards, fathom, attack, health, externalEffects
       if (e.trigger === 'on_fathom_growth' && e.action.type === 'buff_self') {
         m.attack += e.action.attack;
         m.health += e.action.health;
+        m.maxHealth += e.action.health; // permanent buff — keep Vampiric's "full health" in sync
         log.push({ type: 'fathom_reaction_buff', side, targetId: m.instanceId, attack: e.action.attack, health: e.action.health });
       }
     }
   }
 }
 
-function runDeathrattle(minion, side, boards, fathom, rng, externalEffects, log) {
+function runDeathrattleEffectsOnce(minion, side, boards, fathom, rng, externalEffects, log) {
   for (const e of minion.effects) {
     if (e.trigger !== 'deathrattle') continue;
     const a = e.action;
@@ -113,15 +129,50 @@ function runDeathrattle(minion, side, boards, fathom, rng, externalEffects, log)
   }
 }
 
+// Dispatches a dying minion's deathrattle — twice over, if Twinned — and
+// then, if Maelstrom, copies its deathrattle effects onto two other random
+// living friendly minions (never copying the Maelstrom tag itself, so the
+// spread can't recurse unbounded).
+function runDeathrattle(minion, side, boards, fathom, rng, externalEffects, log) {
+  const times = hasShard(minion, 'twinned') ? 2 : 1;
+  for (let t = 0; t < times; t++) {
+    runDeathrattleEffectsOnce(minion, side, boards, fathom, rng, externalEffects, log);
+  }
+
+  if (hasShard(minion, 'maelstrom')) {
+    const deathrattleEffects = minion.effects.filter((e) => e.trigger === 'deathrattle');
+    if (deathrattleEffects.length) {
+      const candidates = aliveOf(boards[side]);
+      for (let i = 0; i < 2 && candidates.length; i++) {
+        const idx = Math.floor(rng() * candidates.length);
+        const target = candidates.splice(idx, 1)[0];
+        for (const e of deathrattleEffects) {
+          target.effects.push({ ...e, action: { ...e.action } });
+        }
+        log.push({ type: 'maelstrom_copy', side, targetId: target.instanceId });
+      }
+    }
+  }
+}
+
 // Sweeps both boards for minions at 0 health, removes them and fires their
 // deathrattles, repeating until a full pass finds nothing new — so a chain
 // reaction (a deathrattle damage killing a second minion) fully resolves
-// before combat continues.
-function processDeaths(boards, fathom, rng, externalEffects, log) {
+// before combat continues. Undying's save (first lethal hit each combat
+// survived at 1 health) is checked here, before the dead-filter runs, so a
+// saved minion never gets treated as dead in the first place.
+function processDeaths(boards, fathom, rng, externalEffects, log, combatState) {
   let foundAny = true;
   while (foundAny) {
     foundAny = false;
     for (const side of ['A', 'B']) {
+      for (const m of boards[side]) {
+        if (m.health <= 0 && hasShard(m, 'undying') && !combatState.undyingUsed.has(m.instanceId)) {
+          m.health = 1;
+          combatState.undyingUsed.add(m.instanceId);
+          log.push({ type: 'undying_save', side, targetId: m.instanceId });
+        }
+      }
       const dead = boards[side].filter((m) => m.health <= 0);
       if (!dead.length) continue;
       boards[side] = boards[side].filter((m) => m.health > 0);
@@ -142,6 +193,7 @@ function runEndOfCombatWon(winnerSide, boards, externalEffects, log) {
       if (a.type === 'buff_self') {
         m.attack += a.attack;
         m.health += a.health;
+        m.maxHealth += a.health; // permanent buff — keep Vampiric's "full health" in sync
         log.push({ type: 'end_of_combat_buff', side: winnerSide, targetId: m.instanceId, attack: a.attack, health: a.health });
       } else if (a.type === 'refresh_shop_free') {
         externalEffects.push({ owner: winnerSide, type: 'refresh_shop_free' });
@@ -171,13 +223,15 @@ export function simulateCombat(boardA, boardB, options = {}) {
   const externalEffects = [];
   const log = [];
   const cursor = { A: { idx: 0 }, B: { idx: 0 } };
+  // Per-combat, non-persisted trackers for the once-per-fight shard abilities.
+  const combatState = { barnacledTriggered: new Set(), undyingUsed: new Set() };
 
   if (boards.A.length === 0 || boards.B.length === 0) {
     // An empty board fights nothing — resolve immediately as a loss/draw.
     const winner = boards.A.length === boards.B.length ? 'draw' : boards.A.length ? 'A' : 'B';
     return finish(winner);
   }
-  processDeaths(boards, fathom, rng, externalEffects, log); // in case either input board arrived at 0 health
+  processDeaths(boards, fathom, rng, externalEffects, log, combatState); // in case either input board arrived at 0 health
 
   let attackerSide = decideFirstAttacker(boards.A, boards.B, rng);
   let guard = 0; // safety valve against an unforeseen infinite loop in future content
@@ -193,7 +247,41 @@ export function simulateCombat(boardA, boardB, options = {}) {
       type: 'attack', attackerSide, attackerId: attacker.instanceId,
       defenderId: defender.instanceId, damageToDefender: attacker.attack, damageToAttacker: defender.attack,
     });
-    processDeaths(boards, fathom, rng, externalEffects, log);
+
+    // Riptide: the attacker also splashes 1 damage onto a second random
+    // living enemy, distinct from the primary defender.
+    let riptideTarget = null;
+    if (hasShard(attacker, 'riptide')) {
+      const others = aliveOf(boards[defenderSide]).filter((m) => m !== defender);
+      if (others.length) {
+        riptideTarget = others[Math.floor(rng() * others.length)];
+        riptideTarget.health -= 1;
+        log.push({ type: 'riptide_splash', side: defenderSide, targetId: riptideTarget.instanceId, amount: 1 });
+      }
+    }
+
+    // Barnacled: the first time this minion is a defender and survives the
+    // exchange, once per combat, it grows +1/+1 permanently.
+    if (defender.health > 0 && hasShard(defender, 'barnacled') && !combatState.barnacledTriggered.has(defender.instanceId)) {
+      defender.attack += 1;
+      defender.health += 1;
+      defender.maxHealth += 1;
+      combatState.barnacledTriggered.add(defender.instanceId);
+      log.push({ type: 'barnacled_trigger', side: defenderSide, targetId: defender.instanceId });
+    }
+
+    // Vampiric: heals to full whenever this minion's hit kills an enemy,
+    // provided it survives the exchange itself.
+    if (attacker.health > 0 && hasShard(attacker, 'vampiric') && (defender.health <= 0 || (riptideTarget && riptideTarget.health <= 0))) {
+      attacker.health = attacker.maxHealth;
+      log.push({ type: 'vampiric_heal', side: attackerSide, targetId: attacker.instanceId });
+    }
+    if (defender.health > 0 && hasShard(defender, 'vampiric') && attacker.health <= 0) {
+      defender.health = defender.maxHealth;
+      log.push({ type: 'vampiric_heal', side: defenderSide, targetId: defender.instanceId });
+    }
+
+    processDeaths(boards, fathom, rng, externalEffects, log, combatState);
     attackerSide = defenderSide;
   }
 
