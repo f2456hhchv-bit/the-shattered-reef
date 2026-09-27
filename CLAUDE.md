@@ -60,12 +60,25 @@ whether the core loop and the AI can handle both.
 
 ## Current status (update this every session)
 
-- **Phase:** 3 (Vertical Slice), step 1 of 8 (data schema) complete.
-- **Just shipped:** `src/data/{minions,factions,keywords}.mjs` — all 21
-  vertical-slice cards, schema-validated by `tests/data.test.mjs`.
-- **Not built yet:** combat sim, economy, AI, all UI. `src/main.mjs` only
-  proves the data loads in a browser — there is nothing to play yet.
-- **Next up:** combat simulator (step 2).
+- **Phase:** 3 (Vertical Slice), step 2 of 8 (combat simulator) complete.
+- **Just shipped:** `src/engine/combat.mjs` — pure function, two boards +
+  each side's Fathom in, full resolution out (winner, damage, surviving
+  boards, external effects for the caller to persist, an event log).
+  Handles: alternating turns with a per-side cycling attacker pointer,
+  taunt-respecting random targeting, simultaneous damage, chained deaths
+  (a deathrattle killing a second minion resolves fully before combat
+  continues), all 5 deathrattle/end-of-combat action types the slice's 21
+  cards use, and the Fathom growing + `on_fathom_growth` reacting within
+  the same fight. 21/21 tests pass (`tests/combat.test.mjs`), seeded via
+  `src/engine/rng.mjs` for reproducibility.
+- **Known simplification carried forward:** deathrattle summons append to
+  the end of the board array rather than the dead minion's exact slot (see
+  the comment block at the top of `combat.mjs`).
+- **Not built yet:** economy/shop, AI, all UI. `src/main.mjs` only proves
+  the data loads in a browser — there is nothing to play yet.
+- **Next up:** economy/shop logic (step 3) — buy/sell/reroll/upgrade, and
+  the Reef Shard shop mechanics from `docs/design/reef-shards.md` (its open
+  questions need answers before this step starts).
 
 ## Reef Shard / Fathom design
 

@@ -314,3 +314,22 @@ export const MINIONS = [
 ];
 
 export const MINION_BY_ID = Object.fromEntries(MINIONS.map((m) => [m.id, m]));
+
+// Turns a static definition into a fresh, independent board instance. Engine
+// code (combat, economy, AI) works with instances, never with the raw
+// MINIONS definitions directly, so nothing accidentally shares state across
+// two copies of "the same" minion on the board.
+export function instantiate(defId, instanceId) {
+  const def = MINION_BY_ID[defId];
+  if (!def) throw new Error(`Unknown minion id "${defId}"`);
+  return {
+    instanceId,
+    defId: def.id,
+    faction: def.faction,
+    tier: def.tier,
+    attack: def.attack,
+    health: def.health,
+    keywords: [...def.keywords],
+    effects: def.effects.map((e) => ({ ...e, action: { ...e.action } })),
+  };
+}
