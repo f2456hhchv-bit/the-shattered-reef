@@ -17,17 +17,22 @@ import {
 import { createJoystick } from './input/joystick.mjs';
 import {
   tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, ammoFor, isHeld,
+  craftedMultiplierFor,
 } from './engine/combat.mjs';
 import { updateEnemies, resolveEnemyContacts, currentCounter, factionMultiplierFor } from './engine/enemies.mjs';
 import { collectPickups } from './engine/pickups.mjs';
 import { PICKUP_KINDS } from './data/pickups.mjs';
 import { WEAPON_LIST, getWeapon } from './data/weapons.mjs';
 import { getEnemy } from './data/enemies.mjs';
-import { SHIP_HULL_LIST, CARGO_TIER_LIST, CHARM_LIST, PLAYABLE_FACTION_LIST } from './data/meta.mjs';
+import {
+  SHIP_HULL_LIST, CARGO_TIER_LIST, CHARM_LIST, PLAYABLE_FACTION_LIST, WORKSHOP_UPGRADE_LIST,
+} from './data/meta.mjs';
+import { triangleMultiplier } from './data/factions.mjs';
 import {
   loadMeta, saveMeta, resolveLoadout, recordRunResult, canAfford,
   purchaseHull, selectHull, purchaseCargoTier, purchaseCharm,
   purchaseFaction, selectFaction,
+  purchaseWorkshopUpgrade, canAffordWorkshopUpgrade,
 } from './engine/meta.mjs';
 import {
   createParticlePool, spawnHitSpark, spawnKillBurst, spawnExplosion, spawnSplash, updateParticles,
@@ -140,6 +145,11 @@ export function startApp(root) {
         <h2>Factions</h2>
         <div id="hub-factions" class="hub-list"></div>
       </section>
+      <section class="hub-section">
+        <h2>Workshop</h2>
+        <p class="hub-section-note">Craft permanent upgrades with Salvage + Kraken Scales — earn a Scale by defeating The Kraken's Anchor.</p>
+        <div id="hub-workshop" class="hub-list"></div>
+      </section>
       <button type="button" id="hub-set-sail">Set Sail ⚓</button>
     </div>
   `;
@@ -150,6 +160,7 @@ export function startApp(root) {
   const hubCargo = hubOverlay.querySelector('#hub-cargo');
   const hubCharms = hubOverlay.querySelector('#hub-charms');
   const hubFactions = hubOverlay.querySelector('#hub-factions');
+  const hubWorkshop = hubOverlay.querySelector('#hub-workshop');
   const hubSetSailBtn = hubOverlay.querySelector('#hub-set-sail');
 
   const fireButton = document.createElement('button');
@@ -321,7 +332,7 @@ export function startApp(root) {
   // after every purchase/selection so the screen always reflects what was
   // actually saved, not optimistic UI state.
   function renderHub() {
-    hubSalvage.textContent = `Salvage: ${meta.salvage} ⚓`;
+    hubSalvage.textContent = `Salvage: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}`;
     hubStats.textContent = `Runs sailed: ${meta.stats.runsPlayed} · Best reefs cleared: ${meta.stats.bestReefsCleared}/${run.reefCount} · Deepest reef reached: ${meta.stats.deepestReefReached}`;
 
     hubHulls.innerHTML = '';
@@ -437,6 +448,27 @@ export function startApp(root) {
       });
       hubFactions.appendChild(row);
     }
+
+    hubWorkshop.innerHTML = '';
+    for (const upgrade of WORKSHOP_UPGRADE_LIST) {
+      const owned = meta.ownedWorkshopUpgrades.includes(upgrade.id);
+      const disabled = owned || !canAffordWorkshopUpgrade(meta, upgrade);
+      const row = document.createElement('div');
+      row.className = 'hub-item';
+      row.innerHTML = `
+        <div class="hub-item-info">
+          <span class="hub-item-name">${upgrade.name}${owned ? ' ✓' : ''}</span>
+          <span class="hub-item-desc">${upgrade.description}</span>
+        </div>
+        <button type="button" class="hub-item-btn" data-upgrade-id="${upgrade.id}"${disabled ? ' disabled' : ''}>${owned ? 'Owned' : `Craft ${upgrade.salvageCost} ⚓ + ${upgrade.krakenScaleCost} 🦑`}</button>
+      `;
+      row.querySelector('button').addEventListener('click', () => {
+        purchaseWorkshopUpgrade(meta, upgrade.id);
+        saveMeta(window.localStorage, meta);
+        renderHub();
+      });
+      hubWorkshop.appendChild(row);
+    }
   }
 
   function openHub() {
@@ -481,7 +513,8 @@ export function startApp(root) {
       <p>Salvage banked this voyage: ${run.bankedSalvage}</p>
       ${run.reefSalvage > 0 ? `<p class="lost">Salvage lost with the ship: ${run.reefSalvage}</p>` : ''}
       <p>Weapons found: ${heldNiche.length ? heldNiche.map((id) => getWeapon(id).name).join(', ') : 'None'}</p>
-      <p>Salvage in the Hub: ${meta.salvage} ⚓</p>
+      ${run.bossDefeated ? '<p>The Kraken\'s Anchor defeated — 1 Kraken Scale earned 🦑</p>' : ''}
+      <p>Salvage in the Hub: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}</p>
     `;
     summaryOverlay.classList.add('show');
   }
@@ -525,8 +558,9 @@ export function startApp(root) {
       salvage: meta.salvage, ownedHulls: meta.ownedHulls, selectedHull: meta.selectedHull,
       ownedCargoTiers: meta.ownedCargoTiers, ownedCharms: meta.ownedCharms, stats: meta.stats,
       ownedFactions: meta.ownedFactions, selectedFaction: meta.selectedFaction,
+      krakenScales: meta.krakenScales, ownedWorkshopUpgrades: meta.ownedWorkshopUpgrades,
     },
-    faction: run.faction,
+    faction: run.faction, bossDefeated: run.bossDefeated, craftedDamageMultipliers: run.craftedDamageMultipliers,
     particleCount: particles.length, damageNumberCount: damageNumbers.length,
     shakeTrauma: shake.trauma, hitStopRemaining: hitStop.remaining, muted: isMuted(),
   });
@@ -547,6 +581,7 @@ export function startApp(root) {
   // Testing-only: grants Hub Salvage directly, so a headless test can
   // afford an unlock without grinding a full voyage first.
   window.__shatteredReefAddHubSalvage = (amount) => { meta.salvage += amount; saveMeta(window.localStorage, meta); if (hubOverlay.classList.contains('show')) renderHub(); };
+  window.__shatteredReefAddKrakenScales = (amount) => { meta.krakenScales += amount; saveMeta(window.localStorage, meta); if (hubOverlay.classList.contains('show')) renderHub(); };
 
   let lastTime = performance.now();
   function frame(now) {
@@ -621,12 +656,21 @@ export function startApp(root) {
       }
 
       let salvageGained = 0;
-      const hitEvents = resolveHits(run.weapons, run.enemies, currentCounter, factionMultiplierFor(run.faction));
+      const hitEvents = resolveHits(
+        run.weapons, run.enemies, currentCounter,
+        factionMultiplierFor(run.faction), craftedMultiplierFor(run.craftedDamageMultipliers)
+      );
       cleanupProjectiles(run.weapons);
       for (const ev of hitEvents) {
         const weaponColor = getWeapon(ev.weaponId).color;
+        // Post-slice combat-triangle feedback: the raw multiplier (not
+        // ev.damage, which already has it baked in) tells us whether this
+        // specific hit was triangle-advantaged/-disadvantaged, so the
+        // damage number can say so distinctly from a plain on-counter crit.
+        const triangleMult = triangleMultiplier(run.faction, ev.enemy.faction);
         spawnDamageNumber(damageNumbers, ev.enemy.x, ev.enemy.y - ev.enemy.radius - 4, ev.damage, {
           crit: currentCounter(ev.enemy) === ev.weaponId,
+          triangle: triangleMult > 1 ? 'advantage' : triangleMult < 1 ? 'disadvantage' : null,
         });
         if (ev.killed) {
           if (ev.enemy.isBoss) {
@@ -637,6 +681,7 @@ export function startApp(root) {
             triggerHitStop(hitStop, 0.15);
             playBossDefeated();
             showToast("The Kraken's Anchor is defeated! ⚓");
+            run.bossDefeated = true; // engine/meta.mjs's recordRunResult awards a Kraken Scale
           } else {
             spawnKillBurst(particles, ev.enemy.x, ev.enemy.y, weaponColor, Math.random);
             addShake(shake, 0.35);
@@ -653,7 +698,10 @@ export function startApp(root) {
       for (const enemy of run.enemies) {
         const burnEvent = stepBurn(enemy, dt);
         if (burnEvent) {
-          spawnDamageNumber(damageNumbers, enemy.x, enemy.y - enemy.radius - 4, burnEvent.damage);
+          const triangleMult = triangleMultiplier(run.faction, enemy.faction);
+          spawnDamageNumber(damageNumbers, enemy.x, enemy.y - enemy.radius - 4, burnEvent.damage, {
+            triangle: triangleMult > 1 ? 'advantage' : triangleMult < 1 ? 'disadvantage' : null,
+          });
           if (burnEvent.killed) {
             if (enemy.isBoss) {
               spawnExplosion(particles, enemy.x, enemy.y, 50, Math.random);
@@ -661,6 +709,7 @@ export function startApp(root) {
               triggerHitStop(hitStop, 0.15);
               playBossDefeated();
               showToast("The Kraken's Anchor is defeated! ⚓");
+              run.bossDefeated = true;
             } else {
               spawnKillBurst(particles, enemy.x, enemy.y, PALETTE.burn, Math.random);
               addShake(shake, 0.3);

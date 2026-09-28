@@ -1086,21 +1086,114 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     the loadout demonstrably reached the actual run, not just the data
     layer. No console errors (only the same benign `favicon.ico` 404 seen
     in every prior step's playtest).
-- **Next up:** the combat triangle itself is fully wired and playable, but
-  the rest of the PRD's Post-Slice Direction is still open: the Hub →
-  proper base / Workshop / Crafting system (Salvage + rare drops → weapon/
-  ship upgrades) is not built; there's no in-run visual/UI feedback yet
-  for a triangle-advantaged or -disadvantaged hit (damage numbers don't
-  distinguish it from a plain counter/off-counter hit); and the new
-  1.3x/0.75x triangle multipliers haven't been balance-checked together
-  with the existing weapon-counter fractions (a triangle advantage stacked
-  on top of an already-on-counter hit could push TTK lower than intended —
-  worth a TTK pass like the Flame Barrels one before calling this tuned).
-  Also still open from before: the art/audio-asset pass, and
-  `tools/balance-sim.mjs` still needs real retreat/kiting behavior before
-  its own win-rate/boss-defeat-rate numbers can be trusted. Next session
-  should open by asking the project owner which to prioritize rather than
-  assuming.
+- **Phase:** post-slice direction, part 2 — the three items flagged as
+  open at the end of part 1, all done in one session at the project
+  owner's explicit request ("All of them"): the Workshop/Crafting system,
+  in-run UI feedback for a triangle hit, and a TTK check on the 1.3x/0.75x
+  multipliers stacked with the weapon-counter system.
+- **Just shipped:**
+  - **TTK/ammo-margin check (arithmetic, not the sim — same method as the
+    Flame Barrels retune):** wrote a script computing ammo needed to kill
+    every enemy with its real counter weapon under 1x/advantage/
+    disadvantage triangle multipliers, correctly modeling Flame Barrels'
+    sustained direct-hit-plus-burn-tick damage (not just direct hits,
+    which would have understated it — burn tick interval 0.35s is shorter
+    than its 0.8s cooldown, so exactly one tick lands between each shot at
+    sustained fire, roughly doubling its real per-cycle damage over a
+    naive direct-only estimate). **No shortfall found anywhere** — the
+    worst case, Ironclad Brigand under a triangle disadvantage, needs 8
+    ammo of Flame Barrels' 14 max (57%), comfortable margin; every other
+    pair one-shots or two-shots its target even under disadvantage.
+    **No balance changes made** — the multipliers are fine as shipped in
+    part 1, a genuine "already tuned" finding, not a missed check.
+  - `src/engine/juice.mjs` / `src/engine/renderer.mjs` — in-run visual
+    feedback for a combat-triangle hit: `spawnDamageNumber` gained a
+    `triangle` option (`'advantage' | 'disadvantage' | null`), independent
+    of and stackable with the existing `crit` (on-counter) styling —
+    `drawDamageNumbers` colors an advantage hit teal/cyan and a
+    disadvantage hit dull red (crit still controls size), with a small
+    ▲/▼ suffix on the number itself so it reads even without color.
+  - `src/main.mjs` — both damage-number spawn call sites (direct hits and
+    burn ticks) now compute the *raw* `triangleMultiplier(run.faction,
+    enemy.faction)` (not `ev.damage`, which already has every multiplier
+    baked in) to decide the `triangle` option.
+  - `src/data/meta.mjs` — a new **Workshop** unlock track (PRD "Hub &
+    Workshop": "combining Salvage and rare drops into weapon and ship
+    upgrades"). Introduces **Kraken Scales**, a new rare-drop currency —
+    NOT purchasable with Salvage, only earned by actually defeating The
+    Kraken's Anchor — so a Workshop upgrade is genuinely gated behind a
+    real boss kill, matching "Salvage and rare drops" rather than being
+    Salvage-only under a different name. 3 upgrades, permanent/stacking
+    like Cargo Loadouts/Charms rather than mutually exclusive: Reinforced
+    Barrels (+20% Cannonballs damage), Sharpened Grapeshot (+25% Grapeshot
+    damage), Reinforced Ribs (+15 flat max hull on any hull). Each costs
+    both Salvage and Kraken Scales.
+  - `src/engine/meta.mjs` — `krakenScales`/`ownedWorkshopUpgrades` added to
+    the default/persisted meta shape (never-throws load pattern
+    preserved); `purchaseWorkshopUpgrade`/`canAffordWorkshopUpgrade` check
+    both costs; `resolveLoadout` now also returns
+    `craftedDamageMultipliers` (a per-weapon map) and `extraMaxHull` from
+    `workshopBonusesFor`; `recordRunResult` awards exactly 1 Kraken Scale
+    when `run.bossDefeated` is true, independent of whether the voyage was
+    ultimately won or lost afterward — killing the boss is what's being
+    rewarded.
+  - `src/engine/combat.mjs` — `resolveHits` gained a third multiplier
+    parameter, `getWeaponMultiplier(weaponId)` (alongside the existing
+    `getFactionMultiplier(enemy)`), multiplying together with it on every
+    damage calculation (direct hit, AoE, and the burn tick baked at hit
+    time) — the two are independent (one keyed by enemy, one by weapon)
+    but both apply multiplicatively on the weapon-counter fraction; new
+    `craftedMultiplierFor(craftedDamageMultipliers)` builds the callback,
+    mirroring `enemies.mjs`'s `factionMultiplierFor`. Both default to a
+    no-op 1x, so nothing pre-Workshop needed to change.
+  - `src/engine/run.mjs` — `BASELINE_LOADOUT` gained
+    `craftedDamageMultipliers: {}`/`extraMaxHull: 0`; `createRun` applies
+    `extraMaxHull` on top of the selected hull's own `maxHull` (a flat
+    bonus, not hull-specific) and stores `run.craftedDamageMultipliers`;
+    new `run.bossDefeated` (starts `false`) is set `true` in `main.mjs` on
+    either boss-kill branch (direct hit or burn tick) and read by
+    `recordRunResult`.
+  - `src/main.mjs` — a new "Workshop" section in the Captain's Hub
+    (mirrors the existing row-rendering pattern), the run summary now
+    notes a Kraken Scale earned when `run.bossDefeated`, and the Hub's
+    Salvage line + summary both show the Kraken Scale count once above 0.
+    A new debug hook `__shatteredReefAddKrakenScales(amount)` alongside
+    the existing testing-only hooks.
+  - New tests: `tests/meta.test.mjs` gained 6 Workshop tests (default
+    state, dual-cost affordability, `resolveLoadout`'s crafted-multiplier/
+    extra-hull resolution reaching a real `createRun`, and
+    `recordRunResult`'s Kraken Scale award); `tests/combat.test.mjs`
+    gained 3 (the `getWeaponMultiplier` callback itself, applied through
+    `resolveHits`, and stacking multiplicatively with the faction
+    multiplier); `tests/juice.test.mjs` gained 1 (`spawnDamageNumber`'s
+    new `triangle` option, defaulting to `null`). **216/216 tests pass.**
+  - Verified end-to-end in a real headless browser (Playwright/Chromium):
+    granting Hub Salvage + Kraken Scales and crafting Reinforced Ribs
+    updates the Workshop row (Craft → Owned) and correctly leaves the
+    Salvage-only upgrades still craftable; "Set Sail" starts a run whose
+    `boat.maxHull` is 115 (100 base + 15 from the upgrade) and whose
+    `krakenScales` balance is correctly debited — the crafted bonus
+    demonstrably reached the actual run, not just the data layer. No
+    console errors (only the same benign `favicon.ico` 404 seen in every
+    prior step's playtest). The triangle damage-number styling and the
+    Kraken Scale boss-kill award were verified at the unit level (new
+    tests above) rather than re-proven in this same playtest pass, since
+    reliably forcing a live boss-kill-with-a-chosen-faction scenario
+    through simulated pointer input isn't practical in the time this
+    session had — flagged here rather than silently skipped.
+- **Next up:** all three of part 1's flagged follow-ups are done — the
+  Workshop/Crafting system is built and reachable, triangle hits have
+  in-run visual feedback, and the new multipliers are arithmetic-verified
+  against the weapon-counter system with no changes needed. What remains
+  open: the art/audio-asset pass (still not started, flagged since step
+  8); `tools/balance-sim.mjs` still needs real retreat/kiting behavior
+  before its own win-rate/boss-defeat-rate numbers can be trusted; and the
+  triangle-hit boss-kill-award interaction (a live playthrough of "defeat
+  the boss as a chosen faction, see the Kraken Scale land in the Hub")
+  hasn't been playtested end-to-end in a real browser, only at the unit
+  level — worth a quick real-browser pass before calling this fully
+  closed. Next session should open by asking the project owner which to
+  prioritize rather than assuming.
 
 ## Decisions log
 
@@ -1544,6 +1637,36 @@ Starting fresh below for the new game.)*
   safe with the default. Re-running a new test file several times in a
   row (not just once) before trusting it is now the standard this project
   holds itself to for anything touching `tryFire`.
+- 2026-09-28: Did the triangle-multiplier TTK check with a proper
+  sustained-fire model for Flame Barrels (direct hit + overlapping burn
+  ticks), not the same naive "direct damage only, repeated per shot"
+  model the original Flame Barrels retune used — the naive model would
+  have significantly understated Flame Barrels' real damage (burn very
+  roughly doubles it under sustained fire, since a tick lands between
+  every shot at its 0.35s interval vs. the weapon's 0.8s cooldown) and
+  could have led to an unnecessary retune here. No shortfall found even
+  under the triangle's worst case (disadvantage), so no numbers changed.
+  Worth remembering as a general lesson: any future TTK/ammo-margin
+  arithmetic involving Flame Barrels specifically must include this
+  burn-overlap model, not just direct damage — the original Flame Barrels
+  fix happened to reach the right conclusion despite the simpler model
+  only because the shortfall was severe enough (15 hits needed vs. 14
+  max) to show up either way; a smaller discrepancy could have gone
+  unnoticed with the naive model.
+- 2026-09-28: Kraken Scales (the Workshop's rare-drop currency) are
+  earned only by defeating The Kraken's Anchor, never purchasable with
+  Salvage — a deliberate choice to make Workshop upgrades genuinely
+  gated behind a real boss kill rather than "Salvage under a different
+  name," matching the PRD's "Salvage AND rare drops" framing rather than
+  collapsing it to one resource.
+- 2026-09-28: `resolveHits` gained a THIRD multiplier parameter
+  (`getWeaponMultiplier`, for Workshop crafting) rather than folding it
+  into the existing `getFactionMultiplier` callback or combining them
+  before the call — they're independent axes (one keyed by the enemy
+  being hit, one by the weapon firing), and keeping them as separate
+  parameters (each defaulting to a no-op) means every future multiplier
+  source can be added the same way without the existing ones needing to
+  change shape.
 
 ## Known open questions (do not silently resolve — ask)
 
@@ -1552,13 +1675,10 @@ Starting fresh below for the new game.)*
   one-handed weapon-select UX; Depth Charges' prediction-based design;
   hull-carryover fairness across reefs, now directly testable since step
   6 actually carries hull between reefs).
-- The 1.3x/0.75x combat-triangle multipliers (data/factions.mjs) are
-  unverified against the existing weapon-counter fractions — an
-  on-counter hit stacked with a triangle advantage hasn't had a TTK pass
-  like Flame Barrels got. Not yet a known problem, just genuinely
-  unchecked; do the arithmetic before calling it tuned.
-- Whether/how to surface a triangle-advantaged or -disadvantaged hit to
-  the player (a distinct damage-number color, a small icon, nothing at
-  all) is undecided — right now it's invisible in play, which may or may
-  not matter given the counter-swap hook's own crit styling already
-  exists to build on.
+- A live end-to-end playtest of "defeat the boss while a faction is
+  selected, see the triangle-colored damage numbers, see the Kraken Scale
+  land in the Hub" hasn't been done in a real browser — the Workshop
+  purchase flow and hull/multiplier reaching a run were playtested; the
+  triangle-hit visuals and the boss-kill Kraken Scale award were only
+  verified at the unit-test level. Worth a real playtest pass before
+  calling post-slice part 2 fully closed.

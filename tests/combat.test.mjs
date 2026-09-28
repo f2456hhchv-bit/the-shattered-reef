@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createWeaponState, setActiveWeapon, canFire, tryFire, ammoFor, isHeld,
   collectWeaponCache, stepCombat, cleanupProjectiles, resolveHits, applyDamageToEnemy, stepBurn,
-  stepAmmoRegen,
+  stepAmmoRegen, craftedMultiplierFor,
 } from '../src/engine/combat.mjs';
 import { WEAPON_IDS, WEAPONS, damageAgainst } from '../src/data/weapons.mjs';
 import { ENEMY_IDS } from '../src/data/enemies.mjs';
@@ -353,4 +353,46 @@ test('a Flame Barrels burn tick bakes in the faction multiplier that was active 
   assert.equal(enemy.burn.tickDamage, expectedTick);
   const tickEvent = stepBurn(enemy, weapon.burnTickSeconds);
   assert.equal(tickEvent.damage, expectedTick);
+});
+
+// --- Post-slice Workshop crafting (getWeaponMultiplier hook) ------------
+
+test('craftedMultiplierFor builds a per-weapon multiplier callback, 1x for an unlisted weapon', () => {
+  const mult = craftedMultiplierFor({ [WEAPON_IDS.CANNONBALLS]: 1.2 });
+  assert.equal(mult(WEAPON_IDS.CANNONBALLS), 1.2);
+  assert.equal(mult(WEAPON_IDS.GRAPESHOT), 1, 'a weapon with no crafted upgrade should be a no-op');
+});
+
+test('resolveHits applies the crafted weapon multiplier on top of the weapon-counter damage', () => {
+  const state = createWeaponState();
+  holdAndEquip(state, WEAPON_IDS.CANNONBALLS);
+  const enemy = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 100, 0);
+  const grid = openGrid();
+  tryFire(state, 0, 0, 0);
+  let events = [];
+  for (let i = 0; i < 200 && events.length === 0; i++) {
+    stepCombat(state, 1 / 30, grid, 16);
+    events = resolveHits(state, [enemy], (e) => e.counter, () => 1, craftedMultiplierFor({ [WEAPON_IDS.CANNONBALLS]: 1.5 }));
+    if (events.length === 0) cleanupProjectiles(state);
+  }
+  assert.equal(events.length, 1);
+  const expected = damageAgainst(WEAPONS[WEAPON_IDS.CANNONBALLS], enemy.counter) * 1.5;
+  assert.equal(events[0].damage, expected);
+});
+
+test('the faction and crafted multipliers stack multiplicatively', () => {
+  const state = createWeaponState();
+  holdAndEquip(state, WEAPON_IDS.CANNONBALLS);
+  const enemy = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 100, 0);
+  const grid = openGrid();
+  tryFire(state, 0, 0, 0);
+  let events = [];
+  for (let i = 0; i < 200 && events.length === 0; i++) {
+    stepCombat(state, 1 / 30, grid, 16);
+    events = resolveHits(state, [enemy], (e) => e.counter, () => 1.3, () => 1.2);
+    if (events.length === 0) cleanupProjectiles(state);
+  }
+  assert.equal(events.length, 1);
+  const expected = damageAgainst(WEAPONS[WEAPON_IDS.CANNONBALLS], enemy.counter) * 1.3 * 1.2;
+  assert.ok(Math.abs(events[0].damage - expected) < 1e-9);
 });

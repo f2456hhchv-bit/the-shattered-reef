@@ -91,6 +91,15 @@ export function collectWeaponCache(state, weaponId, amount) {
   return freshUnlock;
 }
 
+// Post-slice Workshop crafting (data/meta.mjs) — builds a
+// getWeaponMultiplier callback for resolveHits from a run's resolved
+// `craftedDamageMultipliers` map. Mirrors enemies.mjs's
+// factionMultiplierFor: a plain closure so call sites don't need to know
+// the map's shape.
+export function craftedMultiplierFor(craftedDamageMultipliers) {
+  return (weaponId) => craftedDamageMultipliers[weaponId] || 1;
+}
+
 export function ammoFor(state, weaponId) {
   const weapon = getWeapon(weaponId);
   return Number.isFinite(weapon.ammoMax) ? state.ammo[weaponId] : Infinity;
@@ -189,9 +198,12 @@ const DEPTH_CHARGE_BLAST_RADIUS = 28;
 // counter instead of a fixed `enemy.counter` field. `getFactionMultiplier
 // (enemy)` is the post-slice combat-triangle hook (data/factions.mjs) — a
 // second, separate multiplier stacked on top of the weapon-counter
-// fraction above; defaults to a no-op 1x so every pre-faction call site
-// keeps working unchanged.
-export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, getFactionMultiplier = () => 1) {
+// fraction above. `getWeaponMultiplier(weaponId)` is the Workshop
+// crafting hook (data/meta.mjs) — a third, independent multiplier for a
+// permanently upgraded weapon. All three multiply together; each defaults
+// to a no-op 1x so every pre-faction/pre-crafting call site keeps working
+// unchanged.
+export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, getFactionMultiplier = () => 1, getWeaponMultiplier = () => 1) {
   const events = [];
 
   for (const p of state.projectiles) {
@@ -210,7 +222,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
         if (enemy.health <= 0 || enemy.invulnerable) continue;
         const dist = Math.hypot(enemy.x - p.x, enemy.y - p.y);
         if (dist <= DEPTH_CHARGE_BLAST_RADIUS + enemy.radius) {
-          const dmg = damageAgainst(weapon, getEnemyCounter(enemy)) * getFactionMultiplier(enemy);
+          const dmg = damageAgainst(weapon, getEnemyCounter(enemy)) * getFactionMultiplier(enemy) * getWeaponMultiplier(weapon.id);
           const killed = applyDamageToEnemy(enemy, dmg);
           events.push({ enemy, weaponId: weapon.id, damage: dmg, killed });
         }
@@ -224,8 +236,11 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
       if (enemy.health <= 0 || enemy.invulnerable) continue;
       const dist = Math.hypot(enemy.x - p.x, enemy.y - p.y);
       if (dist <= p.radius + enemy.radius) {
-        const factionMult = getFactionMultiplier(enemy);
-        const dmg = damageAgainst(weapon, getEnemyCounter(enemy)) * factionMult;
+        // Combines the triangle and crafting multipliers into one factor —
+        // they're independent (one keyed by enemy, one by weapon) but both
+        // apply multiplicatively on top of the weapon-counter fraction.
+        const extraMult = getFactionMultiplier(enemy) * getWeaponMultiplier(weapon.id);
+        const dmg = damageAgainst(weapon, getEnemyCounter(enemy)) * extraMult;
         const killed = applyDamageToEnemy(enemy, dmg);
         events.push({ enemy, weaponId: weapon.id, damage: dmg, killed });
         p.spent = true;
@@ -236,11 +251,12 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
             ticksRemaining: Math.round(weapon.burnDurationSeconds / weapon.burnTickSeconds),
             tickInterval: weapon.burnTickSeconds,
             tickTimer: weapon.burnTickSeconds,
-            // Bakes the same triangle multiplier into every burn tick, not
+            // Bakes the same combined multiplier into every burn tick, not
             // just the initial hit — a burn applied under a triangle
-            // advantage/disadvantage should keep that edge for its whole
-            // duration, not just the landing blow.
-            tickDamage: damageAgainst(weapon, getEnemyCounter(enemy)) * factionMult,
+            // advantage/disadvantage (or a crafted weapon upgrade) should
+            // keep that edge for its whole duration, not just the landing
+            // blow.
+            tickDamage: damageAgainst(weapon, getEnemyCounter(enemy)) * extraMult,
           };
         }
         break; // one enemy per non-AoE projectile

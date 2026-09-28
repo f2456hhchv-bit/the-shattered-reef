@@ -111,6 +111,11 @@ export function spawnDamageNumber(pool, x, y, amount, options = {}) {
     life: 0.7,
     maxLife: 0.7,
     crit: !!options.crit, // "on-counter" hit — drawn larger/gold
+    // Post-slice combat-triangle feedback: 'advantage' | 'disadvantage' |
+    // null/undefined (no faction chosen, a mirror match, or the
+    // faction-less boss) — drawn as a distinct color + a small glyph,
+    // independent of (and can combine with) the crit/on-counter styling.
+    triangle: options.triangle || null,
   });
 }
 

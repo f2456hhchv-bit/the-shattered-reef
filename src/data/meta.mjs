@@ -235,3 +235,75 @@ export function getPlayableFaction(id) {
   if (!faction) throw new Error(`Unknown playable faction id: ${id}`);
   return faction;
 }
+
+// --- Workshop / Crafting (post-slice, PRD "Hub & Workshop") -------------
+// PRD: "the Captain's Hub grows into a proper base between runs... The
+// Workshop is where the already-flagged, deliberately-deferred Crafting
+// system lives — combining Salvage and rare drops into weapon and ship
+// upgrades." Salvage is the existing currency; the "rare drop" is a new
+// one, Kraken Scales — awarded once per run for defeating The Kraken's
+// Anchor (engine/meta.mjs's recordRunResult), not purchasable with
+// Salvage, so a Workshop upgrade is genuinely gated behind a real boss
+// kill, not just grinding currency. Permanent and stacking (own every
+// upgrade at once), matching Cargo Loadouts/Charms rather than the
+// mutually-exclusive Hulls/Factions tracks.
+export const WORKSHOP_UPGRADE_IDS = Object.freeze({
+  REINFORCED_BARRELS: 'reinforced_barrels',
+  SHARPENED_GRAPESHOT: 'sharpened_grapeshot',
+  REINFORCED_RIBS: 'reinforced_ribs',
+});
+
+export const WORKSHOP_UPGRADES = {
+  [WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS]: {
+    id: WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS,
+    name: 'Reinforced Barrels',
+    description: 'Forge stronger Cannonball casings — +20% Cannonballs damage, permanently.',
+    salvageCost: 150,
+    krakenScaleCost: 1,
+    weaponId: WEAPON_IDS.CANNONBALLS,
+    damageMultiplier: 1.2,
+  },
+  [WORKSHOP_UPGRADE_IDS.SHARPENED_GRAPESHOT]: {
+    id: WORKSHOP_UPGRADE_IDS.SHARPENED_GRAPESHOT,
+    name: 'Sharpened Grapeshot',
+    description: 'Hand-file every shard — +25% Grapeshot damage, permanently.',
+    salvageCost: 150,
+    krakenScaleCost: 1,
+    weaponId: WEAPON_IDS.GRAPESHOT,
+    damageMultiplier: 1.25,
+  },
+  [WORKSHOP_UPGRADE_IDS.REINFORCED_RIBS]: {
+    id: WORKSHOP_UPGRADE_IDS.REINFORCED_RIBS,
+    name: 'Reinforced Ribs',
+    description: 'Kraken-scale plating along the keel — +15 max hull on every hull, permanently.',
+    salvageCost: 180,
+    krakenScaleCost: 2,
+    extraMaxHull: 15,
+  },
+};
+
+export const WORKSHOP_UPGRADE_LIST = Object.values(WORKSHOP_UPGRADES);
+
+export function getWorkshopUpgrade(id) {
+  const upgrade = WORKSHOP_UPGRADES[id];
+  if (!upgrade) throw new Error(`Unknown workshop upgrade id: ${id}`);
+  return upgrade;
+}
+
+// Combines every owned Workshop upgrade into: a per-weapon damage
+// multiplier map (multiple upgrades on the same weapon would stack
+// multiplicatively, though the current 3 upgrades don't overlap a
+// weapon) and a flat extra-max-hull total.
+export function workshopBonusesFor(ownedUpgradeIds) {
+  const damageMultipliers = {};
+  let extraMaxHull = 0;
+  for (const upgradeId of ownedUpgradeIds) {
+    const upgrade = WORKSHOP_UPGRADES[upgradeId];
+    if (!upgrade) continue;
+    if (upgrade.weaponId) {
+      damageMultipliers[upgrade.weaponId] = (damageMultipliers[upgrade.weaponId] || 1) * upgrade.damageMultiplier;
+    }
+    if (upgrade.extraMaxHull) extraMaxHull += upgrade.extraMaxHull;
+  }
+  return { damageMultipliers, extraMaxHull };
+}

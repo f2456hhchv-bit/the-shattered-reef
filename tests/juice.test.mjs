@@ -90,6 +90,16 @@ test('spawnDamageNumber marks crit hits distinctly', () => {
   assert.equal(pool[0].crit, true);
 });
 
+test('spawnDamageNumber records the post-slice combat-triangle status, defaulting to null', () => {
+  const pool = createDamageNumberPool();
+  spawnDamageNumber(pool, 0, 0, 10);
+  assert.equal(pool[0].triangle, null);
+  spawnDamageNumber(pool, 0, 0, 10, { triangle: 'advantage' });
+  assert.equal(pool[1].triangle, 'advantage');
+  spawnDamageNumber(pool, 0, 0, 10, { triangle: 'disadvantage' });
+  assert.equal(pool[2].triangle, 'disadvantage');
+});
+
 test('updateDamageNumbers rises then falls back and expires', () => {
   let pool = createDamageNumberPool();
   spawnDamageNumber(pool, 0, 100, 5);

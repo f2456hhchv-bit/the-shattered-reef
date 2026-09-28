@@ -5,12 +5,15 @@ import {
   CARGO_TIER_IDS, cargoLoadoutFor,
   CHARM_IDS, CHARMS,
   PLAYABLE_FACTIONS, getPlayableFaction,
+  WORKSHOP_UPGRADE_IDS, WORKSHOP_UPGRADES,
 } from '../src/data/meta.mjs';
 import { FACTION_IDS } from '../src/data/factions.mjs';
+import { WEAPON_IDS } from '../src/data/weapons.mjs';
 import {
   createDefaultMeta, loadMeta, saveMeta,
   purchaseHull, selectHull, purchaseCargoTier, purchaseCharm,
   purchaseFaction, selectFaction,
+  purchaseWorkshopUpgrade, canAffordWorkshopUpgrade,
   resolveLoadout, recordRunResult,
 } from '../src/engine/meta.mjs';
 import { DEFAULT_BOAT_TUNING, MAX_HULL } from '../src/engine/boat.mjs';
@@ -329,4 +332,67 @@ test('selecting a faction actually reaches a real run: hull, held weapon, and co
   assert.equal(run.faction, FACTION_IDS.REAVERS);
   assert.equal(run.boat.maxHull, SHIP_HULLS[faction.hullId].maxHull);
   assert.ok(run.weapons.heldWeapons.has(faction.extraHeldWeapon));
+});
+
+// --- Workshop / Crafting (post-slice) ------------------------------------
+
+test('createDefaultMeta starts with no Kraken Scales and no Workshop upgrades', () => {
+  const meta = createDefaultMeta();
+  assert.equal(meta.krakenScales, 0);
+  assert.deepEqual(meta.ownedWorkshopUpgrades, []);
+});
+
+test('purchaseWorkshopUpgrade requires BOTH enough Salvage and enough Kraken Scales', () => {
+  const meta = createDefaultMeta();
+  meta.salvage = 1000;
+  meta.krakenScales = 0;
+  let res = purchaseWorkshopUpgrade(meta, WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS);
+  assert.equal(res.ok, false);
+  assert.equal(res.reason, 'cannot_afford', 'Salvage alone should not be enough without a Kraken Scale');
+
+  meta.krakenScales = 1;
+  res = purchaseWorkshopUpgrade(meta, WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS);
+  assert.equal(res.ok, true);
+  assert.ok(meta.ownedWorkshopUpgrades.includes(WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS));
+  assert.equal(meta.krakenScales, 0, 'the Kraken Scale should be spent');
+  assert.equal(meta.salvage, 1000 - WORKSHOP_UPGRADES[WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS].salvageCost);
+
+  assert.equal(purchaseWorkshopUpgrade(meta, WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS).ok, false, 'cannot craft the same upgrade twice');
+});
+
+test('resolveLoadout with no Workshop upgrades owned matches baseline (no crafted multipliers, no extra hull)', () => {
+  const meta = createDefaultMeta();
+  const loadout = resolveLoadout(meta);
+  assert.deepEqual(loadout.craftedDamageMultipliers, {});
+  assert.equal(loadout.extraMaxHull, 0);
+});
+
+test('resolveLoadout resolves owned Workshop upgrades into per-weapon multipliers and a flat hull bonus', () => {
+  const meta = createDefaultMeta();
+  meta.salvage = 10000;
+  meta.krakenScales = 10;
+  purchaseWorkshopUpgrade(meta, WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS); // Cannonballs x1.2
+  purchaseWorkshopUpgrade(meta, WORKSHOP_UPGRADE_IDS.REINFORCED_RIBS); // +15 max hull
+
+  const loadout = resolveLoadout(meta);
+  assert.equal(loadout.craftedDamageMultipliers[WEAPON_IDS.CANNONBALLS], 1.2);
+  assert.equal(loadout.extraMaxHull, 15);
+
+  const run = createRun(11, loadout);
+  assert.equal(run.boat.maxHull, SHIP_HULLS[HULL_IDS.SLOOP].maxHull + 15, 'extraMaxHull should reach the actual boat');
+  assert.deepEqual(run.craftedDamageMultipliers, loadout.craftedDamageMultipliers);
+});
+
+test('recordRunResult awards exactly one Kraken Scale when run.bossDefeated is true, none otherwise', () => {
+  const meta = createDefaultMeta();
+  const run = createRun(12);
+  run.bossDefeated = true;
+  recordRunResult(meta, run);
+  assert.equal(meta.krakenScales, 1);
+
+  const meta2 = createDefaultMeta();
+  const run2 = createRun(13);
+  run2.bossDefeated = false;
+  recordRunResult(meta2, run2);
+  assert.equal(meta2.krakenScales, 0);
 });

@@ -11,6 +11,7 @@ import {
   CARGO_TIER_LIST, cargoLoadoutFor,
   CHARM_LIST, CHARM_IDS,
   PLAYABLE_FACTION_LIST, getPlayableFaction,
+  WORKSHOP_UPGRADE_LIST, getWorkshopUpgrade, workshopBonusesFor,
 } from '../data/meta.mjs';
 
 const STORAGE_KEY = 'shatteredReef.meta.v1';
@@ -24,6 +25,8 @@ export function createDefaultMeta() {
     ownedCharms: [],
     ownedFactions: [],
     selectedFaction: null, // null = unaligned (baseline), matching BASELINE_LOADOUT
+    krakenScales: 0, // the Workshop's rare-drop currency — see recordRunResult
+    ownedWorkshopUpgrades: [],
     stats: { runsPlayed: 0, bestReefsCleared: 0, deepestReefReached: 0, totalSalvageEarned: 0 },
   };
 }
@@ -47,6 +50,7 @@ export function loadMeta(storage) {
       ownedCargoTiers: Array.isArray(parsed.ownedCargoTiers) ? parsed.ownedCargoTiers : defaults.ownedCargoTiers,
       ownedCharms: Array.isArray(parsed.ownedCharms) ? parsed.ownedCharms : defaults.ownedCharms,
       ownedFactions: Array.isArray(parsed.ownedFactions) ? parsed.ownedFactions : defaults.ownedFactions,
+      ownedWorkshopUpgrades: Array.isArray(parsed.ownedWorkshopUpgrades) ? parsed.ownedWorkshopUpgrades : defaults.ownedWorkshopUpgrades,
     };
   } catch {
     return defaults;
@@ -111,6 +115,24 @@ export function selectFaction(meta, factionId) {
   return true;
 }
 
+// Workshop upgrades cost BOTH Salvage and Kraken Scales (the boss-drop
+// rare material, see recordRunResult) — genuinely gated behind a boss
+// kill, not just Salvage grinding, matching the PRD's "Salvage and rare
+// drops" framing.
+export function canAffordWorkshopUpgrade(meta, upgrade) {
+  return meta.salvage >= upgrade.salvageCost && meta.krakenScales >= upgrade.krakenScaleCost;
+}
+
+export function purchaseWorkshopUpgrade(meta, upgradeId) {
+  if (meta.ownedWorkshopUpgrades.includes(upgradeId)) return { ok: false, reason: 'already_owned' };
+  const upgrade = getWorkshopUpgrade(upgradeId); // throws on an unknown id
+  if (!canAffordWorkshopUpgrade(meta, upgrade)) return { ok: false, reason: 'cannot_afford' };
+  meta.salvage -= upgrade.salvageCost;
+  meta.krakenScales -= upgrade.krakenScaleCost;
+  meta.ownedWorkshopUpgrades.push(upgradeId);
+  return { ok: true };
+}
+
 export function purchaseCharm(meta, charmId) {
   if (meta.ownedCharms.includes(charmId)) return { ok: false, reason: 'already_owned' };
   const charm = CHARM_LIST.find((c) => c.id === charmId);
@@ -141,11 +163,14 @@ export function resolveLoadout(meta) {
     extraHeldWeapons.push(faction.extraHeldWeapon);
   }
   const grantedCharm = faction ? faction.grantsCharm : null;
+  const { damageMultipliers, extraMaxHull } = workshopBonusesFor(meta.ownedWorkshopUpgrades);
   return {
     hull,
     extraHeldWeapons,
     startingAmmoMultiplier,
     faction: meta.selectedFaction, // for the combat-triangle multiplier (data/factions.mjs)
+    craftedDamageMultipliers: damageMultipliers, // Workshop upgrades — data/meta.mjs
+    extraMaxHull, // flat bonus on top of the selected hull's own maxHull
     charms: {
       steadyHands: meta.ownedCharms.includes(CHARM_IDS.STEADY_HANDS) || grantedCharm === CHARM_IDS.STEADY_HANDS,
       lastGasp: meta.ownedCharms.includes(CHARM_IDS.LAST_GASP) || grantedCharm === CHARM_IDS.LAST_GASP,
@@ -166,4 +191,10 @@ export function recordRunResult(meta, run) {
   const reefsCleared = run.outcome === 'victory' ? run.reefCount : run.reefIndex;
   meta.stats.bestReefsCleared = Math.max(meta.stats.bestReefsCleared, reefsCleared);
   meta.stats.deepestReefReached = Math.max(meta.stats.deepestReefReached, run.reefIndex + 1);
+  // The Workshop's rare-drop currency — one Kraken Scale per run in which
+  // The Kraken's Anchor was actually defeated (run.bossDefeated, set by
+  // main.mjs/tools on a boss kill event), regardless of whether the
+  // voyage was ultimately won or lost afterward — killing the boss is the
+  // achievement being rewarded, not surviving the rest of the voyage.
+  if (run.bossDefeated) meta.krakenScales += 1;
 }

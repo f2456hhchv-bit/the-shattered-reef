@@ -221,14 +221,26 @@ export function drawParticles(ctx, particles) {
   ctx.globalAlpha = 1;
 }
 
+// Crit (on-counter) controls size; the combat-triangle status controls
+// color, independent of and stacked with crit — a triangle-advantaged
+// on-counter hit is a big gold number with a ▲ suffix, a
+// triangle-disadvantaged one is small and dull red with a ▼, and a plain
+// hit with no triangle effect keeps the original cream color.
 export function drawDamageNumbers(ctx, numbers) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   for (const d of numbers) {
     ctx.globalAlpha = Math.max(0, d.life / d.maxLife);
     ctx.font = d.crit ? 'bold 15px sans-serif' : 'bold 11px sans-serif';
-    ctx.fillStyle = d.crit ? '#e8b54b' : '#e9ddc4';
-    ctx.fillText(String(d.amount), d.x, d.y);
+    if (d.triangle === 'advantage') {
+      ctx.fillStyle = d.crit ? '#6be0c9' : '#4fb3a0';
+    } else if (d.triangle === 'disadvantage') {
+      ctx.fillStyle = d.crit ? '#c97a6a' : '#8a5a52';
+    } else {
+      ctx.fillStyle = d.crit ? '#e8b54b' : '#e9ddc4';
+    }
+    const suffix = d.triangle === 'advantage' ? ' ▲' : d.triangle === 'disadvantage' ? ' ▼' : '';
+    ctx.fillText(String(d.amount) + suffix, d.x, d.y);
   }
   ctx.globalAlpha = 1;
 }

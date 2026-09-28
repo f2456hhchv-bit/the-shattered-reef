@@ -30,6 +30,8 @@ export const BASELINE_LOADOUT = Object.freeze({
   extraHeldWeapons: [],
   startingAmmoMultiplier: 1,
   faction: null, // unaligned — no post-slice combat-triangle effect (data/factions.mjs)
+  craftedDamageMultipliers: Object.freeze({}), // no Workshop upgrades (data/meta.mjs)
+  extraMaxHull: 0,
   charms: { steadyHands: false, lastGasp: false, firstHaul: false },
 });
 
@@ -115,11 +117,22 @@ export function createRun(seed, loadout = BASELINE_LOADOUT) {
     reefIndex: 0,
     reefCount: REEF_COUNT,
     tuning: tuningForHull(loadout.hull),
-    boat: createBoat(0, 0, 0, loadout.hull.maxHull),
+    // extraMaxHull is a flat Workshop-upgrade bonus (Reinforced Ribs) on
+    // top of whichever hull's own maxHull, not a hull-specific number.
+    boat: createBoat(0, 0, 0, loadout.hull.maxHull + (loadout.extraMaxHull || 0)),
     // Post-slice combat triangle (data/factions.mjs) — null (unaligned) is
     // valid and means no triangle effect; a call site resolves the actual
     // damage multiplier via engine/enemies.mjs's factionMultiplierFor(run.faction).
     faction: loadout.faction ?? null,
+    // Post-slice Workshop crafting (data/meta.mjs) — per-weapon permanent
+    // damage multipliers; a call site resolves this via combat.resolveHits'
+    // getWeaponMultiplier parameter. {} (no upgrades owned) is a no-op.
+    craftedDamageMultipliers: loadout.craftedDamageMultipliers || {},
+    // Set true the moment The Kraken's Anchor is killed this run (main.mjs/
+    // tools/balance-sim.mjs, on the boss-kill branch) — read by
+    // engine/meta.mjs's recordRunResult to award a Kraken Scale. Survives
+    // regardless of how the rest of the voyage ends afterward.
+    bossDefeated: false,
     weapons: createWeaponState(loadout.extraHeldWeapons, loadout.startingAmmoMultiplier),
     bankedSalvage: 0, // safe — carried from every reef already cleared
     reefSalvage: 0,   // at risk — lost if the boat sinks before this reef's exit

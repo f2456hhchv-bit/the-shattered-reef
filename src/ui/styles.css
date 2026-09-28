@@ -337,6 +337,12 @@ html, body {
   border-bottom: 1px solid rgba(232, 181, 75, .2);
   padding-bottom: 4px;
 }
+.hub-section-note {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: #9fd0e8;
+  line-height: 1.35;
+}
 .hub-list {
   display: flex;
   flex-direction: column;
