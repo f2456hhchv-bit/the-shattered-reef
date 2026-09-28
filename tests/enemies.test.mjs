@@ -360,3 +360,20 @@ test('safe opening: in real levels nothing spawns within aggro range of the boat
     }
   }
 });
+
+test('a Gullswarm Harpy telegraphs its dive: it marks the spot and hovers first', async () => {
+  const { createEnemy, updateEnemy, wakeEnemy, FLYER_WINDUP_SECONDS } = await import('../src/engine/enemies.mjs');
+  const N = 60; const grid = { width: N, height: N, tiles: Array.from({ length: N }, () => Array(N).fill(0)) };
+  const e = createEnemy('gullswarm_harpy', 400, 400, () => 0.5); wakeEnemy(e);
+  const boat = { x: 480, y: 400, heading: 0, vx: 0, vy: 0 };
+  let sawWindup = false; let windupTime = 0; let hitBeforeWarning = false;
+  for (let i = 0; i < 60 * 8; i++) {
+    const prev = e.diveState;
+    updateEnemy(e, boat, 1 / 60, grid, 16);
+    if (e.diveState === 'windup') { sawWindup = true; windupTime += 1 / 60; }
+    if (prev === 'circling' && e.diveState === 'diving') hitBeforeWarning = true;
+  }
+  assert.ok(sawWindup, 'harpy should wind up before diving');
+  assert.ok(!hitBeforeWarning, 'never dives straight from circling');
+  assert.ok(windupTime >= FLYER_WINDUP_SECONDS * 0.9);
+});

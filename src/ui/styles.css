@@ -190,6 +190,12 @@ html, body {
   font-size: 11px;
   opacity: .85;
 }
+.weapon-btn.suggest {
+  border-color: #ffd35c;
+  box-shadow: 0 0 0 2px rgba(255, 211, 92, .9), 0 0 14px rgba(255, 211, 92, .7);
+  animation: weapon-suggest 0.9s ease-in-out infinite;
+}
+@keyframes weapon-suggest { 50% { box-shadow: 0 0 0 3px rgba(255, 211, 92, .4), 0 0 4px rgba(255, 211, 92, .2); } }
 .weapon-btn.locked {
   opacity: .45;
 }
@@ -409,6 +415,11 @@ body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
 .bc-badge[hidden] { display: none; }
 @keyframes bc-pulse { 50% { transform: scale(1.15); } }
 
+#base-chips.compact .base-chip { padding: 4px 10px 4px 6px; gap: 4px; }
+#base-chips.compact .bc-text small { display: none; }
+#base-chips.compact .bc-icon { font-size: 16px; }
+#base-chips.compact .bc-text b { font-size: 12px; }
+
 /* Voyage card: bottom sheet in portrait, right-hand card in landscape. */
 #voyage-card {
   position: absolute;
@@ -627,3 +638,15 @@ body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
 #stage-label { flex: 1; text-align: center; line-height: 1.25; }
 #stage-label strong { display: block; font-size: 17px; color: #ffd978; }
 #stage-label span { font-size: 12.5px; opacity: 0.8; }
+
+/* Short portrait phones (Safari with its bars): a slimmer voyage card
+   leaves the harbour more room. */
+@media (orientation: portrait) and (max-height: 700px) {
+  #voyage-card { padding: 8px 10px 10px; }
+  #voyage-map { width: 68px; height: 68px; }
+  #stage-label strong { font-size: 15px; }
+  #stage-label span { font-size: 11px; }
+  .vc-pips span { width: 18px; height: 18px; font-size: 10px; }
+  #hub-set-sail { min-height: 46px; margin-top: 8px; font-size: 17px; }
+}
+

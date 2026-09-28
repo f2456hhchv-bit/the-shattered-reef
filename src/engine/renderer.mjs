@@ -450,6 +450,7 @@ export function drawEnemy(ctx, enemy, color, t, name = null, badge = null) {
 }
 
 export function drawEnemies(ctx, enemies, colorFor, t, nameFor = null, badgeFor = null) {
+  for (const enemy of enemies) if (enemy.health > 0 && enemy.diveState === 'windup') drawDiveTelegraph(ctx, enemy, t);
   for (const enemy of enemies) {
     if (enemy.health <= 0) continue;
     drawEnemy(ctx, enemy, colorFor(enemy), t, nameFor ? nameFor(enemy) : null, badgeFor ? badgeFor(enemy) : null);
@@ -566,4 +567,44 @@ export function drawDamageNumbers(ctx, numbers) {
     style.parts.forEach((p, i) => { ctx.fillStyle = p.color; ctx.fillText(p.text, x, d.y); x += widths[i] + gap; });
   }
   ctx.globalAlpha = 1;
+}
+
+// Aim-assist lock-on: four corner brackets that slowly turn around the
+// current target, tightening and brightening while the fire button is held.
+export function drawTargetReticle(ctx, enemy, t, firing = false) {
+  const r = enemy.radius + (firing ? 6 : 9) + Math.sin(t * 6) * 1.5;
+  const arm = Math.max(5, r * 0.45);
+  ctx.save();
+  ctx.translate(enemy.x, enemy.y);
+  ctx.rotate(t * 1.2);
+  ctx.lineCap = 'round';
+  for (const [w, col] of [[4, 'rgba(0,0,0,0.45)'], [2, firing ? '#ffe28a' : 'rgba(255,255,255,0.85)']]) {
+    ctx.lineWidth = w; ctx.strokeStyle = col;
+    for (let i = 0; i < 4; i++) {
+      ctx.rotate(Math.PI / 2);
+      ctx.beginPath();
+      ctx.moveTo(r, r - arm); ctx.lineTo(r, r); ctx.lineTo(r - arm, r);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+// A Harpy about to dive: a dashed red line to the marked spot and a
+// tightening ring there. Everything red on the water means "you'll be hit".
+export function drawDiveTelegraph(ctx, e, t) {
+  const pulse = 0.5 + 0.5 * Math.sin(t * 22);
+  const k = Math.max(0, Math.min(1, e.diveTimer / 0.55)); // 1 → 0 as the dive nears
+  ctx.save();
+  ctx.strokeStyle = `rgba(255, 70, 60, ${0.55 + 0.35 * pulse})`;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 5]);
+  ctx.lineDashOffset = -t * 40;
+  ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.diveTargetX, e.diveTargetY); ctx.stroke();
+  ctx.setLineDash([]);
+  const r = 10 + 14 * k;
+  ctx.fillStyle = `rgba(255, 60, 50, ${0.12 + 0.15 * pulse})`;
+  ctx.beginPath(); ctx.arc(e.diveTargetX, e.diveTargetY, r, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 2.5; ctx.strokeStyle = `rgba(255, 90, 70, ${0.8 + 0.2 * pulse})`; ctx.stroke();
+  ctx.restore();
 }

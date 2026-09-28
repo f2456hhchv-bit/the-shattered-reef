@@ -100,18 +100,38 @@ export function buildBaseWorld(layout = BASE_LAYOUT, buildingsData = BASE_BUILDI
   return { grid, coast, coastSeed, tileSize: TILE, widthPx: size, heightPx: size, centre: { x: c, y: c }, buildings, layout };
 }
 
-// Camera for the base: fit the ring of buildings (plus their labels) into
-// the free screen region left by the HUD panels, centred. Pure.
-export function computeBaseView(viewW, viewH, free, layout = BASE_LAYOUT) {
+// Camera for the base: fit every building AND its fixed-size label chip
+// into the free screen region left by the HUD panels. Pure. The labels are
+// fitted in screen px (they don't scale with the map), which is what kept
+// the bottom label (Faction Hall) under the voyage card on short screens.
+export function computeBaseView(viewW, viewH, free, layout = BASE_LAYOUT, buildings = BASE_BUILDINGS) {
   const fw = Math.max(1, viewW - free.left - free.right);
   const fh = Math.max(1, viewH - free.top - free.bottom);
-  const scale = Math.max(0.42, Math.min(1.25, fw / (2 * layout.fitHalfWidth), fh / (2 * layout.fitHalfHeight)));
   const c = (layout.tiles * TILE) / 2;
-  const tx = free.left + fw / 2 - c * scale;
-  const ty = free.top + fh / 2 - c * scale;
+  const pts = buildings.map((b) => buildingPosition(b, layout));
+  const minX = Math.min(...pts.map((p) => p.x)) - c; const maxX = Math.max(...pts.map((p) => p.x)) - c;
+  const top = Math.min(...pts.map((p) => p.y)) - c - layout.spriteAbove; // world, negative
+  const labelTop = Math.max(...pts.map((p) => p.y)) - c + layout.labelOffset; // lowest label anchor
+  const { w: lw, h: lh } = layout.labelPx;
+  const pad = 6;
+  // Vertical: (labelTop - top)·s + lh ≤ fh.  Horizontal: the span between
+  // building centres plus half a label (or half a sprite) on each side.
+  const sV = (fh - lh - 2 * pad) / (labelTop - top);
+  const sH1 = (fw - lw - 2 * pad) / (maxX - minX);
+  const sH2 = (fw - 2 * pad) / (maxX - minX + 2 * layout.spriteHalfWidth);
+  const scale = Math.max(0.25, Math.min(1.25, sV, sH1, sH2));
+  const contentH = (labelTop - top) * scale + lh;
+  const tx = free.left + fw / 2 - (c + (minX + maxX) / 2) * scale;
+  const ty = free.top + (fh - contentH) / 2 - (c + top) * scale;
   return {
     scale, tx, ty,
     toScreen: (x, y) => ({ x: x * scale + tx, y: y * scale + ty }),
     visible: { left: -tx / scale, top: -ty / scale, right: (viewW - tx) / scale, bottom: (viewH - ty) / scale },
   };
+}
+
+// Screen rect of a building's label chip (for layout checks/tests).
+export function labelRect(view, b, layout = BASE_LAYOUT) {
+  const p = view.toScreen(b.x, b.y + layout.labelOffset);
+  return { left: p.x - layout.labelPx.w / 2, right: p.x + layout.labelPx.w / 2, top: p.y, bottom: p.y + layout.labelPx.h };
 }

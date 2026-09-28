@@ -5,6 +5,8 @@
 // Ship Hulls / Cargo Loadouts / Captain's Charms before "Set Sail" starts
 // an actual voyage with that loadout resolved into it.
 
+import { computeAim, trackEnemyMotion } from './engine/aim.mjs';
+import { playMusic, currentMusic } from './audio/music.mjs';
 import { BASE_BUILDINGS } from './data/base.mjs';
 import { buildBaseWorld, computeBaseView, boatOrbitPoint } from './engine/base.mjs';
 import { drawBaseBuildings, drawGulls, BUILDING_SCALE } from './engine/baseRenderer.mjs';
@@ -21,7 +23,7 @@ import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from './engine
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
 import {
   drawExit, drawWake, drawSealedExit, drawLairCurrents, drawBoat, drawEnemies, drawProjectiles, drawPickups,
-  drawParticles, drawDamageNumbers, PALETTE,
+  drawParticles, drawDamageNumbers, drawTargetReticle, PALETTE,
 } from './engine/renderer.mjs';
 import { createJoystick } from './input/joystick.mjs';
 import {
@@ -53,7 +55,7 @@ import {
   createHitStop, triggerHitStop, applyHitStop,
 } from './engine/juice.mjs';
 import {
-  unlockAudio, setMuted, isMuted, playFire, playHit, playKill, playExplosion, playWallImpact,
+  unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact,
   playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playLockedWeapon,
   playBossPhaseChange, playBossDefeated,
 } from './audio/audio.mjs';
@@ -114,7 +116,8 @@ export function startApp(root) {
   // Browsers require a real user gesture before audio can play — the first
   // pointerdown anywhere in the app (steering, firing, a Hub button) is as
   // good a gesture as any, so this listens once and gets out of the way.
-  window.addEventListener('pointerdown', unlockAudio, { once: true });
+  // Every early gesture retries the unlock: iOS can need more than one.
+  for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, unlockAudio, { capture: true, passive: true });
 
   const summaryOverlay = document.createElement('div');
   summaryOverlay.id = 'run-summary';
@@ -504,24 +507,40 @@ export function startApp(root) {
   fireButton.addEventListener('pointerup', stopFiring);
   fireButton.addEventListener('pointercancel', stopFiring);
 
-  // Aim-assist: fires at the nearest live enemy within the active weapon's
-  // range, falling back to the boat's own facing if nothing is in range.
-  // Flagged as a provisional decision in the PRD's Open Risks — precise
-  // manual aiming would fight the joystick for the same hand/thumb, so
-  // this trades aim precision for one-handed playability; revisit if
-  // playtesting says otherwise.
-  function computeFireHeading() {
+  // Aim-assist (engine/aim.mjs): leads moving targets along their
+  // measured arc, only picks shots it can land (in range, clear water),
+  // prefers what the active weapon counters, and sticks to one target.
+  let aimTarget = null;
+  let aimHeading = null;
+  function updateAim() {
     const weapon = getWeapon(run.weapons.activeWeaponId);
-    let target = null;
-    let bestDist = weapon.range;
-    for (const enemy of run.enemies) {
-      if (enemy.health <= 0 || enemy.invulnerable) continue;
-      const dist = Math.hypot(enemy.x - run.boat.x, enemy.y - run.boat.y);
-      if (dist <= bestDist) { bestDist = dist; target = enemy; }
+    const aim = computeAim(run.enemies, run.boat, weapon, {
+      grid: run.grid, tileSize: run.tileSize, coast: run.coast,
+      counterOf: currentCounter, previousTarget: aimTarget,
+    });
+    aimTarget = aim ? aim.target : null;
+    aimHeading = aim ? aim.heading : null;
+  }
+  function computeFireHeading() {
+    return aimHeading ?? run.boat.heading;
+  }
+
+  // Counter hint: the weapon button that answers the nearest awake threat
+  // pulses, so "read the enemy, swap the weapon" is taught in play.
+  let suggestedWeapon = null;
+  function updateCounterHint() {
+    let nearest = null; let best = 200;
+    for (const e of run.enemies) {
+      if (e.health <= 0 || !e.aggro) continue;
+      const d = Math.hypot(e.x - run.boat.x, e.y - run.boat.y);
+      if (d < best) { best = d; nearest = e; }
     }
-    return target
-      ? Math.atan2(target.y - run.boat.y, target.x - run.boat.x)
-      : run.boat.heading;
+    let want = nearest ? currentCounter(nearest) : null;
+    if (want && (!isHeld(run.weapons, want) || ammoFor(run.weapons, want) <= 0 || run.weapons.activeWeaponId === want)) want = null;
+    if (want === suggestedWeapon) return;
+    if (suggestedWeapon) weaponButtons[suggestedWeapon].classList.remove('suggest');
+    if (want) weaponButtons[want].classList.add('suggest');
+    suggestedWeapon = want;
   }
 
   let flashTimer = null;
@@ -827,8 +846,10 @@ export function startApp(root) {
     if (!hubOverlay.classList.contains('show')) return;
     const b = ensureBase();
     b.view = computeBaseView(window.innerWidth, window.innerHeight, baseFreeInsets());
+    // Small map: one-line labels so they don't bury the buildings.
+    baseChips.classList.toggle('compact', b.view.scale < 0.62);
     for (const bd of b.world.buildings) {
-      const p = b.view.toScreen(bd.x, bd.y + 26 * BUILDING_SCALE);
+      const p = b.view.toScreen(bd.x, bd.y + b.world.layout.labelOffset);
       const chip = chipEls.get(bd.id);
       chip.style.left = `${Math.round(p.x)}px`;
       chip.style.top = `${Math.round(p.y)}px`;
@@ -884,6 +905,7 @@ export function startApp(root) {
     renderHub();
     hubOverlay.classList.add('show');
     document.body.classList.add('in-hub');
+    playMusic('harbour');
     layoutBase();
   }
 
@@ -923,6 +945,7 @@ export function startApp(root) {
   // hidden, so a sunk run's `reefSalvage` (not yet folded into
   // `bankedSalvage`) is shown as lost rather than silently dropped.
   function showRunSummary(newlyUnlocked = false) {
+    playMusic(null);
     const heldNiche = Array.from(run.weapons.heldWeapons).filter((id) => id !== 'cannonballs');
     const victory = run.outcome === 'victory';
     summaryTitle.textContent = victory ? `Stage ${run.stage} cleared! ⚓` : `Sunk on ${stageLevelText()} ⚓`;
@@ -969,8 +992,9 @@ export function startApp(root) {
     projectileCount: run.weapons.projectiles.length,
     enemies: run.enemies.filter((e) => e.health > 0).map((e) => ({
       id: e.id, defId: e.defId, aggro: e.aggro, x: e.x, y: e.y, health: e.health, invulnerable: e.invulnerable,
-      isBoss: e.isBoss, phaseIndex: e.phaseIndex,
+      isBoss: e.isBoss, phaseIndex: e.phaseIndex, diveState: e.diveState,
     })),
+    aimTargetId: aimTarget ? aimTarget.id : null, suggestedWeapon,
     firing: isFiring, cooldownRemaining: run.weapons.cooldownRemaining,
     heldWeapons: Array.from(run.weapons.heldWeapons),
     ammo: { ...run.weapons.ammo },
@@ -989,7 +1013,7 @@ export function startApp(root) {
     faction: run.faction, bossDefeated: run.bossDefeated, craftedDamageMultipliers: run.craftedDamageMultipliers,
     particleCount: particles.length, damageNumberCount: damageNumbers.length,
     damageNumbers: damageNumbers.map((d) => ({ amount: d.amount, crit: d.crit, triangle: d.triangle, incoming: d.incoming })),
-    shakeTrauma: shake.trauma, hitStopRemaining: hitStop.remaining, muted: isMuted(),
+    shakeTrauma: shake.trauma, hitStopRemaining: hitStop.remaining, muted: isMuted(), audio: audioLevel(), music: currentMusic(),
   });
   // Testing-only: teleports the boat, since a headless test driving the
   // touch joystick can't reliably pathfind a maze it has no map of. Not
@@ -1068,6 +1092,9 @@ export function startApp(root) {
         run.boat.turnJamRemaining = Math.max(0, run.boat.turnJamRemaining - dt);
       }
 
+      updateAim();
+      updateCounterHint();
+      playMusic(run.lair ? 'lair' : 'voyage');
       if (isFiring) {
         const fired = tryFire(run.weapons, run.boat.x, run.boat.y, computeFireHeading());
         if (fired) { updateWeaponBar(); playFire(run.weapons.activeWeaponId); }
@@ -1075,6 +1102,7 @@ export function startApp(root) {
       stepCombat(run.weapons, dt, run.grid, run.tileSize, run.enemies);
       if (stepAmmoRegen(run.weapons, dt)) updateWeaponBar();
       updateEnemies(run.enemies, run.boat, dt, run.grid, run.tileSize, run.coast);
+      trackEnemyMotion(run.enemies, dt);
 
       // The Kraken's Anchor announces its own phase swaps (submerged/
       // Depth-Charges <-> tank/Flame-Barrels) — the whole point of the
@@ -1305,6 +1333,7 @@ export function startApp(root) {
       (e) => (e.isBoss ? "The Kraken's Anchor" : null),
       (e) => relationTo(run.faction, e.faction),
     );
+    if (aimTarget && aimTarget.health > 0 && sailing && !run.over) drawTargetReticle(ctx, aimTarget, now / 1000, isFiring);
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color);
     if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS, now / 1000);
     drawParticles(ctx, particles);

@@ -1616,6 +1616,60 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   is ~240ms on desktop). Later tabs from the mockups (Quests,
   Achievements, Lore, Trader) need their systems designed first.
 
+- **Phase:** combat + harbour fixes from playtest ("can't see faction
+  hall; can't hear music; auto-shoot misses 4 out of 5 times; really need
+  to improve the combat").
+- **Just shipped:**
+  - **Aim-assist rewrite** (`src/engine/aim.mjs`, shared by main.mjs and
+    the balance sim). It now:
+    - tracks each enemy's measured velocity and turn rate
+    - leads along a curved path, correcting for the smoothing lag
+    - skips shots blocked by land
+    - prefers the enemy the current weapon counters
+    - sticks to one target
+    Cannonball hit rate, measured in the real engine by
+    `tools/aim-check.mjs` (old → new):
+    - orbiting Skimmers: 4% → 96%
+    - Riggers while moving: 24% → 93%
+    - Harpies while moving: 29% → 73%
+    Live browser check: 5s of fire hit the Skimmer every time.
+  - **Enemy jitter fixed:** `steerToward` now arrives at its point instead
+    of overshooting at full speed. Riggers used to vibrate in place, which
+    looked bad and fooled the aim.
+  - **Lock-on reticle** on the current target (brightens while firing).
+  - **Counter hint:** the button for the weapon that counters the nearest
+    awake threat pulses gold (only if held, has ammo, and isn't already
+    active).
+  - **Harpy dive telegraph:** a 0.55s hover with a dashed red line and a
+    tightening ring on the marked spot, then a committed dive past it. A
+    dive can now be seen and dodged.
+  - **Music** (`src/data/music.mjs` + `src/audio/music.mjs`): three
+    original synthesised themes on a lookahead sequencer. Harbour is a
+    6/8 in D dorian; voyage is a 4/4 in A dorian with drums; the lair is
+    a D-minor ostinato. Themes crossfade; the mute button covers music.
+  - **iOS silent switch:** there was no music before, and on iPhones the
+    ring/silent switch also muted all Web Audio. Fixed with
+    `navigator.audioSession.type = 'playback'` plus a looping silent
+    `<audio>` element. Unlock now retries on every early gesture, and
+    audio suspends while the tab is hidden. Everything goes through
+    master/sfx/music buses.
+  - **Faction Hall hidden on short screens:** the harbour camera fitted
+    world space only, but labels are fixed-size DOM chips. On an iPhone
+    SE in Safari (375×553) and short landscapes, the bottom label sat
+    under the voyage card. `computeBaseView` now fits label chips in
+    screen px (`labelRect`). Labels go one-line when the map is small,
+    and the voyage card is slimmer below 700px tall. Checked at 10
+    viewports.
+  - Tests: `tests/aim.test.mjs` (intercept, arc tracking, land-blocked
+    shots, counter preference, hit-rate floors), `tests/music.test.mjs`,
+    a Harpy telegraph test, and a label-fit test covering short phones.
+    299/299 tests.
+  - Balance sim (40 voyages): boss defeat rate 60% → 85% of encounters,
+    2/40 sunk. Better aim makes the game easier.
+- **Next up:** the project owner should play and judge the new combat
+  feel. Difficulty probably needs raising to match the better aim (see
+  Known open questions).
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2205,6 +2259,14 @@ Starting fresh below for the new game.)*
   behind them (Quests, Achievements, Lore, Trader, gems/wood currencies)
   were left out rather than shipped as dead buttons.
 
+- 2026-09-28: Aim-assist stays (no manual aiming), but now leads its
+  target. The "misses 4 of 5" complaint was the aim pointing where
+  enemies were, not where they would be. Projectile homing was rejected:
+  predictive aim was enough, and homing would erase the weapons'
+  different projectile speeds.
+- 2026-09-28: Music is synthesised from note data, with no sample files,
+  to keep the no-assets/no-build deploy.
+
 ## Known open questions (do not silently resolve — ask)
 
 - See the PRD's "Open Risks & Provisional Decisions" section
@@ -2231,6 +2293,8 @@ Starting fresh below for the new game.)*
   reef-3 start, and ~8ms per chunk (64 chunks), streamed at 3ms per
   frame. A phone is plausibly 2-4x slower. If the reef-start hitch shows
   up, the field build can move into row bands like the chunks.
+- **Difficulty after the aim fix.** Players now land most shots, so
+  levels are easier. Retune enemy HP/counts after real play, not before.
 - **The enemy matchup pips add clutter to Skimmer packs** (one pip per
   Skimmer, 3-5 per pack). Fine at current densities; revisit with real
   art.

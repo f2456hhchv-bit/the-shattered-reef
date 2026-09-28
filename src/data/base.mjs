@@ -27,7 +27,12 @@ export const BASE_LAYOUT = Object.freeze({
   channelHalfWidth: 26, // px — open water between neighbouring islands
   boatOrbit: { rx: 62, ry: 88, secondsPerLap: 38 },
   islets: 14, // small decorative islands out in the surrounding sea
-  // Half-extent (px) the camera must keep on screen: ring + island + label.
-  fitHalfWidth: 285,
-  fitHalfHeight: 372,
+  // What the camera must keep on screen. World px from the lagoon centre:
+  // the tallest building's top above the ring, and each label's anchor
+  // below its building. Labels are fixed-size DOM chips, so their size is
+  // in screen px and is fitted separately (they don't shrink with the map).
+  spriteAbove: 95, // building art reaches this far above its anchor
+  spriteHalfWidth: 75,
+  labelOffset: 38, // label anchor below the building (26 × BUILDING_SCALE)
+  labelPx: { w: 136, h: 48 }, // a label chip, screen px incl. its badge
 });

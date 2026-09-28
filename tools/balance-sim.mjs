@@ -28,6 +28,7 @@
 //
 // Usage: node tools/balance-sim.mjs [runCount] [seedOffset]
 
+import { computeAim, trackEnemyMotion } from '../src/engine/aim.mjs';
 import {
   createRun, checkReachedExit, checkSunk, addSalvage, BASELINE_LOADOUT, REEF_COUNT,
 } from '../src/engine/run.mjs';
@@ -338,14 +339,11 @@ function routeVector(run, bot) {
 }
 
 function computeFireHeading(run) {
-  const weapon = getWeapon(run.weapons.activeWeaponId);
-  let target = null, bestDist = weapon.range;
-  for (const enemy of run.enemies) {
-    if (enemy.health <= 0 || enemy.invulnerable) continue;
-    const dist = Math.hypot(enemy.x - run.boat.x, enemy.y - run.boat.y);
-    if (dist <= bestDist) { bestDist = dist; target = enemy; }
-  }
-  return target ? Math.atan2(target.y - run.boat.y, target.x - run.boat.x) : run.boat.heading;
+  const aim = computeAim(run.enemies, run.boat, getWeapon(run.weapons.activeWeaponId), {
+    grid: run.grid, tileSize: run.tileSize, coast: run.coast, counterOf: currentCounter, previousTarget: run._aimTarget,
+  });
+  run._aimTarget = aim ? aim.target : null;
+  return aim ? aim.heading : run.boat.heading;
 }
 
 // Switches to the nearest threatening enemy's counter weapon if it's
@@ -414,6 +412,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     stepCombat(run.weapons, DT, run.grid, run.tileSize, run.enemies);
     stepAmmoRegen(run.weapons, DT);
     updateEnemies(run.enemies, run.boat, DT, run.grid, run.tileSize, run.coast);
+    trackEnemyMotion(run.enemies, DT);
 
     const hitEvents = resolveHits(
       run.weapons, run.enemies, currentCounter,

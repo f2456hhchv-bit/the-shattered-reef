@@ -243,7 +243,9 @@ function steerToward(enemy, targetX, targetY, dt, speedScale = 1) {
   const dist = Math.hypot(dx, dy);
   if (dist < 1) return;
   enemy.heading = Math.atan2(dy, dx);
-  const speed = enemy.speed * speedScale;
+  // Arrive instead of overshooting: at full speed a target closer than one
+  // frame's travel made the enemy jitter back and forth across it.
+  const speed = Math.min(enemy.speed * speedScale, dist / Math.max(dt, 1e-6));
   enemy.vx = (dx / dist) * speed;
   enemy.vy = (dy / dist) * speed;
   enemy.x += enemy.vx * dt;
@@ -279,14 +281,29 @@ function updateSwarm(enemy, boat, dt) {
   else steerOrbit(enemy, boat.x, boat.y, dt, engageRadius * 0.6, enemy.orbitSign, 0.9);
 }
 
+export const FLYER_WINDUP_SECONDS = 0.55;
+
 function updateFlyer(enemy, boat, dt) {
   enemy.diveTimer -= dt;
   if (enemy.diveState === 'circling') {
     steerOrbit(enemy, boat.x, boat.y, dt, 90, 1, 0.6);
     if (enemy.diveTimer <= 0) {
-      enemy.diveState = 'diving';
+      // Telegraph (2026-09-28): hover and mark the spot before diving, so
+      // a dive is something you can see coming and steer out of.
+      enemy.diveState = 'windup';
       enemy.diveTargetX = boat.x;
       enemy.diveTargetY = boat.y;
+      enemy.diveTimer = FLYER_WINDUP_SECONDS;
+    }
+  } else if (enemy.diveState === 'windup') {
+    enemy.vx *= Math.exp(-6 * dt); enemy.vy *= Math.exp(-6 * dt);
+    enemy.x += enemy.vx * dt; enemy.y += enemy.vy * dt;
+    enemy.heading = Math.atan2(enemy.diveTargetY - enemy.y, enemy.diveTargetX - enemy.x);
+    if (enemy.diveTimer <= 0) {
+      enemy.diveState = 'diving';
+      // Overshoot past the marked spot so the dive is a committed line.
+      const dx = enemy.diveTargetX - enemy.x; const dy = enemy.diveTargetY - enemy.y; const d = Math.hypot(dx, dy) || 1;
+      enemy.diveTargetX += (dx / d) * 40; enemy.diveTargetY += (dy / d) * 40;
       enemy.diveTimer = 0.9;
     }
   } else {

@@ -16,29 +16,82 @@
 // so it's created lazily on first call rather than at module load — calling
 // any cue function before that gesture is a harmless no-op, not an error.
 let ctx = null;
-let unlocked = false;
+let master = null; // everything → master → destination (mute = master 0)
+let sfxBus = null;
+let analyser = null;
+let musicBus = null;
 
 function getCtx() {
   if (ctx) return ctx;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) return null; // no WebAudio support — every cue below no-ops
   ctx = new AudioContextClass();
+  master = ctx.createGain(); master.gain.value = masterMuted ? 0 : 1; master.connect(ctx.destination);
+  analyser = ctx.createAnalyser(); analyser.fftSize = 2048; master.connect(analyser);
+  sfxBus = ctx.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
+  musicBus = ctx.createGain(); musicBus.gain.value = 0.55; musicBus.connect(master);
   return ctx;
 }
 
-// Call once, from the first real user gesture (e.g. the fire button's own
-// pointerdown) — resumes a context a browser created in "suspended" state.
+// Testing/diagnostics: current output level (RMS and peak, 0..1).
+export function audioLevel() {
+  if (!analyser) return { state: ctx ? ctx.state : 'none', rms: 0, peak: 0 };
+  const buf = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(buf);
+  let sum = 0, peak = 0; for (const v of buf) { sum += v * v; peak = Math.max(peak, Math.abs(v)); }
+  return { state: ctx.state, rms: Math.sqrt(sum / buf.length), peak };
+}
+
+// For music.mjs: the shared context and its bus (null until unlocked).
+export function audioGraph() {
+  return ctx && unlockedRunning() ? { ctx, musicBus } : null;
+}
+function unlockedRunning() { return ctx && ctx.state === 'running'; }
+
+// iPhones silence Web Audio when the ring/silent switch is on, which is
+// why "I can't hear anything" on iOS. Two fixes: the Audio Session API
+// (Safari 17+) declares us a playback app, and on older iOS a looping,
+// silent <audio> element flips the page into the playback category.
+const SILENT_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+let silentEl = null;
+function enablePlaybackSession() {
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* unsupported */ }
+  if (silentEl) return;
+  try {
+    silentEl = document.createElement('audio');
+    silentEl.src = SILENT_WAV; silentEl.loop = true; silentEl.setAttribute('playsinline', '');
+    silentEl.volume = 0.01;
+    const p = silentEl.play(); if (p && p.catch) p.catch(() => {});
+  } catch { /* ignore */ }
+}
+
+// Call from real user gestures. Safe to call repeatedly: iOS sometimes
+// needs a second gesture, and a context suspended in the background has
+// to be resumed again on return.
 export function unlockAudio() {
-  if (unlocked) return;
   const c = getCtx();
   if (!c) return;
-  if (c.state === 'suspended') c.resume();
-  unlocked = true;
+  enablePlaybackSession();
+  if (c.state !== 'running') { const p = c.resume(); if (p && p.catch) p.catch(() => {}); }
+  // A one-sample silent buffer: the documented way to fully unlock iOS.
+  try { const b = c.createBuffer(1, 1, 22050); const src = c.createBufferSource(); src.buffer = b; src.connect(c.destination); src.start(0); } catch { /* ignore */ }
+  onUnlockCallbacks.forEach((fn) => fn());
+}
+const onUnlockCallbacks = [];
+export function onAudioUnlock(fn) { onUnlockCallbacks.push(fn); }
+
+// Battery: stop the audio clock while the page is hidden.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (!ctx) return;
+    if (document.hidden) ctx.suspend().catch(() => {});
+    else ctx.resume().catch(() => {});
+  });
 }
 
 let masterMuted = false;
 export function setMuted(muted) {
   masterMuted = muted;
+  if (master) master.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, 0.03);
 }
 export function isMuted() {
   return masterMuted;
@@ -62,7 +115,7 @@ function tone(freq, { duration = 0.12, type = 'sine', gain = 0.18, glideTo = nul
   amp.gain.setValueAtTime(0, now());
   amp.gain.linearRampToValueAtTime(gain, now() + 0.008);
   amp.gain.exponentialRampToValueAtTime(0.0001, now() + duration);
-  osc.connect(amp).connect(c.destination);
+  osc.connect(amp).connect(sfxBus);
   osc.start();
   osc.stop(now() + duration + 0.02);
 }
@@ -87,7 +140,7 @@ function noiseBurst({ duration = 0.18, gain = 0.22, filterFreq = 900, filterType
   amp.gain.setValueAtTime(gain, now());
   amp.gain.exponentialRampToValueAtTime(0.0001, now() + duration);
 
-  src.connect(filter).connect(amp).connect(c.destination);
+  src.connect(filter).connect(amp).connect(sfxBus);
   src.start();
   src.stop(now() + duration + 0.02);
 }
