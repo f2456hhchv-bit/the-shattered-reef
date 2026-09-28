@@ -1238,6 +1238,82 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   4→5 retune) are design calls for the project owner. Next session should
   open by asking which to prioritize rather than assuming.
 
+- **Phase:** resolved all five open design questions from the Opus review
+  (project owner: "Do each one in order with a play test in between. Don't
+  stop until all 5 are complete, tested to death"). Each decided with
+  data, playtested live, and committed separately. The owner delegated the
+  calls, so they were made rather than asked; reasoning is in the Decisions
+  log.
+- **Just shipped (in order):**
+  1. **Faction weapon bias: the "cover your weakness" rule** (`e75fe24`).
+     Each faction starts with the counter weapon for its PREDATOR's
+     enemies: Reavers→Chain Shot, Wyrdtide→Flame Barrels, Iron
+     Accord→Grapeshot. Last Gasp and First Haul were swapped (fragile
+     Reavers get the survival charm). The measurement found the Skiff was
+     a trap purchase: dragMult 0.95 made the fastest hull also the most
+     slippery, so it sank ~45% of voyages vs the Sloop's ~19%. Now drag
+     1.15 / hull 85. Also fixed a step-7 bug: Steady Hands regen never
+     updated the weapon bar. The balance-sim bot gained wall-aware
+     context-steering evasion (it never retreated before, so it couldn't
+     value speed); new `tools/faction-compare.mjs`.
+  2. **The triangle applies both ways** (`b310023`). Predator x1.3, prey
+     x0.9 on contact damage, shown as a red "-N" over the boat. Brigands
+     were added to the reef-2 pool; Longboat 140→115 hull, drag 1.1→1.0.
+     Spawn pools moved to data (`SPAWN_POOLS`). New
+     `tools/hull-compare.mjs`, plus a speed-independent metric: voyage
+     survival chained from per-reef sink rates. Result: faction spread
+     went from ~56pp to ~11pp (unaligned 70%, Reavers 69%, Wyrdtide 76%,
+     Iron Accord 79% voyage survival, 3 seed sets).
+  3. **Triangle legibility on phones** (`1bfc208`). One visual language,
+     implemented as a pure tested function (`damageNumberStyle`):
+     - red + minus sign = damage YOU took; nothing else is red
+     - number colour = weapon match (gold counter / cream)
+     - a separately coloured glyph = faction match (cyan ▲ amplified /
+       grey ▼ resisted)
+     - a dark outline on every number, 13px+ (was 11px)
+     - enemy matchup pips (cyan ▲ prey, red ! threat)
+     - Hub matchup lines, plus a two-line run-start briefing below the HUD
+     Tests enforce WCAG contrast; the old "resisted" colour was 1.88:1 on
+     rock.
+  4. **Flame Barrels stays at 5, now for the right reason** (`f9c8828`).
+     New `tools/ttk-check.mjs` drives the real engine loop. The Brigand
+     dies in ~6 shots even at damage 4. What 5 is actually for is the
+     boss's phase-2 counter: at 4, an average player (spamming Depth
+     Charges, 20% misses) ran Flame dry and failed to kill the boss in
+     30% of fights. Confirmed live: Flame ran dry in 3/6 fights at 4 vs
+     1/6 at 5. Guarded by `tests/balance.test.mjs`, which was checked to
+     fail at 4.
+  5. **Landscape HUD** (`96deae3`, test fix `10d9798`). A compact top row,
+     plus the weapon bar as a 2-column grid of 44px targets above the fire
+     button. The camera reserves a RIGHT band in landscape
+     (`LANDSCAPE_QUERY` in main.mjs, kept in sync with the CSS media
+     query) and re-measures on rotation. Landscape playfield height went
+     from 37-45% to 88-90% of the screen. Found and fixed during the
+     audit:
+     - Set Sail sat under ~3 (portrait) / ~5 (landscape) screens of Hub
+       shops. It's now a sticky footer, and the landscape Hub has 2
+       columns.
+     - Portrait weapon buttons ran flush to both screen edges.
+     - The Hub card slid under the mute button.
+- **Mistake made and fixed:** `96deae3` was committed with a failing test,
+  because the commit command wasn't gated on the test result. The test
+  was wrong, not the camera; `10d9798` fixed it. Every commit since has
+  been gated on `# fail 0`. Do the same going forward.
+- **Final regression pass:**
+  - 250/250 tests, 5 consecutive runs.
+  - Every item's playtest script was re-run against the final code.
+  - One continuous landscape voyage passed 20/20 checks with no console
+    errors: faction Hub → briefing → triangle tags both directions →
+    reefs 1→2→3 → boss kill → victory → Kraken Scale → Workshop craft →
+    reload persistence → crafted bonus in the next run.
+  - `drawDamageNumbers` costs 0.35ms per frame for 40 numbers on a
+    software canvas (~2% of a 60fps frame).
+- **Next up:** the art/audio-asset pass (still not started, and the
+  biggest remaining quality gap: every enemy is still a coloured disc).
+  After that, the new Known open questions below. Most important of those
+  is Depth Charges being unusable against anything hugging you. Next
+  session should open by asking which to prioritize.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -1715,6 +1791,55 @@ Starting fresh below for the new game.)*
   source can be added the same way without the existing ones needing to
   change shape.
 
+- 2026-09-28: Factions use the "cover your weakness" weapon-bias rule
+  (enforced by a test), not "hunter". It was measured, not picked by
+  taste. The roster is heavily skewed: Reavers are ~70% of enemy HP, and
+  Iron Accord was absent until reef 3. "Hunter" gives the already-dominant
+  faction (Wyrdtide) the best early weapon, while "cover your weakness"
+  puts each faction's help exactly where its triangle hurts most.
+- 2026-09-28: Balance decisions about speed now use the evasive bot plus
+  a speed-independent metric (per-reef sink rate given the reef was
+  entered). Raw "sunk %" is confounded: slow ships time out before
+  reef 3, which is a bot artifact since players don't time out, so they
+  looked safer than they were. And the old non-evasive bot gave every
+  hull identical contact damage, so it couldn't value speed at all.
+  General lesson: check whether a measuring tool is blind to the exact
+  variable being tuned before trusting it.
+- 2026-09-28: The triangle applies both ways, but asymmetrically: x1.3
+  incoming from a predator, only x0.9 from prey. The two damage flows are
+  skewed in OPPOSITE directions. Outgoing HP is mostly Reaver Skimmers
+  (they orbit outside contact range); incoming damage is ~65% Wyrdtide
+  Harpies (the only deliberate contact attackers). So a symmetric x0.75
+  became a shield for Iron Accord (the faction that preys on Wyrdtide).
+  Chosen from a sweep of 600 voyages per faction per setting.
+- 2026-09-28: Fixed the roster skew at the source (Brigands added to the
+  reef-2 pool, per the PRD's "later reefs mix in ... Brigands") rather
+  than tuning triangle magnitudes to hide it. Cost: reef 2 is ~3-5pp
+  harder for everyone, measured.
+- 2026-09-28: Retuned the Skiff and the Longboat standalone. They were a
+  trap and a must-buy respectively (45% vs 19% sunk; 91% vs 67% voyage
+  survival). Both are now a sidegrade band around the Sloop: Skiff ~71%,
+  Longboat ~79%, Sloop ~67%. Faction balance followed from fixing them;
+  it wasn't patched per faction.
+- 2026-09-28: Damage-number styling is a pure function with WCAG contrast
+  tests, not a renderer detail, so legibility can't silently regress.
+  Red is reserved for damage the player took. The weapon match and the
+  faction match are separate channels (number colour vs glyph colour), so
+  they stack instead of overwriting each other.
+- 2026-09-28: Flame Barrels damage 5 was decided by driving the real
+  engine (`tools/ttk-check.mjs`) and a live browser boss fight, not by
+  hand arithmetic. The deciding case was the boss's phase-2 counter, not
+  the Brigand. A committed balance test guards it.
+- 2026-09-28: Landscape moves controls to the side, not the top/bottom
+  bands: the weapon grid sits in the right-thumb zone above the fire
+  button, and the camera reserves a right band. Vertical space is the
+  scarce axis in landscape. Weapon targets stay 44px minimum; a 2-column
+  grid is used because a single 44px column doesn't fit above the fire
+  button on 360px-tall phones.
+- 2026-09-28: Set Sail is a sticky footer in the Hub at every
+  orientation. The Hub grows with every unlock track, and the one action
+  you always want shouldn't move further down each time a shop is added.
+
 ## Known open questions (do not silently resolve — ask)
 
 - See the PRD's "Open Risks & Provisional Decisions" section
@@ -1722,26 +1847,23 @@ Starting fresh below for the new game.)*
   one-handed weapon-select UX; Depth Charges' prediction-based design;
   hull-carryover fairness across reefs, now directly testable since step
   6 actually carries hull between reefs).
-- **Faction weapon bias doesn't line up with the triangle.** Only Iron
-  Accord's bias (Chain Shot → counters Harpies, a Wyrdtide enemy it
-  beats) reinforces its triangle prey. Reavers get Grapeshot (counters
-  Skimmers — their own faction, a mirror match) and Wyrdtide get Depth
-  Charges (counters Crawlers — also their own faction). For "Archero on
-  water" build-around identity, pick a rule and apply it to all three.
-  Either "hunter": the bias counters an enemy you beat (Reavers→Flame
-  Barrels, Wyrdtide→Grapeshot/Chain Shot, Iron Accord→Chain Shot/Depth
-  Charges). Or "cover your weakness": the bias counters the faction that
-  beats you. Right now it's neither.
-- **The triangle only applies to the player's outgoing damage.** Enemy
-  contact damage ignores it, so "Wyrdtide beats Reavers" means you hit
-  Reavers harder, not that they hit you softer. Unclear whether that's
-  intended or half the mechanic.
-- **The triangle hit cue may be too small to read on a phone.** An
-  11px non-crit number with a teal/red tint and a ▲/▼ glyph is technically
-  correct in a screenshot but hard to see mid-fight. Needs a real-device
-  look before deciding whether it needs to be bigger or different.
-- **Flame Barrels 4→5 retune:** its original rationale was disproven (see
-  the decisions-log correction). Keep 5, a stronger Brigand counter, or
-  revert to 4? Either is defensible; it's a feel call, not a bug.
-- **Landscape** leaves only ~250px of playfield under the HUD at 844×390.
-  Not broken, but if landscape matters the HUD needs a compact layout.
+- **Depth Charges can't hit anything hugging you.** The fixed ~81px fuse
+  flies past close targets. Deep Crawlers and the boss attack by contact,
+  so standing and fighting the boss is unwinnable with its phase-1
+  counter; you must kite to ~80px. Live boss fights saw Depth damage
+  range 26-98 purely on surfacing timing. This is the PRD's "prediction-
+  based Depth Charges" risk, now confirmed in play. Options: detonate on
+  contact with a surfaced enemy, a shorter fuse, or teach the kiting
+  explicitly. It's a design call.
+- **All the faction/hull numbers are bot-derived.** The bot now evades
+  and the metric controls for speed, but a skilled human dodges better
+  than any heuristic. So the Skiff/Reavers may be stronger in real hands
+  than these numbers suggest. Validate with human play before further
+  tuning.
+- **The Hub is still several screens of shops** (3 in portrait, ~5 in
+  landscape). The sticky Set Sail fixes access, but browsing is long.
+  Tabs per track, or collapsing owned items, would help as more tracks
+  arrive.
+- **The enemy matchup pips add clutter to Skimmer packs** (one pip per
+  Skimmer, 3-5 per pack). Fine at current densities; revisit with real
+  art.
