@@ -667,6 +667,15 @@ export function startApp(root) {
   // fight (e.g. the boss, which only appears by chance on reef 3) without
   // navigating a generated maze. The kill itself still goes through the
   // real resolveHits/boss-kill path, so this proves the wiring, not a shortcut.
+  // Testing-only: move a spawned enemy (by the id __shatteredReefSpawnEnemy
+  // returned). Lets a headless playtest hold a fight at a chosen range —
+  // e.g. the Depth-Charge kiting distance a real player would keep —
+  // without scripting maze-aware joystick kiting.
+  window.__shatteredReefMoveEnemy = (id, x, y) => {
+    const e = run.enemies.find((en) => en.id === id);
+    if (e) { e.x = x; e.y = y; e.vx = 0; e.vy = 0; }
+    return !!e;
+  };
   window.__shatteredReefSpawnEnemy = (defId, x, y, health) => {
     const e = createEnemy(defId, x, y);
     if (health != null) e.health = health;

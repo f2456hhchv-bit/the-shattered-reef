@@ -84,16 +84,15 @@ export const WEAPONS = {
     id: WEAPON_IDS.FLAME_BARRELS,
     name: 'Flame Barrels',
     kind: 'area',
-    // 4 → 5 (balance pass, 2026-09-28): at 4, killing its counter target
-    // (Ironclad Brigand, 60 HP) needed 15 direct hits — one MORE than
-    // ammoMax (14), leaving a single cache's worth of ammo unable to
-    // finish the kill on direct-hit damage alone (only survivable via the
-    // last shot's full burn tail landing uninterrupted). At 5, it's 12
-    // hits for 60 direct damage — comfortably under ammoMax with margin
-    // for missed shots, while every other weapon/counter pair already
-    // kills its target well within one cache (see tools/balance-sim.mjs's
-    // TTK math in the decisions log). Also raises the burn tick itself by
-    // the same amount, since both reuse this one field.
+    // Damage 5 (was 4). DECIDED 2026-09-28 with tools/ttk-check.mjs, which
+    // drives the real engine loop. The original reason for 4 → 5 ("at 4 a
+    // Brigand needs 15 hits vs ammoMax 14") was wrong: it ignored burn,
+    // which lands two ticks between shots (0.35s ticks vs 0.8s cooldown),
+    // so a Brigand dies in ~6 shots even at 4. The real reason to keep 5
+    // is the boss: Flame Barrels is the Kraken's Anchor's phase-2 counter,
+    // and at 4 an average player (spamming Depth Charges, 20% misses) ran
+    // Flame dry and failed to kill it in 30% of fights (avg 72s); at 5 it
+    // dies every time in ~24s. tests/balance.test.mjs guards this.
     damage: 5, // per tick while burning
     offCounterFraction: 0.15,
     cooldown: 0.8,
