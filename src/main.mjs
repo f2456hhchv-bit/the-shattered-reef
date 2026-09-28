@@ -19,7 +19,7 @@ import {
   tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, ammoFor, isHeld,
   craftedMultiplierFor,
 } from './engine/combat.mjs';
-import { updateEnemies, resolveEnemyContacts, currentCounter, factionMultiplierFor } from './engine/enemies.mjs';
+import { createEnemy, updateEnemies, resolveEnemyContacts, currentCounter, factionMultiplierFor } from './engine/enemies.mjs';
 import { collectPickups } from './engine/pickups.mjs';
 import { PICKUP_KINDS } from './data/pickups.mjs';
 import { WEAPON_LIST, getWeapon } from './data/weapons.mjs';
@@ -131,6 +131,7 @@ export function startApp(root) {
       <p id="hub-stats"></p>
       <section class="hub-section">
         <h2>Ship Hulls</h2>
+        <p id="hub-hulls-note" class="hub-section-note" hidden></p>
         <div id="hub-hulls" class="hub-list"></div>
       </section>
       <section class="hub-section">
@@ -157,6 +158,7 @@ export function startApp(root) {
   const hubSalvage = hubOverlay.querySelector('#hub-salvage');
   const hubStats = hubOverlay.querySelector('#hub-stats');
   const hubHulls = hubOverlay.querySelector('#hub-hulls');
+  const hubHullsNote = hubOverlay.querySelector('#hub-hulls-note');
   const hubCargo = hubOverlay.querySelector('#hub-cargo');
   const hubCharms = hubOverlay.querySelector('#hub-charms');
   const hubFactions = hubOverlay.querySelector('#hub-factions');
@@ -195,6 +197,34 @@ export function startApp(root) {
   let run = createRun(Date.now() & 0xffffffff, resolveLoadout(meta));
   let sailing = false;
   const camera = createCamera();
+
+  // Screen bands covered by HUD, fed to the camera so it frames the boat in
+  // the part of the screen the player can actually see (engine/camera.mjs's
+  // computeCameraView explains the bug this fixes). Measured from the real
+  // DOM rather than hardcoded, so safe-area notches and HUD layout changes
+  // are picked up automatically — but only on resize/HUD-size change via
+  // ResizeObserver, never per frame, since a per-frame getBoundingClientRect
+  // after the HUD's own DOM writes would force a synchronous layout every
+  // frame on mobile.
+  const hudInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+  function measureHudInsets() {
+    const margin = 8;
+    const vh = window.innerHeight;
+    const top = Math.max(0, Math.round(hud.getBoundingClientRect().bottom + margin));
+    const bottom = Math.max(0, Math.round(vh - fireButton.getBoundingClientRect().top + margin));
+    hudInsets.top = top;
+    // In a short (landscape) viewport, reserving both bands would leave a
+    // sliver of playfield — drop the fire-button band first (it only
+    // covers one corner anyway), keeping the top band that covers the boat.
+    hudInsets.bottom = (top + bottom) > vh * 0.5 ? 0 : bottom;
+  }
+  measureHudInsets();
+  window.addEventListener('resize', measureHudInsets);
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(measureHudInsets);
+    ro.observe(hud);
+    ro.observe(fireButton);
+  }
   camera.x = run.boat.x;
   camera.y = run.boat.y;
 
@@ -335,6 +365,17 @@ export function startApp(root) {
     hubSalvage.textContent = `Salvage: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}`;
     hubStats.textContent = `Runs sailed: ${meta.stats.runsPlayed} · Best reefs cleared: ${meta.stats.bestReefsCleared}/${run.reefCount} · Deepest reef reached: ${meta.stats.deepestReefReached}`;
 
+    // A selected faction overrides the hull (engine/meta.mjs resolveLoadout),
+    // so say so here — otherwise the Hub shows your own pick as "Selected"
+    // while the run silently sails a different hull.
+    const activeFaction = PLAYABLE_FACTION_LIST.find((f) => f.id === meta.selectedFaction);
+    if (activeFaction) {
+      const factionHull = SHIP_HULL_LIST.find((h) => h.id === activeFaction.hullId);
+      hubHullsNote.textContent = `Sailing as ${activeFaction.name}: the ${factionHull.name} is used while a faction is active. Your pick below applies when Unaligned.`;
+      hubHullsNote.hidden = false;
+    } else {
+      hubHullsNote.hidden = true;
+    }
     hubHulls.innerHTML = '';
     for (const hull of SHIP_HULL_LIST) {
       const owned = meta.ownedHulls.includes(hull.id);
@@ -562,6 +603,7 @@ export function startApp(root) {
     },
     faction: run.faction, bossDefeated: run.bossDefeated, craftedDamageMultipliers: run.craftedDamageMultipliers,
     particleCount: particles.length, damageNumberCount: damageNumbers.length,
+    damageNumbers: damageNumbers.map((d) => ({ amount: d.amount, crit: d.crit, triangle: d.triangle })),
     shakeTrauma: shake.trauma, hitStopRemaining: hitStop.remaining, muted: isMuted(),
   });
   // Testing-only: teleports the boat, since a headless test driving the
@@ -574,6 +616,17 @@ export function startApp(root) {
   // playtesting) — this just lets a test reach a "nearly sunk"/"sunk"
   // state on demand to check what happens *after*, e.g. the run summary.
   window.__shatteredReefSetHull = (hp) => { run.boat.health = hp; };
+  // Testing-only: places an enemy (optionally at reduced health) at a world
+  // position — added so a headless playtest can reliably stage a specific
+  // fight (e.g. the boss, which only appears by chance on reef 3) without
+  // navigating a generated maze. The kill itself still goes through the
+  // real resolveHits/boss-kill path, so this proves the wiring, not a shortcut.
+  window.__shatteredReefSpawnEnemy = (defId, x, y, health) => {
+    const e = createEnemy(defId, x, y);
+    if (health != null) e.health = health;
+    run.enemies.push(e);
+    return e.id;
+  };
   // Testing-only: adds at-risk Salvage directly, for scripting a controlled
   // "sank with unbanked Salvage" scenario without needing to actually
   // steer onto a pickup first.
@@ -803,8 +856,8 @@ export function startApp(root) {
     ctx.fillStyle = PALETTE.waterDeep;
     ctx.fillRect(0, 0, vw, vh);
     ctx.save();
-    const { cx, cy } = applyCameraTransform(ctx, camera, vw, vh, run.widthPx, run.heightPx, shakeOffset);
-    drawTileGrid(ctx, run.grid, run.tileSize, cx - vw / 2, cy - vh / 2, cx + vw / 2, cy + vh / 2);
+    const view = applyCameraTransform(ctx, camera, vw, vh, run.widthPx, run.heightPx, shakeOffset, hudInsets);
+    drawTileGrid(ctx, run.grid, run.tileSize, view.visible.left, view.visible.top, view.visible.right, view.visible.bottom);
     drawExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
     drawPickups(ctx, run.pickups, (p) => WEAPON_SHORT_LABEL[p.weaponId], now / 1000);
     drawEnemies(ctx, run.enemies, (e) => e.colorHex || enemyColor(e), now / 1000, (e) => (e.isBoss ? "The Kraken's Anchor" : null));

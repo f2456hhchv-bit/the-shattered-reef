@@ -396,3 +396,32 @@ test('recordRunResult awards exactly one Kraken Scale when run.bossDefeated is t
   recordRunResult(meta2, run2);
   assert.equal(meta2.krakenScales, 0);
 });
+
+// Regression (Opus review, 2026-09-28): loadMeta promises never to throw,
+// but resolveLoadout() throws on an unknown/unowned selection — a stale or
+// hand-edited save must not be able to crash every "Set Sail".
+test('loadMeta sanitizes stale/unowned selections so resolveLoadout can never throw on a loaded save', () => {
+  const cases = [
+    { selectedFaction: 'not_a_faction', ownedFactions: ['not_a_faction'] },
+    { selectedFaction: FACTION_IDS.REAVERS, ownedFactions: [] }, // selected but not owned
+    { selectedHull: 'galleon', ownedHulls: ['sloop', 'galleon'] },
+    { selectedHull: HULL_IDS.SKIFF, ownedHulls: [HULL_IDS.SLOOP] }, // selected but not owned
+    { ownedHulls: [] }, // lost the always-owned Sloop
+    { salvage: 'lots', krakenScales: null },
+  ];
+  for (const bad of cases) {
+    const storage = fakeStorage({ 'shatteredReef.meta.v1': JSON.stringify({ ...createDefaultMeta(), ...bad }) });
+    const meta = loadMeta(storage);
+    assert.doesNotThrow(() => resolveLoadout(meta), `resolveLoadout threw for ${JSON.stringify(bad)}`);
+    assert.ok(Number.isFinite(meta.salvage) && Number.isFinite(meta.krakenScales));
+  }
+});
+
+test('loadMeta keeps a valid, owned faction/hull selection untouched', () => {
+  const saved = { ...createDefaultMeta(), ownedFactions: [FACTION_IDS.WYRDTIDE], selectedFaction: FACTION_IDS.WYRDTIDE,
+    ownedHulls: [HULL_IDS.SLOOP, HULL_IDS.SKIFF], selectedHull: HULL_IDS.SKIFF, krakenScales: 3 };
+  const meta = loadMeta(fakeStorage({ 'shatteredReef.meta.v1': JSON.stringify(saved) }));
+  assert.equal(meta.selectedFaction, FACTION_IDS.WYRDTIDE);
+  assert.equal(meta.selectedHull, HULL_IDS.SKIFF);
+  assert.equal(meta.krakenScales, 3);
+});

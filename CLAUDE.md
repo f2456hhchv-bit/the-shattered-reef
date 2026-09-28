@@ -1098,11 +1098,15 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     disadvantage triangle multipliers, correctly modeling Flame Barrels'
     sustained direct-hit-plus-burn-tick damage (not just direct hits,
     which would have understated it — burn tick interval 0.35s is shorter
-    than its 0.8s cooldown, so exactly one tick lands between each shot at
-    sustained fire, roughly doubling its real per-cycle damage over a
-    naive direct-only estimate). **No shortfall found anywhere** — the
-    worst case, Ironclad Brigand under a triangle disadvantage, needs 8
-    ammo of Flame Barrels' 14 max (57%), comfortable margin; every other
+    than its 0.8s cooldown, so burn ticks land between each shot at
+    sustained fire). **CORRECTED in the Opus review pass below:** this
+    entry originally claimed "exactly one tick" per shot and "8 ammo"
+    worst case; an empirical run through the real engine loop shows
+    **two** ticks per shot (0.35 × 2 < 0.8), so real damage is ~3× a
+    direct-only estimate and the worst case is **6** shots, not 8. The
+    conclusion stands, with more margin than stated. **No shortfall found anywhere** — the
+    worst case, Ironclad Brigand under a triangle disadvantage, needs 6
+    ammo of Flame Barrels' 14 max (43%), comfortable margin; every other
     pair one-shots or two-shots its target even under disadvantage.
     **No balance changes made** — the multipliers are fine as shipped in
     part 1, a genuine "already tuned" finding, not a missed check.
@@ -1181,19 +1185,58 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     reliably forcing a live boss-kill-with-a-chosen-faction scenario
     through simulated pointer input isn't practical in the time this
     session had — flagged here rather than silently skipped.
-- **Next up:** all three of part 1's flagged follow-ups are done — the
-  Workshop/Crafting system is built and reachable, triangle hits have
-  in-run visual feedback, and the new multipliers are arithmetic-verified
-  against the weapon-counter system with no changes needed. What remains
-  open: the art/audio-asset pass (still not started, flagged since step
-  8); `tools/balance-sim.mjs` still needs real retreat/kiting behavior
-  before its own win-rate/boss-defeat-rate numbers can be trusted; and the
-  triangle-hit boss-kill-award interaction (a live playthrough of "defeat
-  the boss as a chosen faction, see the Kraken Scale land in the Hub")
-  hasn't been playtested end-to-end in a real browser, only at the unit
-  level — worth a quick real-browser pass before calling this fully
-  closed. Next session should open by asking the project owner which to
-  prioritize rather than assuming.
+- **Phase:** Opus review/verification pass (project owner switched the
+  session model to Opus and asked to "run tests using opus now"). Re-ran
+  everything, re-verified prior claims empirically instead of trusting
+  them, and closed the one playtest gap part 2 left open.
+- **Found and fixed:**
+  - **Player boat hidden under the HUD at the start of every reef (real
+    UX bug, pre-existing since step 2, found from a playtest screenshot).**
+    `applyCameraTransform` clamped the map edge to the *screen* edge; the
+    spawn is always the maze's top-left start cell, so on a portrait phone
+    the boat and every opening fight sat underneath the weapon bar.
+    `engine/camera.mjs` now takes HUD `insets` and clamps/centres within
+    the usable region (new pure `computeCameraView`, returns the real
+    visible world rect so tile culling stays correct with asymmetric
+    insets). `main.mjs` measures insets from the live DOM (`#hud` bottom,
+    fire-button top) via ResizeObserver + resize, never per frame, and
+    drops the fire-button band in short/landscape viewports so the
+    playfield doesn't collapse. Verified by screenshot at 400×800,
+    390×844 and 844×390. New `tests/camera.test.mjs` (8 tests — camera had
+    no tests at all before).
+  - **A stale/hand-edited save could permanently strand the player in the
+    Hub.** `loadMeta` promises never to throw, but a `selectedFaction` /
+    `selectedHull` that's unknown or unowned made `resolveLoadout` throw
+    on every "Set Sail". `loadMeta` now sanitizes selections (and
+    non-numeric `salvage`/`krakenScales`, and a missing always-owned
+    Sloop). 2 new tests; verified live (a fake `ghost_fleet` faction in
+    localStorage now sails as unaligned instead of crashing).
+  - **Hub lied about the active hull while a faction was selected** — it
+    showed your own pick as "Selected ✓" while the run silently used the
+    faction's hull. Added a note in the Ship Hulls section naming the
+    hull actually in use.
+  - **Corrected two wrong analysis claims in this log** (see the edited
+    part-2 TTK entry and the decisions-log correction): Flame Barrels
+    lands two burn ticks per shot, not one; and the original 4→5 Flame
+    Barrels retune's rationale was false (at damage 4 a Brigand dies in
+    ~5 shots once burn is counted). Verified empirically by driving the
+    real engine loop, not by another hand model.
+- **Playtest gap from part 2 closed** (real headless browser): as
+  Wyrdtide, Brigand hits tag `disadvantage`; as Iron Accord, Harpy hits
+  tag `advantage` (screenshotted); a boss spawned via a new testing-only
+  `__shatteredReefSpawnEnemy(defId, x, y, health)` hook is killed through
+  the real `resolveHits` path → `run.bossDefeated` → Last Gasp revive on
+  first sink → real sink → summary shows the Kraken Scale → Hub shows
+  `Kraken Scales: 1` → Workshop enables exactly the 1-scale crafts →
+  survives reload. Boss hits correctly tag `null` (faction-less).
+  `__shatteredReefDebug()` now also reports live `damageNumbers`.
+- **226/226 tests pass**, stable across repeated runs. No console errors.
+- **Next up:** the art/audio-asset pass (still not started); balance-sim
+  still needs retreat/kiting before its win-rate numbers mean anything;
+  and the new Known open questions below (faction weapon-bias coherence,
+  one-directional triangle, triangle-cue legibility, the Flame Barrels
+  4→5 retune) are design calls for the project owner. Next session should
+  open by asking which to prioritize rather than assuming.
 
 ## Decisions log
 
@@ -1641,18 +1684,22 @@ Starting fresh below for the new game.)*
   sustained-fire model for Flame Barrels (direct hit + overlapping burn
   ticks), not the same naive "direct damage only, repeated per shot"
   model the original Flame Barrels retune used — the naive model would
-  have significantly understated Flame Barrels' real damage (burn very
-  roughly doubles it under sustained fire, since a tick lands between
-  every shot at its 0.35s interval vs. the weapon's 0.8s cooldown) and
-  could have led to an unnecessary retune here. No shortfall found even
-  under the triangle's worst case (disadvantage), so no numbers changed.
-  Worth remembering as a general lesson: any future TTK/ammo-margin
-  arithmetic involving Flame Barrels specifically must include this
-  burn-overlap model, not just direct damage — the original Flame Barrels
-  fix happened to reach the right conclusion despite the simpler model
-  only because the shortfall was severe enough (15 hits needed vs. 14
-  max) to show up either way; a smaller discrepancy could have gone
-  unnoticed with the naive model.
+  have significantly understated Flame Barrels' real damage (burn ticks
+  land between every shot at its 0.35s interval vs. the weapon's 0.8s
+  cooldown) and could have led to an unnecessary retune here. No
+  shortfall found even under the triangle's worst case (disadvantage), so
+  no numbers changed. **CORRECTED by the Opus review below:** it's two
+  ticks per shot, not one, and — more importantly — the claim that "the
+  original Flame Barrels fix happened to reach the right conclusion" is
+  wrong. That 4→5 retune assumed a Brigand needed 15 direct hits at
+  damage 4; with burn included it dies in ~5 shots at damage 4. The
+  retune's stated rationale ("one cache can't finish the kill") was false.
+  Left at 5 rather than silently reverted — it's a tuning call for the
+  project owner — see Known open questions. General lesson stands and is
+  now sharper: **verify TTK claims empirically through the real engine
+  loop** (a 20-line script driving tryFire/stepCombat/resolveHits/
+  stepBurn), not by hand-modelling tick overlap — both hand models in
+  this log got it wrong.
 - 2026-09-28: Kraken Scales (the Workshop's rare-drop currency) are
   earned only by defeating The Kraken's Anchor, never purchasable with
   Salvage — a deliberate choice to make Workshop upgrades genuinely
@@ -1675,10 +1722,26 @@ Starting fresh below for the new game.)*
   one-handed weapon-select UX; Depth Charges' prediction-based design;
   hull-carryover fairness across reefs, now directly testable since step
   6 actually carries hull between reefs).
-- A live end-to-end playtest of "defeat the boss while a faction is
-  selected, see the triangle-colored damage numbers, see the Kraken Scale
-  land in the Hub" hasn't been done in a real browser — the Workshop
-  purchase flow and hull/multiplier reaching a run were playtested; the
-  triangle-hit visuals and the boss-kill Kraken Scale award were only
-  verified at the unit-test level. Worth a real playtest pass before
-  calling post-slice part 2 fully closed.
+- **Faction weapon bias doesn't line up with the triangle.** Only Iron
+  Accord's bias (Chain Shot → counters Harpies, a Wyrdtide enemy it
+  beats) reinforces its triangle prey. Reavers get Grapeshot (counters
+  Skimmers — their own faction, a mirror match) and Wyrdtide get Depth
+  Charges (counters Crawlers — also their own faction). For "Archero on
+  water" build-around identity, pick a rule and apply it to all three.
+  Either "hunter": the bias counters an enemy you beat (Reavers→Flame
+  Barrels, Wyrdtide→Grapeshot/Chain Shot, Iron Accord→Chain Shot/Depth
+  Charges). Or "cover your weakness": the bias counters the faction that
+  beats you. Right now it's neither.
+- **The triangle only applies to the player's outgoing damage.** Enemy
+  contact damage ignores it, so "Wyrdtide beats Reavers" means you hit
+  Reavers harder, not that they hit you softer. Unclear whether that's
+  intended or half the mechanic.
+- **The triangle hit cue may be too small to read on a phone.** An
+  11px non-crit number with a teal/red tint and a ▲/▼ glyph is technically
+  correct in a screenshot but hard to see mid-fight. Needs a real-device
+  look before deciding whether it needs to be bigger or different.
+- **Flame Barrels 4→5 retune:** its original rationale was disproven (see
+  the decisions-log correction). Keep 5, a stronger Brigand counter, or
+  revert to 4? Either is defensible; it's a feel call, not a bug.
+- **Landscape** leaves only ~250px of playfield under the HUD at 844×390.
+  Not broken, but if landscape matters the HUD needs a compact layout.

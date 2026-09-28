@@ -16,6 +16,9 @@ import {
 
 const STORAGE_KEY = 'shatteredReef.meta.v1';
 
+const isKnownHull = (id) => { try { getHull(id); return true; } catch { return false; } };
+const isKnownFaction = (id) => { try { getPlayableFaction(id); return true; } catch { return false; } };
+
 export function createDefaultMeta() {
   return {
     salvage: 0,
@@ -42,7 +45,7 @@ export function loadMeta(storage) {
     if (!raw) return defaults;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return defaults;
-    return {
+    const meta = {
       ...defaults,
       ...parsed,
       stats: { ...defaults.stats, ...(parsed.stats && typeof parsed.stats === 'object' ? parsed.stats : {}) },
@@ -52,6 +55,19 @@ export function loadMeta(storage) {
       ownedFactions: Array.isArray(parsed.ownedFactions) ? parsed.ownedFactions : defaults.ownedFactions,
       ownedWorkshopUpgrades: Array.isArray(parsed.ownedWorkshopUpgrades) ? parsed.ownedWorkshopUpgrades : defaults.ownedWorkshopUpgrades,
     };
+    // Selections must point at something owned AND still defined in data —
+    // resolveLoadout() throws on an unknown hull/faction id, so a stale or
+    // hand-edited save would otherwise crash every "Set Sail" and strand
+    // the player in the Hub. Fall back to the always-valid baseline instead.
+    if (!meta.ownedHulls.includes(HULL_IDS.SLOOP)) meta.ownedHulls = [HULL_IDS.SLOOP, ...meta.ownedHulls];
+    if (!meta.ownedHulls.includes(meta.selectedHull) || !isKnownHull(meta.selectedHull)) meta.selectedHull = HULL_IDS.SLOOP;
+    if (meta.selectedFaction !== null
+      && (!meta.ownedFactions.includes(meta.selectedFaction) || !isKnownFaction(meta.selectedFaction))) {
+      meta.selectedFaction = null;
+    }
+    if (!Number.isFinite(meta.salvage)) meta.salvage = 0;
+    if (!Number.isFinite(meta.krakenScales)) meta.krakenScales = 0;
+    return meta;
   } catch {
     return defaults;
   }
