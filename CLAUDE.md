@@ -98,6 +98,12 @@ Architecture → Vertical slice → Core systems → Content → Polish → Test
 Each step its own commit, each step end-to-end testable headless before
 depending on the next, matching how the archived project was built.
 
+**Confirmed next phase after step 8** (not scoped into the build order
+yet): playable factions (Blacksail Reavers, Wyrdtide, Iron Accord), a
+rock-paper-scissors combat triangle between them, and a Captain's Hub →
+proper base with a Workshop (crafting). See the PRD's "Post-Slice
+Direction" section and the decisions log below.
+
 ## Vertical slice scope (locked 2026-09-28 by the PRD — steps 2-7)
 
 Locked, not a rough target anymore. Full detail (stats, counters, behavior)
@@ -458,6 +464,24 @@ Starting fresh below for the new game.)*
   any touch control meant to be held down alongside other simultaneous
   touch input must track its own specific `pointerId`, not just "a
   pointer event happened on this element."
+- 2026-09-28: Confirmed the game's next major design phase (post-vertical-
+  slice, not folded into steps 4-8): three playable factions — Blacksail
+  Reavers (Aggro/Speed) and Wyrdtide (Mystic/Deep), both reusing their
+  names and flavor from the archived card game, plus a new Iron Accord
+  (Armor/Discipline, since the card game's "Neutral" pool wasn't a real
+  faction identity to port) — mapped onto the existing enemy roster
+  (Reavers: Reef Skimmers/Riggers; Wyrdtide: Deep Crawlers/Gullswarm
+  Harpies; Iron Accord: Ironclad Brigands), plus a rock-paper-scissors
+  combat triangle (Reavers > Iron Accord > Wyrdtide > Reavers) that stacks
+  as a *second* multiplier on top of the existing weapon-niche-counter
+  system rather than replacing it, plus a Captain's Hub-grown base with a
+  Workshop (where the already-deferred Crafting system lands). Full
+  writeup in the PRD's new "Post-Slice Direction" section. Explicitly
+  **not** re-scoping steps 4-8 to build this now — see that section for
+  why (don't stack two unproven combat systems before either is
+  playtested alone). Positioning: "Archero on water" — build-around-your-
+  kit progression carrying PS1 naval-battler nostalgia, not a straight
+  Overboard clone.
 
 ## Known open questions (do not silently resolve — ask)
 
