@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createBoat, stepBoat, resolveTileCollision, DEFAULT_BOAT_TUNING } from '../src/engine/boat.mjs';
+import {
+  createBoat, stepBoat, resolveTileCollision, applyWallImpactDamage,
+  DEFAULT_BOAT_TUNING, MAX_HULL, WALL_IMPACT_DAMAGE_THRESHOLD,
+} from '../src/engine/boat.mjs';
 
 test('a boat at rest with no input stays put', () => {
   const boat = createBoat(100, 100, 0);
@@ -87,4 +90,74 @@ test('resolveTileCollision stops the boat from passing through a solid tile', ()
   const wallLeftEdge = wallTx * tileSize;
   assert.ok(boat.x < wallLeftEdge, 'boat should be stopped before the wall, never inside it');
   assert.ok(boat.x > wallLeftEdge - radius - 2, 'boat should be resting right against the wall, not far short of it');
+});
+
+test('a fresh boat starts at full hull', () => {
+  const boat = createBoat(0, 0, 0);
+  assert.equal(boat.health, MAX_HULL);
+});
+
+test('resolveTileCollision reports 0 impact speed when nothing is hit', () => {
+  const grid = makeOpenGridWithWallAt(50); // far away
+  const boat = createBoat(0, 0, 0);
+  const impact = resolveTileCollision(boat, 11, grid, 16);
+  assert.equal(impact, 0);
+});
+
+// Drives the boat toward a wall a few tiles away, resolving collision
+// every frame from the start (no tunneling), and returns the first
+// nonzero impact speed reported.
+function driveIntoWall(boat, grid, tileSize, input, maxFrames = 90) {
+  for (let i = 0; i < maxFrames; i++) {
+    stepBoat(boat, input, 1 / 60);
+    const impact = resolveTileCollision(boat, 11, grid, tileSize);
+    if (impact > 0) return impact;
+  }
+  return 0;
+}
+
+test('driving straight into a wall at speed reports a real impact speed', () => {
+  const tileSize = 16;
+  const wallTx = 5;
+  const grid = makeOpenGridWithWallAt(wallTx);
+  const boat = createBoat((wallTx - 3) * tileSize, 5 * tileSize, 0);
+  const impact = driveIntoWall(boat, grid, tileSize, { x: 1, y: 0 });
+  assert.ok(impact > 40, `expected a real impact speed on a head-on hit, got ${impact}`);
+});
+
+test('sliding along a wall you are already touching does not keep reporting impact speed', () => {
+  const tileSize = 16;
+  const wallTx = 5;
+  const grid = makeOpenGridWithWallAt(wallTx);
+  const boat = createBoat((wallTx - 3) * tileSize, 5 * tileSize, 0);
+  const firstImpact = driveIntoWall(boat, grid, tileSize, { x: 1, y: 0 });
+  assert.ok(firstImpact > 0, 'the initial hit should register an impact');
+  // Now slide along the wall (steer down, staying pressed against it). A
+  // small graze from re-turning into the wall is fine — the property that
+  // matters is that it stays under the damage threshold, i.e. sliding
+  // never costs hull the way the initial hit did.
+  for (let i = 0; i < 20; i++) {
+    stepBoat(boat, { x: 0.3, y: 1 }, 1 / 60);
+    const impact = resolveTileCollision(boat, 11, grid, tileSize);
+    assert.ok(impact < WALL_IMPACT_DAMAGE_THRESHOLD, `sliding should stay under the damage threshold at frame ${i}, got ${impact}`);
+  }
+});
+
+test('applyWallImpactDamage ignores grazes under the threshold and damages hard hits', () => {
+  const boat = createBoat(0, 0, 0);
+  const grazeDamage = applyWallImpactDamage(boat, WALL_IMPACT_DAMAGE_THRESHOLD - 1);
+  assert.equal(grazeDamage, 0);
+  assert.equal(boat.health, MAX_HULL);
+
+  const hitDamage = applyWallImpactDamage(boat, WALL_IMPACT_DAMAGE_THRESHOLD + 50);
+  assert.ok(hitDamage > 0);
+  assert.equal(boat.health, MAX_HULL - hitDamage);
+  assert.ok(hitDamage < 20, `damage from one hit should be "miniscule", got ${hitDamage}`);
+});
+
+test('applyWallImpactDamage never takes hull below 0', () => {
+  const boat = createBoat(0, 0, 0);
+  boat.health = 2;
+  applyWallImpactDamage(boat, 1000);
+  assert.equal(boat.health, 0);
 });

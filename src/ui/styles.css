@@ -53,7 +53,9 @@ html, body {
   left: 0;
   right: 0;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   pointer-events: none;
 }
 #hud-status {
@@ -65,4 +67,34 @@ html, body {
   font-size: 14px;
   font-weight: 600;
   border: 1px solid rgba(232, 181, 75, .4);
+}
+
+#hull-bar {
+  width: 140px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(6, 36, 53, .75);
+  border: 1px solid rgba(232, 181, 75, .35);
+  overflow: hidden;
+}
+#hull-bar-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #7bbf6a, #c9df6a);
+  transition: width .2s ease, background .2s ease;
+}
+#hull-bar-fill.low {
+  background: linear-gradient(90deg, #d9503f, #e07a4b);
+}
+
+#hit-flash {
+  position: absolute;
+  inset: 0;
+  background: rgba(217, 80, 63, 0);
+  pointer-events: none;
+  transition: background .08s ease-out;
+}
+#hit-flash.show {
+  background: rgba(217, 80, 63, .3);
+  transition: background 0s;
 }

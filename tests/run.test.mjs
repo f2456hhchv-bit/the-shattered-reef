@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createRun, checkReachedExit } from '../src/engine/run.mjs';
+import { createRun, checkReachedExit, checkSunk } from '../src/engine/run.mjs';
 import { isFullyConnected } from '../src/engine/maze.mjs';
 
 test('createRun is deterministic for a given seed', () => {
@@ -31,7 +31,28 @@ test('checkReachedExit only fires once the boat is close enough, and only once',
   run.boat.x = run.exitWorld.x;
   run.boat.y = run.exitWorld.y;
   assert.equal(checkReachedExit(run), true);
-  assert.equal(run.complete, true);
+  assert.equal(run.over, true);
+  assert.equal(run.outcome, 'exit');
   // Calling again after completion should not re-trigger.
   assert.equal(checkReachedExit(run), false);
+});
+
+test('checkSunk ends the run once hull reaches 0, and only once', () => {
+  const run = createRun(21);
+  assert.equal(checkSunk(run), false);
+  run.boat.health = 0;
+  assert.equal(checkSunk(run), true);
+  assert.equal(run.over, true);
+  assert.equal(run.outcome, 'sunk');
+  assert.equal(checkSunk(run), false);
+});
+
+test('reaching the exit and sinking are mutually exclusive — whichever fires first wins', () => {
+  const run = createRun(22);
+  run.boat.x = run.exitWorld.x;
+  run.boat.y = run.exitWorld.y;
+  checkReachedExit(run);
+  run.boat.health = 0;
+  assert.equal(checkSunk(run), false, 'a run already over from reaching the exit should not also become "sunk"');
+  assert.equal(run.outcome, 'exit');
 });

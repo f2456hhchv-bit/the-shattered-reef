@@ -5,14 +5,23 @@
 // tuning, not the model itself.
 
 export const DEFAULT_BOAT_TUNING = {
-  acceleration: 260, // px/s^2 at full stick deflection
-  maxSpeed: 140,      // px/s
-  drag: 1.1,          // fraction of velocity removed per second (approx.)
-  turnRate: Math.PI * 1.6, // radians/s the heading can turn at full stick
+  acceleration: 240, // px/s^2 at full stick deflection
+  maxSpeed: 120,      // px/s
+  drag: 2.4,          // fraction of velocity removed per second (approx.) — high on purpose: a boat that keeps coasting into walls after you let go of the stick isn't "weighty", it's just unresponsive. See run.test.mjs / decisions log.
+  turnRate: Math.PI * 2.2, // radians/s the heading can turn at full stick — quick enough to actually dodge a wall you see coming
 };
 
+export const MAX_HULL = 100;
+// Wall-impact damage tuning: damage scales with how hard you hit the wall
+// head-on (the velocity component along the collision normal), not with
+// mere contact — sliding along a wall you're already touching does zero
+// damage, since its normal-component velocity was already cancelled the
+// frame the contact started. Only a fresh, hard hit costs hull.
+export const WALL_IMPACT_DAMAGE_THRESHOLD = 40; // px/s of inward speed below this: no damage (a graze)
+export const WALL_IMPACT_DAMAGE_PER_SPEED = 0.12; // hull lost per px/s of inward speed above the threshold
+
 export function createBoat(x, y, heading = 0) {
-  return { x, y, heading, vx: 0, vy: 0 };
+  return { x, y, heading, vx: 0, vy: 0, health: MAX_HULL };
 }
 
 function shortestAngleDelta(from, to) {
@@ -63,20 +72,41 @@ export function stepBoat(boat, input, dt, tuning = DEFAULT_BOAT_TUNING) {
 // corner (two tiles overlapping at once) resolves cleanly instead of
 // fighting itself — doesn't have that failure mode: every push strictly
 // reduces total penetration, so it converges instead of oscillating.
+// Returns the hardest inward impact speed seen this call (px/s), or 0 if
+// the boat wasn't colliding with anything. A boat already resting/sliding
+// against a wall has ~0 inward speed (it was cancelled the frame contact
+// started), so this is naturally 0 on every subsequent frame of a slide —
+// only a fresh, hard hit reports a nonzero value. Callers use this to
+// decide whether/how much hull damage to apply; boat.mjs itself doesn't
+// touch boat.health so physics stays decoupled from game-state concerns.
 export function resolveTileCollision(boat, radius, grid, tileSize) {
+  let maxImpactSpeed = 0;
   for (let pass = 0; pass < 4; pass++) {
     const hit = deepestOverlap(boat.x, boat.y, radius, grid, tileSize);
-    if (!hit) return;
+    if (!hit) break;
     boat.x += hit.pushX;
     boat.y += hit.pushY;
     // Kill velocity along the push direction only, so sliding along a
     // wall (the tangential component) still feels smooth.
     const dot = boat.vx * hit.nx + boat.vy * hit.ny;
     if (dot < 0) {
+      maxImpactSpeed = Math.max(maxImpactSpeed, -dot);
       boat.vx -= dot * hit.nx;
       boat.vy -= dot * hit.ny;
     }
   }
+  return maxImpactSpeed;
+}
+
+// Converts an impact speed (from resolveTileCollision) into hull damage
+// and applies it, clamped at 0. Returns the damage actually dealt (0 for
+// a graze under the threshold) so a caller can decide whether to show hit
+// feedback (a flash, a sound) at all.
+export function applyWallImpactDamage(boat, impactSpeed) {
+  if (impactSpeed <= WALL_IMPACT_DAMAGE_THRESHOLD) return 0;
+  const damage = (impactSpeed - WALL_IMPACT_DAMAGE_THRESHOLD) * WALL_IMPACT_DAMAGE_PER_SPEED;
+  boat.health = Math.max(0, boat.health - damage);
+  return damage;
 }
 
 function isSolidTile(grid, tx, ty) {

@@ -180,8 +180,51 @@ this list for real before step 4 starts.
   walls and lets it slide along them; the 24-direction stress test and 5
   repeats of the bug's original repro scenario all stayed within bounds
   after the fix.
+- **Same-session follow-up patch, step 2 (feedback from the first real
+  playtest):** drift felt excessive — the boat kept coasting into walls
+  after the stick was released. Two things fixed together, since they're
+  the same underlying complaint ("hitting a wall should mean something,
+  and I shouldn't be sliding into it by accident"):
+  - Retuned `DEFAULT_BOAT_TUNING` in `boat.mjs`: `drag` 1.1 → 2.4 (coast
+    distance after a full-throttle release dropped from a genre-
+    inappropriate ~85px down to ~37px, about 2.3 tiles), `turnRate`
+    ×1.6π → ×2.2π (turns fast enough to actually dodge a wall you see
+    coming), `maxSpeed` 140 → 120. Acceleration left close to where it
+    was (260 → 240) — the fix is stopping/turning faster, not going
+    slower.
+  - Added hull damage on a genuine wall impact: `resolveTileCollision`
+    now returns the inward impact speed (the velocity component along
+    the collision normal at the moment of a fresh hit) instead of a
+    void; `applyWallImpactDamage(boat, impactSpeed)` converts that into
+    "miniscule" hull loss above a threshold (grazes under 40px/s of
+    inward speed do nothing). This falls out of the physics almost for
+    free: sliding along a wall you're already resting against reports
+    ~0 impact speed on every subsequent frame, because the inward
+    velocity component was already cancelled the frame contact started
+    — only a fresh, hard hit costs hull. `boat.mjs` itself never touches
+    `boat.health` beyond that one function, keeping physics decoupled
+    from game-state; `run.mjs` gained `checkSunk()` (mirrors
+    `checkReachedExit()`) so 0 hull ends the run same as reaching the
+    exit does. `run.complete` renamed to `run.over` + `run.outcome`
+    (`'exit' | 'sunk'`) to carry which ending happened.
+  - `main.mjs` / `styles.css`: a hull bar in the HUD (green → red under
+    30%), a brief red screen-flash on any hit that actually deals
+    damage, and a "Your ship has sunk!" end state parallel to the
+    existing "reef cleared" one.
+  - New/updated tests: `boat.test.mjs` gained coverage for impact-speed
+    reporting (0 when idle, a real value on a head-on hit, back to ~0
+    while sliding) and `applyWallImpactDamage` (grazes ignored, hits
+    scaled small, clamped at 0 hull); `run.test.mjs` updated for the
+    `over`/`outcome` rename and gained `checkSunk` coverage plus a test
+    that exit and sunk are mutually exclusive. **104/104 tests pass.**
+  - Verified in a real headless browser: repeatedly driving hard into a
+    wall shows the hull bar tick down on the first hit, then hold steady
+    while the boat slides along the same wall afterward (no continuous
+    chip damage from contact alone) — matches the intent exactly. No
+    console errors.
 - **Not built yet:** everything past step 2 — no weapons, no enemies, no
-  combat, no loot, no run structure (permadeath/exit-to-hub), no meta-
+  combat other than wall-impact hull damage, no loot, no run structure
+  (permadeath/exit-to-hub beyond "sink = tap to retry"), no meta-
   progression, no art pass, no audio.
 - **Next up:** step 3, combat core (weapons, projectiles, hit detection,
   enemy AI with niches).
@@ -246,6 +289,15 @@ Starting fresh below for the new game.)*
   as a general lesson for this project: axis-independent tile collision
   heuristics are a trap the moment walls are more than 1 tile thick;
   proper 2D penetration resolution doesn't have that failure class.
+- 2026-09-28: Wall-impact hull damage keys off *inward impact speed at the
+  moment of a fresh hit*, not "is the boat currently touching a wall" —
+  the latter would chip hull continuously while merely sliding along a
+  wall, which isn't "smashing into the side," it's normal maze
+  navigation. Tied damage to the same physics quantity the collision
+  resolver already cancels (the velocity component along the collision
+  normal) rather than inventing a separate damage-detection mechanism,
+  so "sliding = free, ramming = costly" falls out of the existing
+  physics instead of needing its own state tracking.
 
 ## Known open questions (do not silently resolve — ask)
 

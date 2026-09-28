@@ -39,17 +39,31 @@ export function createRun(seed, { cols = 9, rows = 9, room = 6, wall = 2 } = {})
     exitWorld,
     widthPx: grid.width * TILE_SIZE,
     heightPx: grid.height * TILE_SIZE,
-    complete: false,
+    over: false,
+    outcome: null, // 'exit' | 'sunk', once over
   };
 }
 
 export function checkReachedExit(run) {
-  if (run.complete) return false;
+  if (run.over) return false;
   const dx = run.boat.x - run.exitWorld.x;
   const dy = run.boat.y - run.exitWorld.y;
   const dist = Math.hypot(dx, dy);
   if (dist <= EXIT_RADIUS_TILES * run.tileSize) {
-    run.complete = true;
+    run.over = true;
+    run.outcome = 'exit';
+    return true;
+  }
+  return false;
+}
+
+// Checked every frame after collision/damage is applied. A sunk boat ends
+// the run immediately — no "keep floating at 0 hull" state.
+export function checkSunk(run) {
+  if (run.over) return false;
+  if (run.boat.health <= 0) {
+    run.over = true;
+    run.outcome = 'sunk';
     return true;
   }
   return false;
