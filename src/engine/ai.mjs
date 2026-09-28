@@ -23,7 +23,7 @@ import {
 import { MINION_BY_ID } from '../data/minions.mjs';
 import {
   KEYWORD_VALUE, EFFECT_ACTION_VALUE, TRIGGER_WEIGHT,
-  SYNERGY_PER_COPY, SYNERGY_CAP_COPIES,
+  SYNERGY_PER_COPY, SYNERGY_CAP_COPIES, TRIPLE_SEEK_BONUS,
   MIN_BUY_VALUE, SWAP_MARGIN, FREEZE_WORTHY_VALUE,
   MAX_REROLLS_PER_TURN, MAX_BUY_ITERATIONS_PER_TURN,
   TAVERN_TARGET_TIER_BY_ROUND, UPGRADE_GOLD_RESERVE,
@@ -55,8 +55,20 @@ export function synergyBonus(faction, board) {
   return Math.min(copies, SYNERGY_CAP_COPIES) * SYNERGY_PER_COPY;
 }
 
+// How many non-golden copies of this def are already on the board — feeds
+// tripleSeekBonus so the AI actively chases a 3rd copy instead of just
+// happening into it.
+function copiesOnBoard(defId, board) {
+  return board.filter((m) => m.defId === defId && !m.golden).length;
+}
+
+function tripleSeekBonus(defId, board) {
+  return TRIPLE_SEEK_BONUS[copiesOnBoard(defId, board)] ?? 0;
+}
+
 function totalValue(minionOrDef, board) {
-  return scoreMinion(minionOrDef) + synergyBonus(minionOrDef.faction, board);
+  const defId = minionOrDef.defId ?? minionOrDef.id;
+  return scoreMinion(minionOrDef) + synergyBonus(minionOrDef.faction, board) + tripleSeekBonus(defId, board);
 }
 
 function weakestOnBoard(board) {

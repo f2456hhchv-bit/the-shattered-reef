@@ -4,6 +4,7 @@ import {
   createSharedPool, createPlayerState, startRound, refreshShop, freezeShop,
   buyMinion, sellMinion, upgradeTavern, isReefShardRound,
   offerReefShardChoices, applyReefShardChoice, SHARD_ABILITIES,
+  checkAndApplyTriples,
 } from '../src/engine/economy.mjs';
 import { instantiate, MINION_BY_ID } from '../src/data/minions.mjs';
 import { makeSeededRng } from '../src/engine/rng.mjs';
@@ -259,4 +260,80 @@ test('Drowned Favor guarantees a most-common-faction slot on the next refresh', 
   refreshShop(state, pool, makeSeededRng(14), { free: true });
   const factions = state.shop.filter(Boolean).map((s) => MINION_BY_ID[s.defId].faction);
   assert.ok(factions.includes('blacksail-reavers'));
+});
+
+test('three copies of the same minion auto-merge into one Golden with doubled stats', () => {
+  const pool = createSharedPool();
+  const state = createPlayerState();
+  state.board.push(instantiate('neutral-ghost-light', 'g1'));
+  state.board.push(instantiate('neutral-ghost-light', 'g2'));
+  state.board.push(instantiate('neutral-ghost-light', 'g3'));
+  const events = checkAndApplyTriples(state);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].defId, 'neutral-ghost-light');
+  assert.equal(state.board.length, 1);
+  const golden = state.board[0];
+  assert.equal(golden.golden, true);
+  assert.equal(golden.attack, 2); // base 1 * 2
+  assert.equal(golden.health, 2);
+  assert.equal(golden.maxHealth, 2);
+});
+
+test('tripling gives a permanent +1/+1 prize to another board minion', () => {
+  const pool = createSharedPool();
+  const state = createPlayerState();
+  const bystander = instantiate('reaver-bilge-rigger', 'b1'); // 3/2
+  state.board.push(bystander);
+  state.board.push(instantiate('neutral-ghost-light', 'g1'));
+  state.board.push(instantiate('neutral-ghost-light', 'g2'));
+  state.board.push(instantiate('neutral-ghost-light', 'g3'));
+  const events = checkAndApplyTriples(state);
+  assert.equal(events[0].prizeTargetName, 'Bilge Rigger');
+  assert.equal(bystander.attack, 4);
+  assert.equal(bystander.health, 3);
+  assert.equal(bystander.maxHealth, 3);
+});
+
+test('tripling with no other minion on board pays out gold instead', () => {
+  const pool = createSharedPool();
+  const state = createPlayerState();
+  state.gold = 0;
+  state.board.push(instantiate('neutral-ghost-light', 'g1'));
+  state.board.push(instantiate('neutral-ghost-light', 'g2'));
+  state.board.push(instantiate('neutral-ghost-light', 'g3'));
+  const events = checkAndApplyTriples(state);
+  assert.equal(events[0].prizeGold, 2);
+  assert.equal(state.gold, 2);
+});
+
+test('a Reef Shard ability already earned by a merging copy carries onto the Golden', () => {
+  const pool = createSharedPool();
+  const state = createPlayerState();
+  const shardCopy = instantiate('neutral-ghost-light', 'g1');
+  shardCopy.shardAbilities = ['vampiric'];
+  state.board.push(shardCopy);
+  state.board.push(instantiate('neutral-ghost-light', 'g2'));
+  state.board.push(instantiate('neutral-ghost-light', 'g3'));
+  checkAndApplyTriples(state);
+  assert.deepEqual(state.board[0].shardAbilities, ['vampiric']);
+});
+
+test('golden minions do not re-trigger triples, and buyMinion auto-merges the 3rd purchase', () => {
+  const pool = createSharedPool();
+  const state = createPlayerState();
+  state.board.push(instantiate('neutral-ghost-light', 'g1'));
+  state.board.push(instantiate('neutral-ghost-light', 'g2'));
+  state.gold = 10;
+  state.shop = [{ defId: 'neutral-ghost-light' }, null, null];
+  const bought = buyMinion(state, 0);
+  assert.equal(bought.defId, 'neutral-ghost-light');
+  assert.equal(state.board.length, 1);
+  assert.equal(state.board[0].golden, true);
+  assert.equal(state.lastTripleEvents.length, 1);
+
+  // A 4th copy should never chain into a second merge with the existing Golden.
+  state.board.push(instantiate('neutral-ghost-light', 'g4'));
+  const events = checkAndApplyTriples(state);
+  assert.equal(events.length, 0);
+  assert.equal(state.board.length, 2);
 });

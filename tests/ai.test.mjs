@@ -134,3 +134,18 @@ test('AI-controlled state stays within the vertical slice\'s tavern cap', () => 
   }
   assert.ok(state.tavernTier <= MAX_TAVERN_TIER);
 });
+
+test('runAiTurn chases a 3rd copy of a minion it already has 2 of over a merely-better unrelated one', () => {
+  const rng = makeSeededRng(200);
+  const pool = createSharedPool();
+  const state = createPlayerState();
+  state.board.push(instantiate('neutral-ghost-light', 'g1'));
+  state.board.push(instantiate('neutral-ghost-light', 'g2'));
+  state.gold = 10;
+  state.maxGold = 10;
+  // Slot 0: the 3rd Ghost Light (completes a triple). Slot 1: a same-tier,
+  // modestly-better-statted unrelated minion. The triple pull should win.
+  state.shop = [{ defId: 'neutral-ghost-light' }, { defId: 'reaver-bilge-rigger' }, null];
+  runAiTurn(state, pool, 4, rng);
+  assert.ok(state.board.some((m) => m.golden && m.defId === 'neutral-ghost-light'));
+});

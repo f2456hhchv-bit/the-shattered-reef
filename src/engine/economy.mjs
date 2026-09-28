@@ -29,6 +29,13 @@ export const BOARD_CAP = 7;
 const SHOP_SIZE = 3;
 const REROLL_BASE_COST = 1;
 const SELL_VALUE = 1;
+const TRIPLE_COPIES_REQUIRED = 3;
+// The "prize" for tripling: a small permanent reward on top of the golden
+// minion itself, landing on a random OTHER friendly minion so tripling
+// pays off even when the golden slot itself is already great. Falls back
+// to a gold bonus if there's nothing else on the board to buff.
+const TRIPLE_PRIZE_BUFF = { attack: 1, health: 1 };
+const TRIPLE_PRIZE_GOLD_FALLBACK = 2;
 
 // Exported so callers (the AI engine, tests) never have to re-derive these
 // from the raw constants above — single source of truth.
@@ -92,7 +99,76 @@ export function createPlayerState() {
     guaranteedFactionActive: false, // from Drowned Favor
     pendingBonusShardEvents: 0, // queued by Fathom Priestess's battlecry
     freeRerollBanked: 0, // from Wandering Merchant's end_of_combat_won (refresh_shop_free)
+    lastTripleEvents: [], // set by buyMinion when a buy completes a triple — see checkAndApplyTriples
   };
+}
+
+// --- Triples: Battlegrounds' core progression mechanic. Cards don't die on
+// their own between rounds — they sit on the board until sold or lost in a
+// fight — and buying a 3rd copy of a minion you already have 2 of merges
+// all three into one Golden minion (double base stats, one board slot
+// instead of three) plus a small permanent prize buff elsewhere on the
+// board, so investing in a card pays off beyond just "a bigger stat line".
+// Golden copies never re-triple (there's no 4th tier in the slice).
+function goldenInstance(defId) {
+  const def = MINION_BY_ID[defId];
+  const instance = instantiate(defId, nextInstanceId(defId));
+  instance.attack = def.attack * 2;
+  instance.health = def.health * 2;
+  instance.maxHealth = def.health * 2;
+  instance.golden = true;
+  return instance;
+}
+
+// Scans the board for any defId with 3+ non-golden copies and merges them.
+// Runs in a loop so multiple simultaneous triples (e.g. two different
+// buys landing at once via a future bulk-add) all resolve. Returns a list
+// of { defId, name, prizeTargetName | prizeGold } describing what happened,
+// for the UI to celebrate.
+export function checkAndApplyTriples(state) {
+  const events = [];
+  let again = true;
+  while (again) {
+    again = false;
+    const counts = {};
+    for (const m of state.board) {
+      if (m.golden) continue;
+      (counts[m.defId] ??= []).push(m);
+    }
+    const tripled = Object.entries(counts).find(([, copies]) => copies.length >= TRIPLE_COPIES_REQUIRED);
+    if (!tripled) break;
+    const [defId, copies] = tripled;
+    const merging = copies.slice(0, TRIPLE_COPIES_REQUIRED);
+    const mergingIds = new Set(merging.map((m) => m.instanceId));
+    const earliestIndex = state.board.findIndex((m) => mergingIds.has(m.instanceId));
+
+    // Carry forward any Reef Shard board abilities already earned by the
+    // merging copies rather than discarding them — losing an ability you
+    // fed a shard into would feel punishing for the "wrong" reason (the
+    // triple should always feel like a reward, never a cost).
+    const carriedAbilities = [...new Set(merging.flatMap((m) => m.shardAbilities ?? []))];
+    const golden = goldenInstance(defId);
+    if (carriedAbilities.length) golden.shardAbilities = carriedAbilities;
+
+    state.board = state.board.filter((m) => !mergingIds.has(m.instanceId));
+    state.board.splice(Math.min(earliestIndex, state.board.length), 0, golden);
+
+    const others = state.board.filter((m) => m !== golden);
+    const event = { defId, name: MINION_BY_ID[defId].name, instanceId: golden.instanceId };
+    if (others.length) {
+      const target = others[Math.floor(Math.random() * others.length)];
+      target.attack += TRIPLE_PRIZE_BUFF.attack;
+      target.health += TRIPLE_PRIZE_BUFF.health;
+      target.maxHealth += TRIPLE_PRIZE_BUFF.health;
+      event.prizeTargetName = MINION_BY_ID[target.defId].name;
+    } else {
+      state.gold += TRIPLE_PRIZE_GOLD_FALLBACK;
+      event.prizeGold = TRIPLE_PRIZE_GOLD_FALLBACK;
+    }
+    events.push(event);
+    again = true; // in case this merge somehow exposed another (defensive; not expected at 7-slot board scale)
+  }
+  return events;
 }
 
 function mostCommonFaction(board) {
@@ -223,6 +299,7 @@ export function buyMinion(state, shopIndex) {
   const instance = instantiate(def.id, nextInstanceId(def.id));
   state.board.push(instance);
   runBattlecry(state, instance);
+  state.lastTripleEvents = checkAndApplyTriples(state);
   return instance;
 }
 

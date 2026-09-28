@@ -236,6 +236,44 @@ whether the core loop and the AI can handle both.
     a full multi-round match including a Reef Shard round and reaching
     the game-over screen with a correct placement list, no console
     errors.
+- **Gap closed (patched immediately, per standing instruction):** the core
+  Battlegrounds triple/Golden mechanic was missing entirely — surviving
+  minions already correctly persist on the board round-to-round (only
+  combat deaths and manual sells remove them; that part matched the genre
+  already), but buying a 3rd copy of a minion did nothing special. Fixed:
+  - `economy.mjs`: `checkAndApplyTriples(state)` — scans the board for 3+
+    non-golden copies of the same `defId`, merges them into one Golden
+    instance (`golden: true`, base attack/health doubled, one board slot
+    instead of three), and awards a "prize": a permanent +1/+1 to a random
+    *other* friendly minion, or +2 gold if the board has nothing else on
+    it. Any Reef Shard board ability already earned by a merging copy
+    carries onto the Golden (union, deduped) rather than being lost — a
+    triple should always read as a reward, never a cost. Golden minions
+    never re-trigger a further merge. Runs automatically at the end of
+    `buyMinion()` (result stored on `state.lastTripleEvents` for the UI to
+    read/animate) — impossible to forget to call from any buy path.
+  - `ai.mjs` / `ai-tuning.mjs`: added `TRIPLE_SEEK_BONUS` (keyed by how
+    many non-golden copies of a def the AI's board already has — 1 or 2),
+    folded into `totalValue()` alongside the existing synergy bonus, so
+    the AI actively chases a 3rd copy instead of only stumbling into one.
+  - `cards.mjs` / `styles.css`: `.card-golden` styling (gold border/glow,
+    ★ prefix on the name, a small badge on compact board tokens) plus a
+    one-shot `card-triple` pop/flash animation triggered on the specific
+    newly-merged instance.
+  - `app.mjs`: `onBuy` now reads `state.lastTripleEvents` after a buy and
+    toasts "★ `<name>` tripled into Golden! +1/+1 to `<other>`" (or the
+    gold-fallback wording), and plays the triple animation on that exact
+    card element via its `data-instance-id`.
+  - New tests: 5 in `tests/economy.test.mjs` (merge + doubled stats,
+    prize-buff targeting, gold fallback when no other minion exists, Reef
+    Shard ability carry-over, golden-never-re-triples + `buyMinion`
+    auto-merge on the 3rd purchase), 1 in `tests/ai.test.mjs` (AI prefers
+    completing a triple over a merely-better unrelated card). **78/78
+    tests pass.** Verified in a real headless browser that the page still
+    loads and buys cleanly with no console errors (a live, in-browser
+    triple wasn't forced — it's RNG-gated on which minion the shop
+    happens to offer three times — but the underlying logic is covered
+    end-to-end by the new unit tests).
 - **Not built yet:** Reef Shard/Fathom visual polish, general combat
   animation/feedback, a proper title/menu screen.
 - **Next up:** step 7, Reef Shard + Fathom visuals/feedback.
@@ -311,6 +349,16 @@ what's still a gap in `combat.mjs`).
 - 2026-09-27: Lobby size is 8 (you + up to 7 AI, named in
   `src/data/ai-opponents.mjs`), matching the original "plays against 8"
   design intent from the very first design conversation.
+- 2026-09-28: Triple prize is a permanent +1/+1 to a random other friendly
+  minion (gold fallback if the board is otherwise empty), not a bigger
+  gold/reroll reward — chosen so the mechanic pays off through the
+  same-board-of-interacting-systems the rest of the game already leans
+  on, rather than as an isolated bonus. A tripled minion's Golden copy
+  keeps any Reef Shard board ability already earned by a merging copy
+  (union of the three, deduped) instead of losing it, a deliberate
+  deviation from Hearthstone Battlegrounds (which discards buffs on
+  triple) — losing an invested-in shard on your reward moment would read
+  as a punishment, not a prize.
 
 ## Known open questions (do not silently resolve — ask)
 

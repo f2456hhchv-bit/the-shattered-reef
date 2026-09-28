@@ -36,6 +36,7 @@ export function buildCard(minion, { cost, affordable, locked = false, compact = 
   card.dataset.faction = def.faction;
   if (locked) card.classList.add('card-locked');
   if (affordable === false) card.classList.add('unaffordable');
+  if (minion.golden) card.classList.add('card-golden');
 
   if (cost != null) {
     const costBadge = el('div', 'card-cost', String(cost));
@@ -43,13 +44,14 @@ export function buildCard(minion, { cost, affordable, locked = false, compact = 
   }
 
   if (compact) {
+    if (minion.golden) card.appendChild(el('div', 'card-golden-badge', '★'));
     if (minion.keywords.length) {
       const kwRow = el('div', 'card-keywords card-keywords-icons');
       for (const kw of minion.keywords) kwRow.appendChild(el('span', 'card-keyword-icon', KEYWORD_ICON[kw] ?? kw[0].toUpperCase()));
       card.appendChild(kwRow);
     }
   } else {
-    card.appendChild(el('div', 'card-name', def.name));
+    card.appendChild(el('div', 'card-name', minion.golden ? `★ ${def.name}` : def.name));
 
     if (minion.keywords.length) {
       const kwRow = el('div', 'card-keywords');

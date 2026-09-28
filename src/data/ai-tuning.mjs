@@ -45,6 +45,13 @@ export const TRIGGER_WEIGHT = {
 export const SYNERGY_PER_COPY = 1.5;
 export const SYNERGY_CAP_COPIES = 4;
 
+// Extra pull toward completing a triple (a Golden minion + prize buff),
+// keyed by how many non-golden copies of that minion are already on the
+// board. Having 2 already and seeing a 3rd should heavily outweigh a
+// slightly-better unrelated stat line — that's the whole point of the
+// mechanic. Having 0 or 1 gets no bonus (declared implicitly via ?? 0).
+export const TRIPLE_SEEK_BONUS = { 1: 1.5, 2: 7 };
+
 // Minimum heuristic value (score, not per-gold) a shop option needs before
 // the AI will spend gold buying it outright.
 export const MIN_BUY_VALUE = 3;

@@ -132,7 +132,23 @@ export function startApp(root) {
   }
 
   function onBuy(shopIndex) {
-    safely(() => buyMinion(state, shopIndex));
+    let triples = [];
+    safely(() => {
+      buyMinion(state, shopIndex);
+      triples = state.lastTripleEvents;
+    });
+    for (const t of triples) {
+      const prize = t.prizeTargetName
+        ? `+1/+1 to ${t.prizeTargetName}`
+        : `+${t.prizeGold} bonus gold`;
+      showToast(`★ ${t.name} tripled into Golden! ${prize}`);
+    }
+    for (const t of triples) {
+      const cardEl = board.querySelector(`[data-instance-id="${t.instanceId}"]`);
+      if (!cardEl) continue;
+      cardEl.classList.add('just-tripled');
+      cardEl.addEventListener('animationend', () => cardEl.classList.remove('just-tripled'), { once: true });
+    }
   }
   function onReroll() {
     safely(() => refreshShop(state, pool, rng));
