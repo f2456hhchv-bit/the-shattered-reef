@@ -158,3 +158,24 @@ export function playRevive() {
 export function playLockedWeapon() {
   tone(140, { duration: 0.06, type: 'square', gain: 0.08 });
 }
+
+// A dedicated boss-only phase-swap cue, distinct from every other tone
+// here — the whole point of the boss fight is "notice your weapon just
+// stopped working and swap," so this needs to be unmistakable on a phone
+// speaker mid-combat, not just another hit-adjacent blip.
+export function playBossPhaseChange() {
+  tone(520, { duration: 0.2, type: 'sawtooth', gain: 0.18, glideTo: 180 });
+  tone(240, { duration: 0.32, type: 'sine', gain: 0.15, glideTo: 480 });
+}
+
+// A short fanfare on top of the regular kill cue — a 220-HP boss with a
+// mid-fight phase mechanic earns a bigger "you actually won that" moment
+// than a Reef Skimmer dying does.
+export function playBossDefeated() {
+  const notes = [220, 330, 440, 660, 880];
+  notes.forEach((freq, i) => setTimeout(
+    () => tone(freq, { duration: 0.26, type: 'sawtooth', gain: 0.2, glideTo: freq * 1.3 }),
+    i * 90,
+  ));
+  setTimeout(() => noiseBurst({ duration: 0.4, gain: 0.25, filterFreq: 400 }), 260);
+}

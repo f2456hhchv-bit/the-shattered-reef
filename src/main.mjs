@@ -37,6 +37,7 @@ import {
 import {
   unlockAudio, setMuted, isMuted, playFire, playHit, playKill, playExplosion, playWallImpact,
   playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playLockedWeapon,
+  playBossPhaseChange, playBossDefeated,
 } from './audio/audio.mjs';
 import { WEAPON_IDS } from './data/weapons.mjs';
 
@@ -462,6 +463,7 @@ export function startApp(root) {
     projectileCount: run.weapons.projectiles.length,
     enemies: run.enemies.filter((e) => e.health > 0).map((e) => ({
       defId: e.defId, x: e.x, y: e.y, health: e.health, invulnerable: e.invulnerable,
+      isBoss: e.isBoss, phaseIndex: e.phaseIndex,
     })),
     firing: isFiring, cooldownRemaining: run.weapons.cooldownRemaining,
     heldWeapons: Array.from(run.weapons.heldWeapons),
@@ -533,6 +535,26 @@ export function startApp(root) {
       stepAmmoRegen(run.weapons, dt);
       updateEnemies(run.enemies, run.boat, dt, run.grid, run.tileSize);
 
+      // The Kraken's Anchor announces its own phase swaps (submerged/
+      // Depth-Charges <-> tank/Flame-Barrels) — the whole point of the
+      // mechanic is "your weapon just stopped working, swap," which is
+      // silent and easy to miss without an explicit cue. `_lastAnnouncedPhase`
+      // is transient render/UI state kept directly on the enemy object
+      // (never read by engine/enemies.mjs itself), initialized on first
+      // sight rather than at spawn so it doesn't fire a false "swap" the
+      // instant the boss appears.
+      for (const enemy of run.enemies) {
+        if (!enemy.isBoss || enemy.health <= 0) continue;
+        if (enemy._lastAnnouncedPhase === undefined) {
+          enemy._lastAnnouncedPhase = enemy.phaseIndex;
+        } else if (enemy.phaseIndex !== enemy._lastAnnouncedPhase) {
+          enemy._lastAnnouncedPhase = enemy.phaseIndex;
+          showToast(`The Kraken's Anchor shifts — try ${getWeapon(enemy.counter).name}! ⚓`);
+          playBossPhaseChange();
+          addShake(shake, 0.3);
+        }
+      }
+
       // Depth Charges detonate as an AoE rather than a per-enemy direct
       // hit, so their "something exploded" feedback (a big particle ring +
       // boom) is tied to the projectile itself going spent, not to
@@ -555,10 +577,20 @@ export function startApp(root) {
           crit: currentCounter(ev.enemy) === ev.weaponId,
         });
         if (ev.killed) {
-          spawnKillBurst(particles, ev.enemy.x, ev.enemy.y, weaponColor, Math.random);
-          addShake(shake, 0.35);
-          triggerHitStop(hitStop, 0.05);
-          playKill();
+          if (ev.enemy.isBoss) {
+            // A 220 HP boss with its own phase mechanic earns a bigger
+            // "you actually won that" moment than a regular kill.
+            spawnExplosion(particles, ev.enemy.x, ev.enemy.y, 50, Math.random);
+            addShake(shake, 1);
+            triggerHitStop(hitStop, 0.15);
+            playBossDefeated();
+            showToast("The Kraken's Anchor is defeated! ⚓");
+          } else {
+            spawnKillBurst(particles, ev.enemy.x, ev.enemy.y, weaponColor, Math.random);
+            addShake(shake, 0.35);
+            triggerHitStop(hitStop, 0.05);
+            playKill();
+          }
           salvageGained += ev.enemy.salvageDrop;
         } else {
           spawnHitSpark(particles, ev.enemy.x, ev.enemy.y, weaponColor, Math.random);
@@ -571,9 +603,17 @@ export function startApp(root) {
         if (burnEvent) {
           spawnDamageNumber(damageNumbers, enemy.x, enemy.y - enemy.radius - 4, burnEvent.damage);
           if (burnEvent.killed) {
-            spawnKillBurst(particles, enemy.x, enemy.y, PALETTE.burn, Math.random);
-            addShake(shake, 0.3);
-            playKill();
+            if (enemy.isBoss) {
+              spawnExplosion(particles, enemy.x, enemy.y, 50, Math.random);
+              addShake(shake, 1);
+              triggerHitStop(hitStop, 0.15);
+              playBossDefeated();
+              showToast("The Kraken's Anchor is defeated! ⚓");
+            } else {
+              spawnKillBurst(particles, enemy.x, enemy.y, PALETTE.burn, Math.random);
+              addShake(shake, 0.3);
+              playKill();
+            }
             salvageGained += burnEvent.enemy.salvageDrop;
           }
         }
@@ -632,7 +672,18 @@ export function startApp(root) {
           camera.x = run.boat.x;
           camera.y = run.boat.y;
           setStatus(`Reef ${run.reefIndex + 1} of ${run.reefCount} — find the exit ⚓`);
-          showToast(`Reef cleared! +${bankedThisReef} Salvage banked ⚓`);
+          // The Kraken's Anchor is a chance-based spawn on the final reef
+          // (see data/enemies.mjs), so a voyage may or may not meet it —
+          // when it does, fold the warning into the same toast as the
+          // reef-cleared message rather than a second toast that would
+          // just overwrite this one a moment later.
+          const boss = run.enemies.find((e) => e.isBoss);
+          if (boss) {
+            boss._lastAnnouncedPhase = boss.phaseIndex; // don't fire a false "swap" on first sight
+            showToast(`Reef cleared! +${bankedThisReef} Salvage banked ⚓ — The Kraken's Anchor guards the exit! Try ${getWeapon(boss.counter).name} ⚓`);
+          } else {
+            showToast(`Reef cleared! +${bankedThisReef} Salvage banked ⚓`);
+          }
           updateReefIndicator();
           updateSalvageCounter();
           updateWeaponBar();
@@ -655,7 +706,7 @@ export function startApp(root) {
     drawTileGrid(ctx, run.grid, run.tileSize, cx - vw / 2, cy - vh / 2, cx + vw / 2, cy + vh / 2);
     drawExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
     drawPickups(ctx, run.pickups, (p) => WEAPON_SHORT_LABEL[p.weaponId], now / 1000);
-    drawEnemies(ctx, run.enemies, (e) => e.colorHex || enemyColor(e), now / 1000);
+    drawEnemies(ctx, run.enemies, (e) => e.colorHex || enemyColor(e), now / 1000, (e) => (e.isBoss ? "The Kraken's Anchor" : null));
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color);
     if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS);
     drawParticles(ctx, particles);

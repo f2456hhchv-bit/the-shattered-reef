@@ -4,7 +4,7 @@ import {
   createEnemy, spawnReefEnemies, updateEnemy, updateEnemies,
   resolveEnemyContact, currentCounter,
 } from '../src/engine/enemies.mjs';
-import { ENEMY_IDS, ARCHETYPES, getEnemy } from '../src/data/enemies.mjs';
+import { ENEMY_IDS, ARCHETYPES, getEnemy, spawnPoolForReefIndex } from '../src/data/enemies.mjs';
 import { createBoat } from '../src/engine/boat.mjs';
 import { makeSeededRng } from '../src/engine/rng.mjs';
 
@@ -62,6 +62,37 @@ test('a Reef Skimmer pick spawns its whole pack at once', () => {
   const enemies = spawnReefEnemies([ENEMY_IDS.REEF_SKIMMER], grid, 16, boatSpawn, exitWorld, 3, rng);
   assert.ok(enemies.length >= 3, 'a skimmer pack should not spawn a single lone skimmer');
   for (const e of enemies) assert.equal(e.defId, ENEMY_IDS.REEF_SKIMMER);
+});
+
+test('spawnPoolForReefIndex includes the Kraken\'s Anchor only on the final reef (chance-based, not guaranteed elsewhere)', () => {
+  assert.ok(!spawnPoolForReefIndex(0).includes(ENEMY_IDS.KRAKENS_ANCHOR));
+  assert.ok(!spawnPoolForReefIndex(1).includes(ENEMY_IDS.KRAKENS_ANCHOR));
+  assert.ok(spawnPoolForReefIndex(2).includes(ENEMY_IDS.KRAKENS_ANCHOR));
+});
+
+test('a boss pick from the spawn pool is placed guarding the exit, not hidden in the maze', () => {
+  const rng = makeSeededRng(3);
+  const grid = openGrid();
+  const boatSpawn = { x: 5 * 16, y: 5 * 16 };
+  const exitWorld = { x: 30 * 16, y: 30 * 16 };
+  // A pool of only the boss forces every draw to hit it.
+  const enemies = spawnReefEnemies([ENEMY_IDS.KRAKENS_ANCHOR], grid, 16, boatSpawn, exitWorld, 5, rng);
+  assert.equal(enemies.length, 1, 'only one boss should ever be placed per reef, even with repeated draws');
+  const boss = enemies[0];
+  assert.equal(boss.defId, ENEMY_IDS.KRAKENS_ANCHOR);
+  const distFromExit = Math.hypot(boss.x - exitWorld.x, boss.y - exitWorld.y);
+  assert.ok(distFromExit < 16 * 2, 'the boss should spawn right at/near the exit, not away from it like regular enemies');
+});
+
+test('spawnReefEnemies places at most one boss even in a mixed pool with several other picks', () => {
+  const rng = makeSeededRng(11);
+  const grid = openGrid();
+  const boatSpawn = { x: 5 * 16, y: 5 * 16 };
+  const exitWorld = { x: 30 * 16, y: 30 * 16 };
+  const pool = spawnPoolForReefIndex(2); // includes the boss alongside 5 regular enemies
+  const enemies = spawnReefEnemies(pool, grid, 16, boatSpawn, exitWorld, 20, rng);
+  const bossCount = enemies.filter((e) => e.defId === ENEMY_IDS.KRAKENS_ANCHOR).length;
+  assert.ok(bossCount <= 1, `expected at most one boss, got ${bossCount}`);
 });
 
 test('SWARM archetype closes distance on the boat when far away', () => {

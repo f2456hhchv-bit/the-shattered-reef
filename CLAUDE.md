@@ -724,24 +724,103 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     forcing a sink correctly ran the explosion-burst path with no crash.
     No console errors in any run (only the same benign `favicon.ico` 404
     from the test server seen in every prior step's playtest).
-- **Not built yet:** a real sprite/sample-audio art pass (step 8 shipped
-  polish *systems* — particles/shake/hit-stop/damage numbers/procedural
-  audio — not new art assets; placeholder shapes and synthesized tones are
-  still deliberate per the project's own "no art pass until the loop is
-  proven" rule, and the loop is proven, not art-directed), and the boss
-  ("The Kraken's Anchor") is defined in data but never actually spawned
-  anywhere yet — worth deciding whether it belongs on the final reef as
-  this voyage structure's natural finale, or stays deferred; flagged
-  below as an open question rather than silently resolved.
+- **Phase:** step 8 follow-up — The Kraken's Anchor boss is now built,
+  spawned, and playtested. Asked the project owner first, per this file's
+  own "Known open questions" rule, rather than silently resolving the
+  three open design calls: **AskUserQuestion** answers were **chance-based
+  pool entry** (not guaranteed), **keep full density** (reef 3's regular
+  13-enemy count unchanged), **guarding the exit**.
+- **Just shipped:**
+  - `src/data/enemies.mjs` — `spawnPoolForReefIndex`'s final branch
+    (`reefIndex >= 2`) now appends `ENEMY_IDS.KRAKENS_ANCHOR` to the same
+    array the 5 regular reef-3 enemies are drawn from. Reconciles the two
+    chosen answers literally: it's drawn by chance (one entry among six,
+    same `spawnPool[Math.floor(rng() * spawnPool.length)]` mechanism), and
+    reef 3's `REEF_TUNING` enemy count is untouched — the boss can consume
+    one of the 13 regular slots rather than being an additive 14th spawn.
+  - `src/engine/enemies.mjs` — `spawnReefEnemies` special-cases on the
+    generic `def.isBoss` data field (not hardcoded to the Kraken), so any
+    future second boss is already handled. A boss draw is placed with
+    small jitter (`±0.7 tiles`) around `exitWorld` instead of the normal
+    away-from-spawn/exit placement, and a `bossPlaced` flag redraws
+    (`continue`) instead of placing a second boss in the same reef.
+  - **Real bug found via my own new test (not a playtest) — an infinite
+    loop:** the dedup's `continue` on an already-placed boss never
+    incremented the loop's `placed` counter, so a spawn pool that's
+    *entirely* the boss (built deliberately in one of the new tests to
+    force every draw to hit it) redrew forever without ever reaching
+    `count` — `node --test` hung for the full 2-minute tool timeout with
+    no output, had to `pkill` it to diagnose. Fixed with a global
+    `attempts`/`maxAttempts` bound (`count * 50 + 200`) on the whole
+    `while` loop, mirroring the existing bounded-attempt pattern already
+    used inside `findOpenSpawnTile` (200 attempts). Worth remembering as a
+    general lesson: any pool-draw loop that can redraw without making
+    progress needs a *global* attempt bound, not just one inside whatever
+    helper it calls — this is reachable in real play too, if a maze is
+    ever too small/dense for placement to succeed repeatedly.
+  - `src/audio/audio.mjs` — two new cues: `playBossPhaseChange()` (a
+    distinct sawtooth/sine sweep, deliberately unmistakable on a phone
+    speaker mid-combat, since the whole point of a phase swap is "notice
+    your weapon just stopped working") and `playBossDefeated()` (a 5-note
+    ascending fanfare + noise burst, bigger than a regular `playKill()`).
+  - `src/engine/renderer.mjs` — `drawEnemy`/`drawEnemies` gained an
+    optional `name`/`nameFor` parameter (default `null`), drawing a text
+    label above the health bar only when passed — kept the renderer
+    decoupled from `data/enemies.mjs` (main.mjs resolves the name via a
+    callback, same pattern as the existing `colorFor` callback), and only
+    the boss ever gets one, so a regular enemy's silhouette+color stays
+    the only identifier per the counter-swap hook's own design.
+  - `src/main.mjs` — a phase-change-announcement loop in the frame loop
+    (per-enemy transient state `enemy._lastAnnouncedPhase`, initialized to
+    the current phase on first sight so encountering the boss mid-phase-1
+    doesn't fire a false "just swapped!" toast); boss kills get distinctly
+    bigger feedback than a regular kill (`spawnExplosion(..., 50, ...)`
+    instead of `spawnKillBurst`, `addShake(shake, 1)` instead of `0.35`,
+    `triggerHitStop(hitStop, 0.15)` instead of `0.05`,
+    `playBossDefeated()`), applied identically in both the direct-hit kill
+    branch and the Flame Barrels burn-tick kill branch, since either can
+    land the killing blow during the boss's two phases; the `'advanced'`
+    reef-transition toast is combined into one string (reef-cleared +
+    boss-warning) rather than two separate toasts racing to overwrite each
+    other, since `showToast()` only holds one message at a time; render
+    call passes `(e) => (e.isBoss ? "The Kraken's Anchor" : null)` as the
+    new `nameFor` callback.
+  - New tests in `tests/enemies.test.mjs` (3): pool inclusion is
+    reef-3-only, a boss-only pool always places exactly one boss guarding
+    the exit (this is the test that originally hung before the fix), and
+    a mixed full reef-3 pool never places more than one boss. **188/188
+    tests pass** across the whole repo.
+  - Verified end-to-end in a real headless browser (Playwright/Chromium),
+    after two earlier playtest-script iterations that needed correcting
+    (not game bugs): the first got cut short by the — deliberately
+    undiminished — reef-3 mob sinking the boat before reaching the exit;
+    the second warped the boat to within the exit's own trigger radius,
+    which correctly triggered `'victory'` (slipping past the boss) before
+    any combat happened — confirmed as the intended "guards the exit but
+    can be slipped past" design (enemies only ever deal contact damage,
+    never physically block the boat, and `checkReachedExit` only checks
+    distance to `exitWorld`), not a bug, then fixed the test's own warp
+    math to land clear of that radius. The corrected third run observed
+    the full cycle for real: boss health ticked down through phase 0
+    (submerged/Depth Charges), the phase-change toast and
+    `playBossPhaseChange()` fired on schedule at the 14s mark (phase 1,
+    tank/Flame Barrels), and the kill produced the defeat toast, fanfare,
+    and a Salvage drop (47 total) with `over: false` — the boat survived,
+    confirming the fight itself doesn't end the run, only sinking or
+    reaching an exit does. No console errors (only the same benign
+    `favicon.ico` 404 seen in every prior playtest).
+- **Not built yet:** a real sprite/sample-audio art pass (placeholder
+  shapes and synthesized tones remain deliberate per the project's own
+  "no art pass until the loop is proven" rule — the loop is proven, not
+  art-directed).
 - **Next up:** the vertical slice's entire locked build order (steps 2-8)
-  is now fully built, tested, and playtested end to end — navigation,
-  combat, loot, a full 3-reef roguelike run structure, persistent
-  meta-progression, and polish. What's left is the two items above (a
-  real art/audio-asset pass, and the boss decision) plus the confirmed
-  post-slice direction already documented (playable factions, the combat
-  triangle, the Captain's Hub → Workshop/crafting expansion) — see the
-  PRD's "Post-Slice Direction" section. Next session should open by asking
-  the project owner which of these to prioritize rather than assuming.
+  plus both of step 8's own flagged follow-ups (art pass, the boss) are
+  now fully built, tested, and playtested end to end. What's left is the
+  art/audio-asset pass and the confirmed post-slice direction already
+  documented (playable factions, the combat triangle, the Captain's Hub →
+  Workshop/crafting expansion) — see the PRD's "Post-Slice Direction"
+  section. Next session should open by asking the project owner which of
+  these to prioritize rather than assuming.
 
 ## Decisions log
 
@@ -1020,18 +1099,43 @@ Starting fresh below for the new game.)*
   40px minimum height. Small, easy to defer, but exactly the kind of thing
   that's cheap to fix now and easy to forget once more UI accumulates on
   top of it.
+- 2026-09-28: Asked before building The Kraken's Anchor boss, per this
+  file's own "ask before building it" instruction, via `AskUserQuestion`
+  rather than picking recommended defaults silently. Project owner chose
+  chance-based pool entry (not guaranteed), full density (reef 3's regular
+  13-enemy count unchanged), and guarding the exit. Reconciled the first
+  two by literally appending the boss id to the same randomly-drawn pool
+  array that fills reef 3's unchanged enemy-count budget, rather than
+  inventing a separate additive probability roll — it's drawn by chance
+  and the regular count is genuinely untouched, satisfying both answers at
+  face value rather than approximating them.
+- 2026-09-28: `spawnReefEnemies` special-cases on the generic `def.isBoss`
+  data field rather than hardcoding the Kraken's own id — future-proofs
+  for a second boss later without touching this function again, matching
+  the project's existing data-driven-content philosophy.
+- 2026-09-28: Found and fixed a real infinite loop in `spawnReefEnemies`
+  via `node --test` itself (a test deliberately built a boss-only spawn
+  pool to force every draw to hit it) — the boss-dedup's `continue` on an
+  already-placed boss never advanced the loop's `placed` counter, so with
+  no bound on total iterations it redrew forever. Fixed with a global
+  `attempts`/`maxAttempts` bound on the whole loop, mirroring
+  `findOpenSpawnTile`'s existing bounded-attempt pattern. General lesson:
+  any pool-draw loop that can redraw without guaranteed progress needs a
+  bound on the loop itself, not just inside whatever helper it calls —
+  this is reachable in real play too (a maze too small/dense for
+  placement to succeed repeatedly), not just in a contrived test.
+- 2026-09-28: Confirmed "guards the exit" means exactly that and not a
+  hard gate — enemies never physically block the boat, only deal contact
+  damage, and `checkReachedExit` only checks distance to the exit tile, so
+  a player can legitimately reach it and win without fighting the boss.
+  Verified via playtest (reaching the exit near the boss produced a clean
+  `outcome: 'victory'` with the boss still alive, no crash) — matches the
+  "must beat or slip past it" framing used when asking the project owner,
+  which they approved, so this is confirmed intended behavior, not a gap.
 
 ## Known open questions (do not silently resolve — ask)
 
-- **The Kraken's Anchor boss is defined but never spawned.** Its data and
-  phase-swap logic (`data/enemies.mjs`/`engine/enemies.mjs`) have existed
-  since step 3, and step 6's 3-reef structure makes "spawn it on the final
-  reef as the voyage's finale" an obvious fit — but that's a real design/
-  balance decision (guaranteed spawn vs. a spawn-pool entry; does a full
-  boss fight fit reef 3's current size/enemy density; does it replace or
-  add to the regular spawn pool there), not something to fold silently
-  into a future commit. Ask before building it.
-- See the PRD's "Open Risks & Provisional Decisions" section for the rest
+- See the PRD's "Open Risks & Provisional Decisions" section
   (firing control choice — implemented as aim-assist, still provisional;
   one-handed weapon-select UX; Depth Charges' prediction-based design;
   hull-carryover fairness across reefs, now directly testable since step

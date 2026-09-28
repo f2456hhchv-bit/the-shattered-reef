@@ -89,14 +89,43 @@ function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid) {
 // standing on top of them. `count` is the total number of enemies (a
 // Reef Skimmer pick spawns its whole pack at once, so the returned list
 // can run a little over `count`).
+//
+// A boss (`isBoss: true` in its data definition — currently only The
+// Kraken's Anchor) is the one exception to "away from the exit": it's
+// drawn from the pool the same as everything else (a chance-based
+// appearance, not guaranteed — see spawnPoolForReefIndex), but when
+// drawn it's placed *guarding the exit* instead of hidden in the maze,
+// so the player can't finish the voyage without confronting it, and
+// can't miss it by never wandering near wherever it landed. At most one
+// boss is ever placed per reef even if the random draw hits it more than
+// once — a redraw, not a second boss.
 export function spawnReefEnemies(spawnPool, grid, tileSize, boatSpawn, exitWorld, count, rng = Math.random) {
   const enemies = [];
   const minDist = tileSize * 3;
   let placed = 0;
+  let bossPlaced = false;
+  // Bounds the whole loop, not just findOpenSpawnTile's own internal
+  // attempt cap — a pool that's *entirely* the boss (or otherwise can't
+  // reach `count`) would otherwise redraw the same already-placed boss
+  // forever, since `continue` on that path never increments `placed`.
+  const maxAttempts = count * 50 + 200;
+  let attempts = 0;
 
-  while (placed < count) {
+  while (placed < count && attempts < maxAttempts) {
+    attempts++;
     const defId = spawnPool[Math.floor(rng() * spawnPool.length)];
     const def = getEnemy(defId);
+
+    if (def.isBoss) {
+      if (bossPlaced) continue; // already have one this reef — redraw
+      const jitterX = exitWorld.x + (rng() - 0.5) * tileSize * 1.4;
+      const jitterY = exitWorld.y + (rng() - 0.5) * tileSize * 1.4;
+      enemies.push(createEnemy(defId, jitterX, jitterY, rng));
+      placed++;
+      bossPlaced = true;
+      continue;
+    }
+
     const spot = findOpenSpawnTile(grid, tileSize, rng, boatSpawn, minDist);
     if (!spot) break;
     // Keep spawns off the exit tile too, loosely.

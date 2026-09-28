@@ -135,5 +135,15 @@ export function spawnPoolForReefIndex(reefIndex) {
   return [
     ENEMY_IDS.REEF_SKIMMER, ENEMY_IDS.GULLSWARM_HARPY, ENEMY_IDS.DEEP_CRAWLER,
     ENEMY_IDS.IRONCLAD_BRIGAND, ENEMY_IDS.RIGGER,
+    // The Kraken's Anchor (step 8 follow-up) — a chance-based pool entry
+    // rather than a guaranteed spawn, per the project owner's explicit
+    // decision: it's drawn the same way as every other reef-3 enemy, so a
+    // voyage isn't guaranteed to meet it, and reef 3's regular spawn count
+    // (REEF_TUNING in engine/run.mjs) is deliberately left unchanged
+    // rather than reduced to make room for it. engine/enemies.mjs's
+    // spawnReefEnemies still special-cases *placement* for anything with
+    // `isBoss: true` (guards the exit, unique per reef) even though it's
+    // drawn from this same pool like a regular pick.
+    ENEMY_IDS.KRAKENS_ANCHOR,
   ];
 }

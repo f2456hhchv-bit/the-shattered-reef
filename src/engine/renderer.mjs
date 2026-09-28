@@ -88,7 +88,7 @@ export function drawBoat(ctx, boat, radius) {
 // stay visually distinct even before real sprites exist. A thin outer ring
 // while invulnerable (submerged Deep Crawlers) and a flickering overlay
 // while burning give the two status effects a readable tell.
-export function drawEnemy(ctx, enemy, color, t) {
+export function drawEnemy(ctx, enemy, color, t, name = null) {
   ctx.save();
   ctx.translate(enemy.x, enemy.y);
 
@@ -129,12 +129,22 @@ export function drawEnemy(ctx, enemy, color, t) {
     ctx.fillStyle = PALETTE.healthBarFill;
     ctx.fillRect(enemy.x - barWidth / 2, barY, barWidth * Math.max(0, enemy.health / enemy.maxHealth), 3);
   }
+
+  // A name label — currently only ever passed for a boss (main.mjs's
+  // `nameFor` callback below), so a regular enemy's silhouette+color
+  // stays the only identifier, per the counter-swap hook's whole point.
+  if (name) {
+    ctx.fillStyle = '#e9ddc4';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(name, enemy.x, enemy.y - enemy.radius - 14);
+  }
 }
 
-export function drawEnemies(ctx, enemies, colorFor, t) {
+export function drawEnemies(ctx, enemies, colorFor, t, nameFor = null) {
   for (const enemy of enemies) {
     if (enemy.health <= 0) continue;
-    drawEnemy(ctx, enemy, colorFor(enemy), t);
+    drawEnemy(ctx, enemy, colorFor(enemy), t, nameFor ? nameFor(enemy) : null);
   }
 }
 
