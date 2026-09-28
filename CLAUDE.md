@@ -909,17 +909,90 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     pickup/detection-radius numbers are more trustworthy since they don't
     depend on that. Flagged as a known limitation below rather than
     quietly presented as more authoritative than it is.
+- **Phase:** balance/content pass, continued — bot AI improvements, then a
+  bot-independent reef-3-difficulty investigation (both explicitly
+  requested by the project owner via `AskUserQuestion`, since the sim
+  still showed 0% victory/0% boss-defeat after the boss bug fix above).
+- **Just shipped:**
+  - `tools/balance-sim.mjs` — two bot-AI improvements aimed at making the
+    sim's aggregate stats trustworthy: (1) **damage-based stuck
+    detection** replaced the old "time since last re-path" stuck timer
+    for enemy targets — it now resets only when the target's health
+    actually drops, so a bot correctly standing still and draining a
+    tanky target's HP is no longer mistaken for "making no progress" and
+    abandoned mid-kill; (2) **stand-off/kiting firing** —
+    `standOffDistance()` holds the bot at
+    `max(enemy.radius + BOAT_RADIUS + 6, weapon.range * 0.6)` from its
+    current combat target instead of closing to contact distance, more
+    realistically modeling an attentive player's positioning. Despite
+    both fixes, a 60-run batch still showed 0% victory and 0% boss-defeat
+    (up from the same 0%/0% before) — logged honestly below rather than
+    re-tuned around, since the sim's remaining gap (no active
+    retreat/kiting *while already at* stand-off range — it holds
+    position but doesn't back away if an enemy keeps closing) is a
+    plausible bot limitation, not proven game-balance evidence either
+    way. Committed as `bcd2072`.
+  - Given diminishing returns on further bot tuning, asked the project
+    owner via `AskUserQuestion` whether to keep tuning the bot, stop and
+    move to the art/audio pass, or dig into reef-3 difficulty by direct
+    analysis instead. **Chose: dig into reef 3, independent of bot
+    skill.**
+  - **Reef-3 difficulty investigation (bot-independent, arithmetic/data-
+    only — no sim runs used as evidence):**
+    1. **Density check:** enemies-per-maze-cell is actually *lower* on
+       reef 3 (13 enemies / 121 cells ≈ 0.107/cell) than reef 1 (7/49 ≈
+       0.143/cell) or reef 2 (10/81 ≈ 0.123/cell) — density goes down as
+       the voyage progresses, not up. Reef-3's harder feel comes from
+       *which* enemies appear (Ironclad Brigand, the boss), not crowding.
+    2. **Speed check:** compared every enemy's `speed` to the boat's
+       `maxSpeed` (120). Ironclad Brigand (45) and the boss (55) are both
+       far below it — fully kiteable by a player who keeps moving. Rigger
+       (150) and Gullswarm Harpy's dive (130 × 1.6 = 208) both exceed it
+       and can't be outrun — but both are the two lowest-HP enemies in
+       the roster with near-instant TTK against their counter (0.36s and
+       0.40s respectively, from the Flame Barrels TTK table above) — a
+       deliberate fast-fragile skirmisher identity ("must kill fast,
+       can't kite"), not an oversight.
+    3. **Steady-state positioning check** (the deciding one — read
+       `updateSwarm`/`updateFlanker`/`updateSubmerged`/`updateTank` in
+       `src/engine/enemies.mjs` directly): every archetype's *equilibrium*
+       distance from the boat sits well outside the ~18px contact-trigger
+       radius (`enemy.radius + BOAT_RADIUS`). SWARM (Reef Skimmer packs)
+       orbits at `engageRadius * 0.6 = 42px`; FLANKER (Rigger) holds a
+       55px perpendicular offset it can always reach (its pursuit speed,
+       165, exceeds the boat's 120 max); TANK/the boss simply close in at
+       their own (kiteable) speed. The only archetype that closes to
+       contact *by design* is FLYER's dive-bomb (Gullswarm Harpy) — an
+       intentional attack, not incidental crowding — and SUBMERGED
+       (Deep Crawler) only attacks during its brief surfaced window.
+    - **Conclusion, reported to the project owner:** reef 3 is not
+      inherently over-tuned. Nothing in density, raw speed, or steady-
+      state AI positioning forces unavoidable damage on a player who
+      moves and kites — the sim's 60.8-avg enemy-contact-damage figure
+      and 0% clear rate are best explained by the bot's own
+      still-imperfect positioning (holds ground once at stand-off range
+      but doesn't retreat further if an enemy keeps closing), not a game
+      defect. **No balance numbers changed as a result of this
+      investigation** — a deliberate "no, it's fine" conclusion rather
+      than a change for change's sake, consistent with only touching
+      numbers that have a clear arithmetic case (as Flame Barrels did).
+  - No code changes this entry; **190/190 tests still pass** (unchanged
+    from the prior entry — this was pure analysis, no test-affecting
+    edits).
 - **Next up:** the vertical slice's entire locked build order (steps 2-8)
   plus both of step 8's own flagged follow-ups (art pass, the boss) are
-  fully built, tested, and playtested end to end, and this balance pass
-  fixed a real boss defect plus one clean weapon-margin issue. What's
-  left: the art/audio-asset pass, further balance work once
-  `tools/balance-sim.mjs` gets better combat positioning (or once there's
-  real human playtesting data), and the confirmed post-slice direction
-  (playable factions, the combat triangle, the Captain's Hub →
-  Workshop/crafting expansion) — see the PRD's "Post-Slice Direction"
-  section. Next session should open by asking the project owner which of
-  these to prioritize rather than assuming.
+  fully built, tested, and playtested end to end; the balance pass fixed
+  a real boss defect and one clean weapon-margin issue, improved the
+  balance-sim bot twice, and concluded (via bot-independent analysis)
+  that reef 3's difficulty itself is not the problem. What's left: the
+  art/audio-asset pass, `tools/balance-sim.mjs` still needs real
+  retreat/kiting behavior before its own win-rate/boss-defeat-rate
+  numbers can be trusted (or wait for real human playtesting data
+  instead), and the confirmed post-slice direction (playable factions,
+  the combat triangle, the Captain's Hub → Workshop/crafting expansion)
+  — see the PRD's "Post-Slice Direction" section. Next session should
+  open by asking the project owner which of these to prioritize rather
+  than assuming.
 
 ## Decisions log
 
@@ -1290,6 +1363,35 @@ Starting fresh below for the new game.)*
   kill-distribution and pickup/detection-radius numbers don't depend on
   that same flaw and were used as directional signal only, not to drive
   any specific number change on their own.
+- 2026-09-28: Improved the balance-sim bot twice more (damage-based stuck
+  detection for enemy targets; stand-off/kiting fire distance instead of
+  closing to contact) after the project owner flagged diminishing returns
+  on tuning it further — both changes are real bot-quality improvements,
+  not workarounds, but neither moved the sim's 0% victory/0% boss-defeat
+  numbers, which is itself evidence the remaining gap is deeper than
+  target-selection (likely the bot never retreats once already at
+  stand-off range).
+- 2026-09-28: Asked the project owner (via `AskUserQuestion`) whether to
+  keep tuning the bot, move on to art/audio, or investigate reef-3
+  difficulty directly. Chose to investigate reef 3, explicitly
+  independent of bot skill — deliberately did **not** keep iterating on
+  the bot itself, since the sim's own aggregate outcome stats had already
+  been flagged as untrustworthy and further bot tuning was diminishing
+  returns for a chat session.
+- 2026-09-28: Concluded, via bot-independent arithmetic/data analysis
+  (enemy density per maze cell, enemy speed vs. boat max speed, and
+  reading every archetype's actual steady-state equilibrium distance
+  from the boat directly in `enemies.mjs`) rather than any sim run, that
+  reef 3 is **not** inherently over-tuned: density is lower than earlier
+  reefs, most enemies are slower than the boat and fully kiteable, and
+  every archetype's designed equilibrium position sits outside the
+  contact-damage radius except the two enemies whose whole identity is
+  "fast, fragile, must be killed on sight" (Rigger, Gullswarm Harpy) and
+  the one archetype whose attack is a deliberate contact dive (Flyer).
+  Made **no balance changes** as a result — a considered "the design is
+  fine" conclusion is as legitimate an outcome of a balance pass as a
+  retune, and forcing a change here would have had no arithmetic
+  justification, unlike the Flame Barrels fix.
 
 ## Known open questions (do not silently resolve — ask)
 
