@@ -1,15 +1,16 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<title>The Shattered Reef</title>
-<link rel="stylesheet" href="./src/ui/styles.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>The Shattered Reef</title>
+  <link rel="stylesheet" href="src/ui/styles.css" />
 </head>
 <body>
-<div id="app">
-  <div id="boot">THE SHATTERED REEF — loading&hellip;</div>
-</div>
-<script type="module" src="./src/main.mjs"></script>
+  <div id="app"></div>
+  <script type="module">
+    import { startApp } from './src/main.mjs';
+    startApp(document.getElementById('app'));
+  </script>
 </body>
 </html>

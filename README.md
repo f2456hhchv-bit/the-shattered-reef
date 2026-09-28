@@ -1,11 +1,15 @@
 # The Shattered Reef
 
-A mobile, single-player, Hearthstone Battlegrounds-style auto-battler. You
-build a crew across rounds against 7 AI captains — pirates and fantasy,
-original world, no build step.
+A mobile, single-player nautical roguelite: captain a ship through
+procedurally generated maze-like reef levels, fight enemies that each
+demand reading their niche and countering with the right weapon, and push
+deeper before you die — permadeath runs, meta-progression between them.
+Inspired by *Overboard!* (PS1, 1997), with a roguelite structure added on
+top. Canvas 2D, vanilla JS, no build step.
 
-Full design doc: see the PRD (linked from the project owner's docs). This
-repo tracks build status in `CLAUDE.md`.
+This repo previously held a different game (a card-game auto-battler —
+see `archive/card-game-vertical-slice/`) before pivoting. Build status for
+the current game is tracked in `CLAUDE.md`.
 
 ## Running it locally
 

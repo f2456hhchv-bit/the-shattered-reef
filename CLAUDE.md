@@ -4,364 +4,258 @@ Read this file first, every session. It replaces a handoff report — update
 the "Current status" and "Decisions log" sections at the end of every
 session, before anything else.
 
-## What this is
+## What this is (pivoted 2026-09-28)
 
-A mobile, single-player Battlegrounds-style auto-battler. Full design (core
-loop, all 6 factions, AI opponent system, progression) lives in the PRD doc
-— ask the project owner for the link if it's not already in context. This
-file tracks *build* status only.
+A mobile, single-player nautical roguelite: you captain a ship through
+procedurally generated maze-like reef levels, fighting distinct enemy ship/
+creature types that each demand reading their niche and countering with the
+right weapon, collecting loot and upgrades, and reaching the exit before you
+die. Runs are permadeath; a meta-progression hub between runs unlocks
+permanent upgrades for the next attempt.
+
+**Design reference:** *Overboard!* (aka *Shipwreckers!*, PS1, 1997,
+Psygnosis) — top-down maze-like naval levels, weapon-select-to-counter-
+enemy-niche combat (rockets for flyers, depth charges for submerged
+enemies, etc.), checkpoints at captured towns. We're keeping the core
+"read the enemy, swap the weapon" hook and the maze-level structure, but
+*adding* the roguelite layer (procedural generation, permadeath, meta-
+progression) that the original didn't have — it was a fixed 20-level
+arcade campaign, not a roguelike. See the decisions log for the research
+that established this.
+
+**This replaces the project's original concept** (a Hearthstone
+Battlegrounds-style card auto-battler). That version got 6 of its own 8
+build steps done and fully tested, but after playtesting the vertical
+slice the project owner judged a solo auto-battler against heuristic AI
+can't realistically compete with a genre defined by years of live human-
+opponent balance — a structural ceiling, not a polish problem. Its code is
+archived at `archive/card-game-vertical-slice/` (see that folder's own
+README) rather than deleted, in case any of it — the data-driven-content
+pattern, the AI-tuning-as-data approach — is useful again. The repo and
+the name "The Shattered Reef" carry over to this new game.
 
 ## Stack rules — do not deviate without discussion
 
 - **Vanilla JS, ES modules (`.mjs`), no build step, no `node_modules`.**
-  TypeScript/bundlers were considered and rejected — they need a compile
-  step, which conflicts with "push to `main`, GitHub Pages serves it
-  immediately." Do not reintroduce a bundler.
+  Deliberately kept from the archived project even though this is now an
+  action game like the project owner's other Canvas titles (Briarbloom,
+  Keyfall), which use TypeScript/Vite — the whole reason this repo adopted
+  no-build in the first place was to avoid the compile-step rework pain
+  Briarbloom hit, and that reason doesn't stop applying just because the
+  genre changed. Flag it if you'd rather match Briarbloom/Keyfall's stack
+  instead; not changing it without that conversation.
 - No dependencies. `node --test` (built into Node 22) for tests, no test
-  framework.
-- Data-driven content: minions/factions live in `src/data/*.mjs` as plain
-  objects, not scattered through engine code. Adding a card should never
-  require touching the combat/economy engine.
-- DOM + CSS for the board and shop UI, not Canvas — a card game needs crisp
-  text and easy hit-testing more than it needs pixel-level rendering
-  control. (Contrast with Briarbloom/Keyfall, which are Canvas 2D — that's
-  right for those, not for this.)
-- Touch-first from day one: no feature ships that only works with a mouse.
+  framework. Pure logic (maze generation, physics, collision, weapon/
+  enemy data) is unit-tested; rendering and the input/game-loop glue are
+  verified with real headless-browser playtesting (Playwright/Chromium),
+  since neither is meaningfully unit-testable.
+- Canvas 2D for the game world (maze, boat, enemies, projectiles, VFX) —
+  not DOM+CSS. This is the opposite call from the card game (which was
+  DOM+CSS because it needed crisp text and easy hit-testing, not
+  real-time rendering) — a real-time action game with continuous movement
+  needs a render surface built for that, not the DOM. Touch controls
+  (the virtual joystick) are DOM+CSS overlays on top of the canvas, since
+  those genuinely are discrete, styleable UI elements.
+- Data-driven content: enemy types, weapons, and (once they exist) ships/
+  relics/unlocks live in `src/data/*.mjs` as plain objects, not scattered
+  through engine code — same principle as the archived project, still
+  correct here.
+- Touch-first from day one: no feature ships that only works with a
+  mouse/keyboard. Steering is a floating virtual joystick (appears where
+  the thumb lands, not a fixed-position stick) via Pointer Events, so it
+  works uniformly for touch/mouse/pen without separate code paths.
 
-## Build order (agreed with project owner)
+## Build order
 
-Systems before UI, each step its own commit, each end-to-end testable
-headless before anything touches a screen:
+Mirrors the project owner's own stated phased approach (Concept →
+Architecture → Vertical slice → Core systems → Content → Polish → Testing
+→ Expansion), collapsed into concrete steps for this game:
 
-1. **Data schema** (minions/factions/keywords) — ✅ done
-2. **Combat simulator** (pure function, two boards in → resolution out) — ✅ done
-3. **Economy/shop logic** (buy/sell/reroll/upgrade) — ✅ done
-4. **AI decision engine** (sits on top of 2 + 3) — ✅ done
-5. **Board/shop UI, touch input, positioning** — ✅ done
-6. **Round loop, health, win/loss** — ✅ done
-7. Reef Shard + Fathom visuals/feedback — next
-8. Polish pass
+1. **Concept + architecture** (this doc, the stack rules above) — ✅ done
+2. **Core movement + maze** — boat physics (momentum/drag, not tank
+   controls), procedural maze generation, tile-grid collision, camera,
+   touch joystick — a real playable "steer a weighty boat through a
+   generated maze" loop with nothing else in it yet — ✅ done
+3. Combat core — weapons, projectiles, hit detection, enemy AI with
+   niches (the Overboard hook: wrong weapon = little/no effect)
+4. Enemy content — 5-6 distinct enemy types + a boss, each with a real
+   tactical identity
+5. Loot/economy — weapon pickups, ammo as a resource, in-run currency
+6. Roguelike run structure — multi-room progression, exit, permadeath,
+   run summary screen
+7. Meta-progression hub — persistent currency + unlocks (localStorage)
+8. Polish — juice (particles, screen shake, hit-stop, damage numbers),
+   audio hooks, mobile safe-area/UX pass
 
-This is phase 3 (Vertical Slice) of the PRD's 8 build phases. Full 6-faction
-content, tiers 4-6, and everything past this slice is phase 5 (Content) —
-do not add it early even if it's tempting.
+Each step its own commit, each step end-to-end testable headless before
+depending on the next, matching how the archived project was built.
 
-## Vertical slice scope
+## Vertical slice scope (steps 2-7, not yet fully scoped past step 2)
 
-Exactly two factions, tiers 1-3 only:
-
-- **Blacksail Reavers** (aggro) — 8 minions
-- **Wyrdtide** (gamble, Reef Shard/Fathom mechanic) — 8 minions
-- **Neutral** pool — 5 minions
-
-21 cards total. Chosen because Reavers exercise a simple synergy archetype
-and Wyrdtide exercises the chance mechanic — between them they should prove
-whether the core loop and the AI can handle both.
+Not locked in detail yet beyond step 2. Rough target once content starts
+(step 4+): one ship, 5-6 enemy types each with a clear niche, 4-5 weapon
+types (cannonballs as the weak all-purpose default; then niche picks —
+depth charges, chain shot, flame barrels, grapeshot are the leading
+candidates, not finalized), one maze-generation "reef" style, one boss,
+and a minimal meta-progression (currency + 2-3 unlocks) — enough to prove
+the full loop without over-building before it's validated. Revisit/narrow
+this list for real before step 4 starts.
 
 ## Current status (update this every session)
 
-- **Phase:** 3 (Vertical Slice), step 3 of 8 (economy/shop engine) complete,
-  plus a same-session follow-up patch closing a gap that step introduced.
-- **Just shipped:** `src/engine/economy.mjs` — shared card pool (finite
-  copies, contested pool ready for AI to draw from in step 4), player
-  state, income (`round+2`, capped at 10, no gold carryover), tavern-tier-
-  weighted shop draws (tier cap 3 for the slice), buy/sell/reroll/freeze/
-  upgrade, all battlecry action types the slice's cards use, and the full
-  Reef Shard event flow: `isReefShardRound`, `offerReefShardChoices`
-  (choice of 3, Lesser rounds 3-10 / Greater 11+), `applyReefShardChoice`
-  (universal lockout + Fathom growth, Shoal Call/Bargain Tide/Drowned Favor
-  shop effects, The Kraken's Due exception).
-- **Data fix along the way:** Fathom Priestess's battlecry was still
-  `gain_reef_shard`, a leftover from the old "shards appear in the shop"
-  design. Changed to `trigger_bonus_shard_event` (queues a bonus Lesser-pool
-  choice) to match the locked scheduled-event design — updated
-  `src/data/minions.mjs` and `src/data/keywords.mjs`'s `ACTION_TYPES`.
-- **Follow-up patch, same session (gap closed immediately per standing
-  instruction — always patch inconsistencies as soon as they're found,
-  never defer):** `combat.mjs` now reads `instance.shardAbilities` and
-  fully implements all five Board-type shard abilities in a real fight —
-  Titanic still needs no combat-time logic since it doubles base stats
-  immediately in `economy.mjs`.
-  - Added `maxHealth` to `instantiate()` (`src/data/minions.mjs`) — a new
-    "full health" reference point, since Vampiric needs to know what
-    "full" means. Every existing permanent-stat-buff site in both
-    `combat.mjs` and `economy.mjs` (deathrattle buffs, `on_fathom_growth`
-    reactions, `end_of_combat_won buff_self`, battlecry buffs, Titanic's
-    doubling, The Kraken's Due's passive) now keeps `maxHealth` in sync
-    alongside `health`. Damage still only touches `health`.
-  - Vampiric: heals to `maxHealth` whenever the tagged minion's hit (main
-    exchange or its own Riptide splash) kills an enemy, provided it
-    survives the exchange itself.
-  - Barnacled: +1/+1 (and `maxHealth`), the first time it's the defender
-    and survives an exchange, tracked via a per-combat `Set` so it can
-    only fire once even though it may be attacked many more times in the
-    same fight.
-  - Riptide: attacking also splashes 1 damage onto a second random living
-    enemy, distinct from the primary defender.
-  - Undying: the first time this minion would drop to ≤0 health each
-    combat, it's set to 1 instead — tracked via a per-combat `Set`, checked
-    inside `processDeaths()` before the dead-filter runs, so a saved
-    minion is never treated as dead.
-  - Twinned: deathrattle effects fire twice.
-  - Maelstrom: after its own deathrattle resolves on death, its
-    deathrattle effects (never the Maelstrom tag itself, to avoid
-    unbounded recursive spread) are copied permanently onto two other
-    random living friendly minions.
-  - New tests for all five in `tests/combat.test.mjs` (Titanic was already
-    covered in `tests/economy.test.mjs`). **49/49 tests pass** across the
-    whole repo.
-- **Phase:** 3 (Vertical Slice), step 4 of 8 (AI decision engine) complete.
-- **Just shipped:** `src/engine/ai.mjs` + `src/data/ai-tuning.mjs` — an
-  AI-controlled player's full shopping-phase logic, built entirely on top
-  of economy.mjs's own public functions (never touching player state
-  directly), so it's indistinguishable from a human player to every other
-  system.
-  - `scoreMinion` — heuristic value from stats + keywords + effects
-    (weighted by how reliably each trigger actually pays off — see
-    `TRIGGER_WEIGHT` in the tuning file).
-  - `synergyBonus` — rewards committing to the board's dominant faction,
-    capped so it can't swamp raw stats.
-  - `runAiTurn(state, pool, round, rng)` — one full round: upgrades the
-    tavern opportunistically toward a round-based target tier, then loops
-    buy → (sell-and-swap once the board is full) → reroll, spending the
-    *entire* budget every round on the theory that unspent gold is wasted
-    (confirmed by rereading economy.mjs: gold never carries over between
-    rounds, so there's no genre-typical "banking" strategy here — hoarding
-    is strictly worse than spending). Freezes the shop instead of
-    rerolling it away when it's holding something good it can't yet
-    afford, so that card survives to next round's bigger budget.
-  - `chooseReefShardPick(state, choices)` — picks the best-fitting board
-    minion for whichever offered ability scores highest net value (fit
-    minus a faction-lockout penalty that scales with how committed the
-    board already is), or declines (always free) when the board is empty.
-  - All tuning numbers (weights, thresholds, the tavern curve, shard-fit
-    formulas) live in `src/data/ai-tuning.mjs`, not the engine, matching
-    the project's data-driven-content rule — retuning AI behavior should
-    never mean touching `ai.mjs` itself.
-  - Small economy.mjs tidy-up along the way: exported `BOARD_CAP`,
-    `MAX_TAVERN_TIER`, `rerollCost()` and `nextUpgradeCost()` (previously
-    internal constants/inline formulas) so the AI engine — and any other
-    future caller — never has to re-derive them.
-  - New tests in `tests/ai.test.mjs` (scoring, synergy, full-turn spending
-    behavior, board-cap/swap correctness, freeze-vs-reroll, all six Reef
-    Shard fit heuristics, a 15-round simulation staying within the tavern
-    cap). **61/61 tests pass** across the whole repo.
-- **Phase:** 3 (Vertical Slice), step 5 of 8 (board/shop UI, touch input,
-  positioning) complete.
-- **Just shipped:** a real, playable shop/board screen — `src/ui/app.mjs`
-  (controller), `src/ui/cards.mjs` (card rendering), `src/ui/dragdrop.mjs`
-  (touch reordering), `src/ui/styles.css`. DOM+CSS throughout, no Canvas,
-  per the stack rule. `src/main.mjs` now boots this instead of the old
-  data-loaded proof text.
-  - HUD: round, gold/maxGold, health, tavern tier + upgrade button.
-  - Board: 7 touch-reorderable slots. Cards render in a **compact token
-    form** (cost badge, keyword icons, atk/hp only — no name or rules
-    text) rather than full shop-card layout: 7 columns on a phone screen
-    genuinely don't have the width for name + rules text per card (tried
-    it, looked bad — see decisions log), and real mobile Battlegrounds-
-    likes handle a full board the same way. Tap a board card to open a
-    sell confirmation sheet.
-  - Shop: 3(+bonus) full-size cards with name, keywords, rules text
-    (added a `text` field to all 21 minion definitions in
-    `src/data/minions.mjs` for this — they had `flavor` but no rules text
-    before), cost badge, and a dimmed/grayscale unaffordable state. Tap to
-    buy.
-  - Controls: Reroll (shows live cost), Freeze (single-use per round, per
-    economy.mjs — button disables once active), End Turn.
-  - Reef Shard tags on a fed minion show as a small badge + a lock icon;
-    picking/declining a Shard event itself is NOT built here — that's
-    step 7 per the build order. `onEndTurn` detects a Reef Shard round
-    (`isReefShardRound`) and surfaces it as a toast so the gap is visible,
-    not silently skipped.
-  - `onEndTurn` is a deliberate placeholder: it only advances the
-    shop/economy round (`startRound`). No opponent, no combat, no
-    health loss, no win/loss yet — that's step 6. Health is displayed but
-    static at 25 until step 6 wires up something that can change it.
-  - Verified end-to-end in a real headless browser (Playwright, Chromium)
-    rather than just `node --check`: buy, sell, reroll, freeze, upgrade,
-    round-advance, and drag-to-reorder all confirmed working with no
-    console errors, plus a couple of screenshots to sanity-check layout.
-- **Phase:** 3 (Vertical Slice), step 6 of 8 (round loop, health, win/loss)
-  complete. **This is the first version of the game that's actually
-  playable start to finish.**
-- **Just shipped:** `src/engine/roundloop.mjs` — the piece that turns the
-  shop engine + combat simulator + AI into a real 8-seat match (you + up
-  to 7 AI, `src/data/ai-opponents.mjs` for their names/flavor).
-  - `createLobby` / `beginRound` (heals survivors to `maxHealth`, shuffles
-    shop order each round since the pool is shared/contested, starts every
-    alive player's shop phase) / `runAiShopPhase` / `runAiReefShardPhase` /
-    `pairPlayers` (shuffles alive players, avoids an immediate rematch when
-    an alternative exists, gives an odd-one-out a damage-free bye) /
-    `runCombatPhase` (runs every pairing through `combat.simulateCombat`,
-    applies loser damage + Fathom/external effects, marks eliminations) /
-    `checkGameOver` (winner + full finishing-position placements, not just
-    win/lose).
-  - **Design decision this module had to make, since neither the PRD nor
-    reef-shards.md specified it:** a minion that survives a fight heals
-    back to `maxHealth` at the start of the next round (permanent buffs,
-    which also raised `maxHealth`, persist) — only that one fight's damage
-    is wiped. A minion that dies is gone for good; a deathrattle summon
-    that survives its first fight persists afterward like any other
-    minion.
-  - **Bug caught and patched in the same pass (existing code, not new):**
-    Wandering Merchant's `refresh_shop_free` effect set a flag
-    (`freeRerollBanked`) that nothing ever consumed — a fully dead card
-    ability. `economy.refreshShop()` now spends it; added
-    `effectiveRerollCost()` so callers (the AI, the UI) that need to know
-    "will my next reroll actually cost anything" don't have to duplicate
-    that logic. Re-pointed `ai.mjs` and `app.mjs` at it.
-  - `src/ui/app.mjs` rewritten to drive the full loop: an 8-seat lobby, a
-    standings strip (health bars for all 8, dead ones dimmed), a
-    functional (but visually plain — see below) Reef Shard picker sheet, a
-    combat-result sheet (won/lost/draw/bye + damage + updated health), and
-    a game-over sheet with full placement order and a Play Again button.
-    When the human is eliminated before the match actually ends, the UI
-    keeps simulating the remaining AI-only rounds headlessly so the human
-    still learns their final position.
-  - The Reef Shard picker is deliberately plain (no glow, no Fathom-bar
-    animation, no growth flourish) — it had to exist because the round
-    loop can't skip the event (Wyrdtide's whole mechanic depends on it),
-    but the actual "visuals/feedback" polish is step 7 by design. Each
-    player independently draws their own choice of 3 (not a shared trio
-    for the whole table) — matches genre precedent (Battlegrounds
-    Trinkets, TFT Augments) better than forcing everyone to see the same
-    offer.
-  - New tests in `tests/roundloop.test.mjs` (pairing correctness including
-    rematch-avoidance and odd-count byes, healing-between-rounds, AI shop/
-    shard phases never touching the human, combat damage + elimination,
-    full placement ordering, and a seeded 8-player match simulated to
-    completion without throwing). **72/72 tests pass** across the whole
-    repo.
-  - Verified end-to-end in a real headless browser (Playwright/Chromium):
-    a full multi-round match including a Reef Shard round and reaching
-    the game-over screen with a correct placement list, no console
-    errors.
-- **Gap closed (patched immediately, per standing instruction):** the core
-  Battlegrounds triple/Golden mechanic was missing entirely — surviving
-  minions already correctly persist on the board round-to-round (only
-  combat deaths and manual sells remove them; that part matched the genre
-  already), but buying a 3rd copy of a minion did nothing special. Fixed:
-  - `economy.mjs`: `checkAndApplyTriples(state)` — scans the board for 3+
-    non-golden copies of the same `defId`, merges them into one Golden
-    instance (`golden: true`, base attack/health doubled, one board slot
-    instead of three), and awards a "prize": a permanent +1/+1 to a random
-    *other* friendly minion, or +2 gold if the board has nothing else on
-    it. Any Reef Shard board ability already earned by a merging copy
-    carries onto the Golden (union, deduped) rather than being lost — a
-    triple should always read as a reward, never a cost. Golden minions
-    never re-trigger a further merge. Runs automatically at the end of
-    `buyMinion()` (result stored on `state.lastTripleEvents` for the UI to
-    read/animate) — impossible to forget to call from any buy path.
-  - `ai.mjs` / `ai-tuning.mjs`: added `TRIPLE_SEEK_BONUS` (keyed by how
-    many non-golden copies of a def the AI's board already has — 1 or 2),
-    folded into `totalValue()` alongside the existing synergy bonus, so
-    the AI actively chases a 3rd copy instead of only stumbling into one.
-  - `cards.mjs` / `styles.css`: `.card-golden` styling (gold border/glow,
-    ★ prefix on the name, a small badge on compact board tokens) plus a
-    one-shot `card-triple` pop/flash animation triggered on the specific
-    newly-merged instance.
-  - `app.mjs`: `onBuy` now reads `state.lastTripleEvents` after a buy and
-    toasts "★ `<name>` tripled into Golden! +1/+1 to `<other>`" (or the
-    gold-fallback wording), and plays the triple animation on that exact
-    card element via its `data-instance-id`.
-  - New tests: 5 in `tests/economy.test.mjs` (merge + doubled stats,
-    prize-buff targeting, gold fallback when no other minion exists, Reef
-    Shard ability carry-over, golden-never-re-triples + `buyMinion`
-    auto-merge on the 3rd purchase), 1 in `tests/ai.test.mjs` (AI prefers
-    completing a triple over a merely-better unrelated card). **78/78
-    tests pass.** Verified in a real headless browser that the page still
-    loads and buys cleanly with no console errors (a live, in-browser
-    triple wasn't forced — it's RNG-gated on which minion the shop
-    happens to offer three times — but the underlying logic is covered
-    end-to-end by the new unit tests).
-- **Not built yet:** Reef Shard/Fathom visual polish, general combat
-  animation/feedback, a proper title/menu screen.
-- **Next up:** step 7, Reef Shard + Fathom visuals/feedback.
-
-## Reef Shard / Fathom design
-
-Spec lives in `docs/design/reef-shards.md` — implemented in
-`src/engine/economy.mjs` (see Current status above for what's wired up and
-what's still a gap in `combat.mjs`).
+- **Phase:** step 2 of 8 (core movement + maze) complete. First real
+  playable slice of the new game: a touch-controlled boat with momentum/
+  drag physics navigating a procedurally generated maze, camera follow,
+  no combat/enemies/content yet (that's steps 3+).
+- **Just shipped:**
+  - `src/engine/maze.mjs` — recursive-backtracker graph maze
+    (`generateMazeGraph`), farthest-cell BFS for exit placement
+    (`farthestCell`), and conversion to a solid tile grid
+    (`buildTileGrid`) where each graph cell becomes an open `room`-tile
+    square joined by `wall`-tile-thick corridor gaps — chosen over a
+    1-tile-wide corridor maze specifically so a boat with momentum has
+    room to actually turn, not just a graph-maze rendered literally.
+    `isFullyConnected` double-checks the *tile* grid (not just the graph)
+    is fully reachable, since the room/wall conversion is itself a place
+    a bug could hide.
+  - `src/engine/boat.mjs` — arcade boat physics (`stepBoat`): steers
+    toward wherever the stick points (twin-stick feel) but keeps its own
+    momentum via drag/turn-rate tuning, not tank controls and not a
+    rigid-body sim. `DEFAULT_BOAT_TUNING` holds the numbers.
+  - `src/engine/camera.mjs` — frame-rate-independent follow camera,
+    clamped to map bounds.
+  - `src/engine/renderer.mjs` — Canvas 2D drawing for the tile grid, the
+    exit marker, and the boat (placeholder shapes on purpose — no art
+    pass yet, per the project's own quality bar that gets a real pass
+    once the loop is proven, not before).
+  - `src/input/joystick.mjs` — a single floating virtual joystick,
+    Pointer-Events-based (touch/mouse/pen uniformly), reused the pattern
+    from the archived project's touch drag-drop code.
+  - `src/engine/run.mjs` — assembles one run's level from a seed: maze +
+    tile grid + boat spawn (start cell) + exit (farthest cell). Pure and
+    deterministic — same seed, same level, same spawn, same exit.
+  - `src/main.mjs` — boots canvas/DOM, the game loop, wires input →
+    physics → collision → camera → render. Tap the HUD once the exit is
+    reached to generate a fresh run (placeholder "next run" flow — the
+    real roguelike run structure is step 6).
+  - New tests: `tests/maze.test.mjs` (graph connectivity, determinism,
+    tile-grid connectivity/dimensions, exit reachability),
+    `tests/boat.test.mjs` (rest/acceleration/max-speed/drag/turning,
+    collision stops the boat at a wall, **a regression test for a real
+    bug found this session** — see below), `tests/run.test.mjs`
+    (determinism, boat spawns in open water, exit reachable, one-shot
+    exit trigger). **96/96 tests pass** across the whole repo.
+- **Real bug found and fixed via headless-browser playtesting (not just
+  `node --test`, which couldn't have caught this — it's a live-physics-
+  over-many-frames bug):** the first version of `resolveTileCollision`
+  resolved each axis independently using "push toward whichever tile edge
+  is closer to the boat's center," with the *last* overlapping tile in
+  the scan order winning outright when several were solid at once. At a
+  2-tile-thick wall corner (`wall: 2` in the maze config), the boat could
+  end up genuinely overlapping two adjacent solid tiles with
+  contradictory push directions; the heuristic could pick the one that
+  pushed it *into* a different solid tile rather than out of the wall
+  entirely. Once embedded, every subsequent frame found it still
+  overlapping solid ground one column further over and pushed it another
+  full tile-width sideways — the boat walked through solid rock forever,
+  in a real playtest observed flying to `x ≈ -1211` (map is ~1184px
+  wide) within about two seconds of normal-looking steering into a
+  corner. Fixed by replacing the per-axis heuristic with a proper
+  minimum-translation-vector resolver (`deepestOverlap` in `boat.mjs`):
+  find the single most-deeply-penetrating solid tile, push out along its
+  actual normal by exactly the penetration depth, repeat up to 4 passes
+  so a genuine corner (two tiles overlapping at once) converges instead
+  of fighting itself. Every push now strictly reduces total penetration,
+  which has no equivalent failure mode. Added a regression test
+  reproducing the exact geometry that broke it
+  (`tests/boat.test.mjs`, "never lets the boat escape through a 2-tile-
+  thick wall corner"). Verified fixed with the same headless-browser
+  scenario that found it, plus a 24-direction stress test (drag in every
+  compass direction, confirm the boat never leaves plausible map bounds)
+  — no more escapes, no console errors.
+- **Verified end-to-end in a real headless browser (Playwright/
+  Chromium):** page loads with no console errors; maze + boat render
+  correctly (screenshotted); dragging the virtual joystick moves and
+  turns the boat with visible momentum; collision stops the boat at
+  walls and lets it slide along them; the 24-direction stress test and 5
+  repeats of the bug's original repro scenario all stayed within bounds
+  after the fix.
+- **Not built yet:** everything past step 2 — no weapons, no enemies, no
+  combat, no loot, no run structure (permadeath/exit-to-hub), no meta-
+  progression, no art pass, no audio.
+- **Next up:** step 3, combat core (weapons, projectiles, hit detection,
+  enemy AI with niches).
 
 ## Decisions log
 
-- 2026-09-27: Rejected TypeScript/Vite in favour of vanilla JS, no build —
-  matches the project owner's other tools and avoids the exact stack that
-  caused rework on a previous project (Briarbloom).
-- 2026-09-27: DOM+CSS over Canvas for board/shop UI — text-heavy card game,
-  not a scene-rendering game.
-- 2026-09-27: cost = tier + 2 for the vertical slice (3g/4g/5g). Not
-  necessarily final once tiers 4-6 exist.
-- 2026-09-27: The Kraken's Due is implemented as a `passive` block on its
-  data entry, not a `trigger` — it reacts to *another* minion being
-  shard-fed, which the trigger system doesn't model. First case of this
-  pattern; if more cards need it, consider a proper passive-effect system
-  rather than one-off flags.
-- 2026-09-27: Reef Shard events are scheduled (every 4 rounds from round 3,
-  choice of 3), not randomly available in the shop — researched Battlegrounds
-  Trinkets, TFT Augments and Storybook Brawl Treasures first; none of them
-  use pure random-availability, all use scheduled guaranteed choices. Full
-  ability pool locked in `docs/design/reef-shards.md`.
-- 2026-09-27: Tavern odds table (which tier of minion appears at which
-  tavern tier), the 16/14/12 shared-pool copy counts, and income schedule
-  are approximations in the genre's spirit, not measured against a live
-  game — expect to retune during step 7 (Testing) once there's real play
-  data.
-- 2026-09-27: When `combat.mjs` was found not to read the `shardAbilities`
-  tags `economy.mjs` already attaches, patched it immediately in the same
-  session rather than deferring to step 4 — per standing instruction:
-  always patch an inconsistency against already-written work as soon as
-  it's found. Introduced `maxHealth` on minion instances as part of that
-  patch (needed for Vampiric's "heal to full").
-- 2026-09-27: The AI always spends its entire gold budget every round
-  (buying, upgrading, or rerolling to find something worth buying) rather
-  than ever holding gold back — a direct consequence of economy.mjs's own
-  no-carryover rule, not an independent design choice. If gold carryover is
-  ever added (it isn't planned to be), this behavior needs revisiting.
-- 2026-09-27: AI tuning numbers (score weights, buy/swap/freeze thresholds,
-  the tavern-upgrade curve, Reef Shard ability-fit formulas) live in
-  `src/data/ai-tuning.mjs`, separate from `src/engine/ai.mjs` — same
-  data-driven-content principle as minion/faction data, so retuning the AI
-  never means touching engine logic.
-- 2026-09-27: Board minions render as compact tokens (icons + stats, no
-  name/text), shop minions render as full cards (name + keywords + rules
-  text). Tried full-text cards on the board first — 7 columns on a phone
-  screen makes each card ~45-50px wide, and cramming a name plus rules
-  text in there looked broken, not just tight. Real mobile Battlegrounds
-  clients handle a full board the same compact way; tapping a board
-  minion (which opens the sell sheet) is where its full name shows.
-- 2026-09-27: Added a `text` field (short rules text, e.g. "Battlecry:
-  Give another random friendly Reaver +1/+0.") to every minion in
-  `src/data/minions.mjs`. They only had `flavor` (mood text) before —
-  fine for step 1-4 since nothing rendered a card, but the shop UI needs
-  actual rules text, not flavor, to be legible.
-- 2026-09-27: Minions heal back to `maxHealth` between rounds; only the
-  fight itself does lasting damage to health this round. Permanent buffs
-  persist (they raised `maxHealth` too), and surviving deathrattle
-  summons stick around like any other minion. Not specified anywhere
-  before this session — roundloop.mjs is the source of truth for it now.
-- 2026-09-27: Each player's Reef Shard offer is their own independent draw
-  of 3, not a shared trio shown to the whole table — matches how
-  Battlegrounds Trinkets and TFT Augments actually work; nothing in
-  reef-shards.md required a shared draw, and an independent one is a
-  better fit for an 8-player lobby anyway.
-- 2026-09-27: Lobby size is 8 (you + up to 7 AI, named in
-  `src/data/ai-opponents.mjs`), matching the original "plays against 8"
-  design intent from the very first design conversation.
-- 2026-09-28: Triple prize is a permanent +1/+1 to a random other friendly
-  minion (gold fallback if the board is otherwise empty), not a bigger
-  gold/reroll reward — chosen so the mechanic pays off through the
-  same-board-of-interacting-systems the rest of the game already leans
-  on, rather than as an isolated bonus. A tripled minion's Golden copy
-  keeps any Reef Shard board ability already earned by a merging copy
-  (union of the three, deduped) instead of losing it, a deliberate
-  deviation from Hearthstone Battlegrounds (which discards buffs on
-  triple) — losing an invested-in shard on your reward moment would read
-  as a punishment, not a prize.
+*(Entries from the archived card-game project's own decisions log live in
+that project's history — see `archive/card-game-vertical-slice/` and this
+file's git history before 2026-09-28 if that context is ever needed again.
+Starting fresh below for the new game.)*
+
+- 2026-09-28: Pivoted from a Hearthstone-Battlegrounds-style card
+  auto-battler to a nautical roguelite maze-battler, after the project
+  owner playtested the card game's step-6 vertical slice and judged the
+  genre itself (solo vs. heuristic AI, no live human-balance texture) has
+  a ceiling that more build steps wouldn't fix. Kept the same repo and
+  project name per the owner's explicit instruction. Old code archived,
+  not deleted, at `archive/card-game-vertical-slice/`.
+- 2026-09-28: Researched the reference game properly before building
+  anything (project owner recalled it from memory as "PS1 or PS2,
+  possibly roguelike") rather than taking the description at face value:
+  confirmed via Wikipedia and a dedicated retrospective
+  (collectionchamber.blogspot.com) that it's *Overboard!* / *Shipwreckers!*
+  (PS1, 1997), and that it is **not** actually a roguelike — it's a fixed
+  20-level arcade campaign with checkpoints, no procedural generation or
+  permadeath. We're deliberately keeping its real hook (maze-like levels,
+  weapon-matches-enemy-niche combat) and *adding* genuine roguelite
+  structure (procedural mazes, permadeath, meta-progression) on top,
+  rather than mis-describing the original as something it wasn't.
+- 2026-09-28: Kept the vanilla-JS/no-build-step stack rule from the
+  archived project even though this is now a real-time action game like
+  the project owner's other Canvas titles (Briarbloom, Keyfall), which
+  use TypeScript/Vite. The reason this repo went no-build in the first
+  place (avoiding the exact compile-step rework pain Briarbloom hit)
+  doesn't stop applying just because the genre changed — but flagged
+  explicitly here since it's a real divergence from the sibling projects'
+  stack, worth a second look if it starts to hurt.
+- 2026-09-28: Switched from DOM+CSS (the card game's choice) to Canvas 2D
+  for the game world — the card game picked DOM+CSS specifically because
+  it needed crisp text and easy hit-testing on a static-ish board; this
+  game needs continuous real-time movement and rendering, which is
+  exactly what DOM+CSS is the wrong tool for. Touch controls stay as a
+  DOM+CSS overlay on top of the canvas (a floating virtual joystick),
+  since that's genuinely discrete, styleable UI, not the game world.
+- 2026-09-28: Maze tile grid uses `room`-tile-wide open squares per graph
+  cell joined by `wall`-tile-thick corridor gaps (defaults `room: 6,
+  wall: 2`), not a literal 1-tile-wide corridor rendering of the graph
+  maze — a boat with momentum needs actual room to turn; a 1-wide
+  corridor maze would make every turn a wall-bounce.
+  - 2026-09-28: The boat steers toward the stick's direction (twin-stick
+  feel) rather than tank controls (forward/back + turn), even though the
+  reference game (Overboard!) used tank controls — tank controls fit a
+  physical d-pad; a touch stick maps far more naturally to "point where
+  you want to go." The *weight*/momentum feel that makes it feel like a
+  ship instead of a car comes entirely from the drag/turn-rate tuning,
+  not from the control scheme.
+- 2026-09-28: `resolveTileCollision` uses a minimum-translation-vector
+  resolver (deepest single overlap, pushed out along its real normal, up
+  to 4 passes) rather than the initially-simpler per-axis "closest edge"
+  heuristic — the simpler version had a real, playtest-found failure mode
+  at multi-tile-thick wall corners (see Current status). Worth remembering
+  as a general lesson for this project: axis-independent tile collision
+  heuristics are a trap the moment walls are more than 1 tile thick;
+  proper 2D penetration resolution doesn't have that failure class.
 
 ## Known open questions (do not silently resolve — ask)
 
-- Exact UI copy/flavor text for the 10 shard abilities — deferred to step 5.
-- Whether Shoal Call and Drowned Favor stack cleanly if both are rolled in
-  one run — provisionally yes, revisit if playtesting shows it's degenerate.
+- Exact weapon list and which enemy types they counter — Overboard!'s
+  examples (rockets vs. flyers, depth charges vs. submerged) are a
+  starting point, not a locked list. Needs deciding before step 3.
+- How "reaching the exit" should actually end a run once the roguelike
+  structure (step 6) exists — right now it's a placeholder that just
+  regenerates a fresh single maze with no stakes. Multi-room progression
+  within one run vs. one maze = one full run isn't decided yet.
+- What meta-progression actually unlocks (new ship hulls? starting
+  weapons? passive relics/captain talents? some mix?) — flagged in the
+  build order as a step 7 concern, not decided yet.
