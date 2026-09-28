@@ -81,5 +81,8 @@ test('a right-side HUD band keeps the map\'s right edge — and a boat on it —
   const view = computeCameraView(boat, W, H, MAP, MAP, insets);
   assert.ok(toScreen(view, boat.x, boat.y).x <= W - insets.right, 'boat must render left of the control band');
   assert.equal(toScreen(view, MAP, 0).x, W - insets.right, 'map right edge sits exactly at the band');
-  assert.equal(toScreen(view, 0, 0).y, insets.top);
+  // Mid-map vertically, so no vertical clamp — the boat is centred in the
+  // usable height (the top-inset clamp has its own test above).
+  const sy = toScreen(view, boat.x, boat.y).y;
+  assert.equal(sy, insets.top + (H - insets.top - insets.bottom) / 2);
 });
