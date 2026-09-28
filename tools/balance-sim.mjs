@@ -378,6 +378,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     contactByFaction: {},
     bossEncountered: false, bossDefeated: false,
     finalHull: 0,
+    levelTimes: [],
   };
 
   let reefTimer = 0;
@@ -386,6 +387,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
   for (let frame = 0; frame < 30 * REEF_TIMEOUT_SECONDS * REEF_COUNT * 1.2; frame++) {
     if (run.over) break;
     if (run.reefIndex !== lastReefIndex) {
+      stats.levelTimes[lastReefIndex] = reefTimer; // seconds to clear that level
       reefTimer = 0;
       lastReefIndex = run.reefIndex;
       stats.reefsReached++;
@@ -448,6 +450,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     checkReachedExit(run);
   }
 
+  if (run.outcome === 'victory') stats.levelTimes[run.reefIndex] = reefTimer;
   stats.outcome = run.outcome || (stats.timeoutReef != null ? 'timeout' : 'incomplete');
   stats.bankedSalvage = run.bankedSalvage;
   stats.finalHull = run.boat.health;
@@ -487,6 +490,15 @@ function summarize(results) {
   console.log(`\n=== Balance sim: ${n} voyages ===`);
   console.log('Outcomes:', outcomes, `(${((outcomes.victory || 0) / n * 100).toFixed(1)}% victory)`);
   console.log('Reefs reached histogram:', reefsReachedHist);
+  // Round length (2026-09-28 growth direction: a level should be a couple
+  // of minutes). Median seconds to clear each level, among bots that did.
+  const med = (a) => { const b = [...a].sort((x, y) => x - y); return b.length ? b[Math.floor(b.length / 2)] : null; };
+  const levelTimes = [];
+  for (let i = 0; i < REEF_COUNT; i++) {
+    const t = med(results.map((r) => r.levelTimes[i]).filter((v) => v != null));
+    levelTimes.push(t == null ? '—' : `${Math.round(t)}s`);
+  }
+  console.log('Median bot clear time per level:', levelTimes.join(' | '));
   console.log(`Avg banked Salvage per run: ${(totalBanked / n).toFixed(1)}`);
   console.log('Kills by enemy type:', killsByType);
   console.log(`Boss encounter rate: ${(bossEncounters / n * 100).toFixed(1)}% | defeat rate (of encounters): ${bossEncounters ? (bossDefeats / bossEncounters * 100).toFixed(1) : 'n/a'}%`);

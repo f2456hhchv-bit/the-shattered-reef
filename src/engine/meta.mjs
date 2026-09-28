@@ -30,6 +30,9 @@ export function createDefaultMeta() {
     selectedFaction: null, // null = unaligned (baseline), matching BASELINE_LOADOUT
     krakenScales: 0, // the Workshop's rare-drop currency — see recordRunResult
     ownedWorkshopUpgrades: [],
+    // Stages (2026-09-28): the highest stage the player may sail. Clearing
+    // it (all 5 levels) unlocks the next; cleared stages stay replayable.
+    highestStageUnlocked: 1,
     stats: { runsPlayed: 0, bestReefsCleared: 0, deepestReefReached: 0, totalSalvageEarned: 0 },
   };
 }
@@ -67,6 +70,7 @@ export function loadMeta(storage) {
     }
     if (!Number.isFinite(meta.salvage)) meta.salvage = 0;
     if (!Number.isFinite(meta.krakenScales)) meta.krakenScales = 0;
+    if (!Number.isInteger(meta.highestStageUnlocked) || meta.highestStageUnlocked < 1) meta.highestStageUnlocked = 1;
     return meta;
   } catch {
     return defaults;
@@ -213,4 +217,8 @@ export function recordRunResult(meta, run) {
   // voyage was ultimately won or lost afterward — killing the boss is the
   // achievement being rewarded, not surviving the rest of the voyage.
   if (run.bossDefeated) meta.krakenScales += 1;
+  // Clearing a stage for the first time unlocks the next one.
+  if (run.outcome === 'victory' && run.stage && run.stage >= meta.highestStageUnlocked) {
+    meta.highestStageUnlocked = run.stage + 1;
+  }
 }

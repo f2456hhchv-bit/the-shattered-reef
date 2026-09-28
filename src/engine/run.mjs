@@ -21,7 +21,7 @@ import { generateMazeGraph, farthestCell, buildOrganicReefGrid, cellCenterTile }
 import { createBoat } from './boat.mjs';
 import { createWeaponState } from './combat.mjs';
 import { spawnReefEnemies } from './enemies.mjs';
-import { spawnPoolForReefIndex } from '../data/enemies.mjs';
+import { spawnPoolForReefIndex, ENEMY_IDS } from '../data/enemies.mjs';
 import { spawnReefPickups } from './pickups.mjs';
 import { SHIP_HULLS, HULL_IDS, tuningForHull, CHARMS, CHARM_IDS } from '../data/meta.mjs';
 
@@ -43,7 +43,10 @@ export const BASELINE_LOADOUT = Object.freeze({
 export const TILE_SIZE = 16; // px per tile at 1x zoom
 export const BOAT_RADIUS = 11; // px, collision + draw radius
 export const EXIT_RADIUS_TILES = 1.5; // how close (in tiles) counts as "reached the exit"
-export const REEF_COUNT = 3; // locked vertical-slice scope: 3 reefs per run, fixed sequence
+// A stage (2026-09-28, project owner): 5 levels (reefs) in one biome. A run
+// is one attempt at a stage — sinking restarts it from level 1.
+export const LEVELS_PER_STAGE = 5;
+export const REEF_COUNT = LEVELS_PER_STAGE; // legacy name, kept for existing call sites
 // 7/3 (was 6/2) once coastlines went organic: thicker land reads as islands
 // rather than rock ridges, and the rock grown into rooms brings open water
 // back to roughly the old 6/2 area, so enemy density is about unchanged.
@@ -54,10 +57,14 @@ const WALL = 3;
 // enemies as the voyage progresses. The last entry repeats if REEF_COUNT
 // ever grows past this table without a matching tuning update.
 const REEF_TUNING = [
-  { cols: 7, rows: 7, enemyCount: 7 },
-  { cols: 9, rows: 9, enemyCount: 10 },
-  { cols: 11, rows: 11, enemyCount: 13 },
-];
+  // Short rounds: level 1 is a small reef you can clear in a minute or so;
+  // level 5 is the big one, with the boss guarding its exit.
+  { cols: 5, rows: 5, enemyCount: 4 },
+  { cols: 6, rows: 6, enemyCount: 6 },
+  { cols: 7, rows: 7, enemyCount: 8 },
+  { cols: 8, rows: 8, enemyCount: 10 },
+  { cols: 9, rows: 9, enemyCount: 11, boss: true },
+]
 
 export const TIER_COUNT = REEF_TUNING.length;
 
@@ -71,6 +78,17 @@ function tuningFor(tier) {
 // from the run seed, so any reef can be rebuilt on its own from its code.
 export function levelForReef(runSeed, reefIndex, biomeId = BIOME_IDS.TROPICAL) {
   return { biomeId, tier: Math.min(reefIndex + 1, TIER_COUNT), seed: mixSeed(runSeed, reefIndex) };
+}
+
+// Stages are FIXED: "Stage 2 – Level 3" is the same reef for every player,
+// every attempt (learnable, shareable, and the basis for a numbered level
+// catalogue). Stage 1 is Tropical; later stages will take later biomes.
+const STAGE_SEED_BASE = 0x5eed2026;
+export function biomeForStage() {
+  return BIOME_IDS.TROPICAL; // only biome so far
+}
+export function stageLevel(stage, levelIndex) {
+  return { biomeId: biomeForStage(stage), tier: levelIndex + 1, seed: mixSeed(STAGE_SEED_BASE + stage, levelIndex) };
 }
 
 function buildReefWorld(rng, tier) {
@@ -104,7 +122,8 @@ function buildReefWorld(rng, tier) {
 // hull and weapons untouched — those persist across the whole voyage) and
 // this reef's at-risk Salvage tally reset to 0.
 function enterReef(run, reefIndex) {
-  const level = run.levelOverrides[reefIndex] ?? levelForReef(run.seed, reefIndex);
+  const level = run.levelOverrides[reefIndex]
+    ?? (run.stage ? stageLevel(run.stage, reefIndex) : levelForReef(run.seed, reefIndex));
   // One rng per reef, from that reef's own seed — the whole reef (layout,
   // coast, enemies, pickups) is a pure function of its level.
   const rng = makeSeededRng(level.seed);
@@ -135,6 +154,10 @@ function enterReef(run, reefIndex) {
     spawnPoolForReefIndex(level.tier - 1), run.grid, run.tileSize,
     world.spawnWorld, run.exitWorld, tuning.enemyCount, rng
   );
+  if (tuning.boss) {
+    // The stage finale: The Kraken's Anchor always guards level 5's exit.
+    run.enemies.push(...spawnReefEnemies([ENEMY_IDS.KRAKENS_ANCHOR], run.grid, run.tileSize, world.spawnWorld, run.exitWorld, 1, rng));
+  }
   run.pickups = spawnReefPickups(run.grid, run.tileSize, world.spawnWorld, rng);
   run.reefSalvage = 0;
 }
@@ -148,9 +171,12 @@ function enterReef(run, reefIndex) {
 // `options.levels` (optional): explicit levels by reef index, e.g.
 // `{ 0: decodeLevelCode('TR1-0K3F9ZA') }` to play a specific reef first.
 // Reefs without one use levelForReef(seed, index).
-export function createRun(seed, loadout = BASELINE_LOADOUT, { levels = {} } = {}) {
+// `options.stage` (optional): play that stage's fixed levels (stageLevel)
+// instead of levels derived from the run seed.
+export function createRun(seed, loadout = BASELINE_LOADOUT, { levels = {}, stage = null } = {}) {
   const run = {
     seed: seed >>> 0,
+    stage,
     levelOverrides: levels,
     levelCodes: [], // the code of every reef this run has entered, in order
     reefIndex: 0,

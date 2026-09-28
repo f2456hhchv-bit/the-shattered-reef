@@ -8,12 +8,53 @@
 import { getEnemy, ENEMY_IDS, ARCHETYPES } from '../data/enemies.mjs';
 import { triangleMultiplier, incomingTriangleMultiplier } from '../data/factions.mjs';
 import { resolveTileCollision, resolveCoastCollision } from './boat.mjs';
+import { sampleField } from './terrain.mjs';
 import { isOpenWithClearance } from './maze.mjs';
 
 let nextEnemyId = 1;
 
 function randRange(rng, [min, max]) {
   return min + rng() * (max - min);
+}
+
+// Aggro tuning (2026-09-28). Before this every enemy on the map hunted the
+// boat from the first frame, and flyers crossed land in a straight line:
+// an idle player was hit ~7s in and sank within 20s about half the time
+// on reef 1 (measured, and it predates the art pass). Now enemies wake
+// only when they can see the boat — within `radius`, with line of sight
+// over water for ships (flyers see over land) — or when hit, or when a
+// packmate nearby wakes. Past `leash` they give up and drift home.
+export const AGGRO = Object.freeze({
+  radius: 190, // px — a def can override with `aggroRadius`
+  leashMultiplier: 2.2,
+  packAlertRadius: 90, // px — waking one wakes dormant enemies this close
+  senseInterval: 0.2, // s between sight checks while dormant
+  idleRadius: 16, // px — lazy drift around home while dormant
+  idleSpeedScale: 0.22,
+});
+
+export function aggroRadiusOf(enemy) {
+  return getEnemy(enemy.defId).aggroRadius ?? AGGRO.radius;
+}
+
+// Straight-line sight from enemy to boat, blocked by land. Uses the smooth
+// coast field when given (what the player sees), else the tile grid.
+export function hasLineOfSight(enemy, boat, grid, tileSize, coast = null) {
+  const dx = boat.x - enemy.x; const dy = boat.y - enemy.y;
+  const steps = Math.ceil(Math.hypot(dx, dy) / 10);
+  for (let i = 1; i < steps; i++) {
+    const x = enemy.x + (dx * i) / steps; const y = enemy.y + (dy * i) / steps;
+    if (coast) { if (sampleField(coast, x, y) > 0) return false; }
+    else {
+      const tx = Math.floor(x / tileSize); const ty = Math.floor(y / tileSize);
+      if (tx < 0 || ty < 0 || tx >= grid.width || ty >= grid.height || grid.tiles[ty][tx] === 1) return false;
+    }
+  }
+  return true;
+}
+
+export function wakeEnemy(enemy) {
+  enemy.aggro = true;
 }
 
 export function createEnemy(defId, x, y, rng = Math.random) {
@@ -51,6 +92,13 @@ export function createEnemy(defId, x, y, rng = Math.random) {
     salvageDrop: def.salvageDrop ? Math.round(randRange(rng, def.salvageDrop)) : 0,
     isBoss: !!def.isBoss,
     burn: null,
+    // Aggro (2026-09-28): dormant until the boat is in sight — see
+    // updateEnemy. `home` is where it idles and returns to when leashed.
+    aggro: false,
+    home: { x, y },
+    idlePhase: rng() * Math.PI * 2,
+    senseTimer: rng() * AGGRO.senseInterval,
+    lastHealth: def.maxHealth,
   };
 
   if (startArchetype === ARCHETYPES.FLYER) {
@@ -137,7 +185,10 @@ function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid) {
 // once — a redraw, not a second boss.
 export function spawnReefEnemies(spawnPool, grid, tileSize, boatSpawn, exitWorld, count, rng = Math.random) {
   const enemies = [];
-  const minDist = tileSize * 3;
+  // Safe opening (2026-09-28): nothing spawns within ~1.6 maze cells of the
+  // boat (was 3 tiles — inside the start room), and that's beyond aggro
+  // range, so a level always opens quiet.
+  const minDist = Math.max(tileSize * 3, (grid.unit || 8) * tileSize * 1.6);
   let placed = 0;
   let bossPlaced = false;
   // Bounds the whole loop, not just findOpenSpawnTile's own internal
@@ -316,15 +367,30 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
   if (enemy.health <= 0) return;
 
   const def = getEnemy(enemy.defId);
-  if (def.isBoss) updateBossPhase(enemy, def, dt);
+  const dist = Math.hypot(boat.x - enemy.x, boat.y - enemy.y);
+  const radius = def.aggroRadius ?? AGGRO.radius;
+  if (enemy.health < enemy.lastHealth) enemy.aggro = true; // shot at: always wakes
+  enemy.lastHealth = enemy.health;
+  if (!enemy.aggro) {
+    enemy.senseTimer -= dt;
+    if (enemy.senseTimer <= 0) {
+      enemy.senseTimer = AGGRO.senseInterval;
+      if (dist <= radius && (enemy.archetype === ARCHETYPES.FLYER || hasLineOfSight(enemy, boat, grid, tileSize, coast))) enemy.aggro = true;
+    }
+  } else if (dist > radius * AGGRO.leashMultiplier) {
+    enemy.aggro = false; // lost the boat: drift back home
+  }
 
-  switch (enemy.archetype) {
-    case ARCHETYPES.SWARM: updateSwarm(enemy, boat, dt); break;
-    case ARCHETYPES.FLYER: updateFlyer(enemy, boat, dt); break;
-    case ARCHETYPES.SUBMERGED: updateSubmerged(enemy, boat, dt, def); break;
-    case ARCHETYPES.TANK: updateTank(enemy, boat, dt); break;
-    case ARCHETYPES.FLANKER: updateFlanker(enemy, boat, dt); break;
-    default: updateTank(enemy, boat, dt); break;
+  if (!enemy.aggro) {
+    // Dormant: a lazy drift around home (or back toward it after a leash).
+    enemy.idlePhase += dt * 0.5;
+    const tx = enemy.home.x + Math.cos(enemy.idlePhase) * AGGRO.idleRadius;
+    const ty = enemy.home.y + Math.sin(enemy.idlePhase) * AGGRO.idleRadius;
+    const far = Math.hypot(tx - enemy.x, ty - enemy.y) > AGGRO.idleRadius * 3;
+    steerToward(enemy, tx, ty, dt, far ? 0.6 : AGGRO.idleSpeedScale);
+  } else {
+    if (def.isBoss) updateBossPhase(enemy, def, dt);
+    moveAggroed(enemy, boat, dt, def);
   }
 
   if (enemy.archetype !== ARCHETYPES.FLYER) {
@@ -337,8 +403,31 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
   }
 }
 
+function moveAggroed(enemy, boat, dt, def) {
+  switch (enemy.archetype) {
+    case ARCHETYPES.SWARM: updateSwarm(enemy, boat, dt); break;
+    case ARCHETYPES.FLYER: updateFlyer(enemy, boat, dt); break;
+    case ARCHETYPES.SUBMERGED: updateSubmerged(enemy, boat, dt, def); break;
+    case ARCHETYPES.TANK: updateTank(enemy, boat, dt); break;
+    case ARCHETYPES.FLANKER: updateFlanker(enemy, boat, dt); break;
+    default: updateTank(enemy, boat, dt); break;
+  }
+}
+
 export function updateEnemies(enemies, boat, dt, grid, tileSize, coast = null) {
-  for (const enemy of enemies) updateEnemy(enemy, boat, dt, grid, tileSize, coast);
+  const woke = [];
+  for (const enemy of enemies) {
+    const was = enemy.aggro;
+    updateEnemy(enemy, boat, dt, grid, tileSize, coast);
+    if (!was && enemy.aggro) woke.push(enemy);
+  }
+  // Pack alert: one waking rouses dormant neighbours (a Skimmer pack
+  // attacks together rather than trickling in one by one).
+  for (const w of woke) {
+    for (const e of enemies) {
+      if (!e.aggro && e.health > 0 && Math.hypot(e.x - w.x, e.y - w.y) <= AGGRO.packAlertRadius) e.aggro = true;
+    }
+  }
 }
 
 // Contact damage: an enemy touching the boat hurts it, on its own

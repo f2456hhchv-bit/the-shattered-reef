@@ -1438,6 +1438,76 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - **Next up:** the growth direction below (numbered levels, short
   rounds), then the other biomes. Ask the project owner which first.
 
+- **Phase:** stages + fixing the opening (project owner: "I died within
+  seconds. Enemies swarmed me", and "a reef is a level; 5 reefs in the
+  same biome is a stage — Stage 1 - Level 1, Stage 1 - Level 2…").
+  AskUserQuestion answer: **sinking restarts the stage**.
+- **Why you died (measured, and it predates the art pass):** every enemy
+  on the map hunted the boat from frame one, and flyers cross land in a
+  straight line. Across 200 reef-1 starts, a player sitting at spawn was
+  hit about 7s in and sank within 20s ~53% of the time. Gullswarm
+  Harpies did ~95% of that damage: every one reached the spawn within
+  15s, and on reef 1 you only hold Cannonballs.
+- **Just shipped:**
+  - **Aggro** (`engine/enemies.mjs`, `AGGRO`). Enemies are dormant
+    (lazy drift around home) until the boat is within 190px *and* in
+    line of sight over water. Flyers see over land. Getting shot always
+    wakes an enemy; a waking enemy rouses dormant packmates within
+    90px; past 2.2× range they give up and drift home. Bosses don't
+    cycle phases while dormant. Measured after: an idle player at spawn
+    takes 0 damage in 20s (was sinking half the time).
+  - **Safe opening:** nothing spawns within ~1.6 maze cells of the boat
+    (was 3 tiles, inside the start room), which is beyond aggro range.
+  - **Stages** (`run.mjs`): `LEVELS_PER_STAGE = 5` (`REEF_COUNT` kept as
+    an alias).
+    - Five tiers: 5×5/4 enemies → 6×6/6 → 7×7/8 → 8×8/10 → 9×9/11.
+    - Level 5 always has The Kraken's Anchor at the exit. It was a
+      random pool draw; now it's placed by `run.mjs`, and it's in no
+      pool.
+    - Stage levels are **fixed**: `stageLevel(stage, i)` gives the same
+      reef to every player on every attempt. `biomeForStage` returns
+      Tropical for now.
+    - `createRun(seed, loadout, { stage })`. Level codes now carry tier
+      1-5.
+  - **Roster ramp** (`SPAWN_POOLS`):
+    - level 1: Skimmers only
+    - level 2: + Harpies
+    - level 3: + Crawlers, Brigands (every faction present by level 3)
+    - level 4: + Riggers
+    - level 5: full roster + boss
+  - **Meta:** `highestStageUnlocked` (clearing a stage unlocks the next;
+    sanitized on load).
+  - **Hub:** a stage picker (◀ Stage N ▶, 44px buttons) in the sticky
+    footer. It defaults to the furthest unlocked stage; cleared stages
+    are replayable.
+  - **HUD and summary:** the chip shows "Level N/5", and the status line
+    shows "Stage 1 – Level 2/5 — find the exit". The summary reads
+    "Stage N cleared! / Stage N+1 unlocked!" or "Sunk on Stage N – Level
+    M… the stage restarts from Level 1".
+  - **Balance sim** reports median clear time per level: 60s, 81s,
+    107s, 129s, 190s. That's the bot, which also hunts every pickup; a
+    player heading for the exit is faster. This fits the "couple of
+    minutes per round" target.
+  - 280/280 tests: aggro (dormant, sight, blocked by land, flyers see
+    over land, damage wake, pack alert, leash, safe opening across 60
+    runs), stage boss placement, roster ramp, stage unlock and a
+    corrupt-save fallback.
+  - Live playtest passed with no console errors:
+    - 20s idle on level 1 cost 0 hull
+    - the boss is present on level 5
+    - clearing a stage unlocks stage 2
+    - picker and "Cleared ✓" behave
+    - the stage-2 sink summary shows correctly
+    - unlocks survive a reload
+- **Next up:**
+  - Play it and judge the ramp by feel. The aggro radius and per-level
+    counts are first-pass numbers.
+  - The balance sim now times out on most runs: the bot hunts dormant
+    enemies it can't path to. That's a bot limitation, not a game one,
+    but its sink and victory rates aren't trustworthy until it's fixed.
+  - Stages 2+ are the same difficulty as stage 1 on new seeds (see
+    Known open questions).
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2001,6 +2071,20 @@ Starting fresh below for the new game.)*
   Current voyages are 3 reefs, likely longer than "a couple of minutes"
   in total, and should be measured.
 
+- 2026-09-28: **Run structure changed (project owner):** a reef is a
+  level; 5 levels in one biome is a stage; sinking restarts the stage;
+  clearing it unlocks the next. This supersedes the vertical slice's
+  locked "3 reefs per run". Hull and weapons still carry across a
+  stage's levels, and Salvage still banks at each level's exit.
+- 2026-09-28: Stage levels are fixed seeds, the same for everyone. That
+  makes "Stage 1 – Level 2" a specific, learnable, shareable reef, which
+  is what a large numbered catalogue needs. Variety comes from the level
+  count, not from rerolling.
+- 2026-09-28: Enemies wake by sight, not by global pursuit. The measured
+  failure was flyers crossing the whole map to the spawn. Pacing
+  encounters by exploration is the standard for maze shooters, and it
+  makes enemy placement mean something.
+
 ## Known open questions (do not silently resolve — ask)
 
 - See the PRD's "Open Risks & Provisional Decisions" section
@@ -2017,6 +2101,11 @@ Starting fresh below for the new game.)*
   landscape). The sticky Set Sail fixes access, but browsing is long.
   Tabs per track, or collapsing owned items, would help as more tracks
   arrive.
+- **Stage-to-stage difficulty.** Stages 2+ reuse stage 1's per-level
+  tiers on new seeds, so they're no harder. A difficulty curve across
+  stages (and when later biomes take over) needs designing with the
+  project owner. It can't simply be baked into level codes, which today
+  encode only biome + tier + seed.
 - **Real-phone performance of the terrain renderer is unverified.**
   Measured on headless desktop Chromium: ~150ms to build fields at a
   reef-3 start, and ~8ms per chunk (64 chunks), streamed at 3ms per

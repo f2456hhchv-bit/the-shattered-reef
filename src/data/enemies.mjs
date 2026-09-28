@@ -156,18 +156,24 @@ export function getEnemy(id) {
 // than reduced to make room for it. engine/enemies.mjs's spawnReefEnemies
 // still special-cases *placement* for anything with `isBoss: true` (guards
 // the exit, unique per reef) even though it's drawn from this same pool.
+// Stages (2026-09-28): a stage is 5 levels in one biome, and these are the
+// per-level enemy pools, level 1 first. The roster ramps in one new threat
+// at a time, so each weapon's counter-role gets introduced rather than
+// dumped on the player at once:
+//   1  Reef Skimmers only — learnable with Cannonballs alone
+//   2  + Gullswarm Harpies (Chain Shot)
+//   3  + Deep Crawlers, Ironclad Brigands (Depth Charges, Flame Barrels) —
+//      Brigands stay early-ish so Iron Accord is not absent for most of a
+//      run (see the 2026-09-28 faction balance entries in CLAUDE.md)
+//   4  + Riggers — the full roster
+//   5  the full roster, and The Kraken's Anchor is guaranteed at the exit
+//      (run.mjs places it; it's no longer a random pool draw)
 export const SPAWN_POOLS = [
+  [ENEMY_IDS.REEF_SKIMMER],
   [ENEMY_IDS.REEF_SKIMMER, ENEMY_IDS.GULLSWARM_HARPY],
-  // Ironclad Brigand added to reef 2 (2026-09-28, faction balance pass —
-  // the PRD's "later reefs mix in Crawlers, Brigands, and Riggers"): Iron
-  // Accord was absent until reef 3, so the Reavers had no prey and
-  // Wyrdtide no predator for two-thirds of every voyage — see the
-  // decisions log. Measured with tools/faction-compare.mjs.
-  [ENEMY_IDS.REEF_SKIMMER, ENEMY_IDS.GULLSWARM_HARPY, ENEMY_IDS.DEEP_CRAWLER, ENEMY_IDS.RIGGER, ENEMY_IDS.IRONCLAD_BRIGAND],
-  [
-    ENEMY_IDS.REEF_SKIMMER, ENEMY_IDS.GULLSWARM_HARPY, ENEMY_IDS.DEEP_CRAWLER,
-    ENEMY_IDS.IRONCLAD_BRIGAND, ENEMY_IDS.RIGGER, ENEMY_IDS.KRAKENS_ANCHOR,
-  ],
+  [ENEMY_IDS.REEF_SKIMMER, ENEMY_IDS.GULLSWARM_HARPY, ENEMY_IDS.DEEP_CRAWLER, ENEMY_IDS.IRONCLAD_BRIGAND],
+  [ENEMY_IDS.REEF_SKIMMER, ENEMY_IDS.GULLSWARM_HARPY, ENEMY_IDS.DEEP_CRAWLER, ENEMY_IDS.IRONCLAD_BRIGAND, ENEMY_IDS.RIGGER],
+  [ENEMY_IDS.REEF_SKIMMER, ENEMY_IDS.GULLSWARM_HARPY, ENEMY_IDS.DEEP_CRAWLER, ENEMY_IDS.IRONCLAD_BRIGAND, ENEMY_IDS.RIGGER],
 ];
 
 // Returns a copy, so a caller can never mutate the shared pool by accident.

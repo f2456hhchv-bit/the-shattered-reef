@@ -2,8 +2,8 @@
 // determines one reef: its layout, coastline, art, enemies and pickups. The
 // same code always rebuilds the same reef, on any device, in any run.
 //
-// Tier is the size/density step (run.mjs's REEF_TUNING index: 1 = small,
-// 3 = large with the boss in the pool). Seed is a uint32.
+// Tier is the level's position in a stage (run.mjs's REEF_TUNING, 1-5: 1 = small,
+// 5 = large with the boss at the exit). Seed is a uint32.
 //
 // Code format: <biome code><tier>-<seed, base-36, 7 chars>, e.g. TR1-0K3F9ZA.
 // Short enough to read out or type, and it's the hook for the growth plan:
@@ -32,7 +32,7 @@ export function encodeLevelCode({ biomeId, tier, seed }) {
 
 // Returns { biomeId, tier, seed } or null for anything malformed or unknown
 // (never throws — codes come from people typing or pasting them).
-export function decodeLevelCode(code, maxTier = 3) {
+export function decodeLevelCode(code, maxTier = 5) {
   if (typeof code !== 'string') return null;
   const m = /^([A-Z]{2})(\d)-([0-9A-Z]{1,7})$/.exec(code.trim().toUpperCase());
   if (!m) return null;

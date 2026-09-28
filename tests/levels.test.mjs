@@ -23,9 +23,9 @@ function advanceTo(run, reefIndex) {
 test('level codes round-trip for any seed and tier', () => {
   const rng = makeSeededRng(1);
   for (let i = 0; i < 500; i++) {
-    const level = { biomeId: 'tropical', tier: 1 + Math.floor(rng() * 3), seed: Math.floor(rng() * 2 ** 32) >>> 0 };
+    const level = { biomeId: 'tropical', tier: 1 + Math.floor(rng() * 5), seed: Math.floor(rng() * 2 ** 32) >>> 0 };
     const code = encodeLevelCode(level);
-    assert.match(code, /^TR[1-3]-[0-9A-Z]{7}$/);
+    assert.match(code, /^TR[1-5]-[0-9A-Z]{7}$/);
     assert.deepEqual(decodeLevelCode(code), level);
   }
   assert.deepEqual(decodeLevelCode(encodeLevelCode({ biomeId: 'tropical', tier: 1, seed: 0xffffffff })).seed, 0xffffffff);

@@ -11,7 +11,7 @@ import { createTerrainRenderer } from './engine/terrainRenderer.mjs';
 import { getBiome, BIOME_IDS } from './data/biomes.mjs';
 import {
   createRun, checkReachedExit, checkSunk, addSalvage, totalSalvage, BOAT_RADIUS,
-  TIER_COUNT,
+  TIER_COUNT, LEVELS_PER_STAGE, biomeForStage,
 } from './engine/run.mjs';
 import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
@@ -77,7 +77,7 @@ export function startApp(root) {
     <span id="hud-status">Find the exit ⚓</span>
     <div id="hull-bar"><div id="hull-bar-fill"></div></div>
     <div id="stat-row">
-      <span id="reef-indicator">Reef 1/3</span>
+      <span id="reef-indicator">Level 1/5</span>
       <span id="salvage-counter">⚓ Salvage: 0</span>
     </div>
     <div id="weapon-bar"></div>
@@ -163,7 +163,15 @@ export function startApp(root) {
       </div>
       <!-- Sticky: the Hub grew to ~3 screens (portrait) / ~5.5 (landscape)
            of shops, and the one action you always want sat at the bottom. -->
-      <div class="hub-footer"><button type="button" id="hub-set-sail">Set Sail ⚓</button></div>
+      <div class="hub-footer">
+        <!-- Stages (2026-09-28): pick any unlocked stage; the highest is the default. -->
+        <div id="hub-stage-picker">
+          <button type="button" id="stage-prev" aria-label="Previous stage">◀</button>
+          <div id="stage-label"><strong></strong><span></span></div>
+          <button type="button" id="stage-next" aria-label="Next stage">▶</button>
+        </div>
+        <button type="button" id="hub-set-sail">Set Sail ⚓</button>
+      </div>
     </div>
   `;
   root.appendChild(hubOverlay);
@@ -176,6 +184,9 @@ export function startApp(root) {
   const hubFactions = hubOverlay.querySelector('#hub-factions');
   const hubWorkshop = hubOverlay.querySelector('#hub-workshop');
   const hubSetSailBtn = hubOverlay.querySelector('#hub-set-sail');
+  const stagePrevBtn = hubOverlay.querySelector('#stage-prev');
+  const stageNextBtn = hubOverlay.querySelector('#stage-next');
+  const stageLabel = hubOverlay.querySelector('#stage-label');
 
   const fireButton = document.createElement('button');
   fireButton.id = 'fire-button';
@@ -349,7 +360,7 @@ export function startApp(root) {
   }
 
   function updateReefIndicator() {
-    document.getElementById('reef-indicator').textContent = `Reef ${run.reefIndex + 1}/${run.reefCount}`;
+    document.getElementById('reef-indicator').textContent = `Level ${run.reefIndex + 1}/${run.reefCount}`;
   }
 
   // Weapon-select bar: one button per weapon, thumb-sized, showing ammo
@@ -449,7 +460,8 @@ export function startApp(root) {
   // actually saved, not optimistic UI state.
   function renderHub() {
     hubSalvage.textContent = `Salvage: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}`;
-    hubStats.textContent = `Runs sailed: ${meta.stats.runsPlayed} · Best reefs cleared: ${meta.stats.bestReefsCleared}/${run.reefCount} · Deepest reef reached: ${meta.stats.deepestReefReached}`;
+    hubStats.textContent = `Runs sailed: ${meta.stats.runsPlayed} · Stages unlocked: ${meta.highestStageUnlocked}`;
+    renderStagePicker();
 
     // A selected faction overrides the hull (engine/meta.mjs resolveLoadout),
     // so say so here — otherwise the Hub shows your own pick as "Selected"
@@ -599,8 +611,32 @@ export function startApp(root) {
     }
   }
 
+  // Stage picker (2026-09-28). Defaults to the furthest unlocked stage each
+  // time the Hub opens; cleared stages stay replayable (for Salvage).
+  let selectedStage = 1;
+  function renderStagePicker() {
+    selectedStage = Math.min(Math.max(1, selectedStage), meta.highestStageUnlocked);
+    stageLabel.querySelector('strong').textContent = `Stage ${selectedStage}`;
+    const cleared = selectedStage < meta.highestStageUnlocked;
+    stageLabel.querySelector('span').textContent = `${getBiome(biomeForStage(selectedStage)).name} · ${LEVELS_PER_STAGE} levels${cleared ? ' · Cleared ✓' : ''}`;
+    stagePrevBtn.disabled = selectedStage <= 1;
+    stageNextBtn.disabled = selectedStage >= meta.highestStageUnlocked;
+  }
+  stagePrevBtn.addEventListener('click', () => { selectedStage -= 1; renderStagePicker(); });
+  stageNextBtn.addEventListener('click', () => { selectedStage += 1; renderStagePicker(); });
+
+  function stageLevelText(r = run) {
+    return r.stage ? `Stage ${r.stage} – Level ${r.reefIndex + 1}/${r.reefCount}` : `Level ${r.reefIndex + 1}/${r.reefCount}`;
+  }
+  function levelStartStatus(r = run) {
+    return r.enemies.some((e) => e.isBoss)
+      ? `${stageLevelText(r)} — the Kraken's Anchor guards the exit ⚓`
+      : `${stageLevelText(r)} — find the exit ⚓`;
+  }
+
   function openHub() {
     sailing = false;
+    selectedStage = meta.highestStageUnlocked;
     renderHub();
     hubOverlay.classList.add('show');
   }
@@ -612,7 +648,7 @@ export function startApp(root) {
     const sharedLevel = decodeLevelCode(new URLSearchParams(window.location.search).get('level'), TIER_COUNT);
     run = createRun(
       (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) & 0xffffffff, resolveLoadout(meta),
-      sharedLevel ? { levels: { 0: sharedLevel } } : {},
+      { stage: selectedStage, ...(sharedLevel ? { levels: { 0: sharedLevel } } : {}) },
     );
     camera.x = run.boat.x;
     camera.y = run.boat.y;
@@ -620,7 +656,7 @@ export function startApp(root) {
     damageNumbers = createDamageNumberPool();
     shake.trauma = 0;
     hitStop.remaining = 0;
-    setStatus(`Reef 1 of ${run.reefCount} — find the exit ⚓`);
+    setStatus(levelStartStatus());
     toast.classList.remove('show');
     if (run.faction) showMatchupBriefing(run.faction);
     hubOverlay.classList.remove('show');
@@ -639,19 +675,21 @@ export function startApp(root) {
   // was still at risk in the reef the boat died in is lost, not just
   // hidden, so a sunk run's `reefSalvage` (not yet folded into
   // `bankedSalvage`) is shown as lost rather than silently dropped.
-  function showRunSummary() {
+  function showRunSummary(newlyUnlocked = false) {
     const heldNiche = Array.from(run.weapons.heldWeapons).filter((id) => id !== 'cannonballs');
     const victory = run.outcome === 'victory';
-    summaryTitle.textContent = victory ? 'Voyage complete! ⚓' : 'Your ship has sunk ⚓';
+    summaryTitle.textContent = victory ? `Stage ${run.stage} cleared! ⚓` : `Sunk on ${stageLevelText()} ⚓`;
     const reefsCleared = victory ? run.reefCount : run.reefIndex;
     summaryBody.innerHTML = `
-      <p>Reefs cleared: ${reefsCleared} / ${run.reefCount}</p>
+      <p>Levels cleared: ${reefsCleared} / ${run.reefCount}</p>
+      ${newlyUnlocked ? `<p><strong>Stage ${meta.highestStageUnlocked} unlocked!</strong></p>` : ''}
+      ${!victory ? '<p>The stage restarts from Level 1 next time.</p>' : ''}
       <p>Salvage banked this voyage: ${run.bankedSalvage}</p>
       ${run.reefSalvage > 0 ? `<p class="lost">Salvage lost with the ship: ${run.reefSalvage}</p>` : ''}
       <p>Weapons found: ${heldNiche.length ? heldNiche.map((id) => getWeapon(id).name).join(', ') : 'None'}</p>
       ${run.bossDefeated ? '<p>The Kraken\'s Anchor defeated — 1 Kraken Scale earned 🦑</p>' : ''}
       <p>Salvage in the Hub: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}</p>
-      <p class="level-codes">Reef codes: ${run.levelCodes.map((c) => `<code>${c}</code>`).join(' ')}</p>
+      <p class="level-codes">Level codes: ${run.levelCodes.map((c) => `<code>${c}</code>`).join(' ')}</p>
     `;
     summaryOverlay.classList.add('show');
   }
@@ -660,9 +698,10 @@ export function startApp(root) {
   // is already correct the moment the screen appears.
   function endRun() {
     if (run.outcome === 'victory') playVictory(); else playSunk();
+    const unlockedBefore = meta.highestStageUnlocked;
     recordRunResult(meta, run);
     saveMeta(window.localStorage, meta);
-    showRunSummary();
+    showRunSummary(meta.highestStageUnlocked > unlockedBefore);
   }
   summaryBtn.addEventListener('click', () => {
     summaryOverlay.classList.remove('show');
@@ -675,7 +714,7 @@ export function startApp(root) {
     boatX: run.boat.x, boatY: run.boat.y, heading: run.boat.heading,
     hull: run.boat.health, maxHull: run.boat.maxHull, cameraX: camera.x, cameraY: camera.y,
     over: run.over, outcome: run.outcome, sailing, hubOpen: hubOverlay.classList.contains('show'),
-    reefIndex: run.reefIndex, reefCount: run.reefCount, levelCode: run.levelCode, levelCodes: run.levelCodes.slice(),
+    stage: run.stage, highestStageUnlocked: meta.highestStageUnlocked, reefIndex: run.reefIndex, reefCount: run.reefCount, levelCode: run.levelCode, levelCodes: run.levelCodes.slice(),
     exitX: run.exitWorld.x, exitY: run.exitWorld.y,
     bankedSalvage: run.bankedSalvage, reefSalvage: run.reefSalvage,
     salvage: totalSalvage(run), activeWeapon: run.weapons.activeWeaponId,
@@ -949,7 +988,7 @@ export function startApp(root) {
         } else if (reefResult === 'advanced') {
           camera.x = run.boat.x;
           camera.y = run.boat.y;
-          setStatus(`Reef ${run.reefIndex + 1} of ${run.reefCount} — find the exit ⚓`);
+          setStatus(levelStartStatus());
           // The Kraken's Anchor is a chance-based spawn on the final reef
           // (see data/enemies.mjs), so a voyage may or may not meet it —
           // when it does, fold the warning into the same toast as the
@@ -958,9 +997,9 @@ export function startApp(root) {
           const boss = run.enemies.find((e) => e.isBoss);
           if (boss) {
             boss._lastAnnouncedPhase = boss.phaseIndex; // don't fire a false "swap" on first sight
-            showToast(`Reef cleared! +${bankedThisReef} Salvage banked ⚓ — The Kraken's Anchor guards the exit! Try ${getWeapon(boss.counter).name} ⚓`);
+            showToast(`Level ${run.reefIndex} cleared! +${bankedThisReef} Salvage banked ⚓ — The Kraken's Anchor guards the exit! Try ${getWeapon(boss.counter).name} ⚓`);
           } else {
-            showToast(`Reef cleared! +${bankedThisReef} Salvage banked ⚓`);
+            showToast(`Level ${run.reefIndex} cleared! +${bankedThisReef} Salvage banked ⚓`);
           }
           updateReefIndicator();
           updateSalvageCounter();
@@ -1016,7 +1055,7 @@ export function startApp(root) {
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-  setStatus(`Reef 1 of ${run.reefCount} — find the exit ⚓`);
+  setStatus(levelStartStatus());
   updateHullBar();
   updateSalvageCounter();
   updateReefIndicator();

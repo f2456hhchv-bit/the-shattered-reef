@@ -60,6 +60,7 @@ test('a boss surfaces and re-submerges correctly across a full phase loop, never
   const boat = createBoat(400, 0, 0);
   const grid = openGrid();
   const boss = createEnemy(ENEMY_IDS.KRAKENS_ANCHOR, 0, 0);
+  boss.aggro = true; // a fight in progress (dormant bosses don't cycle phases)
   let sawVulnerableInPhase0Again = false;
   // Run well past 2 full phase cycles (2 * (14 + 14) = 56s) at 30fps.
   for (let i = 0; i < 30 * 70; i++) {
@@ -99,10 +100,23 @@ test('a Reef Skimmer pick spawns its whole pack at once', () => {
   for (const e of enemies) assert.equal(e.defId, ENEMY_IDS.REEF_SKIMMER);
 });
 
-test('spawnPoolForReefIndex includes the Kraken\'s Anchor only on the final reef (chance-based, not guaranteed elsewhere)', () => {
-  assert.ok(!spawnPoolForReefIndex(0).includes(ENEMY_IDS.KRAKENS_ANCHOR));
-  assert.ok(!spawnPoolForReefIndex(1).includes(ENEMY_IDS.KRAKENS_ANCHOR));
-  assert.ok(spawnPoolForReefIndex(2).includes(ENEMY_IDS.KRAKENS_ANCHOR));
+// Stages (2026-09-28): the boss is no longer a random pool draw — it's
+// guaranteed at level 5's exit (run.mjs) and absent from every pool.
+test('the Kraken\'s Anchor is in no random pool; it guards every stage\'s level 5, and only level 5', () => {
+  for (let i = 0; i < 5; i++) assert.ok(!spawnPoolForReefIndex(i).includes(ENEMY_IDS.KRAKENS_ANCHOR));
+  for (let stage = 1; stage <= 6; stage++) {
+    const run = createRun(1, undefined, { stage });
+    for (let lvl = 0; lvl < 5; lvl++) {
+      const bosses = run.enemies.filter((e) => e.isBoss);
+      assert.equal(bosses.length, lvl === 4 ? 1 : 0, `stage ${stage} level ${lvl + 1}`);
+      if (lvl < 4) { run.boat.x = run.exitWorld.x; run.boat.y = run.exitWorld.y; checkReachedExit(run); }
+    }
+  }
+});
+
+test('level 1 is an introduction: Reef Skimmers only; each level adds threats, never removes them', () => {
+  assert.deepEqual(spawnPoolForReefIndex(0), [ENEMY_IDS.REEF_SKIMMER]);
+  for (let i = 1; i < 5; i++) for (const id of spawnPoolForReefIndex(i - 1)) assert.ok(spawnPoolForReefIndex(i).includes(id));
 });
 
 test('a boss pick from the spawn pool is placed guarding the exit, not hidden in the maze', () => {
@@ -261,14 +275,88 @@ test('resolveEnemyContactEvents reports one event per contact hit with its real 
   assert.equal(events[0].damage, getEnemy(ENEMY_IDS.GULLSWARM_HARPY).contactDamage * 0.9);
 });
 
-test('Iron Accord (Brigands) appear from reef 2, not only reef 3 — every faction is present by mid-voyage', () => {
-  assert.ok(spawnPoolForReefIndex(1).includes(ENEMY_IDS.IRONCLAD_BRIGAND));
-  const factionsByReef2 = new Set([...spawnPoolForReefIndex(0), ...spawnPoolForReefIndex(1)].map((id) => getEnemy(id).faction).filter(Boolean));
-  assert.equal(factionsByReef2.size, 3);
+test('every faction is present by level 3 of a stage (Iron Accord must not be a late-only faction)', () => {
+  const factionsBy3 = new Set([0, 1, 2].flatMap((i) => spawnPoolForReefIndex(i)).map((id) => getEnemy(id).faction).filter(Boolean));
+  assert.equal(factionsBy3.size, 3);
 });
 
 test('spawnPoolForReefIndex returns a copy — callers cannot corrupt the shared pool', () => {
   const pool = spawnPoolForReefIndex(0);
   pool.push(ENEMY_IDS.KRAKENS_ANCHOR);
   assert.ok(!spawnPoolForReefIndex(0).includes(ENEMY_IDS.KRAKENS_ANCHOR));
+});
+
+// --- Aggro (2026-09-28): enemies wake when they can see the boat ------------
+import { AGGRO, updateEnemies as updateAll, hasLineOfSight } from '../src/engine/enemies.mjs';
+import { createRun, checkReachedExit } from '../src/engine/run.mjs';
+
+test('aggro: an enemy far from the boat stays dormant near home', () => {
+  const grid = openGrid();
+  const e = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 100, 100);
+  const boat = createBoat(100 + AGGRO.radius + 80, 100, 0);
+  for (let i = 0; i < 300; i++) updateEnemy(e, boat, 1 / 30, grid, 16);
+  assert.equal(e.aggro, false);
+  assert.ok(Math.hypot(e.x - 100, e.y - 100) < AGGRO.idleRadius * 2, 'should idle around home, not chase');
+});
+
+test('aggro: wakes within sight range over open water', () => {
+  const grid = openGrid();
+  const e = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 100, 100);
+  const boat = createBoat(100 + AGGRO.radius - 30, 100, 0);
+  for (let i = 0; i < 20; i++) updateEnemy(e, boat, 1 / 30, grid, 16);
+  assert.equal(e.aggro, true);
+});
+
+test('aggro: a ship does not see through land; a flyer does', () => {
+  const grid = openGrid();
+  for (let y = 0; y < grid.height; y++) for (let x = 12; x <= 14; x++) grid.tiles[y][x] = 1; // a rock wall at x 192..240px
+  const boat = createBoat(300, 100, 0);
+  const ship = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 150, 100);
+  const flyer = createEnemy(ENEMY_IDS.GULLSWARM_HARPY, 150, 100);
+  assert.equal(hasLineOfSight(ship, boat, grid, 16), false);
+  for (let i = 0; i < 20; i++) { updateEnemy(ship, boat, 1 / 30, grid, 16); updateEnemy(flyer, boat, 1 / 30, grid, 16); }
+  assert.equal(ship.aggro, false, 'the wall blocks the ship\'s sight');
+  assert.equal(flyer.aggro, true, 'a flyer sees over land');
+});
+
+test('aggro: taking damage wakes an enemy even out of sight range', () => {
+  const grid = openGrid();
+  const e = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 100, 100);
+  const boat = createBoat(100 + AGGRO.radius + 60, 100, 0);
+  updateEnemy(e, boat, 1 / 30, grid, 16);
+  e.health -= 5;
+  updateEnemy(e, boat, 1 / 30, grid, 16);
+  assert.equal(e.aggro, true);
+});
+
+test('aggro: one waking rouses its dormant packmates; distant enemies stay asleep', () => {
+  const grid = openGrid();
+  const a = createEnemy(ENEMY_IDS.REEF_SKIMMER, 300, 300);
+  const b = createEnemy(ENEMY_IDS.REEF_SKIMMER, 300 + AGGRO.packAlertRadius - 20, 300);
+  const far = createEnemy(ENEMY_IDS.REEF_SKIMMER, 300 + AGGRO.packAlertRadius * 3, 300);
+  const boat = createBoat(300 - AGGRO.radius + 20, 300, 0);
+  for (let i = 0; i < 10; i++) updateAll([a, b, far], boat, 1 / 30, grid, 16);
+  assert.equal(a.aggro, true);
+  assert.equal(b.aggro, true, 'a packmate within alert range wakes too');
+  assert.equal(far.aggro, false);
+});
+
+test('aggro: past the leash an enemy gives up and heads home', () => {
+  const grid = openGrid();
+  const e = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 100, 100);
+  e.aggro = true;
+  const boat = createBoat(100 + AGGRO.radius * AGGRO.leashMultiplier + 40, 100, 0);
+  updateEnemy(e, boat, 1 / 30, grid, 16);
+  assert.equal(e.aggro, false);
+});
+
+test('safe opening: in real levels nothing spawns within aggro range of the boat, so a level starts quiet', () => {
+  for (let seed = 1; seed <= 60; seed++) {
+    const run = createRun(seed * 31);
+    for (const e of run.enemies) {
+      if (e.isBoss) continue;
+      const d = Math.hypot(e.x - run.boat.x, e.y - run.boat.y);
+      assert.ok(d > AGGRO.radius, `seed ${seed}: ${e.defId} spawned ${d.toFixed(0)}px from the boat`);
+    }
+  }
 });

@@ -449,3 +449,21 @@ test('the three factions grant three different passives (no duplicated identity)
   const charms = Object.values(PLAYABLE_FACTIONS).map((f) => f.grantsCharm);
   assert.equal(new Set(charms).size, charms.length);
 });
+
+// --- Stages (2026-09-28) ------------------------------------------------------
+test('stages: a fresh save starts with stage 1 unlocked; clearing it unlocks stage 2', () => {
+  const meta = createDefaultMeta();
+  assert.equal(meta.highestStageUnlocked, 1);
+  recordRunResult(meta, { bankedSalvage: 0, outcome: 'sunk', reefIndex: 2, reefCount: 5, stage: 1 });
+  assert.equal(meta.highestStageUnlocked, 1, 'sinking unlocks nothing');
+  recordRunResult(meta, { bankedSalvage: 0, outcome: 'victory', reefIndex: 4, reefCount: 5, stage: 1 });
+  assert.equal(meta.highestStageUnlocked, 2);
+  recordRunResult(meta, { bankedSalvage: 0, outcome: 'victory', reefIndex: 4, reefCount: 5, stage: 1 });
+  assert.equal(meta.highestStageUnlocked, 2, 'replaying a cleared stage does not skip ahead');
+});
+
+test('stages: a corrupt highestStageUnlocked loads as 1', () => {
+  const store = new Map([['shatteredReef.meta.v1', JSON.stringify({ highestStageUnlocked: 'lots' })]]);
+  const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
+  assert.equal(loadMeta(storage).highestStageUnlocked, 1);
+});
