@@ -3,7 +3,7 @@
 // step 2 navigation loop: weapons, projectiles, hit detection, and enemy
 // AI with niches — the Overboard hook (wrong weapon = little/no effect).
 
-import { createRun, checkReachedExit, checkSunk, BOAT_RADIUS } from './engine/run.mjs';
+import { createRun, checkReachedExit, checkSunk, addSalvage, totalSalvage, BOAT_RADIUS } from './engine/run.mjs';
 import { stepBoat, resolveTileCollision, applyWallImpactDamage, DEFAULT_BOAT_TUNING, MAX_HULL } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
 import { drawTileGrid, drawExit, drawBoat, drawEnemies, drawProjectiles, drawPickups, PALETTE } from './engine/renderer.mjs';
@@ -36,10 +36,27 @@ export function startApp(root) {
   hud.innerHTML = `
     <span id="hud-status">Find the exit ⚓</span>
     <div id="hull-bar"><div id="hull-bar-fill"></div></div>
-    <span id="salvage-counter">⚓ Salvage: 0</span>
+    <div id="stat-row">
+      <span id="reef-indicator">Reef 1/3</span>
+      <span id="salvage-counter">⚓ Salvage: 0</span>
+    </div>
     <div id="weapon-bar"></div>
   `;
   root.appendChild(hud);
+
+  const summaryOverlay = document.createElement('div');
+  summaryOverlay.id = 'run-summary';
+  summaryOverlay.innerHTML = `
+    <div id="run-summary-card">
+      <h1 id="run-summary-title"></h1>
+      <div id="run-summary-body"></div>
+      <button type="button" id="run-summary-btn">Sail again ⚓</button>
+    </div>
+  `;
+  root.appendChild(summaryOverlay);
+  const summaryTitle = summaryOverlay.querySelector('#run-summary-title');
+  const summaryBody = summaryOverlay.querySelector('#run-summary-body');
+  const summaryBtn = summaryOverlay.querySelector('#run-summary-btn');
 
   const fireButton = document.createElement('button');
   fireButton.id = 'fire-button';
@@ -93,7 +110,11 @@ export function startApp(root) {
   }
 
   function updateSalvageCounter() {
-    document.getElementById('salvage-counter').textContent = `⚓ Salvage: ${run.salvage}`;
+    document.getElementById('salvage-counter').textContent = `⚓ Salvage: ${totalSalvage(run)}`;
+  }
+
+  function updateReefIndicator() {
+    document.getElementById('reef-indicator').textContent = `Reef ${run.reefIndex + 1}/${run.reefCount}`;
   }
 
   // Weapon-select bar: one button per weapon, thumb-sized, showing ammo
@@ -192,12 +213,36 @@ export function startApp(root) {
     run = createRun((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) & 0xffffffff);
     camera.x = run.boat.x;
     camera.y = run.boat.y;
-    setStatus('Find the exit ⚓');
+    setStatus(`Reef 1 of ${run.reefCount} — find the exit ⚓`);
     toast.classList.remove('show');
+    summaryOverlay.classList.remove('show');
     updateHullBar();
     updateSalvageCounter();
+    updateReefIndicator();
     updateWeaponBar();
   }
+
+  // A voyage ends in exactly two ways: cleared every reef (`victory`) or
+  // sank before finishing one (`sunk`). Either way the same summary
+  // screen shows what's actually true of a permadeath run — Salvage only
+  // "counts" once it's banked (a completed reef's exit reached); whatever
+  // was still at risk in the reef the boat died in is lost, not just
+  // hidden, so a sunk run's `reefSalvage` (not yet folded into
+  // `bankedSalvage`) is shown as lost rather than silently dropped.
+  function showRunSummary() {
+    const heldNiche = Array.from(run.weapons.heldWeapons).filter((id) => id !== 'cannonballs');
+    const victory = run.outcome === 'victory';
+    summaryTitle.textContent = victory ? 'Voyage complete! ⚓' : 'Your ship has sunk ⚓';
+    const reefsCleared = victory ? run.reefCount : run.reefIndex;
+    summaryBody.innerHTML = `
+      <p>Reefs cleared: ${reefsCleared} / ${run.reefCount}</p>
+      <p>Salvage banked: ${run.bankedSalvage}</p>
+      ${run.reefSalvage > 0 ? `<p class="lost">Salvage lost with the ship: ${run.reefSalvage}</p>` : ''}
+      <p>Weapons found: ${heldNiche.length ? heldNiche.map((id) => getWeapon(id).name).join(', ') : 'None'}</p>
+    `;
+    summaryOverlay.classList.add('show');
+  }
+  summaryBtn.addEventListener('click', nextRun);
 
   // A tiny debug hook for headless/automated testing — not user-facing,
   // costs nothing at runtime, and saves having to poke at internals.
@@ -205,7 +250,10 @@ export function startApp(root) {
     boatX: run.boat.x, boatY: run.boat.y, heading: run.boat.heading,
     hull: run.boat.health, cameraX: camera.x, cameraY: camera.y,
     over: run.over, outcome: run.outcome,
-    salvage: run.salvage, activeWeapon: run.weapons.activeWeaponId,
+    reefIndex: run.reefIndex, reefCount: run.reefCount,
+    exitX: run.exitWorld.x, exitY: run.exitWorld.y,
+    bankedSalvage: run.bankedSalvage, reefSalvage: run.reefSalvage,
+    salvage: totalSalvage(run), activeWeapon: run.weapons.activeWeaponId,
     enemyCount: run.enemies.filter((e) => e.health > 0).length,
     projectileCount: run.weapons.projectiles.length,
     enemies: run.enemies.filter((e) => e.health > 0).map((e) => ({
@@ -222,6 +270,16 @@ export function startApp(root) {
   // touch joystick can't reliably pathfind a maze it has no map of. Not
   // reachable from any in-game UI.
   window.__shatteredReefWarp = (x, y) => { run.boat.x = x; run.boat.y = y; run.boat.vx = 0; run.boat.vy = 0; };
+  // Testing-only: sets hull directly, since reliably sinking the boat by
+  // simulating wall rams through a headless pointer script is unreliable
+  // (wall-impact damage was already proven correct in step 2's dedicated
+  // playtesting) — this just lets a test reach a "nearly sunk"/"sunk"
+  // state on demand to check what happens *after*, e.g. the run summary.
+  window.__shatteredReefSetHull = (hp) => { run.boat.health = hp; };
+  // Testing-only: adds at-risk Salvage directly, for scripting a controlled
+  // "sank with unbanked Salvage" scenario without needing to actually
+  // steer onto a pickup first.
+  window.__shatteredReefAddSalvage = (amount) => { addSalvage(run, amount); updateSalvageCounter(); };
 
   let lastTime = performance.now();
   function frame(now) {
@@ -261,7 +319,7 @@ export function startApp(root) {
         if (burnEvent && burnEvent.killed) salvageGained += burnEvent.enemy.salvageDrop;
       }
       if (salvageGained > 0) {
-        run.salvage += salvageGained;
+        addSalvage(run, salvageGained);
         updateSalvageCounter();
       }
 
@@ -277,15 +335,27 @@ export function startApp(root) {
           updateWeaponBar();
           showToast(ev.freshUnlock ? `New weapon: ${getWeapon(ev.weaponId).name}! ⚓` : `${getWeapon(ev.weaponId).name} restocked ⚓`);
         } else if (ev.kind === PICKUP_KINDS.SALVAGE) {
-          run.salvage += ev.amount;
+          addSalvage(run, ev.amount);
           updateSalvageCounter();
         }
       }
 
       if (checkSunk(run)) {
-        setStatus('Your ship has sunk! Tap to try again ⚓');
-      } else if (checkReachedExit(run)) {
-        setStatus('Reef cleared! Tap to sail a new one ⚓');
+        showRunSummary();
+      } else {
+        const bankedThisReef = run.reefSalvage;
+        const reefResult = checkReachedExit(run);
+        if (reefResult === 'victory') {
+          showRunSummary();
+        } else if (reefResult === 'advanced') {
+          camera.x = run.boat.x;
+          camera.y = run.boat.y;
+          setStatus(`Reef ${run.reefIndex + 1} of ${run.reefCount} — find the exit ⚓`);
+          showToast(`Reef cleared! +${bankedThisReef} Salvage banked ⚓`);
+          updateReefIndicator();
+          updateSalvageCounter();
+          updateWeaponBar();
+        }
       }
     }
 
@@ -308,15 +378,11 @@ export function startApp(root) {
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+  setStatus(`Reef 1 of ${run.reefCount} — find the exit ⚓`);
   updateHullBar();
   updateSalvageCounter();
+  updateReefIndicator();
   updateWeaponBar();
-
-  function tapToContinue() {
-    if (run.over) nextRun();
-  }
-  hud.addEventListener('click', tapToContinue);
-  touchLayer.addEventListener('pointerup', tapToContinue);
 }
 
 // Resolves an enemy's draw color from its data definition, cached on the

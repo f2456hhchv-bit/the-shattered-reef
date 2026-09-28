@@ -412,17 +412,96 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     already-collected cache's spot did not re-collect it (`collected`
     flag holds). No console errors (only a benign `favicon.ico` 404 from
     the test server itself).
-- **Not built yet:** the real 3-reef run structure with Salvage banking
-  and permadeath stakes (step 6 — `run.salvage` is still a flat
-  single-reef tally, not banked-per-reef), meta-progression/Captain's Hub
-  (step 7), art pass, audio, juice (step 8).
-- **Next up:** step 6, roguelike run structure — multi-reef progression
-  (3 reefs/run per the PRD), the exit leading to the *next* reef instead
-  of a fresh unrelated run, permadeath (a `sunk` outcome should end the
-  whole run, not just the current reef), Salvage banking per-reef, and a
-  run summary screen. Step 4 (enemy content) remains folded into ongoing
-  playtesting per its own step-3 assessment — no separate action needed
-  unless a specific balance issue turns up.
+- **Phase:** step 6 of 8 (roguelike run structure) complete. A run is now
+  a real 3-reef voyage, not three independent single-reef sessions: the
+  exit advances you to the *next* reef (bigger, denser, harder) rather
+  than generating an unrelated fresh run, the boat/hull/weapons/ammo carry
+  over between reefs with no mid-run healing, Salvage has genuine
+  permadeath stakes (at risk until banked at a reef's exit), and a proper
+  run summary screen replaces the old "tap anywhere to continue" hack.
+- **Just shipped:**
+  - `src/engine/run.mjs` — rewritten around a whole voyage instead of one
+    reef. `createRun(seed)` now takes only a seed (no more `{cols, rows,
+    room, wall, reefIndex}` options object) and threads *one* seeded rng
+    through every reef in the voyage, so a whole run — not just one reef
+    in isolation — is deterministic and replayable from its seed.
+    `REEF_TUNING` (a 3-entry table: 7×7/7 enemies → 9×9/10 → 11×11/13)
+    replaces the old fixed single-arena size, giving the "difficulty
+    scaled by size/density across a run" the PRD calls for. New
+    `enterReef(run, reefIndex)` (internal) rebuilds the maze/grid/exit/
+    enemies/pickups and repositions the boat at the new spawn — clearing
+    velocity/heading/turn-jam but leaving hull and weapon/ammo state
+    untouched, since those are meant to carry over.
+  - Salvage is now two numbers instead of one flat tally: `bankedSalvage`
+    (safe, from every reef already cleared) and `reefSalvage` (at risk,
+    collected in the reef currently in progress). New `addSalvage(run,
+    amount)` always adds to the at-risk pile; new `totalSalvage(run)` is
+    what the HUD actually displays (banked + at-risk combined, since
+    that's what the player is currently "carrying"). `checkReachedExit`
+    banks `reefSalvage` into `bankedSalvage` the moment an exit is
+    reached — before deciding whether that was the final reef.
+  - `checkReachedExit(run)` changed from a boolean to a 3-way result:
+    `null` (not there yet), `'advanced'` (this reef's exit was reached,
+    Salvage banked, next reef built — run stays in progress), or
+    `'victory'` (the *final* reef's exit was reached — the whole run
+    ends). `checkSunk(run)` is unchanged in shape but now carries real
+    weight: it ends the *entire voyage*, not just the current reef, and
+    whatever was still in `reefSalvage` (not yet banked) is lost —
+    that's the actual permadeath stakes the build order always specified,
+    not implemented until now.
+  - `src/main.mjs` — a `#reef-indicator` HUD chip ("Reef N/3") alongside
+    the Salvage counter; the frame loop now branches on
+    `checkReachedExit`'s 3-way result (a toast + reef-indicator/status
+    update + camera snap to the new spawn on `'advanced'`, a run summary
+    on `'victory'`); a new `#run-summary` overlay (full-screen, a card
+    with outcome title, reefs-cleared/Salvage-banked/Salvage-lost/
+    weapons-found stats, and a "Sail again" button) replaces the old
+    "tap the HUD to continue" flow entirely — the old `tapToContinue`
+    listener is gone. Two more testing-only debug hooks alongside the
+    existing warp one: `__shatteredReefSetHull(hp)` and
+    `__shatteredReefAddSalvage(amount)`, both unreachable from any
+    in-game UI — added because reliably reproducing "sank with unbanked
+    Salvage at risk" through simulated pointer input alone isn't
+    practical (the wall-impact damage path itself was already proven
+    correct in step 2's own dedicated playtesting; this is purely about
+    testing what happens *after* a sink).
+  - `src/ui/styles.css` — `#stat-row`/`#reef-indicator` layout, and the
+    `#run-summary` overlay (dimmed backdrop, centered card, a highlighted
+    ".lost" line for Salvage that went down with the ship).
+  - `tests/run.test.mjs` rewritten for the new API (11 tests: multi-reef
+    determinism including enemies/pickups, the fresh-run starting state,
+    `addSalvage`/`totalSalvage`'s at-risk-until-banked behavior,
+    `'advanced'` banking-and-repositioning, `'victory'` on the final
+    reef banking everything, `checkSunk` losing only the still-at-risk
+    reef's Salvage while earlier banked Salvage survives, exit/sunk
+    mutual exclusivity re-derived for the 3-reef sequence). **146/146
+    tests pass** across the whole repo.
+  - Verified end-to-end in a real headless browser: a fresh run starts on
+    "Reef 1/3"; warping to each reef's exit in turn correctly advances
+    reef 1→2→3 (reef indicator and toast update each time, camera snaps
+    to the new spawn instead of panning across the old map); the final
+    reef's exit ends the run with `outcome: 'victory'` and shows the
+    summary overlay with correct stats; "Sail again" starts a genuinely
+    fresh run (reef 1, Salvage 0, no leftover overlay); separately,
+    banking one reef's Salvage, collecting more in the next, then setting
+    hull to 0 correctly ends the whole run with `outcome: 'sunk'`,
+    "Reefs cleared: 1/3", the banked amount preserved, and the still-at-
+    risk amount shown as "Salvage lost with the ship" — the permadeath
+    stakes read correctly, not just theoretically correct in the data.
+    No console errors (only the same benign `favicon.ico` 404 from the
+    test server).
+- **Not built yet:** meta-progression/Captain's Hub with persistent
+  currency + unlocks (step 7 — `localStorage` isn't touched anywhere yet;
+  every run currently starts from the same zero state), art pass, audio,
+  juice/polish (step 8), and the boss ("The Kraken's Anchor") is defined
+  in data but never actually spawned anywhere yet — worth deciding
+  whether it belongs on the final reef as this voyage structure's natural
+  finale, or stays deferred; flagged below as an open question rather
+  than silently resolved.
+- **Next up:** step 7, meta-progression hub — a Captain's Hub screen
+  between runs, persistent Salvage that survives across *runs* (not just
+  within one, which step 6 now handles) stored in `localStorage`, and the
+  3 locked unlock tracks (Ship Hulls, Cargo Loadouts, Captain's Charms).
 
 ## Decisions log
 
@@ -582,11 +661,45 @@ Starting fresh below for the new game.)*
   collection/UI wiring (unlock, ammo top-up, Salvage banking, toast,
   locked-button state) without re-proving maze traversal it didn't need
   to re-test.
+- 2026-09-28: `createRun(seed)` dropped its `{cols, rows, room, wall,
+  reefIndex}` options parameter entirely in step 6's rewrite — reef size
+  is now determined purely by `REEF_TUNING[reefIndex]`, an internal table,
+  not a caller-supplied override. No caller (main.mjs, tests) was actually
+  using custom sizes for anything other than test convenience, and a
+  per-run size override would have fought against the PRD's own
+  "difficulty scaled by size/density across a run" design — reef size is
+  supposed to be a function of *where you are in the voyage*, not a free
+  parameter.
+- 2026-09-28: Salvage banking keys off *reaching an exit*, not off
+  reaching the final one — `checkReachedExit` banks `reefSalvage` into
+  `bankedSalvage` unconditionally before it even checks whether this was
+  the last reef. This means a mid-voyage exit and the final exit share
+  the exact same banking logic (one less thing to keep in sync), and it
+  matches the intuitive fiction: Salvage becomes "yours" the moment you
+  clear a reef, not only when the whole voyage ends.
+- 2026-09-28: Chose not to spawn the boss ("The Kraken's Anchor") anywhere
+  in step 6, even though the new 3-reef structure gives it an obvious
+  home (the final reef, as the voyage's finale). Its data/phase logic has
+  existed since step 3 but nothing ever calls `createEnemy` with it. Left
+  as an explicit open question below rather than silently added, since
+  "boss fight forces a mid-fight weapon swap" is enough of a distinct
+  playtesting concern (does the phase-swap actually read as intended in
+  real play, does a full boss fight fit the reef-3 maze size/pacing) that
+  it deserves its own decision rather than riding in on the run-structure
+  commit.
 
 ## Known open questions (do not silently resolve — ask)
 
-None blocking step 4 as of 2026-09-28 — see the PRD's "Open Risks &
-Provisional Decisions" section for items to revisit during implementation
-(firing control choice — now implemented as aim-assist per the decision
-above, but still provisional; one-handed weapon-select UX; Depth Charges'
-prediction-based design; reef count per run; hull-carryover fairness).
+- **The Kraken's Anchor boss is defined but never spawned.** Its data and
+  phase-swap logic (`data/enemies.mjs`/`engine/enemies.mjs`) have existed
+  since step 3, and step 6's 3-reef structure makes "spawn it on the final
+  reef as the voyage's finale" an obvious fit — but that's a real design/
+  balance decision (guaranteed spawn vs. a spawn-pool entry; does a full
+  boss fight fit reef 3's current size/enemy density; does it replace or
+  add to the regular spawn pool there), not something to fold silently
+  into a future commit. Ask before building it.
+- See the PRD's "Open Risks & Provisional Decisions" section for the rest
+  (firing control choice — implemented as aim-assist, still provisional;
+  one-handed weapon-select UX; Depth Charges' prediction-based design;
+  hull-carryover fairness across reefs, now directly testable since step
+  6 actually carries hull between reefs).
