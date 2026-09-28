@@ -161,3 +161,29 @@ test('applyWallImpactDamage never takes hull below 0', () => {
   applyWallImpactDamage(boat, 1000);
   assert.equal(boat.health, 0);
 });
+
+// Keel (2026-09-28): "too much drift when turning — halve it".
+function turnOvershoot(tuning) {
+  const b = createBoat(0, 0, 0);
+  for (let i = 0; i < 180; i++) stepBoat(b, { x: 1, y: 0 }, 1 / 60, tuning);
+  const x0 = b.x;
+  for (let i = 0; i < 120; i++) stepBoat(b, { x: 0, y: 1 }, 1 / 60, tuning);
+  return b.x - x0;
+}
+test('the keel at least halves the sideways slide after a hard 90° turn', () => {
+  const without = turnOvershoot({ ...DEFAULT_BOAT_TUNING, lateralGrip: 0 });
+  const withKeel = turnOvershoot(DEFAULT_BOAT_TUNING);
+  assert.ok(withKeel <= without * 0.52, `slide ${withKeel.toFixed(1)}px vs ${without.toFixed(1)}px without keel`);
+});
+test('the keel does not change straight-line top speed or coasting', () => {
+  const run = (tuning) => {
+    const b = createBoat(0, 0, 0);
+    for (let i = 0; i < 180; i++) stepBoat(b, { x: 1, y: 0 }, 1 / 60, tuning);
+    const top = b.vx; const x0 = b.x;
+    for (let i = 0; i < 300; i++) stepBoat(b, { x: 0, y: 0 }, 1 / 60, tuning);
+    return [top, b.x - x0];
+  };
+  const [a1, c1] = run({ ...DEFAULT_BOAT_TUNING, lateralGrip: 0 });
+  const [a2, c2] = run(DEFAULT_BOAT_TUNING);
+  assert.ok(Math.abs(a1 - a2) < 1e-9 && Math.abs(c1 - c2) < 1e-9);
+});

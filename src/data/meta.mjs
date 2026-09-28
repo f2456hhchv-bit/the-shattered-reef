@@ -90,6 +90,7 @@ export function tuningForHull(hullDef) {
     maxSpeed: DEFAULT_BOAT_TUNING.maxSpeed * hullDef.maxSpeedMult,
     drag: DEFAULT_BOAT_TUNING.drag * hullDef.dragMult,
     turnRate: DEFAULT_BOAT_TUNING.turnRate * hullDef.turnRateMult,
+    lateralGrip: DEFAULT_BOAT_TUNING.lateralGrip * (hullDef.lateralGripMult ?? 1),
   };
 }
 

@@ -9,6 +9,7 @@ export const DEFAULT_BOAT_TUNING = {
   maxSpeed: 120,      // px/s
   drag: 2.4,          // fraction of velocity removed per second (approx.) — high on purpose: a boat that keeps coasting into walls after you let go of the stick isn't "weighty", it's just unresponsive. See run.test.mjs / decisions log.
   turnRate: Math.PI * 2.2, // radians/s the heading can turn at full stick — quick enough to actually dodge a wall you see coming
+  lateralGrip: 4, // keel: per-second damping of sideways velocity only. 4 halves turn drift (90° turn at speed: 51px → 26px slide) with top speed and straight coast unchanged — 2026-09-28 feedback
 };
 
 export const MAX_HULL = 100;
@@ -46,6 +47,20 @@ export function stepBoat(boat, input, dt, tuning = DEFAULT_BOAT_TUNING) {
     const throttle = Math.min(mag, 1);
     boat.vx += Math.cos(boat.heading) * tuning.acceleration * throttle * dt;
     boat.vy += Math.sin(boat.heading) * tuning.acceleration * throttle * dt;
+  }
+
+  // Keel: extra damping on the velocity component ACROSS the bow only, so
+  // the boat carves into a turn instead of skidding sideways along its old
+  // line (2026-09-28 feedback: "too much drift when turning"). Forward
+  // speed and straight-line coasting are untouched — that's `drag`'s job.
+  const grip = tuning.lateralGrip ?? DEFAULT_BOAT_TUNING.lateralGrip;
+  if (grip > 0) {
+    const fx = Math.cos(boat.heading), fy = Math.sin(boat.heading);
+    const forward = boat.vx * fx + boat.vy * fy;
+    const lateral = -boat.vx * fy + boat.vy * fx;
+    const keptLateral = lateral * Math.max(0, 1 - grip * dt);
+    boat.vx = forward * fx - keptLateral * fy;
+    boat.vy = forward * fy + keptLateral * fx;
   }
 
   const dragFactor = Math.max(0, 1 - tuning.drag * dt);
