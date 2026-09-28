@@ -141,6 +141,12 @@ function buildReefWorld(rng, tier) {
   };
 }
 
+// A level's world on its own (layout, coast, spawn, exit) — for previews.
+// Same rng order as enterReef, so it's the reef you'll actually sail.
+export function buildLevelWorld(level) {
+  return buildReefWorld(makeSeededRng(level.seed), level.tier);
+}
+
 // Mutates `run` into its next reef: new maze/grid/exit/enemies/pickups,
 // boat repositioned to the new spawn with velocity/turn-jam cleared (but
 // hull and weapons untouched — those persist across the whole voyage) and

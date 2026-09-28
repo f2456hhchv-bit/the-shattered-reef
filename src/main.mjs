@@ -5,13 +5,17 @@
 // Ship Hulls / Cargo Loadouts / Captain's Charms before "Set Sail" starts
 // an actual voyage with that loadout resolved into it.
 
+import { BASE_BUILDINGS } from './data/base.mjs';
+import { buildBaseWorld, computeBaseView, boatOrbitPoint } from './engine/base.mjs';
+import { drawBaseBuildings, drawGulls, BUILDING_SCALE } from './engine/baseRenderer.mjs';
+import { sampleField } from './engine/terrain.mjs';
 import { decodeLevelCode } from './engine/levels.mjs';
 import { buildTerrain } from './engine/terrain.mjs';
 import { createTerrainRenderer } from './engine/terrainRenderer.mjs';
 import { getBiome, BIOME_IDS } from './data/biomes.mjs';
 import {
   createRun, checkReachedExit, checkSunk, addSalvage, totalSalvage, BOAT_RADIUS,
-  TIER_COUNT, LEVELS_PER_STAGE, biomeForStage, isExitOpen,
+  TIER_COUNT, LEVELS_PER_STAGE, biomeForStage, isExitOpen, stageLevel, buildLevelWorld,
 } from './engine/run.mjs';
 import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
@@ -126,67 +130,139 @@ export function startApp(root) {
   const summaryBody = summaryOverlay.querySelector('#run-summary-body');
   const summaryBtn = summaryOverlay.querySelector('#run-summary-btn');
 
-  // Captain's Hub — the app's home screen between runs. Persistent Salvage
-  // (meta.salvage, separate from a single run's bankedSalvage) is spent
-  // here on the 3 unlock tracks; "Set Sail" resolves the current loadout
-  // (engine/meta.mjs's resolveLoadout) and starts a fresh run with it.
+  // The base (2026-09-28): the app's home screen between runs. A painted
+  // harbour (engine/base.mjs + baseRenderer.mjs, drawn on the game canvas
+  // while the Hub is open) with a building per real system. Tapping a
+  // building or its label opens that system's panel; the voyage card
+  // picks a stage and sets sail. Persistent Salvage (meta.salvage) is spent
+  // in the panels; "Set Sail" resolves the loadout and starts a run.
   const hubOverlay = document.createElement('div');
   hubOverlay.id = 'captains-hub';
   hubOverlay.innerHTML = `
-    <div id="hub-card">
-      <h1>Captain's Hub ⚓</h1>
-      <p id="hub-salvage"></p>
-      <p id="hub-stats"></p>
-      <div class="hub-sections">
-      <section class="hub-section">
-        <h2>Ship Hulls</h2>
-        <p id="hub-hulls-note" class="hub-section-note" hidden></p>
-        <div id="hub-hulls" class="hub-list"></div>
-      </section>
-      <section class="hub-section">
-        <h2>Cargo Loadouts</h2>
-        <div id="hub-cargo" class="hub-list"></div>
-      </section>
-      <section class="hub-section">
-        <h2>Captain's Charms</h2>
-        <div id="hub-charms" class="hub-list"></div>
-      </section>
-      <section class="hub-section">
-        <h2>Factions</h2>
-        <div id="hub-factions" class="hub-list"></div>
-      </section>
-      <section class="hub-section">
-        <h2>Workshop</h2>
-        <p class="hub-section-note">Craft permanent upgrades with Salvage + Kraken Scales — earn a Scale by defeating The Kraken's Anchor.</p>
-        <div id="hub-workshop" class="hub-list"></div>
-      </section>
+    <div id="base-scene-hit" aria-hidden="true"></div>
+    <div id="base-topbar">
+      <button type="button" id="captain-chip" data-panel="log" aria-label="Captain's Log">
+        <img src="assets/icons/icon-192.png" alt="" />
+        <span class="cc-text"><b>Captain</b><small id="cc-sub"></small>
+          <span class="cc-bar"><span id="cc-bar-fill"></span></span></span>
+      </button>
+      <div class="currency-pills">
+        <span class="pill pill-salvage" title="Salvage"><i>⚓</i><b id="pill-salvage">0</b></span>
+        <span class="pill pill-scales" title="Kraken Scales"><i>🦑</i><b id="pill-scales">0</b></span>
       </div>
-      <!-- Sticky: the Hub grew to ~3 screens (portrait) / ~5.5 (landscape)
-           of shops, and the one action you always want sat at the bottom. -->
-      <div class="hub-footer">
-        <!-- Stages (2026-09-28): pick any unlocked stage; the highest is the default. -->
-        <div id="hub-stage-picker">
-          <button type="button" id="stage-prev" aria-label="Previous stage">◀</button>
-          <div id="stage-label"><strong></strong><span></span></div>
-          <button type="button" id="stage-next" aria-label="Next stage">▶</button>
+    </div>
+    <div id="base-chips"></div>
+    <div id="voyage-card">
+      <div class="vc-head">
+        <canvas id="voyage-map" width="192" height="192" aria-hidden="true"></canvas>
+        <div class="vc-info">
+          <div class="vc-kicker">⚓ Next voyage</div>
+          <div id="hub-stage-picker">
+            <button type="button" id="stage-prev" aria-label="Previous stage">◀</button>
+            <div id="stage-label"><strong></strong><span></span></div>
+            <button type="button" id="stage-next" aria-label="Next stage">▶</button>
+          </div>
+          <div class="vc-pips" aria-label="5 levels, boss on level 5">
+            <span>1</span><span>2</span><span>3</span><span>4</span><span class="boss" title="The Kraken's lair">☠</span>
+          </div>
         </div>
-        <button type="button" id="hub-set-sail">Set Sail ⚓</button>
+      </div>
+      <button type="button" id="hub-set-sail">▶ Set Sail</button>
+    </div>
+    <div id="base-panel" hidden>
+      <div id="base-panel-card" role="dialog" aria-modal="true" aria-labelledby="base-panel-title">
+        <div class="bp-head">
+          <button type="button" id="base-panel-back" aria-label="Back to the harbour">←</button>
+          <div class="bp-titles"><h1 id="base-panel-title"></h1><p id="base-panel-sub"></p></div>
+          <div class="currency-pills small">
+            <span class="pill pill-salvage"><i>⚓</i><b class="pill-salvage-v">0</b></span>
+            <span class="pill pill-scales"><i>🦑</i><b class="pill-scales-v">0</b></span>
+          </div>
+        </div>
+        <div class="bp-body">
+          <section class="hub-section" data-panel="hulls">
+            <p id="hub-hulls-note" class="hub-section-note" hidden></p>
+            <div id="hub-hulls" class="hub-list"></div>
+          </section>
+          <section class="hub-section" data-panel="cargo">
+            <p class="hub-section-note">Permanent: every tier you own is loaded on every voyage.</p>
+            <div id="hub-cargo" class="hub-list"></div>
+          </section>
+          <section class="hub-section" data-panel="charms">
+            <p class="hub-section-note">Permanent: every charm you own works on every voyage.</p>
+            <div id="hub-charms" class="hub-list"></div>
+          </section>
+          <section class="hub-section" data-panel="factions">
+            <div id="hub-factions" class="hub-list"></div>
+          </section>
+          <section class="hub-section" data-panel="workshop">
+            <p class="hub-section-note">Craft permanent upgrades with Salvage + Kraken Scales — earn a Scale by defeating The Kraken's Anchor.</p>
+            <div id="hub-workshop" class="hub-list"></div>
+          </section>
+          <section class="hub-section" data-panel="log">
+            <div id="hub-log" class="log-grid"></div>
+          </section>
+        </div>
       </div>
     </div>
   `;
   root.appendChild(hubOverlay);
-  const hubSalvage = hubOverlay.querySelector('#hub-salvage');
-  const hubStats = hubOverlay.querySelector('#hub-stats');
   const hubHulls = hubOverlay.querySelector('#hub-hulls');
   const hubHullsNote = hubOverlay.querySelector('#hub-hulls-note');
   const hubCargo = hubOverlay.querySelector('#hub-cargo');
   const hubCharms = hubOverlay.querySelector('#hub-charms');
   const hubFactions = hubOverlay.querySelector('#hub-factions');
   const hubWorkshop = hubOverlay.querySelector('#hub-workshop');
+  const hubLog = hubOverlay.querySelector('#hub-log');
   const hubSetSailBtn = hubOverlay.querySelector('#hub-set-sail');
   const stagePrevBtn = hubOverlay.querySelector('#stage-prev');
   const stageNextBtn = hubOverlay.querySelector('#stage-next');
   const stageLabel = hubOverlay.querySelector('#stage-label');
+  const basePanel = hubOverlay.querySelector('#base-panel');
+  const baseChips = hubOverlay.querySelector('#base-chips');
+  const voyageCard = hubOverlay.querySelector('#voyage-card');
+  const baseTopbar = hubOverlay.querySelector('#base-topbar');
+  const voyageMap = hubOverlay.querySelector('#voyage-map');
+
+  // One chip per building: the name, what it's for, and a "!" badge when
+  // something in that panel is affordable right now (real, not decorative).
+  const PANEL_TITLES = {
+    hulls: ['Shipyard', 'Choose the hull you sail in'],
+    cargo: ['Armory', 'Cargo loadouts — start voyages better armed'],
+    charms: ['Charm Shrine', "Captain's charms — permanent blessings"],
+    factions: ['Faction Hall', 'Sail under a flag — and its rivalries'],
+    workshop: ['Workshop', 'Craft upgrades from Kraken Scales'],
+    log: ["Captain's Log", 'Your record at sea'],
+  };
+  const chipEls = new Map();
+  for (const b of BASE_BUILDINGS) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'base-chip';
+    chip.dataset.panel = b.panel;
+    chip.dataset.building = b.id;
+    chip.innerHTML = `<span class="bc-icon">${b.icon}</span><span class="bc-text"><b>${b.name}</b><small>${b.sub}</small></span><span class="bc-badge" hidden>!</span>`;
+    chip.addEventListener('click', () => openPanel(b.panel));
+    baseChips.appendChild(chip);
+    chipEls.set(b.id, chip);
+  }
+  hubOverlay.querySelector('#captain-chip').addEventListener('click', () => openPanel('log'));
+  hubOverlay.querySelector('#base-panel-back').addEventListener('click', closePanel);
+  basePanel.addEventListener('click', (e) => { if (e.target === basePanel) closePanel(); });
+
+  function openPanel(id) {
+    const [title, sub] = PANEL_TITLES[id];
+    hubOverlay.querySelector('#base-panel-title').textContent = title;
+    hubOverlay.querySelector('#base-panel-sub').textContent = sub;
+    for (const sec of basePanel.querySelectorAll('.hub-section')) sec.hidden = sec.dataset.panel !== id;
+    basePanel.hidden = false;
+    basePanel.dataset.open = id;
+    basePanel.querySelector('.bp-body').scrollTop = 0;
+  }
+  function closePanel() {
+    basePanel.hidden = true;
+    delete basePanel.dataset.open;
+  }
 
   const fireButton = document.createElement('button');
   fireButton.id = 'fire-button';
@@ -459,8 +535,15 @@ export function startApp(root) {
   // after every purchase/selection so the screen always reflects what was
   // actually saved, not optimistic UI state.
   function renderHub() {
-    hubSalvage.textContent = `Salvage: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}`;
-    hubStats.textContent = `Runs sailed: ${meta.stats.runsPlayed} · Stages unlocked: ${meta.highestStageUnlocked}`;
+    const fmt = (n) => Math.round(n).toLocaleString('en-GB');
+    hubOverlay.querySelector('#pill-salvage').textContent = fmt(meta.salvage);
+    hubOverlay.querySelector('#pill-scales').textContent = fmt(meta.krakenScales);
+    for (const el of hubOverlay.querySelectorAll('.pill-salvage-v')) el.textContent = fmt(meta.salvage);
+    for (const el of hubOverlay.querySelectorAll('.pill-scales-v')) el.textContent = fmt(meta.krakenScales);
+    hubOverlay.querySelector('#cc-sub').textContent = `Stage ${meta.highestStageUnlocked} · best ${meta.stats.bestReefsCleared}/${LEVELS_PER_STAGE}`;
+    hubOverlay.querySelector('#cc-bar-fill').style.width = `${Math.min(100, (100 * meta.stats.bestReefsCleared) / LEVELS_PER_STAGE)}%`;
+    renderBadges();
+    renderLog();
     renderStagePicker();
 
     // A selected faction overrides the hull (engine/meta.mjs resolveLoadout),
@@ -611,6 +694,85 @@ export function startApp(root) {
     }
   }
 
+  // "!" on a building's chip when something in its panel is affordable now.
+  function renderBadges() {
+    const buyable = {
+      hulls: SHIP_HULL_LIST.some((h) => !meta.ownedHulls.includes(h.id) && canAfford(meta, h.cost)),
+      cargo: CARGO_TIER_LIST.some((t) => !meta.ownedCargoTiers.includes(t.id) && canAfford(meta, t.cost)),
+      charms: CHARM_LIST.some((c) => !meta.ownedCharms.includes(c.id) && canAfford(meta, c.cost)),
+      factions: PLAYABLE_FACTION_LIST.some((f) => !meta.ownedFactions.includes(f.id) && canAfford(meta, f.cost)),
+      workshop: WORKSHOP_UPGRADE_LIST.some((u) => !meta.ownedWorkshopUpgrades.includes(u.id) && canAffordWorkshopUpgrade(meta, u)),
+      log: false,
+    };
+    for (const [, chip] of chipEls) chip.querySelector('.bc-badge').hidden = !buyable[chip.dataset.panel];
+  }
+
+  // The Captain's Log: the record the save file actually holds.
+  function renderLog() {
+    const faction = PLAYABLE_FACTION_LIST.find((f) => f.id === meta.selectedFaction);
+    const loadout = resolveLoadout(meta);
+    const rows = [
+      ['Voyages sailed', meta.stats.runsPlayed],
+      ['Stages unlocked', meta.highestStageUnlocked],
+      ['Best voyage', `${meta.stats.bestReefsCleared} / ${LEVELS_PER_STAGE} levels`],
+      ['Deepest level reached', meta.stats.deepestReefReached],
+      ['Salvage earned, all time', Math.round(meta.stats.totalSalvageEarned).toLocaleString('en-GB')],
+      ['Kraken Scales', meta.krakenScales],
+      ['Sailing as', faction ? faction.name : 'Unaligned'],
+      ['Hull', `${loadout.hull.name} (${loadout.hull.maxHull + (loadout.extraMaxHull || 0)} hull)`],
+      ['Hulls owned', `${meta.ownedHulls.length} / ${SHIP_HULL_LIST.length}`],
+      ['Cargo tiers', `${meta.ownedCargoTiers.length} / ${CARGO_TIER_LIST.length}`],
+      ['Charms', `${meta.ownedCharms.length} / ${CHARM_LIST.length}`],
+      ['Workshop crafts', `${meta.ownedWorkshopUpgrades.length} / ${WORKSHOP_UPGRADE_LIST.length}`],
+    ];
+    hubLog.replaceChildren(...rows.map(([k, v]) => {
+      const row = document.createElement('div');
+      row.className = 'log-row';
+      const a = document.createElement('span'); a.textContent = k;
+      const b = document.createElement('b'); b.textContent = String(v);
+      row.append(a, b);
+      return row;
+    }));
+  }
+
+  // Voyage card preview: a small chart of the stage's first level, drawn
+  // straight from its coastline field (fixed seeds, so it's the real reef).
+  const previewCache = new Map();
+  function renderVoyagePreview(stage) {
+    const g = voyageMap.getContext('2d');
+    let img = previewCache.get(stage);
+    if (!img) {
+      const level = stageLevel(stage, 0);
+      const world = buildLevelWorld(level);
+      const W = voyageMap.width; const H = voyageMap.height;
+      img = g.createImageData(W, H);
+      const b = getBiome(level.biomeId);
+      const water = b.water.map(([d, c]) => [d, hexRgb(c)]);
+      const land = b.land.map(([d, c]) => [d, hexRgb(c)]);
+      const pick = (stops, d) => { let c = stops[0][1]; for (const [sd, sc] of stops) if (d >= sd) c = sc; return c; };
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const s = sampleField(world.coast, ((x + 0.5) / W) * world.widthPx, ((y + 0.5) / H) * world.heightPx);
+          const c = s < 0 ? pick(water, -s * 0.8) : (s > 44 ? hexRgb(b.rock) : pick(land, s * 0.7));
+          const o = (y * W + x) * 4;
+          img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
+        }
+      }
+      img.spawn = { x: world.spawnWorld.x / world.widthPx, y: world.spawnWorld.y / world.heightPx };
+      img.exit = { x: world.exitWorld.x / world.widthPx, y: world.exitWorld.y / world.heightPx };
+      previewCache.set(stage, img);
+    }
+    g.putImageData(img, 0, 0);
+    const W = voyageMap.width; const H = voyageMap.height;
+    // Start (white) → exit (gold), the route you'll be charting.
+    g.setLineDash([5, 5]); g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(img.spawn.x * W, img.spawn.y * H); g.lineTo(img.exit.x * W, img.exit.y * H); g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(img.spawn.x * W, img.spawn.y * H, 6, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#e8b54b'; g.beginPath(); g.arc(img.exit.x * W, img.exit.y * H, 7, 0, Math.PI * 2); g.fill();
+  }
+  function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+
   // Stage picker (2026-09-28). Defaults to the furthest unlocked stage each
   // time the Hub opens; cleared stages stay replayable (for Salvage).
   let selectedStage = 1;
@@ -621,6 +783,7 @@ export function startApp(root) {
     stageLabel.querySelector('span').textContent = `${getBiome(biomeForStage(selectedStage)).name} · ${LEVELS_PER_STAGE} levels${cleared ? ' · Cleared ✓' : ''}`;
     stagePrevBtn.disabled = selectedStage <= 1;
     stageNextBtn.disabled = selectedStage >= meta.highestStageUnlocked;
+    renderVoyagePreview(selectedStage);
   }
   stagePrevBtn.addEventListener('click', () => { selectedStage -= 1; renderStagePicker(); });
   stageNextBtn.addEventListener('click', () => { selectedStage += 1; renderStagePicker(); });
@@ -635,11 +798,93 @@ export function startApp(root) {
       : `${stageLevelText(r)} — find the exit ⚓`;
   }
 
+  // --- The base harbour scene (2026-09-28) ---------------------------------
+  let base = null;
+  function ensureBase() {
+    if (base) return base;
+    const world = buildBaseWorld();
+    const terrain = buildTerrain(world.grid, world.tileSize, world.coastSeed, biome, world.coast);
+    // Keep palms and boulders out from under the buildings and the dock.
+    terrain.decorations = terrain.decorations.filter((d) => !world.buildings.some((b) => Math.hypot(d.x - b.x, d.y - (b.y - 10)) < 64
+      || (b.id === 'shipyard' && Math.abs(d.x - b.x) < 30 && d.y > b.y && d.y < b.y + 190)));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const renderer = createTerrainRenderer(terrain, biome, { res: Math.min(1.25, dpr * 0.8) });
+    base = { world, renderer, wake: [], wakeTimer: 0, view: null, fresh: true };
+    return base;
+  }
+  // The screen region the harbour can use: below the top bar, and above
+  // (portrait) or left of (landscape) the voyage card.
+  function baseFreeInsets() {
+    const vw = window.innerWidth; const vh = window.innerHeight;
+    const top = baseTopbar.getBoundingClientRect().bottom + 4;
+    const vc = voyageCard.getBoundingClientRect();
+    const sideCard = vc.left > vw * 0.35 && vc.top < vh * 0.5;
+    return sideCard
+      ? { top, bottom: 6, left: 6, right: vw - vc.left + 6 }
+      : { top, bottom: vh - vc.top + 6, left: 0, right: 0 };
+  }
+  function layoutBase() {
+    if (!hubOverlay.classList.contains('show')) return;
+    const b = ensureBase();
+    b.view = computeBaseView(window.innerWidth, window.innerHeight, baseFreeInsets());
+    for (const bd of b.world.buildings) {
+      const p = b.view.toScreen(bd.x, bd.y + 26 * BUILDING_SCALE);
+      const chip = chipEls.get(bd.id);
+      chip.style.left = `${Math.round(p.x)}px`;
+      chip.style.top = `${Math.round(p.y)}px`;
+    }
+  }
+  function drawBase(now, dt) {
+    const b = ensureBase();
+    if (!b.view) layoutBase();
+    const t = now / 1000; const v = b.view;
+    ctx.fillStyle = biome.outside;
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+    ctx.save();
+    ctx.translate(v.tx, v.ty); ctx.scale(v.scale, v.scale);
+    b.renderer.draw(ctx, v.visible, t, { forceVisible: b.fresh, maxNewChunks: 0 });
+    b.fresh = false;
+    // Your ship, idling round the lagoon with its wake.
+    const p = boatOrbitPoint(t);
+    for (const w of b.wake) w.life -= dt;
+    while (b.wake.length && b.wake[0].life <= 0) b.wake.shift();
+    b.wakeTimer -= dt;
+    if (b.wakeTimer <= 0) {
+      b.wakeTimer = 0.07;
+      b.wake.push({ x: p.x - Math.cos(p.heading) * 18, y: p.y - Math.sin(p.heading) * 18, heading: p.heading, life: 1.1, maxLife: 1.1 });
+    }
+    drawWake(ctx, b.wake);
+    ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1.5, 1.5); ctx.translate(-p.x, -p.y);
+    drawBoat(ctx, { x: p.x, y: p.y, heading: p.heading }, BOAT_RADIUS, t);
+    ctx.restore();
+    drawBaseBuildings(ctx, b.world.buildings, t, { selectedFaction: meta.selectedFaction });
+    drawGulls(ctx, b.world.centre, t);
+    ctx.restore();
+    b.renderer.prewarm(b.world.centre.x, b.world.centre.y, 3);
+  }
+  // Tapping a building itself (not just its label) opens its panel.
+  hubOverlay.querySelector('#base-scene-hit').addEventListener('click', (e) => {
+    if (!base || !base.view) return;
+    const wx = (e.clientX - base.view.tx) / base.view.scale;
+    const wy = (e.clientY - base.view.ty) / base.view.scale;
+    let best = null; let bestD = 70 * BUILDING_SCALE;
+    for (const bd of base.world.buildings) {
+      const d = Math.hypot(wx - bd.x, wy - (bd.y - 20 * BUILDING_SCALE));
+      if (d < bestD) { bestD = d; best = bd; }
+    }
+    if (best) openPanel(best.panel);
+  });
+  new ResizeObserver(() => layoutBase()).observe(voyageCard);
+  window.addEventListener('resize', () => layoutBase());
+
   function openHub() {
     sailing = false;
+    closePanel();
     selectedStage = meta.highestStageUnlocked;
     renderHub();
     hubOverlay.classList.add('show');
+    document.body.classList.add('in-hub');
+    layoutBase();
   }
 
   function startRun() {
@@ -661,6 +906,7 @@ export function startApp(root) {
     toast.classList.remove('show');
     if (run.faction) showMatchupBriefing(run.faction);
     hubOverlay.classList.remove('show');
+    document.body.classList.remove('in-hub');
     updateHullBar();
     updateSalvageCounter();
     updateReefIndicator();
@@ -1015,6 +1261,13 @@ export function startApp(root) {
           playReefCleared();
         }
       }
+    }
+
+    if (hubOverlay.classList.contains('show')) {
+      // The base harbour replaces the reef view entirely while the Hub is up.
+      drawBase(now, rawDt);
+      requestAnimationFrame(frame);
+      return;
     }
 
     updateCamera(camera, run.boat.x, run.boat.y, rawDt);

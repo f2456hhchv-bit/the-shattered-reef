@@ -1583,6 +1583,39 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   - Verified in headless Chromium: every icon and the manifest resolve
     at their stated sizes, with no console errors.
 
+- **Phase:** the harbour base (project owner: "a main screen that looks
+  iconic and stunning", with mockups; scope chosen via AskUserQuestion:
+  **real systems only**, no invented currencies).
+- **Just shipped:**
+  - The Hub is now an animated island harbour drawn by the same terrain
+    renderer as the reefs (`data/base.mjs`, `engine/base.mjs`,
+    `engine/baseRenderer.mjs`). Six code-drawn buildings on a ring of
+    islands around a lagoon, each opening one real system: Shipyard
+    (hulls), Armory (cargo), Charm Shrine (charms), Workshop (crafting),
+    Faction Hall (factions), Captain's Log (lighthouse; stats). A boat
+    circles the lagoon; lighthouse beam, forge smoke, portal, gulls.
+  - Top bar: captain chip (stage + best, progress bar; opens the Log)
+    and Salvage / Kraken Scales pills. Building label chips (44px+)
+    with a red "!" badge when something there is affordable. Tapping
+    the building itself also opens it.
+  - Voyage card: a live mini-map of the stage's level 1 (drawn from its
+    real coast field), the stage picker, level pips with the boss lair,
+    and a big Set Sail button. Bottom sheet in portrait, right-hand card
+    in landscape (camera reserves that space; `computeBaseView`).
+  - Building screens are one reusable panel (back button, currencies),
+    reusing the existing shop rows and purchase code unchanged.
+  - In-run HUD is hidden while in the harbour (`body.in-hub`).
+  - `tests/base.test.mjs`: buildings on land, boat orbit on water,
+    lagoon open to sea, every building maps to a real panel, all
+    buildings fit the free region at portrait/landscape sizes.
+    292/292 tests.
+  - Playtested at 390×844, 360×640, 844×390: every chip and a building
+    tap open the right panel, purchases work, badges update, Set Sail
+    starts a run, sinking returns to the harbour. No console errors.
+- **Next up:** real-phone check of the harbour's boot cost (world build
+  is ~240ms on desktop). Later tabs from the mockups (Quests,
+  Achievements, Lore, Trader) need their systems designed first.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2166,6 +2199,11 @@ Starting fresh below for the new game.)*
   past" answer for boss levels. That answer was given for a boss guarding
   a maze exit; a boss whose lair *is* the exit makes the kill the point
   of the level. Flagged to the project owner as reversible.
+
+- 2026-09-28: The Hub became a harbour scene rather than a menu, but
+  every building opens an existing system; mockup tabs with no system
+  behind them (Quests, Achievements, Lore, Trader, gems/wood currencies)
+  were left out rather than shipped as dead buttons.
 
 ## Known open questions (do not silently resolve — ask)
 
