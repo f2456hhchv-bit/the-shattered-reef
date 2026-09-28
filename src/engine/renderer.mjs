@@ -12,6 +12,10 @@ export const PALETTE = {
   hullDark: '#8a5a24',
   sail: '#e9ddc4',
   exit: '#e8b54b',
+  healthBarBack: 'rgba(6, 36, 53, .8)',
+  healthBarFill: '#c94f3f',
+  invulnerable: 'rgba(120, 190, 230, .55)',
+  burn: '#e8813f',
 };
 
 export function drawTileGrid(ctx, grid, tileSize, viewLeft, viewTop, viewRight, viewBottom) {
@@ -75,4 +79,73 @@ export function drawBoat(ctx, boat, radius) {
   ctx.closePath();
   ctx.fill();
   ctx.restore();
+}
+
+// Placeholder shapes, per the same "no art pass yet" rule as drawBoat —
+// each enemy is a colored disc (its data-driven `color`) so archetypes
+// stay visually distinct even before real sprites exist. A thin outer ring
+// while invulnerable (submerged Deep Crawlers) and a flickering overlay
+// while burning give the two status effects a readable tell.
+export function drawEnemy(ctx, enemy, color, t) {
+  ctx.save();
+  ctx.translate(enemy.x, enemy.y);
+
+  if (enemy.invulnerable) {
+    ctx.globalAlpha = 0.35;
+  }
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(0, 0, enemy.radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  if (enemy.invulnerable) {
+    ctx.strokeStyle = PALETTE.invulnerable;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, enemy.radius + 3, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  if (enemy.burn) {
+    ctx.globalAlpha = 0.5 + Math.sin(t * 20) * 0.15;
+    ctx.fillStyle = PALETTE.burn;
+    ctx.beginPath();
+    ctx.arc(0, 0, enemy.radius * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+
+  // Health bar, world-space, above the enemy — skipped at full health so a
+  // healthy reef doesn't look like a wall of UI.
+  if (enemy.health < enemy.maxHealth) {
+    const barWidth = enemy.radius * 2.2;
+    const barY = enemy.y - enemy.radius - 8;
+    ctx.fillStyle = PALETTE.healthBarBack;
+    ctx.fillRect(enemy.x - barWidth / 2, barY, barWidth, 3);
+    ctx.fillStyle = PALETTE.healthBarFill;
+    ctx.fillRect(enemy.x - barWidth / 2, barY, barWidth * Math.max(0, enemy.health / enemy.maxHealth), 3);
+  }
+}
+
+export function drawEnemies(ctx, enemies, colorFor, t) {
+  for (const enemy of enemies) {
+    if (enemy.health <= 0) continue;
+    drawEnemy(ctx, enemy, colorFor(enemy), t);
+  }
+}
+
+export function drawProjectile(ctx, projectile, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+export function drawProjectiles(ctx, projectiles, colorFor) {
+  for (const p of projectiles) {
+    if (p.spent) continue;
+    drawProjectile(ctx, p, colorFor(p));
+  }
 }

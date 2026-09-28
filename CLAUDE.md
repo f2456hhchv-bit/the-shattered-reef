@@ -82,10 +82,12 @@ Architecture → Vertical slice → Core systems → Content → Polish → Test
    controls), procedural maze generation, tile-grid collision, camera,
    touch joystick — a real playable "steer a weighty boat through a
    generated maze" loop with nothing else in it yet — ✅ done
-3. Combat core — weapons, projectiles, hit detection, enemy AI with
-   niches (the Overboard hook: wrong weapon = little/no effect)
+3. **Combat core** — weapons, projectiles, hit detection, enemy AI with
+   niches (the Overboard hook: wrong weapon = little/no effect) — ✅ done
 4. Enemy content — 5-6 distinct enemy types + a boss, each with a real
-   tactical identity
+   tactical identity (data for all 5 + boss already written in step 3;
+   remaining work here is content/balance passes once playtested more,
+   not new archetypes)
 5. Loot/economy — weapon pickups, ammo as a resource, in-run currency
 6. Roguelike run structure — multi-room progression, exit, permadeath,
    run summary screen
@@ -241,12 +243,109 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     while the boat slides along the same wall afterward (no continuous
     chip damage from contact alone) — matches the intent exactly. No
     console errors.
-- **Not built yet:** everything past step 2 — no weapons, no enemies, no
-  combat other than wall-impact hull damage, no loot, no run structure
-  (permadeath/exit-to-hub beyond "sink = tap to retry"), no meta-
-  progression, no art pass, no audio.
-- **Next up:** step 3, combat core (weapons, projectiles, hit detection,
-  enemy AI with niches).
+- **Phase:** step 3 of 8 (combat core) complete, following the PRD written
+  earlier this session. Weapons, projectiles, hit detection, and enemy AI
+  with niches are in and playtested; the counter-swap hook (wrong weapon =
+  little/no effect) reads correctly in real play.
+- **Just shipped:**
+  - `src/data/weapons.mjs` — the 5 locked weapons (Cannonballs default +
+    Chain Shot, Grapeshot, Depth Charges, Flame Barrels), each with
+    `damage`/`offCounterFraction` — full damage only against the enemy
+    whose `counter` matches the weapon id, a small fraction otherwise
+    (Cannonballs keeps a much higher fraction — always a usable fallback,
+    never a real counter). `damageAgainst(weapon, enemyCounterId)` is the
+    one function that encodes the whole hook.
+  - `src/data/enemies.mjs` — the 5 locked enemy types + boss, each with an
+    `archetype` (SWARM/FLYER/SUBMERGED/TANK/FLANKER) driving distinct
+    movement/attack behavior and exactly one `counter` weapon. The boss
+    (`krakens_anchor`) has a `phases` array (submerged → tank, 14s each)
+    that overrides its counter/archetype live. `spawnPoolForReefIndex`
+    encodes the early-reef-easy/later-reef-mixed spawn mix from the PRD.
+  - `src/engine/combat.mjs` — weapon state (active weapon, ammo, cooldown),
+    `tryFire` (spawns 1+ pellets per shot per weapon, respects
+    cooldown/ammo), `stepCombat` (projectile movement, range/wall/fuse
+    expiry), `resolveHits` (circle-vs-circle for direct-hit weapons, a
+    proper AoE blast-radius check for Depth Charges once their fuse
+    expires, attaches a burn DoT status for Flame Barrels), `stepBurn`
+    (ticks burn damage on its own schedule). Deliberately mirrors
+    `boat.mjs`'s "pure logic, no rendering" split.
+  - `src/engine/enemies.mjs` — `createEnemy`/`spawnReefEnemies` (places a
+    reef's roster on open tiles away from spawn/exit; a Reef Skimmer pick
+    spawns its whole pack at once) and `updateEnemy`, with one movement
+    function per archetype: SWARM closes in then orbits at an engage
+    radius, FLYER circles then dive-bombs and **deliberately ignores tile
+    collision** (flies over rock the boat can't reach — ARCHETYPES.FLYER
+    is the one archetype `updateEnemy` skips `resolveTileCollision` for),
+    SUBMERGED alternates invulnerable-hidden and vulnerable-surfaced on a
+    timer, TANK beelines, FLANKER tries to hold a perpendicular offset
+    from the boat's heading. All non-flyer archetypes reuse
+    `boat.mjs`'s exported `resolveTileCollision` directly — it's generic
+    over any `{x,y,vx,vy}` object, not boat-specific, so no separate
+    enemy-collision code was needed. `resolveEnemyContact` deals contact
+    damage to the boat on a per-enemy cooldown and — Riggers only — jams
+    the boat's turn rate briefly (`boat.turnJamRemaining`), matching the
+    PRD's "left alone they degrade the player's control" identity.
+  - `src/engine/run.mjs` — `createRun` now also spawns a reef's enemies and
+    a fresh `weapons` state, and tracks a `salvage` tally. **Deliberately
+    scoped down from the PRD's full 3-reef/banking run structure** — that
+    belongs to step 6 (Roguelike run structure); step 3 just proves combat
+    works inside the existing single-reef test arena, per "each step its
+    own commit... don't build every feature simultaneously."
+  - `src/main.mjs` — weapon-select bar (5 buttons, ammo shown, tap swaps
+    active weapon), a dedicated fire button, and the combat step wired
+    into the frame loop (fire → step projectiles → enemy AI → resolve hits
+    → burn ticks → enemy contact damage → hull/salvage UI updates).
+    **Firing uses aim-assist** (nearest live enemy within the active
+    weapon's range; falls back to the boat's own facing) rather than
+    manual second-stick aiming — flagged in the PRD's Open Risks as the
+    riskiest one-handed-UX call in the whole design; revisit if
+    playtesting says it feels wrong.
+  - `src/engine/renderer.mjs` — `drawEnemy(s)`/`drawProjectile(s)`:
+    placeholder colored-disc enemies (per-archetype color from their data
+    definition), a translucent ring while invulnerable, a flickering
+    overlay while burning, and a health bar that only appears once an
+    enemy has taken damage.
+  - New tests: `tests/combat.test.mjs` (cooldown/ammo, counter vs.
+    off-counter damage, invulnerable enemies take no damage, Depth
+    Charges' AoE hits everyone in the blast and no one outside it, Flame
+    Barrels' burn keeps ticking after the initial hit) and
+    `tests/enemies.test.mjs` (spawn placement/pack-spawning, one behavior
+    test per archetype including the Flyer's deliberate wall-ignoring and
+    the Submerged/surfaced cycle, contact damage + cooldown + the Rigger
+    jam). **128/128 tests pass** across the whole repo.
+  - **Real bug found via headless-browser playtesting (not just
+    `node --test`):** the fire button's `pointerup`/`pointercancel`/
+    `pointerleave` handlers cleared `isFiring` unconditionally, without
+    checking which pointer triggered them. `pointerleave` fires for *any*
+    pointer that crosses an element's bounds, not just the one that
+    pressed it — so on a real phone, a second finger steering the
+    joystick anywhere near the fire button's screen region could silently
+    cancel firing, with no error and no obvious cause. `node --test`
+    can't catch this (it's a real multi-pointer DOM interaction); found it
+    by driving two independent simulated pointers in Playwright and
+    noticing kills never happened despite the fire button visibly "held."
+    Fixed by tracking the specific `pointerId` that pressed the button and
+    only clearing `isFiring` when that same pointer ends, dropping
+    `pointerleave` entirely as a stop signal. Verified fixed: re-ran the
+    same two-pointer scenario and confirmed enemies now take damage and
+    die while a second pointer drags the joystick nearby.
+  - Verified end-to-end in a real headless browser: weapon-select bar and
+    fire button render and work; ammo counters decrement and Cannonballs
+    shows ∞; holding fire while chasing enemies deals damage, kills them,
+    and banks Salvage in the HUD; **Chain Shot (a Gullswarm Harpy's real
+    counter) killed one in ~13 engagement ticks** in the same test where
+    Cannonballs alone only chipped a Harpy down to ~27% health over a
+    comparable stretch — the counter-swap hook is reading correctly, not
+    just theoretically correct in the data. No console errors across every
+    playtest run this session.
+- **Not built yet:** loot pickups/ammo-as-a-found-resource (step 5), the
+  real 3-reef run structure with Salvage banking and permadeath stakes
+  (step 6 — today's `run.salvage` is a flat tally, not banked-per-reef),
+  meta-progression/Captain's Hub (step 7), art pass, audio, juice (step 8).
+- **Next up:** step 4, enemy content — this is mostly a balance/playtesting
+  pass now (the data and archetypes already exist from step 3), then step
+  5 (loot/economy) so ammo pickups and Salvage actually mean something in
+  a run rather than the current step-3 placeholder tally.
 
 ## Decisions log
 
@@ -329,10 +428,41 @@ Starting fresh below for the new game.)*
   reefs/run is a guess at session length) — those are prototyping/
   playtesting questions to revisit during steps 3-6, not blockers to
   starting.
+- 2026-09-28: Combat firing uses aim-assist (nearest live enemy within the
+  active weapon's range, falling back to the boat's own facing) rather
+  than a manual second-stick/tap-to-aim scheme — the PRD flagged this as
+  genuinely undecided, and manual aiming would compete with the movement
+  joystick for the same hand/thumb, working against the touch-first
+  principle. Chosen as the practical default for step 3's implementation;
+  explicitly provisional, revisit if it feels bad in play.
+- 2026-09-28: Enemy tile collision reuses `boat.mjs`'s exported
+  `resolveTileCollision` as-is rather than writing separate enemy-specific
+  collision code — it was already generic over any `{x,y,vx,vy}` object,
+  not boat-specific, so no duplication was needed. Flyers are the one
+  archetype that skips it entirely (they're meant to cross rock the boat
+  can't), handled with a simple `archetype !== FLYER` check in
+  `updateEnemy` rather than a second collision code path.
+- 2026-09-28: `run.mjs`'s step-3 wiring deliberately stops short of the
+  PRD's full 3-reef/Salvage-banking run structure — `run.salvage` is a
+  flat tally for now, not banked-per-reef with permadeath stakes. That's
+  step 6's job (Roguelike run structure); building it now would mean
+  building two unvalidated systems at once, against the project's own
+  "don't build every feature simultaneously" build-order principle.
+- 2026-09-28: Fire button's `pointerup`/`pointercancel` handlers now check
+  `e.pointerId` against the pointer that pressed it, and `pointerleave` was
+  dropped as a stop signal entirely — see Current status for the real bug
+  this fixes (a second finger steering the joystick could silently cancel
+  firing by crossing the fire button's screen region, since the original
+  handlers cleared `isFiring` for *any* pointer's leave/up event, not just
+  the one holding the button down). Worth remembering as a general lesson:
+  any touch control meant to be held down alongside other simultaneous
+  touch input must track its own specific `pointerId`, not just "a
+  pointer event happened on this element."
 
 ## Known open questions (do not silently resolve — ask)
 
-None blocking step 3 as of 2026-09-28 — see the PRD's "Open Risks &
+None blocking step 4 as of 2026-09-28 — see the PRD's "Open Risks &
 Provisional Decisions" section for items to revisit during implementation
-(firing control choice, one-handed weapon-select UX, Depth Charges'
-prediction-based design, reef count per run, hull-carryover fairness).
+(firing control choice — now implemented as aim-assist per the decision
+above, but still provisional; one-handed weapon-select UX; Depth Charges'
+prediction-based design; reef count per run; hull-carryover fairness).

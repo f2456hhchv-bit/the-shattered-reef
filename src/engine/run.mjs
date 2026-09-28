@@ -6,12 +6,16 @@
 import { makeSeededRng } from './rng.mjs';
 import { generateMazeGraph, farthestCell, buildTileGrid, cellCenterTile } from './maze.mjs';
 import { createBoat } from './boat.mjs';
+import { createWeaponState } from './combat.mjs';
+import { spawnReefEnemies } from './enemies.mjs';
+import { spawnPoolForReefIndex } from '../data/enemies.mjs';
 
 export const TILE_SIZE = 16; // px per tile at 1x zoom
 export const BOAT_RADIUS = 11; // px, collision + draw radius
 export const EXIT_RADIUS_TILES = 1.5; // how close (in tiles) counts as "reached the exit"
+export const ENEMY_COUNT = 9; // step 3 scope: one reef's worth on a single test arena — reef-to-reef scaling is step 6 (Roguelike run structure)
 
-export function createRun(seed, { cols = 9, rows = 9, room = 6, wall = 2 } = {}) {
+export function createRun(seed, { cols = 9, rows = 9, room = 6, wall = 2, reefIndex = 0 } = {}) {
   const rng = makeSeededRng(seed);
   const maze = generateMazeGraph(cols, rows, rng);
   const grid = buildTileGrid(maze, { room, wall });
@@ -30,6 +34,10 @@ export function createRun(seed, { cols = 9, rows = 9, room = 6, wall = 2 } = {})
     y: (exitTile.ty + 0.5) * TILE_SIZE,
   };
 
+  const enemies = spawnReefEnemies(
+    spawnPoolForReefIndex(reefIndex), grid, TILE_SIZE, boat, exitWorld, ENEMY_COUNT, rng
+  );
+
   return {
     seed,
     maze,
@@ -39,6 +47,9 @@ export function createRun(seed, { cols = 9, rows = 9, room = 6, wall = 2 } = {})
     exitWorld,
     widthPx: grid.width * TILE_SIZE,
     heightPx: grid.height * TILE_SIZE,
+    enemies,
+    weapons: createWeaponState(),
+    salvage: 0, // step 3 placeholder tally — real per-reef banking is step 6 (Run Structure)
     over: false,
     outcome: null, // 'exit' | 'sunk', once over
   };
