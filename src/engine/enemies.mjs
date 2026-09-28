@@ -7,7 +7,8 @@
 
 import { getEnemy, ENEMY_IDS, ARCHETYPES } from '../data/enemies.mjs';
 import { triangleMultiplier, incomingTriangleMultiplier } from '../data/factions.mjs';
-import { resolveTileCollision } from './boat.mjs';
+import { resolveTileCollision, resolveCoastCollision } from './boat.mjs';
+import { isOpenWithClearance } from './maze.mjs';
 
 let nextEnemyId = 1;
 
@@ -109,7 +110,7 @@ function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid) {
   for (let attempt = 0; attempt < 200; attempt++) {
     const tx = Math.floor(rng() * grid.width);
     const ty = Math.floor(rng() * grid.height);
-    if (grid.tiles[ty][tx] !== 0) continue;
+    if (!isOpenWithClearance(grid, tx, ty)) continue;
     const x = (tx + 0.5) * tileSize;
     const y = (ty + 0.5) * tileSize;
     if (Math.hypot(x - avoid.x, y - avoid.y) < minDistFromAvoid) continue;
@@ -309,7 +310,9 @@ function updateBossPhase(enemy, def, dt) {
 // Advances one enemy's AI + movement by dt, respecting tile collision for
 // every archetype except FLYER (which deliberately ignores it). Does not
 // touch combat/damage — see combat.mjs for that.
-export function updateEnemy(enemy, boat, dt, grid, tileSize) {
+// `coast` (optional): the reef's smooth coastline field — when given, ships
+// collide with the shore the player sees, same as the boat does.
+export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
   if (enemy.health <= 0) return;
 
   const def = getEnemy(enemy.defId);
@@ -325,7 +328,8 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize) {
   }
 
   if (enemy.archetype !== ARCHETYPES.FLYER) {
-    resolveTileCollision(enemy, enemy.radius, grid, tileSize);
+    if (coast) resolveCoastCollision(enemy, enemy.radius, coast);
+    else resolveTileCollision(enemy, enemy.radius, grid, tileSize);
   }
 
   if (enemy.contactCooldownRemaining > 0) {
@@ -333,8 +337,8 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize) {
   }
 }
 
-export function updateEnemies(enemies, boat, dt, grid, tileSize) {
-  for (const enemy of enemies) updateEnemy(enemy, boat, dt, grid, tileSize);
+export function updateEnemies(enemies, boat, dt, grid, tileSize, coast = null) {
+  for (const enemy of enemies) updateEnemy(enemy, boat, dt, grid, tileSize, coast);
 }
 
 // Contact damage: an enemy touching the boat hurts it, on its own

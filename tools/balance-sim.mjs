@@ -31,13 +31,14 @@
 import {
   createRun, checkReachedExit, checkSunk, addSalvage, BASELINE_LOADOUT, REEF_COUNT,
 } from '../src/engine/run.mjs';
-import { stepBoat, resolveTileCollision, applyWallImpactDamage } from '../src/engine/boat.mjs';
+import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from '../src/engine/boat.mjs';
 import {
   tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, isHeld, ammoFor,
   craftedMultiplierFor,
 } from '../src/engine/combat.mjs';
 import { updateEnemies, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor } from '../src/engine/enemies.mjs';
 import { collectPickups } from '../src/engine/pickups.mjs';
+import { isOpenWithClearance } from '../src/engine/maze.mjs';
 import { getWeapon, WEAPON_IDS } from '../src/data/weapons.mjs';
 import { PICKUP_KINDS } from '../src/data/pickups.mjs';
 
@@ -62,6 +63,44 @@ function cellWorldCenter(run, cell) {
   const x0 = cell.c * grid.unit + grid.wall;
   const y0 = cell.r * grid.unit + grid.wall;
   return { x: (x0 + grid.room / 2) * run.tileSize, y: (y0 + grid.room / 2) * run.tileSize };
+}
+
+// BFS over tiles, preferring tiles with a full ring of water around them
+// (room for the boat's hull); endpoints are allowed regardless. Returns
+// world-space waypoints every few tiles, or null if unreachable.
+function tilePath(run, fx, fy, tx, ty) {
+  const g = run.grid; const T = run.tileSize; const W = g.width; const H = g.height;
+  const sx = Math.floor(fx / T); const sy = Math.floor(fy / T);
+  const ex = Math.floor(tx / T); const ey = Math.floor(ty / T);
+  if (sx < 0 || sy < 0 || sx >= W || sy >= H || ex < 0 || ey < 0 || ex >= W || ey >= H) return null;
+  const goal = ey * W + ex;
+  for (const strict of [true, false]) {
+    const prev = new Int32Array(W * H).fill(-1);
+    const start = sy * W + sx; prev[start] = start;
+    const q = [start];
+    let found = false;
+    for (let qi = 0; qi < q.length; qi++) {
+      const k = q[qi];
+      if (k === goal) { found = true; break; }
+      const x = k % W; const y = (k / W) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx; const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const nk = ny * W + nx;
+        if (prev[nk] !== -1 || g.tiles[ny][nx] !== 0) continue;
+        if (strict && nk !== goal && !isOpenWithClearance(g, nx, ny)) continue;
+        prev[nk] = k; q.push(nk);
+      }
+    }
+    if (!found) continue;
+    const tiles = [];
+    for (let k = goal; k !== start; k = prev[k]) tiles.push(k);
+    tiles.reverse();
+    const out = [];
+    for (let i = 2; i < tiles.length - 1; i += 3) out.push({ x: ((tiles[i] % W) + 0.5) * T, y: (((tiles[i] / W) | 0) + 0.5) * T });
+    return out;
+  }
+  return null;
 }
 
 function bfsPath(run, fromCell, toCell) {
@@ -180,10 +219,18 @@ function replanIfNeeded(run, bot, dt) {
   }
   bot.targetKind = target.kind;
   bot.targetId = target.id;
-  const fromCell = cellOf(run, run.boat.x, run.boat.y);
-  const toCell = cellOf(run, target.x, target.y);
-  const path = bfsPath(run, fromCell, toCell);
-  bot.waypoints = path.map((c) => cellWorldCenter(run, c));
+  // Tile-level path (2026-09-28): organic reefs grow rock into rooms, so
+  // "cell centre, then straight to the target" can cross land. Path over
+  // tiles with a boat-wide clearance instead, falling back to the cell
+  // graph if that fails.
+  const tp = tilePath(run, run.boat.x, run.boat.y, target.x, target.y);
+  if (tp) {
+    bot.waypoints = tp;
+  } else {
+    const fromCell = cellOf(run, run.boat.x, run.boat.y);
+    const toCell = cellOf(run, target.x, target.y);
+    bot.waypoints = bfsPath(run, fromCell, toCell).map((c) => cellWorldCenter(run, c));
+  }
   bot.waypoints.push({ x: target.x, y: target.y }); // final approach to the exact target
   bot.waypointIdx = 0;
   return target;
@@ -354,7 +401,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     maybeSwitchWeapon(run);
     const input = steerVector(run, bot);
     stepBoat(run.boat, input, DT, run.tuning);
-    const impact = resolveTileCollision(run.boat, BOAT_RADIUS, run.grid, run.tileSize);
+    const impact = resolveCoastCollision(run.boat, BOAT_RADIUS, run.coast);
     const wallDmg = applyWallImpactDamage(run.boat, impact);
     if (wallDmg > 0) stats.damageBySource.wall += wallDmg;
 
@@ -362,7 +409,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     tryFire(run.weapons, run.boat.x, run.boat.y, heading);
     stepCombat(run.weapons, DT, run.grid, run.tileSize, run.enemies);
     stepAmmoRegen(run.weapons, DT);
-    updateEnemies(run.enemies, run.boat, DT, run.grid, run.tileSize);
+    updateEnemies(run.enemies, run.boat, DT, run.grid, run.tileSize, run.coast);
 
     const hitEvents = resolveHits(
       run.weapons, run.enemies, currentCounter,

@@ -3,6 +3,7 @@
 
 import { PICKUP_KINDS, PICKUP_TUNING, CACHE_WEAPON_IDS, weaponCacheAmount } from '../data/pickups.mjs';
 import { collectWeaponCache } from './combat.mjs';
+import { isOpenWithClearance } from './maze.mjs';
 
 let nextPickupId = 1;
 
@@ -14,7 +15,7 @@ function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid) {
   for (let attempt = 0; attempt < 200; attempt++) {
     const tx = Math.floor(rng() * grid.width);
     const ty = Math.floor(rng() * grid.height);
-    if (grid.tiles[ty][tx] !== 0) continue;
+    if (!isOpenWithClearance(grid, tx, ty)) continue;
     const x = (tx + 0.5) * tileSize;
     const y = (ty + 0.5) * tileSize;
     if (Math.hypot(x - avoid.x, y - avoid.y) < minDistFromAvoid) continue;

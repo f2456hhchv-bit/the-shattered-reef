@@ -12,7 +12,8 @@
 // is therefore the only total that survives a run ending in `sunk`.
 
 import { makeSeededRng } from './rng.mjs';
-import { generateMazeGraph, farthestCell, buildTileGrid, cellCenterTile } from './maze.mjs';
+import { buildCoastField } from './terrain.mjs';
+import { generateMazeGraph, farthestCell, buildOrganicReefGrid, cellCenterTile } from './maze.mjs';
 import { createBoat } from './boat.mjs';
 import { createWeaponState } from './combat.mjs';
 import { spawnReefEnemies } from './enemies.mjs';
@@ -39,8 +40,11 @@ export const TILE_SIZE = 16; // px per tile at 1x zoom
 export const BOAT_RADIUS = 11; // px, collision + draw radius
 export const EXIT_RADIUS_TILES = 1.5; // how close (in tiles) counts as "reached the exit"
 export const REEF_COUNT = 3; // locked vertical-slice scope: 3 reefs per run, fixed sequence
-const ROOM = 6;
-const WALL = 2;
+// 7/3 (was 6/2) once coastlines went organic: thicker land reads as islands
+// rather than rock ridges, and the rock grown into rooms brings open water
+// back to roughly the old 6/2 area, so enemy density is about unchanged.
+const ROOM = 7;
+const WALL = 3;
 
 // One entry per reef in the fixed sequence — larger, denser mazes and more
 // enemies as the voyage progresses. The last entry repeats if REEF_COUNT
@@ -58,13 +62,19 @@ function tuningFor(reefIndex) {
 function buildReefWorld(rng, reefIndex) {
   const tuning = tuningFor(reefIndex);
   const maze = generateMazeGraph(tuning.cols, tuning.rows, rng);
-  const grid = buildTileGrid(maze, { room: ROOM, wall: WALL });
+  const grid = buildOrganicReefGrid(maze, rng, { room: ROOM, wall: WALL });
+  // The smooth coastline (engine/terrain.mjs) is what the boat collides
+  // with and what the art draws, so it belongs to the world, not the view.
+  const coastSeed = Math.floor(rng() * 2 ** 31);
+  const coast = buildCoastField(grid, TILE_SIZE, coastSeed);
   const exitCell = farthestCell(maze, maze.start);
   const startTile = cellCenterTile(maze.start, grid);
   const exitTile = cellCenterTile(exitCell, grid);
   return {
     maze,
     grid,
+    coast,
+    coastSeed,
     tileSize: TILE_SIZE,
     spawnWorld: { x: (startTile.tx + 0.5) * TILE_SIZE, y: (startTile.ty + 0.5) * TILE_SIZE },
     exitWorld: { x: (exitTile.tx + 0.5) * TILE_SIZE, y: (exitTile.ty + 0.5) * TILE_SIZE },
@@ -84,6 +94,8 @@ function enterReef(run, reefIndex) {
   run.reefIndex = reefIndex;
   run.maze = world.maze;
   run.grid = world.grid;
+  run.coast = world.coast;
+  run.coastSeed = world.coastSeed;
   run.tileSize = world.tileSize;
   run.exitWorld = world.exitWorld;
   run.widthPx = world.widthPx;

@@ -5,13 +5,16 @@
 // Ship Hulls / Cargo Loadouts / Captain's Charms before "Set Sail" starts
 // an actual voyage with that loadout resolved into it.
 
+import { buildTerrain } from './engine/terrain.mjs';
+import { createTerrainRenderer } from './engine/terrainRenderer.mjs';
+import { getBiome, BIOME_IDS } from './data/biomes.mjs';
 import {
   createRun, checkReachedExit, checkSunk, addSalvage, totalSalvage, BOAT_RADIUS,
 } from './engine/run.mjs';
-import { stepBoat, resolveTileCollision, applyWallImpactDamage } from './engine/boat.mjs';
+import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
 import {
-  drawTileGrid, drawExit, drawBoat, drawEnemies, drawProjectiles, drawPickups,
+  drawExit, drawWake, drawBoat, drawEnemies, drawProjectiles, drawPickups,
   drawParticles, drawDamageNumbers, PALETTE,
 } from './engine/renderer.mjs';
 import { createJoystick } from './input/joystick.mjs';
@@ -255,6 +258,19 @@ export function startApp(root) {
   // frame on mobile.
   const hudInsets = { top: 0, right: 0, bottom: 0, left: 0 };
   let lastView = null; // last frame's camera view — debug hook only
+  // Terrain art (2026-09-28): rebuilt whenever the reef's grid changes
+  // (new run or next reef). Pure fields + a chunked canvas cache.
+  const biome = getBiome(BIOME_IDS.TROPICAL);
+  const wake = []; let wakeTimer = 0;
+  let terrainGrid = null; let terrain = null; let terrainRenderer = null; let terrainFresh = false;
+  function ensureTerrain() {
+    if (terrainGrid === run.grid) return;
+    terrainGrid = run.grid;
+    terrain = buildTerrain(run.grid, run.tileSize, run.coastSeed, biome, run.coast);
+    terrainRenderer = createTerrainRenderer(terrain, biome, { res: Math.min(window.devicePixelRatio || 1, 1.5) });
+    terrainFresh = true; // first draw renders every visible chunk at once
+    wake.length = 0; // the boat just teleported to a new spawn
+  }
   // Short landscape phones get a different HUD (ui/styles.css, same query):
   // one compact top row, and the weapon bar as a grid above the fire
   // button in the right-thumb zone — so the camera reserves a RIGHT band
@@ -734,7 +750,7 @@ export function startApp(root) {
 
       const vec = joystick.getVector();
       stepBoat(run.boat, vec, dt, tuning);
-      const impactSpeed = resolveTileCollision(run.boat, BOAT_RADIUS, run.grid, run.tileSize);
+      const impactSpeed = resolveCoastCollision(run.boat, BOAT_RADIUS, run.coast);
       const damage = applyWallImpactDamage(run.boat, impactSpeed);
       if (damage > 0) {
         updateHullBar();
@@ -755,7 +771,7 @@ export function startApp(root) {
       }
       stepCombat(run.weapons, dt, run.grid, run.tileSize, run.enemies);
       if (stepAmmoRegen(run.weapons, dt)) updateWeaponBar();
-      updateEnemies(run.enemies, run.boat, dt, run.grid, run.tileSize);
+      updateEnemies(run.enemies, run.boat, dt, run.grid, run.tileSize, run.coast);
 
       // The Kraken's Anchor announces its own phase swaps (submerged/
       // Depth-Charges <-> tank/Flame-Barrels) — the whole point of the
@@ -945,18 +961,31 @@ export function startApp(root) {
     }
 
     updateCamera(camera, run.boat.x, run.boat.y, rawDt);
+    // Wake: foam puffs off the stern while under way.
+    for (const w of wake) w.life -= rawDt;
+    while (wake.length && wake[0].life <= 0) wake.shift();
+    const boatSpeed = Math.hypot(run.boat.vx, run.boat.vy);
+    wakeTimer -= rawDt;
+    if (boatSpeed > 25 && !run.over && wakeTimer <= 0) {
+      wakeTimer = 0.05;
+      const life = 0.5 + Math.min(1, boatSpeed / 120) * 0.5;
+      wake.push({ x: run.boat.x - Math.cos(run.boat.heading) * BOAT_RADIUS * 1.2, y: run.boat.y - Math.sin(run.boat.heading) * BOAT_RADIUS * 1.2, heading: run.boat.heading, life, maxLife: life });
+    }
     particles = updateParticles(particles, rawDt);
     damageNumbers = updateDamageNumbers(damageNumbers, rawDt);
     const shakeOffset = updateShake(shake, rawDt);
 
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    ctx.fillStyle = PALETTE.waterDeep;
+    ctx.fillStyle = biome.outside;
     ctx.fillRect(0, 0, vw, vh);
     ctx.save();
     const view = applyCameraTransform(ctx, camera, vw, vh, run.widthPx, run.heightPx, shakeOffset, hudInsets);
     lastView = view;
-    drawTileGrid(ctx, run.grid, run.tileSize, view.visible.left, view.visible.top, view.visible.right, view.visible.bottom);
+    ensureTerrain();
+    terrainRenderer.draw(ctx, view.visible, now / 1000, { forceVisible: terrainFresh, maxNewChunks: 0 });
+    terrainFresh = false;
+    drawWake(ctx, wake);
     drawExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
     drawPickups(ctx, run.pickups, (p) => WEAPON_SHORT_LABEL[p.weaponId], now / 1000);
     drawEnemies(
@@ -965,10 +994,14 @@ export function startApp(root) {
       (e) => relationTo(run.faction, e.faction),
     );
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color);
-    if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS);
+    if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS, now / 1000);
     drawParticles(ctx, particles);
     drawDamageNumbers(ctx, damageNumbers);
     ctx.restore();
+
+    // Stream the rest of the reef's terrain in the background, one chunk a
+    // frame, so scrolling never reveals an unrendered chunk.
+    terrainRenderer.prewarm(camera.x, camera.y, 3);
 
     requestAnimationFrame(frame);
   }

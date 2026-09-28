@@ -199,7 +199,7 @@ export const DAMAGE_NUMBER_COLORS = Object.freeze({
   favored: '#5ff2d6',
   resisted: '#b3bdc8',
   hurt: '#ff6b5b',
-  hurtDanger: '#ff4d40',
+  hurtDanger: '#ff5c4e', // was #ff4d40; lifted to clear 3:1 on the tropical deep water (2026-09-28)
   hurtResist: '#ff9d8f',
   outline: '#07131c',
 });

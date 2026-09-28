@@ -187,3 +187,76 @@ test('the keel does not change straight-line top speed or coasting', () => {
   const [a2, c2] = run(DEFAULT_BOAT_TUNING);
   assert.ok(Math.abs(a1 - a2) < 1e-9 && Math.abs(c1 - c2) < 1e-9);
 });
+
+// --- Smooth-coast collision (2026-09-28 art pass) ---------------------------
+import { resolveCoastCollision } from '../src/engine/boat.mjs';
+import { buildCoastField, sampleField } from '../src/engine/terrain.mjs';
+import { createRun, checkReachedExit, TILE_SIZE, BOAT_RADIUS } from '../src/engine/run.mjs';
+
+function wallGrid() {
+  // Open water on the left, solid rock from column 10 onward.
+  const tiles = Array.from({ length: 20 }, () => Array.from({ length: 20 }, (_, x) => (x >= 10 ? 1 : 0)));
+  for (const row of [tiles[0], tiles[19]]) row.fill(1);
+  for (const row of tiles) row[0] = 1;
+  return { width: 20, height: 20, tiles };
+}
+
+test('coast collision: a boat driven into the shore stops at the drawn coastline and reports the impact', () => {
+  const coast = buildCoastField(wallGrid(), 16, 1);
+  const boat = createBoat(100, 160, 0);
+  boat.vx = 110; boat.vy = 0;
+  let impact = 0;
+  for (let i = 0; i < 60; i++) {
+    boat.x += boat.vx / 60; boat.y += boat.vy / 60;
+    impact = Math.max(impact, resolveCoastCollision(boat, 11, coast));
+  }
+  assert.ok(impact > 60, `a head-on hit should report a real impact speed (got ${impact})`);
+  const edge = sampleField(coast, boat.x, boat.y) + 11;
+  assert.ok(Math.abs(edge) < 1.5, `hull edge should rest on the coastline, off by ${edge.toFixed(2)}px`);
+});
+
+test('coast collision: steering along the shore while pressed into it costs no further impact', () => {
+  const coast = buildCoastField(wallGrid(), 16, 1);
+  const boat = createBoat(120, 40, 0);
+  // Drive into the wall, then hold the stick mostly along it (and a bit
+  // into it) — a player hugging the shoreline.
+  for (let i = 0; i < 60; i++) { stepBoat(boat, { x: 1, y: 0 }, 1 / 60); resolveCoastCollision(boat, 11, coast); }
+  let worst = 0;
+  for (let i = 0; i < 90; i++) {
+    stepBoat(boat, { x: 0.35, y: 0.94 }, 1 / 60);
+    const hit = resolveCoastCollision(boat, 11, coast);
+    if (i > 20) worst = Math.max(worst, hit);
+  }
+  assert.ok(boat.y > 120, 'the boat should have slid a real distance along the shore');
+  assert.ok(worst < WALL_IMPACT_DAMAGE_THRESHOLD, `hugging the shore should stay a graze, got ${worst.toFixed(1)}`);
+});
+
+test('coast collision: the drawn coast never blocks a maze passage — every passage centreline has boat clearance', () => {
+  for (let seed = 1; seed <= 12; seed++) {
+    const run = createRun(seed);
+    for (let reef = 0; reef < 3; reef++) {
+      const { maze, grid, coast } = run;
+      const u = grid.unit; const w = grid.wall; const half = grid.room / 2; const T = TILE_SIZE;
+      for (let r = 0; r < maze.rows; r++) for (let c = 0; c < maze.cols; c++) {
+        const cell = maze.cells[r][c];
+        const cx = (c * u + w + half) * T; const cy = (r * u + w + half) * T;
+        for (const [dir, dx, dy] of [['E', 1, 0], ['S', 0, 1]]) {
+          if (!cell[dir]) continue;
+          for (let t = 0; t <= 1.0001; t += 0.05) {
+            const s = sampleField(coast, cx + dx * u * T * t, cy + dy * u * T * t);
+            assert.ok(s <= -(BOAT_RADIUS + 1), `seed ${seed} reef ${reef}: passage pinched to ${s.toFixed(1)}px`);
+          }
+        }
+      }
+      if (reef < 2) { run.boat.x = run.exitWorld.x; run.boat.y = run.exitWorld.y; checkReachedExit(run); }
+    }
+  }
+});
+
+test('coast collision: the spawn and exit sit in open water with room for the hull', () => {
+  for (let seed = 1; seed <= 20; seed++) {
+    const run = createRun(seed);
+    assert.ok(sampleField(run.coast, run.boat.x, run.boat.y) < -BOAT_RADIUS);
+    assert.ok(sampleField(run.coast, run.exitWorld.x, run.exitWorld.y) < -BOAT_RADIUS);
+  }
+});

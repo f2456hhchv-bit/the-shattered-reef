@@ -191,7 +191,7 @@ test('spawnDamageNumber marks damage the player took as incoming, separately fro
 
 // --- Damage-number visual language (2026-09-28 legibility pass) ----------
 import { damageNumberStyle, DAMAGE_NUMBER_COLORS } from '../src/engine/juice.mjs';
-import { PALETTE } from '../src/engine/renderer.mjs';
+import { BIOMES, BIOME_IDS } from '../src/data/biomes.mjs';
 
 // WCAG relative luminance / contrast ratio.
 function lum(hex) {
@@ -222,10 +222,22 @@ test('every number colour has strong contrast against its outline (legible on an
   }
 });
 
-test('every number colour clears 3:1 against every real tile colour even without its outline', () => {
-  for (const bg of [PALETTE.water, PALETTE.waterDeep, PALETTE.rock]) for (const d of ALL_CASES) for (const p of damageNumberStyle(d).parts) {
-    const r = contrast(p.color, bg);
-    assert.ok(r >= 3, `${p.text} ${p.color} vs tile ${bg}: ${r.toFixed(2)} < 3`);
+// 2026-09-28 art pass: the old near-black flat tiles are gone; the tropical
+// ground runs from deep blue to turquoise to white sand. No single number
+// colour can clear 3:1 against all of that on its own (the old "without
+// its outline" test only passed because the old water was nearly black).
+// The real contract: against every ground colour, the number OR its
+// always-drawn dark outline stands out at 3:1.
+const TROPICAL = BIOMES[BIOME_IDS.TROPICAL];
+// Damage YOU take is drawn over the boat, which never leaves the water;
+// hits on enemies can land over land too (Harpies fly over it).
+const WATER = [...TROPICAL.water.map(([, c]) => c), TROPICAL.foam];
+const GROUND = [...WATER, ...TROPICAL.land.map(([, c]) => c), TROPICAL.rock, TROPICAL.rockDark, TROPICAL.jungleDark];
+
+test('against every terrain colour it can appear over, each number or its outline clears 3:1', () => {
+  for (const d of ALL_CASES) for (const bg of (d.incoming ? WATER : GROUND)) for (const p of damageNumberStyle(d).parts) {
+    const best = Math.max(contrast(p.color, bg), contrast(DAMAGE_NUMBER_COLORS.outline, bg));
+    assert.ok(best >= 3, `${p.text} ${p.color} on ${bg}: best ${best.toFixed(2)} < 3`);
   }
 });
 

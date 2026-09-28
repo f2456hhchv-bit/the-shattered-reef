@@ -1337,6 +1337,70 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - **Next up:** unchanged: the art/audio pass, then the remaining Known
   open questions.
 
+- **Phase:** art pass, part 1: Tropical Reef biome (project owner shared a
+  painted reference sheet of 4 biomes and asked for "artwork like this and
+  maps like this"; chose **code-drawn art** and **Tropical only for now**
+  via AskUserQuestion).
+- **Just shipped:**
+  - **Organic reef layout** (`buildOrganicReefGrid` in `maze.mjs`). Same
+    maze graph, but noise grows rock into the rooms (plus islets), then
+    cellular-automaton smoothing. It never erodes rock, so no shortcuts;
+    it protects a disc at each cell centre and a 3-tile band per passage,
+    so the boat always fits; it fills any cut-off pocket. Room/wall went
+    6/2 → 7/3: thicker land reads as islands, and open-water area stays
+    within ±15% of the old layout (tested), so enemy density is about
+    unchanged.
+  - **Smooth coastline shared by art AND physics** (`buildCoastField` in
+    `terrain.mjs`, built per reef in `run.mjs` as `run.coast`). It's an
+    exact distance transform of the tile grid, blurred, plus a noise
+    wobble. The boat and enemy ships now collide with it
+    (`resolveCoastCollision` in `boat.mjs`, same impact-speed contract as
+    the tile resolver). Tile collision left ~12% of the drawn shore with
+    a 3–8px invisible wall out in the water; that's measured, not
+    guessed. Projectiles and spawn placement still use the tile grid.
+  - **Terrain renderer** (`terrainRenderer.mjs`, biome data in
+    `data/biomes.mjs`):
+    - Per-pixel shading: depth-graded water, surf foam and an outer surf
+      ring, wet sand to beach to jungle, noise mottling, and rock
+      outcrops inland.
+    - Relief lighting from a height field, plus cast shadows.
+    - Baked palms, bushes, boulders, coral and shells, placed by where
+      each would grow.
+    - Animated water glints.
+    - Cached in 256px chunks at up to 1.5× resolution. Visible chunks
+      render when a reef starts; the rest stream in within a 3ms-per-
+      frame budget, nearest first, one row band at a time.
+    - A new biome is a new data entry, not new code.
+  - **Sprites drawn in code (no image files) for everything else:**
+    - The boat: planked hull, billowing sail, pennant, and a wake.
+    - The exit: a ring of buoys around a gold swirl.
+    - Weapon caches are crates with a stencilled code; Salvage pickups
+      are barrels.
+    - One silhouette per enemy type, in its data colour: skimmer raider,
+      winged harpy with a ground shadow, crab-like crawler (bubbles while
+      submerged), iron-plated smoking brigand, blade-armed rigger, and a
+      tentacled anchor for the boss.
+    - Spawns now require a full ring of open water (`isOpenWithClearance`),
+      so nothing starts on the beach.
+  - **Balance-sim bot**: now uses tile-level BFS pathing with boat
+    clearance. The old cell-centre-then-straight-line approach crossed
+    the new headlands and timed out.
+  - **Damage-number legibility test rewritten.** The new ground is much
+    lighter, so the rule is now: against every colour it can appear
+    over, the number OR its dark outline clears 3:1. `hurtDanger` was
+    lifted from `#ff4d40` to `#ff5c4e` to pass over deep water.
+  - 265/265 tests. Headless Chromium holds 60fps in portrait and
+    landscape with no console errors. Balance sim (60 voyages, seed 0),
+    old → new:
+    - reached reef 3: 43 → 40
+    - sunk: 9 → 11
+    - wall damage per run: 6.9 → 11.1 (winding coast)
+    - contact damage: unchanged
+- **Next up:** real-phone check of chunk streaming and the ~150ms coast/
+  terrain field build at each reef start (headless desktop can't tell us
+  phone cost). Then the other biomes (Cliff & Cove, Glacial Fjords,
+  Shipwreck Coast) as `data/biomes.mjs` entries.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -1871,6 +1935,21 @@ Starting fresh below for the new game.)*
   triggers on surfaced targets, which keeps the "time the surfacing"
   identity from the PRD.
 
+- 2026-09-28: Art is drawn in code rather than AI-generated sprites
+  (project owner's choice). Each sprite function is the single swap
+  point if real images come later.
+- 2026-09-28: The boat collides with the smooth drawn coastline, not the
+  tile grid. The deciding evidence was measured: tile collision left
+  about 12% of the shore with a 3–8px invisible wall. Before this fix
+  the sim's wall damage per run had jumped from 6.9 to 35; after it,
+  11.1. The tile grid stays the truth for maze logic, spawns and
+  projectiles. The coast field is guaranteed (tested) to keep every
+  passage at least a hull-width open.
+- 2026-09-28: The organic generator only ever adds rock. Eroding walls
+  would have made prettier coasts, but it would create shortcuts the
+  maze graph doesn't know about, breaking exit placement and the
+  balance bot.
+
 ## Known open questions (do not silently resolve — ask)
 
 - See the PRD's "Open Risks & Provisional Decisions" section
@@ -1887,6 +1966,11 @@ Starting fresh below for the new game.)*
   landscape). The sticky Set Sail fixes access, but browsing is long.
   Tabs per track, or collapsing owned items, would help as more tracks
   arrive.
+- **Real-phone performance of the terrain renderer is unverified.**
+  Measured on headless desktop Chromium: ~150ms to build fields at a
+  reef-3 start, and ~8ms per chunk (64 chunks), streamed at 3ms per
+  frame. A phone is plausibly 2-4x slower. If the reef-start hitch shows
+  up, the field build can move into row bands like the chunks.
 - **The enemy matchup pips add clutter to Skimmer packs** (one pip per
   Skimmer, 3-5 per pack). Fine at current densities; revisit with real
   art.

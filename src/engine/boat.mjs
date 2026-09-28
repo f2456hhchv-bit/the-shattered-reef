@@ -1,3 +1,4 @@
+import { sampleField } from './terrain.mjs';
 // Arcade boat physics: momentum + drag + a turn rate, not a rigid-body sim.
 // The ship steers toward wherever the movement stick points (twin-stick
 // feel, not tank controls) but keeps its own inertia — the "weight" that
@@ -111,6 +112,40 @@ export function resolveTileCollision(boat, radius, grid, tileSize) {
       maxImpactSpeed = Math.max(maxImpactSpeed, -dot);
       boat.vx -= dot * hit.nx;
       boat.vy -= dot * hit.ny;
+    }
+  }
+  return maxImpactSpeed;
+}
+
+// Collision against the smooth coastline field (engine/terrain.mjs's
+// buildCoastField: signed px from the shore, + = land). 2026-09-28 art pass:
+// the coast the player sees is blurred and wobbled from the tile grid, so
+// colliding with tiles meant invisible walls up to ~8px out in open water.
+// Pushes the body out along the field's gradient until its edge sits on the
+// shoreline; same return contract as resolveTileCollision (inward impact
+// speed of a fresh hit, ~0 while sliding).
+export function resolveCoastCollision(body, radius, coast) {
+  let maxImpactSpeed = 0;
+  const E = 2;
+  for (let pass = 0; pass < 3; pass++) {
+    const s = sampleField(coast, body.x, body.y);
+    const pen = s + radius;
+    if (pen <= 0) break;
+    let gx = (sampleField(coast, body.x + E, body.y) - sampleField(coast, body.x - E, body.y)) / (2 * E);
+    let gy = (sampleField(coast, body.x, body.y + E) - sampleField(coast, body.x, body.y - E)) / (2 * E);
+    let gl = Math.hypot(gx, gy);
+    if (gl < 1e-4) { gx = 0; gy = 1; gl = 1; } // flat plateau (deep inland): any consistent way out
+    const nx = gx / gl; const ny = gy / gl; // points toward land
+    // The blur flattens the field's slope near corners; divide by it so one
+    // pass lands close to the shore instead of creeping out over frames.
+    const push = Math.min(pen / Math.max(gl, 0.35), radius * 2);
+    body.x -= nx * push;
+    body.y -= ny * push;
+    const inward = body.vx * nx + body.vy * ny;
+    if (inward > 0) {
+      maxImpactSpeed = Math.max(maxImpactSpeed, inward);
+      body.vx -= inward * nx;
+      body.vy -= inward * ny;
     }
   }
   return maxImpactSpeed;
