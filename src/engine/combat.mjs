@@ -163,7 +163,15 @@ function isSolidAt(grid, x, y, tileSize) {
 // `spent` here; resolveHits still gets a look at them the same frame (a
 // depth charge should detonate even if nothing was directly under it) and
 // stepCombat's own cleanup pass removes spent projectiles afterward.
-export function stepCombat(state, dt, grid, tileSize) {
+// Proximity fuse (2026-09-28): a lobbed charge in flight detonates the
+// moment it passes within this margin of a live, *surfaced* enemy. Without
+// it the fixed ~81px fuse flew straight past anything hugging the boat,
+// making Deep Crawlers and the boss's Depth phase unwinnable at close range.
+// Submerged (invulnerable) targets never trigger it — you still have to
+// time the surfacing, which is the weapon's identity.
+export const DEPTH_CHARGE_PROXIMITY_MARGIN = 6;
+
+export function stepCombat(state, dt, grid, tileSize, enemies = []) {
   if (state.cooldownRemaining > 0) {
     state.cooldownRemaining = Math.max(0, state.cooldownRemaining - dt);
   }
@@ -179,6 +187,10 @@ export function stepCombat(state, dt, grid, tileSize) {
     if (p.fuseRemaining != null) {
       p.fuseRemaining -= dt;
       if (p.fuseRemaining <= 0) p.spent = true; // detonate at end of fuse
+      else if (enemies.some((e) => e.health > 0 && !e.invulnerable
+        && Math.hypot(e.x - p.x, e.y - p.y) <= e.radius + (p.radius ?? 0) + DEPTH_CHARGE_PROXIMITY_MARGIN)) {
+        p.spent = true; // proximity fuse
+      }
     }
     if (p.traveled >= p.maxRange) p.spent = true;
     if (isSolidAt(grid, p.x, p.y, tileSize)) p.spent = true;

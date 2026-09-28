@@ -406,3 +406,53 @@ test('stepAmmoRegen reports whether any ammo was actually gained (drives the amm
   state.ammo[WEAPON_IDS.CHAIN_SHOT] = WEAPONS[WEAPON_IDS.CHAIN_SHOT].ammoMax;
   assert.equal(stepAmmoRegen(state, 5), false, 'already full: no change to report');
 });
+
+// --- Depth Charges proximity fuse (2026-09-28) ------------------------------
+// Mirrors the frame loop: stepCombat (with enemies) → resolveHits.
+function runDepthCharge(enemies, frames = 120) {
+  const grid = openGrid();
+  const state = createWeaponState();
+  holdAndEquip(state, WEAPON_IDS.DEPTH_CHARGES);
+  tryFire(state, 0, 0, 0);
+  const p = state.projectiles[0];
+  const events = [];
+  let detonatedAt = null;
+  for (let i = 0; i < frames && detonatedAt == null; i++) {
+    stepCombat(state, 1 / 60, grid, 16, enemies);
+    if (p.spent) detonatedAt = { x: p.x, y: p.y, frame: i };
+    events.push(...resolveHits(state, enemies, (e) => e.counter));
+    cleanupProjectiles(state);
+  }
+  return { events, detonatedAt };
+}
+
+test('Depth Charges: a surfaced enemy hugging the boat is hit by the proximity fuse', () => {
+  const crawler = createEnemy(ENEMY_IDS.DEEP_CRAWLER, 20, 0);
+  crawler.invulnerable = false;
+  const { events, detonatedAt } = runDepthCharge([crawler]);
+  assert.ok(detonatedAt.x < 20, `should detonate at the target, not fly past (detonated at x=${detonatedAt.x.toFixed(1)})`);
+  assert.ok(events.some((e) => e.enemy === crawler), 'the point-blank crawler should take the blast');
+});
+
+test('Depth Charges: a submerged enemy does not trigger the proximity fuse', () => {
+  const crawler = createEnemy(ENEMY_IDS.DEEP_CRAWLER, 20, 0);
+  crawler.invulnerable = true;
+  const { events, detonatedAt } = runDepthCharge([crawler]);
+  assert.ok(detonatedAt.x > 70, 'with nothing surfaced it should lob to its full fuse distance');
+  assert.equal(events.length, 0);
+});
+
+test('Depth Charges: with no nearby target the lob distance is unchanged by the proximity fuse', () => {
+  const far = createEnemy(ENEMY_IDS.DEEP_CRAWLER, 0, 400);
+  far.invulnerable = false;
+  const withEnemies = runDepthCharge([far]).detonatedAt;
+  const without = runDepthCharge([]).detonatedAt;
+  assert.equal(withEnemies.frame, without.frame);
+  assert.ok(Math.abs(withEnemies.x - without.x) < 1e-9);
+});
+
+test('Depth Charges: dead enemies never trigger the proximity fuse', () => {
+  const dead = createEnemy(ENEMY_IDS.DEEP_CRAWLER, 20, 0);
+  dead.invulnerable = false; dead.health = 0;
+  assert.ok(runDepthCharge([dead]).detonatedAt.x > 70);
+});

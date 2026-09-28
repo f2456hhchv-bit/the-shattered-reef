@@ -41,7 +41,7 @@ export function killStats(enemyId, weaponId, mult = 1, distance = 60) {
   let shots = 0; let t = 0;
   while (e.health > 0 && t < 120) {
     if (tryFire(s, 400, 400, 0, straight)) shots++;
-    stepCombat(s, DT, GRID, 16);
+    stepCombat(s, DT, GRID, 16, [e]);
     resolveHits(s, [e], currentCounter, () => mult);
     cleanupProjectiles(s);
     stepBurn(e, DT);
@@ -73,7 +73,7 @@ export function bossFight({ depthMode = 'reactive', maxSeconds = 180, missRate =
     const heading = Math.random() < missRate ? Math.PI : 0;
     if (wantFire && tryFire(s, boat.x, boat.y, heading, straight)) used[phaseWeapon]++;
     if (s.ammo[phaseWeapon] === 0 && ranDry[phaseWeapon] == null) ranDry[phaseWeapon] = t;
-    stepCombat(s, DT, GRID, 16);
+    stepCombat(s, DT, GRID, 16, [boss]);
     resolveHits(s, [boss], currentCounter);
     cleanupProjectiles(s);
     stepBurn(boss, DT);

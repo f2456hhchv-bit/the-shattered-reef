@@ -1314,6 +1314,29 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   is Depth Charges being unusable against anything hugging you. Next
   session should open by asking which to prioritize.
 
+- **Phase:** feel fixes from playtest feedback ("too much drift when
+  turning... fix the depth charges too").
+- **Just shipped:**
+  - **Keel** (`332c36d`). New `lateralGrip: 4` in `DEFAULT_BOAT_TUNING`
+    damps only the velocity component sideways to the heading. A 90° turn
+    at speed now slides about half as far (Sloop 51→26px, Longboat 48→25,
+    Skiff 43→22). Top speed and straight-line coast are unchanged, which
+    a test enforces. `tuningForHull` passes it through (`lateralGripMult`,
+    default 1).
+  - **Depth Charges proximity fuse.** A charge in flight now detonates
+    the moment it passes within `radius + 6px` of a live, surfaced enemy.
+    Submerged (invulnerable) targets don't trigger it, so timing the
+    surfacing is still the skill. With nothing near, the lob is
+    unchanged. `stepCombat` takes an optional `enemies` argument; the
+    check lives there, not in `resolveHits`, because main.mjs's
+    explosion VFX reads `spent` before `resolveHits` runs. 4 new tests.
+  - Verified: `ttk-check` boss results are unchanged at range. The live
+    stand-still boss fight (boss hugging the boat) went from 0/3 wins to
+    2/3; the loss spent every charge on the submerged boss. 256/256
+    tests.
+- **Next up:** unchanged: the art/audio pass, then the remaining Known
+  open questions.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -1840,6 +1863,14 @@ Starting fresh below for the new game.)*
   orientation. The Hub grows with every unlock track, and the one action
   you always want shouldn't move further down each time a shop is added.
 
+- 2026-09-28: Turn drift was halved with a keel (lateral-only damping),
+  not more drag. Drag would also have shortened straight coasting and
+  top-speed feel, which weren't the complaint.
+- 2026-09-28: Depth Charges got a proximity fuse rather than a shorter
+  fuse. A shorter fuse would have broken the long-range lob. It only
+  triggers on surfaced targets, which keeps the "time the surfacing"
+  identity from the PRD.
+
 ## Known open questions (do not silently resolve — ask)
 
 - See the PRD's "Open Risks & Provisional Decisions" section
@@ -1847,14 +1878,6 @@ Starting fresh below for the new game.)*
   one-handed weapon-select UX; Depth Charges' prediction-based design;
   hull-carryover fairness across reefs, now directly testable since step
   6 actually carries hull between reefs).
-- **Depth Charges can't hit anything hugging you.** The fixed ~81px fuse
-  flies past close targets. Deep Crawlers and the boss attack by contact,
-  so standing and fighting the boss is unwinnable with its phase-1
-  counter; you must kite to ~80px. Live boss fights saw Depth damage
-  range 26-98 purely on surfacing timing. This is the PRD's "prediction-
-  based Depth Charges" risk, now confirmed in play. Options: detonate on
-  contact with a surfaced enemy, a shorter fuse, or teach the kiting
-  explicitly. It's a design call.
 - **All the faction/hull numbers are bot-derived.** The bot now evades
   and the metric controls for speed, but a skilled human dodges better
   than any heuristic. So the Skiff/Reavers may be stronger in real hands

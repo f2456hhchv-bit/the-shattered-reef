@@ -360,7 +360,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
 
     const heading = computeFireHeading(run);
     tryFire(run.weapons, run.boat.x, run.boat.y, heading);
-    stepCombat(run.weapons, DT, run.grid, run.tileSize);
+    stepCombat(run.weapons, DT, run.grid, run.tileSize, run.enemies);
     stepAmmoRegen(run.weapons, DT);
     updateEnemies(run.enemies, run.boat, DT, run.grid, run.tileSize);
 

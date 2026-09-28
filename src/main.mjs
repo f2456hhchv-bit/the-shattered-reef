@@ -753,7 +753,7 @@ export function startApp(root) {
         const fired = tryFire(run.weapons, run.boat.x, run.boat.y, computeFireHeading());
         if (fired) { updateWeaponBar(); playFire(run.weapons.activeWeaponId); }
       }
-      stepCombat(run.weapons, dt, run.grid, run.tileSize);
+      stepCombat(run.weapons, dt, run.grid, run.tileSize, run.enemies);
       if (stepAmmoRegen(run.weapons, dt)) updateWeaponBar();
       updateEnemies(run.enemies, run.boat, dt, run.grid, run.tileSize);
 
