@@ -1295,6 +1295,11 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
        columns.
      - Portrait weapon buttons ran flush to both screen edges.
      - The Hub card slid under the mute button.
+- **Push after every gated commit (2026-09-28).** 17 commits
+  (`332c36d`..`5a28c1f`: keel, depth charges, art pass, seeds, stages,
+  lair) sat committed but unpushed, so the project owner's phone kept
+  showing the old checkerboard build. Workflow: tests pass → commit →
+  `git push origin main` (the host deploys from `main`).
 - **Mistake made and fixed:** `96deae3` was committed with a failing test,
   because the commit command wasn't gated on the test result. The test
   was wrong, not the camera; `10d9798` fixed it. Every commit since has
