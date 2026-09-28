@@ -1566,6 +1566,23 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - **Next up:** play the lair and judge the fight's size and feel (pit
   radius 176px, pillars, tether). Then the rest of the list above.
 
+- **Phase:** app icon (project owner supplied the art).
+  - `assets/icons/`: icons cropped full-bleed from the supplied image,
+    cut 118px inside its white rounded corners (iOS applies its own
+    mask):
+    - `apple-touch-icon.png` (180)
+    - `icon-192`/`icon-512` (manifest, `any`)
+    - `favicon-32`
+    - `icon-maskable-192`/`-512`: art at 80% on `#0b3a52`, so Android's
+      circle/squircle masks never clip the boat
+  - `manifest.webmanifest`: fullscreen, `any` orientation, theme
+    `#0b3a52`.
+  - `index.html`: icon, manifest and theme-color links, plus the iOS
+    home-screen web-app metas (black-translucent status bar; the CSS
+    already pads every edge for safe areas).
+  - Verified in headless Chromium: every icon and the manifest resolve
+    at their stated sizes, with no console errors.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
