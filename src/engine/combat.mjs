@@ -186,8 +186,12 @@ const DEPTH_CHARGE_BLAST_RADIUS = 28;
 // array of hit events: { enemy, weaponId, damage, killed } — callers (the
 // game loop, tests) use this for salvage drops, feedback/VFX hooks, etc.
 // `getEnemyCounter(enemy)` lets callers (bosses) resolve a phase-dependent
-// counter instead of a fixed `enemy.counter` field.
-export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter) {
+// counter instead of a fixed `enemy.counter` field. `getFactionMultiplier
+// (enemy)` is the post-slice combat-triangle hook (data/factions.mjs) — a
+// second, separate multiplier stacked on top of the weapon-counter
+// fraction above; defaults to a no-op 1x so every pre-faction call site
+// keeps working unchanged.
+export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, getFactionMultiplier = () => 1) {
   const events = [];
 
   for (const p of state.projectiles) {
@@ -206,7 +210,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter) 
         if (enemy.health <= 0 || enemy.invulnerable) continue;
         const dist = Math.hypot(enemy.x - p.x, enemy.y - p.y);
         if (dist <= DEPTH_CHARGE_BLAST_RADIUS + enemy.radius) {
-          const dmg = damageAgainst(weapon, getEnemyCounter(enemy));
+          const dmg = damageAgainst(weapon, getEnemyCounter(enemy)) * getFactionMultiplier(enemy);
           const killed = applyDamageToEnemy(enemy, dmg);
           events.push({ enemy, weaponId: weapon.id, damage: dmg, killed });
         }
@@ -220,7 +224,8 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter) 
       if (enemy.health <= 0 || enemy.invulnerable) continue;
       const dist = Math.hypot(enemy.x - p.x, enemy.y - p.y);
       if (dist <= p.radius + enemy.radius) {
-        const dmg = damageAgainst(weapon, getEnemyCounter(enemy));
+        const factionMult = getFactionMultiplier(enemy);
+        const dmg = damageAgainst(weapon, getEnemyCounter(enemy)) * factionMult;
         const killed = applyDamageToEnemy(enemy, dmg);
         events.push({ enemy, weaponId: weapon.id, damage: dmg, killed });
         p.spent = true;
@@ -231,7 +236,11 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter) 
             ticksRemaining: Math.round(weapon.burnDurationSeconds / weapon.burnTickSeconds),
             tickInterval: weapon.burnTickSeconds,
             tickTimer: weapon.burnTickSeconds,
-            tickDamage: damageAgainst(weapon, getEnemyCounter(enemy)),
+            // Bakes the same triangle multiplier into every burn tick, not
+            // just the initial hit — a burn applied under a triangle
+            // advantage/disadvantage should keep that edge for its whole
+            // duration, not just the landing blow.
+            tickDamage: damageAgainst(weapon, getEnemyCounter(enemy)) * factionMult,
           };
         }
         break; // one enemy per non-AoE projectile

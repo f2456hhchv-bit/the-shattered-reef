@@ -6,6 +6,7 @@
 // you're looking at.
 
 import { getEnemy, ENEMY_IDS, ARCHETYPES } from '../data/enemies.mjs';
+import { triangleMultiplier } from '../data/factions.mjs';
 import { resolveTileCollision } from './boat.mjs';
 
 let nextEnemyId = 1;
@@ -39,6 +40,10 @@ export function createEnemy(defId, x, y, rng = Math.random) {
     speed: def.speed,
     archetype: startArchetype,
     counter: def.isBoss ? def.phases[0].counter : def.counter, // fixed for non-bosses; bosses override via currentCounter()
+    // Post-slice combat triangle (data/factions.mjs) — `def.faction` is
+    // undefined for the boss (deliberately faction-less), which normalizes
+    // to null here so callers can check truthiness uniformly.
+    faction: def.faction || null,
     contactDamage: def.contactDamage,
     contactCooldownRemaining: 0,
     invulnerable: false,
@@ -77,6 +82,16 @@ export function createEnemy(defId, x, y, rng = Math.random) {
 // phase change mid-burn doesn't retroactively change already-applied DoT.
 export function currentCounter(enemy) {
   return enemy.counter;
+}
+
+// Returns the damage multiplier `playerFactionId` deals to this enemy —
+// pass as combat.resolveHits'/stepBurn's getFactionMultiplier. Bakes in
+// triangleMultiplier's own no-faction/no-op rule (1x), so callers can wire
+// this unconditionally even before a playable faction is ever chosen
+// (playerFactionId null) and against the faction-less boss (enemy.faction
+// null).
+export function factionMultiplierFor(playerFactionId) {
+  return (enemy) => triangleMultiplier(playerFactionId, enemy.faction);
 }
 
 function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid) {

@@ -29,6 +29,7 @@ export const BASELINE_LOADOUT = Object.freeze({
   hull: SHIP_HULLS[HULL_IDS.SLOOP],
   extraHeldWeapons: [],
   startingAmmoMultiplier: 1,
+  faction: null, // unaligned — no post-slice combat-triangle effect (data/factions.mjs)
   charms: { steadyHands: false, lastGasp: false, firstHaul: false },
 });
 
@@ -115,6 +116,10 @@ export function createRun(seed, loadout = BASELINE_LOADOUT) {
     reefCount: REEF_COUNT,
     tuning: tuningForHull(loadout.hull),
     boat: createBoat(0, 0, 0, loadout.hull.maxHull),
+    // Post-slice combat triangle (data/factions.mjs) — null (unaligned) is
+    // valid and means no triangle effect; a call site resolves the actual
+    // damage multiplier via engine/enemies.mjs's factionMultiplierFor(run.faction).
+    faction: loadout.faction ?? null,
     weapons: createWeaponState(loadout.extraHeldWeapons, loadout.startingAmmoMultiplier),
     bankedSalvage: 0, // safe — carried from every reef already cleared
     reefSalvage: 0,   // at risk — lost if the boat sinks before this reef's exit

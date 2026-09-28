@@ -7,6 +7,7 @@
 
 import { WEAPON_IDS } from './weapons.mjs';
 import { MAX_HULL, DEFAULT_BOAT_TUNING } from '../engine/boat.mjs';
+import { FACTION_IDS, FACTIONS } from './factions.mjs';
 
 // --- Ship Hulls ---------------------------------------------------------
 // Alternative starting hulls that trade max hull, speed and turn rate
@@ -177,4 +178,60 @@ export function getCharm(id) {
   const charm = CHARMS[id];
   if (!charm) throw new Error(`Unknown charm id: ${id}`);
   return charm;
+}
+
+// --- Playable Factions (post-slice, PRD "Post-Slice Direction") --------
+// PRD: "the player picks (or unlocks) a starting faction, determining
+// their starting ship hull, a passive, and weapon bias — implemented as an
+// extension of the already-planned Ship Hulls and Cargo Loadouts unlock
+// tracks (Meta-Progression, step 7), not a bolted-on separate system."
+// Literally an extension, not new mechanics: each faction's hull bias
+// reuses an existing HULL_IDS entry, its weapon bias an existing niche
+// weapon (mirrors a Cargo Loadout tier's extraHeldWeapon), and its passive
+// an existing Captain's Charm effect (mirrors owning that charm) —
+// selecting a faction grants that charm's effect for free on top of
+// anything separately owned, rather than inventing a fourth passive
+// system. Mutually exclusive like Ship Hulls (one active faction, or none
+// — `null` is a valid, always-available "unaligned" selection matching the
+// baseline loadout). The combat-TRIANGLE damage bonus itself (Reavers >
+// Iron Accord > Wyrdtide > Reavers) lives in data/factions.mjs and applies
+// automatically once selectedFaction is set — nothing here computes it.
+export const PLAYABLE_FACTION_IDS = FACTION_IDS;
+
+export const PLAYABLE_FACTIONS = {
+  [FACTION_IDS.REAVERS]: {
+    id: FACTION_IDS.REAVERS,
+    name: FACTIONS[FACTION_IDS.REAVERS].name,
+    description: 'Sail as the Reavers: the Skiff hull, Grapeshot loaded from Reef 1, and a raider\'s instinct for early plunder (First Haul\'s Salvage bonus, free).',
+    cost: 200,
+    hullId: HULL_IDS.SKIFF,
+    extraHeldWeapon: WEAPON_IDS.GRAPESHOT,
+    grantsCharm: CHARM_IDS.FIRST_HAUL,
+  },
+  [FACTION_IDS.WYRDTIDE]: {
+    id: FACTION_IDS.WYRDTIDE,
+    name: FACTIONS[FACTION_IDS.WYRDTIDE].name,
+    description: 'Sail as Wyrdtide: the Sloop hull, Depth Charges loaded from Reef 1, and a mystic reprieve from death (Last Gasp\'s once-per-run revive, free).',
+    cost: 200,
+    hullId: HULL_IDS.SLOOP,
+    extraHeldWeapon: WEAPON_IDS.DEPTH_CHARGES,
+    grantsCharm: CHARM_IDS.LAST_GASP,
+  },
+  [FACTION_IDS.IRON_ACCORD]: {
+    id: FACTION_IDS.IRON_ACCORD,
+    name: FACTIONS[FACTION_IDS.IRON_ACCORD].name,
+    description: 'Sail as the Iron Accord: the Longboat hull, Chain Shot loaded from Reef 1, and disciplined reload drills (Steady Hands\' ammo regen, free).',
+    cost: 200,
+    hullId: HULL_IDS.LONGBOAT,
+    extraHeldWeapon: WEAPON_IDS.CHAIN_SHOT,
+    grantsCharm: CHARM_IDS.STEADY_HANDS,
+  },
+};
+
+export const PLAYABLE_FACTION_LIST = Object.values(PLAYABLE_FACTIONS);
+
+export function getPlayableFaction(id) {
+  const faction = PLAYABLE_FACTIONS[id];
+  if (!faction) throw new Error(`Unknown playable faction id: ${id}`);
+  return faction;
 }

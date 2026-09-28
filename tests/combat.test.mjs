@@ -296,3 +296,61 @@ test('stepAmmoRegen never touches Cannonballs (unlimited ammo already, nothing t
   stepAmmoRegen(state, 10);
   assert.equal(ammoFor(state, WEAPON_IDS.CANNONBALLS), Infinity);
 });
+
+// --- Post-slice combat triangle (getFactionMultiplier hook) -------------
+
+test('resolveHits applies the faction multiplier on top of the weapon-counter damage', () => {
+  const state = createWeaponState();
+  holdAndEquip(state, WEAPON_IDS.CANNONBALLS); // any weapon; Cannonballs keeps this simple
+  const enemy = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 100, 0); // Iron Accord faction
+  const grid = openGrid();
+  tryFire(state, 0, 0, 0);
+  const noMultiplier = fireDirectUntilHit(state, [enemy], grid, 16);
+  assert.equal(noMultiplier.length, 1, 'sanity: the shot should land with no multiplier hook passed');
+  const baseDamage = noMultiplier[0].damage;
+
+  // A fresh shot at a fresh copy of the same enemy, this time with an
+  // advantage multiplier (2x, easy to check) wired in.
+  const state2 = createWeaponState();
+  holdAndEquip(state2, WEAPON_IDS.CANNONBALLS);
+  const enemy2 = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 100, 0);
+  tryFire(state2, 0, 0, 0);
+  let events = [];
+  for (let i = 0; i < 200 && events.length === 0; i++) {
+    stepCombat(state2, 1 / 30, grid, 16);
+    events = resolveHits(state2, [enemy2], (e) => e.counter, () => 2);
+    if (events.length === 0) cleanupProjectiles(state2);
+  }
+  assert.equal(events.length, 1);
+  assert.equal(events[0].damage, baseDamage * 2, 'the faction multiplier should scale the final damage dealt');
+});
+
+test('resolveHits\' faction multiplier defaults to a no-op (1x) when no callback is passed', () => {
+  const state = createWeaponState();
+  holdAndEquip(state, WEAPON_IDS.CANNONBALLS);
+  const enemy = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 100, 0);
+  const grid = openGrid();
+  tryFire(state, 0, 0, 0);
+  const events = fireDirectUntilHit(state, [enemy], grid, 16);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].damage, damageAgainst(WEAPONS[WEAPON_IDS.CANNONBALLS], enemy.counter));
+});
+
+test('a Flame Barrels burn tick bakes in the faction multiplier that was active at the moment of the hit', () => {
+  const state = createWeaponState();
+  holdAndEquip(state, WEAPON_IDS.FLAME_BARRELS);
+  const enemy = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 60, 0); // its real counter, in range
+  const grid = openGrid();
+  tryFire(state, 0, 0, 0, () => 0.5); // fixed rng: Flame Barrels has spread, keep the shot dead straight
+  let events = [];
+  for (let i = 0; i < 200 && events.length === 0; i++) {
+    stepCombat(state, 1 / 30, grid, 16);
+    events = resolveHits(state, [enemy], (e) => e.counter, () => 1.3);
+  }
+  assert.equal(events.length, 1);
+  const weapon = WEAPONS[WEAPON_IDS.FLAME_BARRELS];
+  const expectedTick = damageAgainst(weapon, enemy.counter) * 1.3;
+  assert.equal(enemy.burn.tickDamage, expectedTick);
+  const tickEvent = stepBurn(enemy, weapon.burnTickSeconds);
+  assert.equal(tickEvent.damage, expectedTick);
+});

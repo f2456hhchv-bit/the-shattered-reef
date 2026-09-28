@@ -35,7 +35,7 @@ import { stepBoat, resolveTileCollision, applyWallImpactDamage } from '../src/en
 import {
   tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, isHeld, ammoFor,
 } from '../src/engine/combat.mjs';
-import { updateEnemies, resolveEnemyContacts, currentCounter } from '../src/engine/enemies.mjs';
+import { updateEnemies, resolveEnemyContacts, currentCounter, factionMultiplierFor } from '../src/engine/enemies.mjs';
 import { collectPickups } from '../src/engine/pickups.mjs';
 import { getWeapon, WEAPON_IDS } from '../src/data/weapons.mjs';
 import { PICKUP_KINDS } from '../src/data/pickups.mjs';
@@ -301,7 +301,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     stepAmmoRegen(run.weapons, DT);
     updateEnemies(run.enemies, run.boat, DT, run.grid, run.tileSize);
 
-    const hitEvents = resolveHits(run.weapons, run.enemies, currentCounter);
+    const hitEvents = resolveHits(run.weapons, run.enemies, currentCounter, factionMultiplierFor(run.faction));
     for (const ev of hitEvents) {
       if (ev.killed) {
         stats.kills[ev.enemy.defId] = (stats.kills[ev.enemy.defId] || 0) + 1;

@@ -979,20 +979,128 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   - No code changes this entry; **190/190 tests still pass** (unchanged
     from the prior entry — this was pure analysis, no test-affecting
     edits).
-- **Next up:** the vertical slice's entire locked build order (steps 2-8)
-  plus both of step 8's own flagged follow-ups (art pass, the boss) are
-  fully built, tested, and playtested end to end; the balance pass fixed
-  a real boss defect and one clean weapon-margin issue, improved the
-  balance-sim bot twice, and concluded (via bot-independent analysis)
-  that reef 3's difficulty itself is not the problem. What's left: the
-  art/audio-asset pass, `tools/balance-sim.mjs` still needs real
-  retreat/kiting behavior before its own win-rate/boss-defeat-rate
-  numbers can be trusted (or wait for real human playtesting data
-  instead), and the confirmed post-slice direction (playable factions,
-  the combat triangle, the Captain's Hub → Workshop/crafting expansion)
-  — see the PRD's "Post-Slice Direction" section. Next session should
-  open by asking the project owner which of these to prioritize rather
-  than assuming.
+- **Phase:** post-slice direction, part 1 — Factions & The Combat Triangle
+  (project owner's explicit choice, "Post slice", after the vertical slice
+  + balance pass were fully wrapped up). Read the PRD's "Post-Slice
+  Direction" section in full via the Claude Docs connector before building
+  anything. Built the faction data layer and the combat-triangle damage
+  multiplier end-to-end — real gameplay effect, not just inert data —
+  plus a minimal Playable Factions unlock track in the Captain's Hub so
+  it's actually reachable in play. Deliberately scoped down from the
+  PRD's full "Hub & Workshop"/Crafting vision (see Decisions log) — that's
+  its own follow-up, not bundled in.
+- **Just shipped:**
+  - `src/data/factions.mjs` (new) — the 3 factions (Blacksail Reavers,
+    Wyrdtide, Iron Accord) with their `beats` relationships forming one
+    3-cycle (Reavers > Iron Accord > Wyrdtide > Reavers), and
+    `triangleMultiplier(attackerFactionId, defenderFactionId)` — the one
+    function that encodes the whole triangle. Either side missing (no
+    playable faction chosen, or a faction-less target) is a deliberate
+    no-op (1x), so every pre-faction call site keeps working unchanged —
+    mirrors `weapons.mjs`'s `damageAgainst` being the one function that
+    encodes the weapon-counter hook. `TRIANGLE_ADVANTAGE_MULTIPLIER` /
+    `TRIANGLE_DISADVANTAGE_MULTIPLIER` (1.3x/0.75x) are a first-pass
+    balance guess, same status as every other meta-progression number —
+    expect retuning once played.
+  - `src/data/enemies.mjs` — every regular enemy tagged with a `faction`
+    field per the PRD's own faction/enemy mapping table (Reef Skimmer +
+    Rigger → Reavers; Gullswarm Harpy + Deep Crawler → Wyrdtide; Ironclad
+    Brigand → Iron Accord). The Kraken's Anchor deliberately has **no**
+    `faction` field — "an Ancient-tier threat, not faction-aligned" per
+    the PRD — and `triangleMultiplier`'s no-op rule means it's never
+    triangle-affected regardless of the player's chosen faction, with no
+    special-casing needed at any call site.
+  - `src/engine/enemies.mjs` — `createEnemy` copies `def.faction` onto the
+    enemy instance (`null` for the boss, matching the missing field); new
+    `factionMultiplierFor(playerFactionId)` returns a ready-to-pass
+    `(enemy) => triangleMultiplier(...)` closure, so call sites don't
+    reach into `data/factions.mjs` directly.
+  - `src/engine/combat.mjs` — `resolveHits` and the Flame Barrels burn-tick
+    setup both gained an optional `getFactionMultiplier(enemy)` parameter
+    (mirrors the existing `getEnemyCounter(enemy)` pattern exactly),
+    defaulting to a no-op `() => 1` so every existing call site and test
+    keeps working unchanged. A burn's `tickDamage` bakes in the multiplier
+    that was active at the moment of the *landing* hit, not recomputed
+    per tick — a burn applied under a triangle advantage keeps that edge
+    for its whole duration.
+  - `src/data/meta.mjs` — a new **Playable Factions** unlock track,
+    literally an *extension* of the existing Ship Hulls/Cargo
+    Loadouts/Captain's Charms tracks per the PRD's own instruction ("not
+    a bolted-on separate system"): each faction's hull bias reuses an
+    existing `HULL_IDS` entry (Reavers→Skiff, Wyrdtide→Sloop, Iron
+    Accord→Longboat), its weapon bias an existing niche weapon
+    (Grapeshot/Depth Charges/Chain Shot), and its passive an existing
+    Captain's Charm's effect granted for free (First Haul/Last
+    Gasp/Steady Hands respectively) — no new mechanics invented, only new
+    combinations of ones already built and tested. Mutually exclusive
+    like Ship Hulls, with `null` ("Unaligned") as the always-available
+    baseline selection.
+  - `src/engine/meta.mjs` — `purchaseFaction`/`selectFaction` (mirror
+    `purchaseHull`/`selectHull`); `resolveLoadout` now resolves a selected
+    faction's hull override, merges its weapon bias into
+    `extraHeldWeapons` (deduped against an already-owned Cargo Loadout
+    tier granting the same weapon), ORs its granted charm into the
+    existing charm flags (stacks with, never replaces, a separately owned
+    charm), and returns `faction: meta.selectedFaction` for the triangle.
+    `createDefaultMeta`/`loadMeta` gained `ownedFactions`/`selectedFaction`
+    (default `[]`/`null`), following the same never-throws/merge-onto-
+    defaults pattern as every other field.
+  - `src/engine/run.mjs` — `BASELINE_LOADOUT.faction = null`; `createRun`
+    stores `run.faction` from the resolved loadout.
+  - `src/main.mjs` / `tools/balance-sim.mjs` — both `resolveHits(...)`
+    call sites updated to pass `factionMultiplierFor(run.faction)`. A new
+    "Factions" section in the Captain's Hub (mirrors the existing
+    Hulls/Cargo/Charms row-rendering pattern exactly) with an always-
+    available "Unaligned" row plus the 3 factions; picking one shows in
+    the debug hook (`__shatteredReefDebug().faction`,
+    `.meta.selectedFaction`) and actually reaches a real run.
+  - New `tests/factions.test.mjs` (triangle-cycle shape, multiplier
+    correctness both directions, mirror-match/missing-faction no-op) and
+    additions to `tests/combat.test.mjs` (faction multiplier applied
+    through `resolveHits`, default no-op when omitted, baked into a Flame
+    Barrels burn tick), `tests/enemies.test.mjs` (`factionMultiplierFor`
+    correctness, boss stays faction-less), and `tests/meta.test.mjs`
+    (purchase/select, `resolveLoadout`'s hull-override/weapon-dedup/
+    charm-stacking behavior, and a real `createRun` integration check —
+    hull, held weapon and `run.faction` all actually land). **207/207
+    tests pass.**
+  - **Real bug found via the test suite itself, not a playtest — a flaky
+    test, not a game bug:** the new Flame Barrels burn-tick test used the
+    default `Math.random` rng in `tryFire` without realizing Flame Barrels
+    has a non-zero `spreadRad` — an unlucky spread roll made the test
+    itself (not the game) intermittently fail (~1 in 5 runs) even though
+    the shot geometry chosen always keeps the enemy well within the
+    worst-case spread cone. Fixed by passing a fixed `() => 0.5` rng to
+    `tryFire` in that test, matching this project's own established
+    convention (seeded/fixed rng for deterministic tests) — confirmed
+    fixed with 8 repeated runs, no failures. Worth remembering as a
+    general lesson: any test that calls `tryFire` on a weapon with
+    `spreadRad > 0` needs a fixed rng, the same way maze/enemy-spawn tests
+    already use `makeSeededRng` — Cannonballs/Depth Charges (spreadRad 0)
+    are the only weapons safe to fire with the default rng in a test.
+  - Verified end-to-end in a real headless browser (Playwright/Chromium):
+    granting Hub Salvage and buying/selecting the Reavers faction updates
+    the Hub's Factions row correctly (Buy → Selected, others still
+    buyable); "Set Sail" starts a real run whose `run.faction === 'reavers'`
+    and whose held weapons include Grapeshot (the Reavers' weapon bias) —
+    the loadout demonstrably reached the actual run, not just the data
+    layer. No console errors (only the same benign `favicon.ico` 404 seen
+    in every prior step's playtest).
+- **Next up:** the combat triangle itself is fully wired and playable, but
+  the rest of the PRD's Post-Slice Direction is still open: the Hub →
+  proper base / Workshop / Crafting system (Salvage + rare drops → weapon/
+  ship upgrades) is not built; there's no in-run visual/UI feedback yet
+  for a triangle-advantaged or -disadvantaged hit (damage numbers don't
+  distinguish it from a plain counter/off-counter hit); and the new
+  1.3x/0.75x triangle multipliers haven't been balance-checked together
+  with the existing weapon-counter fractions (a triangle advantage stacked
+  on top of an already-on-counter hit could push TTK lower than intended —
+  worth a TTK pass like the Flame Barrels one before calling this tuned).
+  Also still open from before: the art/audio-asset pass, and
+  `tools/balance-sim.mjs` still needs real retreat/kiting behavior before
+  its own win-rate/boss-defeat-rate numbers can be trusted. Next session
+  should open by asking the project owner which to prioritize rather than
+  assuming.
 
 ## Decisions log
 
@@ -1392,6 +1500,50 @@ Starting fresh below for the new game.)*
   fine" conclusion is as legitimate an outcome of a balance pass as a
   retune, and forcing a change here would have had no arithmetic
   justification, unlike the Flame Barrels fix.
+- 2026-09-28: Started post-slice direction with the combat triangle
+  specifically (not the Hub/Workshop expansion, not playable-faction UI
+  polish) — it's the PRD's own headline mechanic for this phase and the
+  one piece every other post-slice idea (playable factions, the Workshop)
+  builds on top of, so it's the right first slice per the project's own
+  "start with a strong core, then expand" build philosophy.
+- 2026-09-28: Playable Factions (data/meta.mjs) is built as a literal
+  *extension* of the existing Ship Hulls/Cargo Loadouts/Captain's Charms
+  tracks — reusing their exact fields/mechanics (a hull id, a weapon id,
+  an existing charm's effect) rather than inventing new stat systems —
+  because that's what the PRD explicitly asked for ("implemented as an
+  extension... not a bolted-on separate system") and because every one of
+  those three mechanics is already built, tested, and playtested; a new
+  bespoke passive/bonus system would be exactly the kind of "stack two
+  unproven systems" the project has repeatedly avoided elsewhere (the
+  faction/weapon-counter stacking itself, the card-game pivot's own
+  lesson).
+- 2026-09-28: `triangleMultiplier`'s no-op rule (1x whenever either side is
+  missing a faction) does double duty: it makes The Kraken's Anchor
+  faction-less "for free" (no special-casing at any resolveHits/stepBurn
+  call site — the missing `faction` field alone is enough) and it makes
+  every pre-existing call site and test that predates factions keep
+  working completely unchanged with no faction ever selected. One rule,
+  two problems solved, rather than a boss-specific exception plus a
+  separate backward-compatibility shim.
+- 2026-09-28: Selecting a faction overrides the player's separately
+  chosen Ship Hull rather than living alongside it — matches the PRD's
+  literal wording ("determining their starting ship hull") and avoids a
+  confusing double-selection UI (which hull "wins" if they conflict). The
+  player's own hull choice is preserved in `meta.selectedHull` and simply
+  resumes the moment they select "Unaligned" again, so nothing is lost by
+  picking a faction.
+- 2026-09-28: Found and fixed a flaky (not deterministic) new test via
+  repeated `node --test` runs, not a single pass — the new Flame Barrels
+  faction-multiplier test used the default `Math.random` rng in `tryFire`
+  without accounting for Flame Barrels' non-zero `spreadRad`, so an
+  unlucky spread roll could very occasionally fail the assertion. Fixed
+  with a fixed `() => 0.5` rng, matching the project's existing
+  seeded-rng-for-determinism convention. Worth remembering as a general
+  lesson: `tryFire` in a test needs a fixed/seeded rng for any weapon with
+  `spreadRad > 0` — only Cannonballs and Depth Charges (spreadRad 0) are
+  safe with the default. Re-running a new test file several times in a
+  row (not just once) before trusting it is now the standard this project
+  holds itself to for anything touching `tryFire`.
 
 ## Known open questions (do not silently resolve — ask)
 
@@ -1400,3 +1552,13 @@ Starting fresh below for the new game.)*
   one-handed weapon-select UX; Depth Charges' prediction-based design;
   hull-carryover fairness across reefs, now directly testable since step
   6 actually carries hull between reefs).
+- The 1.3x/0.75x combat-triangle multipliers (data/factions.mjs) are
+  unverified against the existing weapon-counter fractions — an
+  on-counter hit stacked with a triangle advantage hasn't had a TTK pass
+  like Flame Barrels got. Not yet a known problem, just genuinely
+  unchecked; do the arithmetic before calling it tuned.
+- Whether/how to surface a triangle-advantaged or -disadvantaged hit to
+  the player (a distinct damage-number color, a small icon, nothing at
+  all) is undecided — right now it's invisible in play, which may or may
+  not matter given the counter-swap hook's own crit styling already
+  exists to build on.

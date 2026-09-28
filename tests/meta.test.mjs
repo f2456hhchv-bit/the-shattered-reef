@@ -4,10 +4,13 @@ import {
   HULL_IDS, SHIP_HULLS, tuningForHull,
   CARGO_TIER_IDS, cargoLoadoutFor,
   CHARM_IDS, CHARMS,
+  PLAYABLE_FACTIONS, getPlayableFaction,
 } from '../src/data/meta.mjs';
+import { FACTION_IDS } from '../src/data/factions.mjs';
 import {
   createDefaultMeta, loadMeta, saveMeta,
   purchaseHull, selectHull, purchaseCargoTier, purchaseCharm,
+  purchaseFaction, selectFaction,
   resolveLoadout, recordRunResult,
 } from '../src/engine/meta.mjs';
 import { DEFAULT_BOAT_TUNING, MAX_HULL } from '../src/engine/boat.mjs';
@@ -234,4 +237,96 @@ test('the First Haul charm boosts Salvage gained only on the first reef', () => 
   run.reefSalvage = 0;
   addSalvage(run, 10);
   assert.equal(run.reefSalvage, 10, 'no bonus once past the first reef');
+});
+
+// --- Playable factions (post-slice) --------------------------------------
+
+test('createDefaultMeta starts unaligned, owning no factions', () => {
+  const meta = createDefaultMeta();
+  assert.deepEqual(meta.ownedFactions, []);
+  assert.equal(meta.selectedFaction, null);
+});
+
+test('purchaseFaction respects cost/ownership, selectFaction respects ownership (or null for unaligned)', () => {
+  const meta = createDefaultMeta();
+  meta.salvage = 50;
+  let res = purchaseFaction(meta, FACTION_IDS.REAVERS);
+  assert.equal(res.ok, false);
+  assert.equal(res.reason, 'cannot_afford');
+
+  meta.salvage = 1000;
+  res = purchaseFaction(meta, FACTION_IDS.REAVERS);
+  assert.equal(res.ok, true);
+  assert.ok(meta.ownedFactions.includes(FACTION_IDS.REAVERS));
+  assert.equal(meta.salvage, 1000 - PLAYABLE_FACTIONS[FACTION_IDS.REAVERS].cost);
+
+  assert.equal(purchaseFaction(meta, FACTION_IDS.REAVERS).ok, false, 'cannot buy the same faction twice');
+
+  assert.equal(selectFaction(meta, FACTION_IDS.WYRDTIDE), false, 'cannot select an unowned faction');
+  assert.equal(selectFaction(meta, FACTION_IDS.REAVERS), true);
+  assert.equal(meta.selectedFaction, FACTION_IDS.REAVERS);
+  assert.equal(selectFaction(meta, null), true, 'null (unaligned) is always selectable');
+  assert.equal(meta.selectedFaction, null);
+});
+
+test('resolveLoadout with no faction selected matches the baseline exactly (backward compatible)', () => {
+  const meta = createDefaultMeta();
+  const loadout = resolveLoadout(meta);
+  assert.equal(loadout.faction, null);
+  assert.equal(loadout.hull.id, HULL_IDS.SLOOP);
+  assert.deepEqual(loadout.extraHeldWeapons, []);
+});
+
+test('resolveLoadout with a faction selected overrides the hull, adds its weapon bias, and grants its passive charm', () => {
+  const meta = createDefaultMeta();
+  meta.salvage = 1000;
+  purchaseFaction(meta, FACTION_IDS.IRON_ACCORD);
+  selectFaction(meta, FACTION_IDS.IRON_ACCORD);
+  const faction = getPlayableFaction(FACTION_IDS.IRON_ACCORD);
+
+  const loadout = resolveLoadout(meta);
+  assert.equal(loadout.faction, FACTION_IDS.IRON_ACCORD);
+  assert.equal(loadout.hull.id, faction.hullId, 'the faction\'s hull should override the separately-selected hull');
+  assert.ok(loadout.extraHeldWeapons.includes(faction.extraHeldWeapon));
+  assert.equal(loadout.charms.steadyHands, true, 'Iron Accord grants Steady Hands\' effect for free');
+  assert.equal(loadout.charms.lastGasp, false);
+});
+
+test('a faction\'s weapon bias does not duplicate one already granted by an owned Cargo Loadout tier', () => {
+  const meta = createDefaultMeta();
+  meta.salvage = 1000;
+  const faction = getPlayableFaction(FACTION_IDS.IRON_ACCORD); // grants Chain Shot
+  // Chain Locker also grants Chain Shot.
+  purchaseCargoTier(meta, CARGO_TIER_IDS.CHAIN_LOCKER);
+  purchaseFaction(meta, FACTION_IDS.IRON_ACCORD);
+  selectFaction(meta, FACTION_IDS.IRON_ACCORD);
+
+  const loadout = resolveLoadout(meta);
+  const count = loadout.extraHeldWeapons.filter((w) => w === faction.extraHeldWeapon).length;
+  assert.equal(count, 1, 'the same weapon id should not appear twice in extraHeldWeapons');
+});
+
+test('a faction\'s granted passive stacks with (does not replace) a separately owned charm', () => {
+  const meta = createDefaultMeta();
+  meta.salvage = 1000;
+  purchaseCharm(meta, CHARM_IDS.FIRST_HAUL);
+  purchaseFaction(meta, FACTION_IDS.WYRDTIDE); // grants Last Gasp
+  selectFaction(meta, FACTION_IDS.WYRDTIDE);
+
+  const loadout = resolveLoadout(meta);
+  assert.equal(loadout.charms.firstHaul, true, 'separately owned charm should still apply');
+  assert.equal(loadout.charms.lastGasp, true, 'faction-granted charm should also apply');
+});
+
+test('selecting a faction actually reaches a real run: hull, held weapon, and combat-triangle faction all land on run', () => {
+  const meta = createDefaultMeta();
+  meta.salvage = 1000;
+  purchaseFaction(meta, FACTION_IDS.REAVERS);
+  selectFaction(meta, FACTION_IDS.REAVERS);
+  const faction = getPlayableFaction(FACTION_IDS.REAVERS);
+
+  const run = createRun(9, resolveLoadout(meta));
+  assert.equal(run.faction, FACTION_IDS.REAVERS);
+  assert.equal(run.boat.maxHull, SHIP_HULLS[faction.hullId].maxHull);
+  assert.ok(run.weapons.heldWeapons.has(faction.extraHeldWeapon));
 });

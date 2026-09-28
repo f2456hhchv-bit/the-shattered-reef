@@ -10,6 +10,7 @@ import {
   HULL_IDS, getHull,
   CARGO_TIER_LIST, cargoLoadoutFor,
   CHARM_LIST, CHARM_IDS,
+  PLAYABLE_FACTION_LIST, getPlayableFaction,
 } from '../data/meta.mjs';
 
 const STORAGE_KEY = 'shatteredReef.meta.v1';
@@ -21,6 +22,8 @@ export function createDefaultMeta() {
     selectedHull: HULL_IDS.SLOOP,
     ownedCargoTiers: [],
     ownedCharms: [],
+    ownedFactions: [],
+    selectedFaction: null, // null = unaligned (baseline), matching BASELINE_LOADOUT
     stats: { runsPlayed: 0, bestReefsCleared: 0, deepestReefReached: 0, totalSalvageEarned: 0 },
   };
 }
@@ -43,6 +46,7 @@ export function loadMeta(storage) {
       ownedHulls: Array.isArray(parsed.ownedHulls) ? parsed.ownedHulls : defaults.ownedHulls,
       ownedCargoTiers: Array.isArray(parsed.ownedCargoTiers) ? parsed.ownedCargoTiers : defaults.ownedCargoTiers,
       ownedCharms: Array.isArray(parsed.ownedCharms) ? parsed.ownedCharms : defaults.ownedCharms,
+      ownedFactions: Array.isArray(parsed.ownedFactions) ? parsed.ownedFactions : defaults.ownedFactions,
     };
   } catch {
     return defaults;
@@ -90,6 +94,23 @@ export function purchaseCargoTier(meta, tierId) {
   return { ok: true };
 }
 
+export function purchaseFaction(meta, factionId) {
+  if (meta.ownedFactions.includes(factionId)) return { ok: false, reason: 'already_owned' };
+  const faction = getPlayableFaction(factionId); // throws on an unknown id
+  if (!canAfford(meta, faction.cost)) return { ok: false, reason: 'cannot_afford' };
+  meta.salvage -= faction.cost;
+  meta.ownedFactions.push(factionId);
+  return { ok: true };
+}
+
+// `factionId` may be null — "unaligned", the always-available baseline
+// selection (mirrors having no faction chosen, or none owned yet).
+export function selectFaction(meta, factionId) {
+  if (factionId !== null && !meta.ownedFactions.includes(factionId)) return false;
+  meta.selectedFaction = factionId;
+  return true;
+}
+
 export function purchaseCharm(meta, charmId) {
   if (meta.ownedCharms.includes(charmId)) return { ok: false, reason: 'already_owned' };
   const charm = CHARM_LIST.find((c) => c.id === charmId);
@@ -105,16 +126,30 @@ export function purchaseCharm(meta, charmId) {
 // turns into "what a run actually starts with". run.mjs itself never
 // reads ownership arrays directly, only this resolved shape.
 export function resolveLoadout(meta) {
-  const hull = getHull(meta.selectedHull);
+  // A selected faction is an EXTENSION of the hull/cargo/charm tracks, per
+  // the PRD, not a fourth system: it overrides the active hull with its
+  // own (the PRD's "determining their starting ship hull"), adds its
+  // weapon bias on top of any owned Cargo Loadout weapons, and grants its
+  // passive as if that Captain's Charm were owned — all reusing existing
+  // fields/mechanics rather than new ones. `meta.selectedHull` is ignored
+  // while a faction is active; it's restored the moment the player selects
+  // "unaligned" (factionId null) again.
+  const faction = meta.selectedFaction ? getPlayableFaction(meta.selectedFaction) : null;
+  const hull = getHull(faction ? faction.hullId : meta.selectedHull);
   const { extraHeldWeapons, startingAmmoMultiplier } = cargoLoadoutFor(meta.ownedCargoTiers);
+  if (faction && !extraHeldWeapons.includes(faction.extraHeldWeapon)) {
+    extraHeldWeapons.push(faction.extraHeldWeapon);
+  }
+  const grantedCharm = faction ? faction.grantsCharm : null;
   return {
     hull,
     extraHeldWeapons,
     startingAmmoMultiplier,
+    faction: meta.selectedFaction, // for the combat-triangle multiplier (data/factions.mjs)
     charms: {
-      steadyHands: meta.ownedCharms.includes(CHARM_IDS.STEADY_HANDS),
-      lastGasp: meta.ownedCharms.includes(CHARM_IDS.LAST_GASP),
-      firstHaul: meta.ownedCharms.includes(CHARM_IDS.FIRST_HAUL),
+      steadyHands: meta.ownedCharms.includes(CHARM_IDS.STEADY_HANDS) || grantedCharm === CHARM_IDS.STEADY_HANDS,
+      lastGasp: meta.ownedCharms.includes(CHARM_IDS.LAST_GASP) || grantedCharm === CHARM_IDS.LAST_GASP,
+      firstHaul: meta.ownedCharms.includes(CHARM_IDS.FIRST_HAUL) || grantedCharm === CHARM_IDS.FIRST_HAUL,
     },
   };
 }

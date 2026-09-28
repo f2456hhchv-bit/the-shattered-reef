@@ -18,15 +18,16 @@ import { createJoystick } from './input/joystick.mjs';
 import {
   tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, ammoFor, isHeld,
 } from './engine/combat.mjs';
-import { updateEnemies, resolveEnemyContacts, currentCounter } from './engine/enemies.mjs';
+import { updateEnemies, resolveEnemyContacts, currentCounter, factionMultiplierFor } from './engine/enemies.mjs';
 import { collectPickups } from './engine/pickups.mjs';
 import { PICKUP_KINDS } from './data/pickups.mjs';
 import { WEAPON_LIST, getWeapon } from './data/weapons.mjs';
 import { getEnemy } from './data/enemies.mjs';
-import { SHIP_HULL_LIST, CARGO_TIER_LIST, CHARM_LIST } from './data/meta.mjs';
+import { SHIP_HULL_LIST, CARGO_TIER_LIST, CHARM_LIST, PLAYABLE_FACTION_LIST } from './data/meta.mjs';
 import {
   loadMeta, saveMeta, resolveLoadout, recordRunResult, canAfford,
   purchaseHull, selectHull, purchaseCargoTier, purchaseCharm,
+  purchaseFaction, selectFaction,
 } from './engine/meta.mjs';
 import {
   createParticlePool, spawnHitSpark, spawnKillBurst, spawnExplosion, spawnSplash, updateParticles,
@@ -135,6 +136,10 @@ export function startApp(root) {
         <h2>Captain's Charms</h2>
         <div id="hub-charms" class="hub-list"></div>
       </section>
+      <section class="hub-section">
+        <h2>Factions</h2>
+        <div id="hub-factions" class="hub-list"></div>
+      </section>
       <button type="button" id="hub-set-sail">Set Sail ⚓</button>
     </div>
   `;
@@ -144,6 +149,7 @@ export function startApp(root) {
   const hubHulls = hubOverlay.querySelector('#hub-hulls');
   const hubCargo = hubOverlay.querySelector('#hub-cargo');
   const hubCharms = hubOverlay.querySelector('#hub-charms');
+  const hubFactions = hubOverlay.querySelector('#hub-factions');
   const hubSetSailBtn = hubOverlay.querySelector('#hub-set-sail');
 
   const fireButton = document.createElement('button');
@@ -387,6 +393,50 @@ export function startApp(root) {
       });
       hubCharms.appendChild(row);
     }
+
+    hubFactions.innerHTML = '';
+    const unalignedSelected = meta.selectedFaction === null;
+    const unalignedRow = document.createElement('div');
+    unalignedRow.className = 'hub-item';
+    unalignedRow.innerHTML = `
+      <div class="hub-item-info">
+        <span class="hub-item-name">Unaligned${unalignedSelected ? ' ✓' : ''}</span>
+        <span class="hub-item-desc">No faction — your own selected hull/loadout/charms apply, and enemies deal/take no combat-triangle bonus.</span>
+      </div>
+      <button type="button" class="hub-item-btn"${unalignedSelected ? ' disabled' : ''}>${unalignedSelected ? 'Selected' : 'Select'}</button>
+    `;
+    unalignedRow.querySelector('button').addEventListener('click', () => {
+      selectFaction(meta, null);
+      saveMeta(window.localStorage, meta);
+      renderHub();
+    });
+    hubFactions.appendChild(unalignedRow);
+    for (const faction of PLAYABLE_FACTION_LIST) {
+      const owned = meta.ownedFactions.includes(faction.id);
+      const selected = meta.selectedFaction === faction.id;
+      const disabled = selected || (!owned && !canAfford(meta, faction.cost));
+      const label = selected ? 'Selected' : owned ? 'Select' : `Buy ${faction.cost} ⚓`;
+      const row = document.createElement('div');
+      row.className = 'hub-item';
+      row.innerHTML = `
+        <div class="hub-item-info">
+          <span class="hub-item-name">${faction.name}${selected ? ' ✓' : ''}</span>
+          <span class="hub-item-desc">${faction.description}</span>
+        </div>
+        <button type="button" class="hub-item-btn" data-faction-id="${faction.id}"${disabled ? ' disabled' : ''}>${label}</button>
+      `;
+      row.querySelector('button').addEventListener('click', () => {
+        if (!owned) {
+          const res = purchaseFaction(meta, faction.id);
+          if (res.ok) selectFaction(meta, faction.id);
+        } else {
+          selectFaction(meta, faction.id);
+        }
+        saveMeta(window.localStorage, meta);
+        renderHub();
+      });
+      hubFactions.appendChild(row);
+    }
   }
 
   function openHub() {
@@ -474,7 +524,9 @@ export function startApp(root) {
     meta: {
       salvage: meta.salvage, ownedHulls: meta.ownedHulls, selectedHull: meta.selectedHull,
       ownedCargoTiers: meta.ownedCargoTiers, ownedCharms: meta.ownedCharms, stats: meta.stats,
+      ownedFactions: meta.ownedFactions, selectedFaction: meta.selectedFaction,
     },
+    faction: run.faction,
     particleCount: particles.length, damageNumberCount: damageNumbers.length,
     shakeTrauma: shake.trauma, hitStopRemaining: hitStop.remaining, muted: isMuted(),
   });
@@ -569,7 +621,7 @@ export function startApp(root) {
       }
 
       let salvageGained = 0;
-      const hitEvents = resolveHits(run.weapons, run.enemies, currentCounter);
+      const hitEvents = resolveHits(run.weapons, run.enemies, currentCounter, factionMultiplierFor(run.faction));
       cleanupProjectiles(run.weapons);
       for (const ev of hitEvents) {
         const weaponColor = getWeapon(ev.weaponId).color;

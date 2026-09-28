@@ -4,6 +4,7 @@
 // before it's in range, per the PRD's Enemies section.
 
 import { WEAPON_IDS } from './weapons.mjs';
+import { FACTION_IDS } from './factions.mjs';
 
 export const ENEMY_IDS = Object.freeze({
   REEF_SKIMMER: 'reef_skimmer',
@@ -29,6 +30,10 @@ export const ENEMIES = {
     name: 'Reef Skimmer',
     archetype: ARCHETYPES.SWARM,
     counter: WEAPON_IDS.GRAPESHOT,
+    // Faction (post-slice combat triangle, PRD's own faction/enemy mapping
+    // table) — a second, separate multiplier stacked on the weapon-counter
+    // system above, not a substitute for it.
+    faction: FACTION_IDS.REAVERS,
     maxHealth: 14,
     radius: 7,
     speed: 105,
@@ -43,6 +48,7 @@ export const ENEMIES = {
     name: 'Gullswarm Harpy',
     archetype: ARCHETYPES.FLYER,
     counter: WEAPON_IDS.CHAIN_SHOT,
+    faction: FACTION_IDS.WYRDTIDE,
     maxHealth: 18,
     radius: 8,
     speed: 130,
@@ -57,6 +63,7 @@ export const ENEMIES = {
     name: 'Deep Crawler',
     archetype: ARCHETYPES.SUBMERGED,
     counter: WEAPON_IDS.DEPTH_CHARGES,
+    faction: FACTION_IDS.WYRDTIDE,
     maxHealth: 22,
     radius: 9,
     speed: 70,
@@ -72,6 +79,7 @@ export const ENEMIES = {
     name: 'Ironclad Brigand',
     archetype: ARCHETYPES.TANK,
     counter: WEAPON_IDS.FLAME_BARRELS,
+    faction: FACTION_IDS.IRON_ACCORD,
     maxHealth: 60,
     radius: 12,
     speed: 45,
@@ -85,6 +93,7 @@ export const ENEMIES = {
     name: 'Rigger',
     archetype: ARCHETYPES.FLANKER,
     counter: WEAPON_IDS.CHAIN_SHOT,
+    faction: FACTION_IDS.REAVERS,
     maxHealth: 16,
     radius: 7,
     speed: 150,
@@ -98,6 +107,10 @@ export const ENEMIES = {
     name: "The Kraken's Anchor",
     archetype: ARCHETYPES.TANK, // phase logic overrides movement in engine/enemies.mjs
     isBoss: true,
+    // Deliberately no `faction` field — "an Ancient-tier threat, not
+    // faction-aligned" per the PRD. triangleMultiplier() treats a missing
+    // faction as a no-op (1x), so the boss is never triangle-affected
+    // regardless of the player's chosen faction.
     maxHealth: 220,
     radius: 22,
     speed: 55,

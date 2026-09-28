@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createEnemy, spawnReefEnemies, updateEnemy, updateEnemies,
-  resolveEnemyContact, currentCounter,
+  resolveEnemyContact, currentCounter, factionMultiplierFor,
 } from '../src/engine/enemies.mjs';
 import { ENEMY_IDS, ARCHETYPES, getEnemy, spawnPoolForReefIndex } from '../src/data/enemies.mjs';
 import { createBoat } from '../src/engine/boat.mjs';
@@ -204,4 +204,27 @@ test('updateEnemies is a no-op on a dead enemy', () => {
   updateEnemies([enemy], boat, 1 / 30, grid, 16);
   assert.equal(enemy.x, 0);
   assert.equal(enemy.y, 0);
+});
+
+// --- Post-slice combat triangle: enemy faction tagging ------------------
+
+test('createEnemy carries its data definition\'s faction onto the instance, null for the boss', () => {
+  const skimmer = createEnemy(ENEMY_IDS.REEF_SKIMMER, 0, 0);
+  assert.equal(skimmer.faction, 'reavers');
+  const boss = createEnemy(ENEMY_IDS.KRAKENS_ANCHOR, 0, 0);
+  assert.equal(boss.faction, null, 'the boss is deliberately faction-less — never triangle-affected');
+});
+
+test('factionMultiplierFor builds a getFactionMultiplier callback matching triangleMultiplier', () => {
+  const skimmer = createEnemy(ENEMY_IDS.REEF_SKIMMER, 0, 0); // reavers
+  const brigand = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 0, 0); // iron_accord
+  const boss = createEnemy(ENEMY_IDS.KRAKENS_ANCHOR, 0, 0); // no faction
+
+  const asReavers = factionMultiplierFor('reavers');
+  assert.equal(asReavers(brigand), 1.3, 'reavers beat iron accord');
+  assert.equal(asReavers(skimmer), 1, 'mirror match, no bonus');
+  assert.equal(asReavers(boss), 1, 'the boss is never triangle-affected');
+
+  const unaligned = factionMultiplierFor(null);
+  assert.equal(unaligned(brigand), 1, 'no player faction chosen means no triangle effect at all');
 });
