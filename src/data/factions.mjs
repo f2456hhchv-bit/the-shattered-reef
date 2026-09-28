@@ -59,6 +59,21 @@ export function getFaction(id) {
 export const TRIANGLE_ADVANTAGE_MULTIPLIER = 1.3;
 export const TRIANGLE_DISADVANTAGE_MULTIPLIER = 0.75;
 
+// Incoming (enemy -> player) magnitudes — the triangle applies both ways
+// (decided 2026-09-28). A mutable object so tools/faction-compare.mjs can
+// sweep it without editing code. Deliberately NOT fully symmetric, chosen
+// with data (600 bot voyages per faction per setting): your predator's
+// bite matches your own advantage (x1.3), but your prey only softens to
+// x0.9, not x0.75. The roster is skewed — Wyrdtide's dive-bombing Harpies
+// deal ~65% of all contact damage — so a full x0.75 "prey hits softer"
+// turned into a shield for whichever faction preys on Wyrdtide (Iron
+// Accord hit ~86% voyage survival vs ~70% for everyone else). At 1.3/0.9
+// the factions land at ~69-79% with unaligned ~70%.
+export const INCOMING_TRIANGLE = {
+  advantage: 1.3,    // an enemy whose faction beats yours hits you harder
+  disadvantage: 0.9, // an enemy whose faction yours beats hits you a little softer
+};
+
 // The multiplier damage dealt BY `attackerFactionId` TO `defenderFactionId`
 // should receive. Either side missing (no playable faction chosen yet, or a
 // faction-less target like the boss) is a deliberate no-op — 1x, falling
@@ -71,5 +86,15 @@ export function triangleMultiplier(attackerFactionId, defenderFactionId) {
   const defender = getFaction(defenderFactionId);
   if (attacker.beats === defenderFactionId) return TRIANGLE_ADVANTAGE_MULTIPLIER;
   if (defender.beats === attackerFactionId) return TRIANGLE_DISADVANTAGE_MULTIPLIER;
+  return 1;
+}
+
+// Damage an enemy of `enemyFactionId` deals to a player of
+// `playerFactionId`. Same shape and no-op rules as triangleMultiplier, but
+// reads INCOMING_TRIANGLE so the two directions can be tuned separately.
+export function incomingTriangleMultiplier(enemyFactionId, playerFactionId) {
+  const m = triangleMultiplier(enemyFactionId, playerFactionId);
+  if (m > 1) return INCOMING_TRIANGLE.advantage;
+  if (m < 1) return INCOMING_TRIANGLE.disadvantage;
   return 1;
 }

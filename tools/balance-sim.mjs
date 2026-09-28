@@ -36,7 +36,7 @@ import {
   tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, isHeld, ammoFor,
   craftedMultiplierFor,
 } from '../src/engine/combat.mjs';
-import { updateEnemies, resolveEnemyContacts, currentCounter, factionMultiplierFor } from '../src/engine/enemies.mjs';
+import { updateEnemies, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor } from '../src/engine/enemies.mjs';
 import { collectPickups } from '../src/engine/pickups.mjs';
 import { getWeapon, WEAPON_IDS } from '../src/data/weapons.mjs';
 import { PICKUP_KINDS } from '../src/data/pickups.mjs';
@@ -328,6 +328,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     seed, outcome: null, reefsReached: 1, timeoutReef: null,
     bankedSalvage: 0, weaponsFound: new Set(), kills: {},
     damageBySource: { wall: 0, enemyContact: 0 },
+    contactByFaction: {},
     bossEncountered: false, bossDefeated: false,
     finalHull: 0,
   };
@@ -384,8 +385,11 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     }
     cleanupProjectiles(run.weapons);
 
-    const contactDmg = resolveEnemyContacts(run.enemies, run.boat, BOAT_RADIUS);
-    stats.damageBySource.enemyContact += contactDmg;
+    for (const ev of resolveEnemyContactEvents(run.enemies, run.boat, BOAT_RADIUS, incomingMultiplierFor(run.faction))) {
+      stats.damageBySource.enemyContact += ev.damage;
+      const k = ev.enemy.faction || 'boss';
+      stats.contactByFaction[k] = (stats.contactByFaction[k] || 0) + ev.damage;
+    }
 
     const pickupEvents = collectPickups(run.pickups, run.boat, BOAT_RADIUS, run.weapons);
     for (const ev of pickupEvents) {

@@ -232,6 +232,15 @@ export function drawDamageNumbers(ctx, numbers) {
   for (const d of numbers) {
     ctx.globalAlpha = Math.max(0, d.life / d.maxLife);
     ctx.font = d.crit ? 'bold 15px sans-serif' : 'bold 11px sans-serif';
+    if (d.incoming) {
+      // Damage taken: always reads as a loss (red, minus sign); the
+      // triangle only changes the glyph — ▲ your predator hit harder, ▼
+      // your prey hit softer.
+      ctx.fillStyle = d.triangle === 'danger' ? '#ff5a4a' : d.triangle === 'resist' ? '#d98a7a' : '#e0705f';
+      const glyph = d.triangle === 'danger' ? ' ▲' : d.triangle === 'resist' ? ' ▼' : '';
+      ctx.fillText(`-${d.amount}${glyph}`, d.x, d.y);
+      continue;
+    }
     if (d.triangle === 'advantage') {
       ctx.fillStyle = d.crit ? '#6be0c9' : '#4fb3a0';
     } else if (d.triangle === 'disadvantage') {

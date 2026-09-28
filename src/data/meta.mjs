@@ -39,11 +39,17 @@ export const SHIP_HULLS = {
     name: 'Longboat',
     description: 'Heavier and slower to turn, but takes a real beating — trades speed for survivability.',
     cost: 120,
-    maxHull: Math.round(MAX_HULL * 1.4), // 140
+    // Retuned 2026-09-28 (faction balance pass): was 140 hull / dragMult
+    // 1.1 — 91% voyage survival vs the Sloop's 67% on the speed-independent
+    // metric (tools/hull-compare.mjs), a strictly dominant pick: its only
+    // real cost, slower traversal, isn't a cost at all without a timer, and
+    // the extra drag also cut its wall slams to a third of the Sloop's.
+    // Now 115 / drag 1.0 → ~79%: still the safest hull, not the only one.
+    maxHull: Math.round(MAX_HULL * 1.15), // 115
     accelMult: 0.9,
     maxSpeedMult: 0.85,
     turnRateMult: 0.85,
-    dragMult: 1.1,
+    dragMult: 1.0,
   },
   [HULL_IDS.SKIFF]: {
     id: HULL_IDS.SKIFF,

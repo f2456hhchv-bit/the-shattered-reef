@@ -179,3 +179,12 @@ test('triggerHitStop never shortens an already-longer freeze in progress', () =>
   triggerHitStop(hitStop, 0.5); // but a bigger one can extend it
   assert.equal(hitStop.remaining, 0.5);
 });
+
+test('spawnDamageNumber marks damage the player took as incoming, separately from damage dealt', () => {
+  const pool = createDamageNumberPool();
+  spawnDamageNumber(pool, 0, 0, 7, { incoming: true, triangle: 'danger' });
+  spawnDamageNumber(pool, 0, 0, 7);
+  assert.equal(pool[0].incoming, true);
+  assert.equal(pool[0].triangle, 'danger');
+  assert.equal(pool[1].incoming, false);
+});

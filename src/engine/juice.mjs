@@ -116,6 +116,10 @@ export function spawnDamageNumber(pool, x, y, amount, options = {}) {
     // faction-less boss) — drawn as a distinct color + a small glyph,
     // independent of (and can combine with) the crit/on-counter styling.
     triangle: options.triangle || null,
+    // Damage the PLAYER took (drawn over the boat, as a loss) rather than
+    // damage dealt. With it, triangle is 'danger' (your predator hit you,
+    // amplified) | 'resist' (your prey hit you, softened) | null.
+    incoming: !!options.incoming,
   });
 }
 

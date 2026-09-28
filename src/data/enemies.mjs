@@ -144,26 +144,34 @@ export function getEnemy(id) {
 
 // Early-reef vs later-reef spawn mix, per the PRD's Enemies section
 // ("early reefs favor Skimmers and Harpies... later reefs mix in Crawlers,
-// Brigands, and Riggers together").
-export function spawnPoolForReefIndex(reefIndex) {
-  if (reefIndex <= 0) {
-    return [ENEMY_IDS.REEF_SKIMMER, ENEMY_IDS.GULLSWARM_HARPY];
-  }
-  if (reefIndex === 1) {
-    return [ENEMY_IDS.REEF_SKIMMER, ENEMY_IDS.GULLSWARM_HARPY, ENEMY_IDS.DEEP_CRAWLER, ENEMY_IDS.RIGGER];
-  }
-  return [
+// Brigands, and Riggers together"). Plain data (one array per reef) so a
+// balance tool can sweep pool compositions without editing code; ids
+// listed more than once are proportionally more likely per draw.
+//
+// The Kraken's Anchor (step 8 follow-up) is a chance-based entry in the
+// final pool rather than a guaranteed spawn, per the project owner's
+// explicit decision: it's drawn the same way as every other reef-3 enemy,
+// so a voyage isn't guaranteed to meet it, and reef 3's regular spawn count
+// (REEF_TUNING in engine/run.mjs) is deliberately left unchanged rather
+// than reduced to make room for it. engine/enemies.mjs's spawnReefEnemies
+// still special-cases *placement* for anything with `isBoss: true` (guards
+// the exit, unique per reef) even though it's drawn from this same pool.
+export const SPAWN_POOLS = [
+  [ENEMY_IDS.REEF_SKIMMER, ENEMY_IDS.GULLSWARM_HARPY],
+  // Ironclad Brigand added to reef 2 (2026-09-28, faction balance pass —
+  // the PRD's "later reefs mix in Crawlers, Brigands, and Riggers"): Iron
+  // Accord was absent until reef 3, so the Reavers had no prey and
+  // Wyrdtide no predator for two-thirds of every voyage — see the
+  // decisions log. Measured with tools/faction-compare.mjs.
+  [ENEMY_IDS.REEF_SKIMMER, ENEMY_IDS.GULLSWARM_HARPY, ENEMY_IDS.DEEP_CRAWLER, ENEMY_IDS.RIGGER, ENEMY_IDS.IRONCLAD_BRIGAND],
+  [
     ENEMY_IDS.REEF_SKIMMER, ENEMY_IDS.GULLSWARM_HARPY, ENEMY_IDS.DEEP_CRAWLER,
-    ENEMY_IDS.IRONCLAD_BRIGAND, ENEMY_IDS.RIGGER,
-    // The Kraken's Anchor (step 8 follow-up) — a chance-based pool entry
-    // rather than a guaranteed spawn, per the project owner's explicit
-    // decision: it's drawn the same way as every other reef-3 enemy, so a
-    // voyage isn't guaranteed to meet it, and reef 3's regular spawn count
-    // (REEF_TUNING in engine/run.mjs) is deliberately left unchanged
-    // rather than reduced to make room for it. engine/enemies.mjs's
-    // spawnReefEnemies still special-cases *placement* for anything with
-    // `isBoss: true` (guards the exit, unique per reef) even though it's
-    // drawn from this same pool like a regular pick.
-    ENEMY_IDS.KRAKENS_ANCHOR,
-  ];
+    ENEMY_IDS.IRONCLAD_BRIGAND, ENEMY_IDS.RIGGER, ENEMY_IDS.KRAKENS_ANCHOR,
+  ],
+];
+
+// Returns a copy, so a caller can never mutate the shared pool by accident.
+export function spawnPoolForReefIndex(reefIndex) {
+  const i = Math.min(Math.max(reefIndex, 0), SPAWN_POOLS.length - 1);
+  return [...SPAWN_POOLS[i]];
 }

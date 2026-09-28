@@ -19,7 +19,9 @@ import {
   tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, ammoFor, isHeld,
   craftedMultiplierFor,
 } from './engine/combat.mjs';
-import { createEnemy, updateEnemies, resolveEnemyContacts, currentCounter, factionMultiplierFor } from './engine/enemies.mjs';
+import {
+  createEnemy, updateEnemies, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor,
+} from './engine/enemies.mjs';
 import { collectPickups } from './engine/pickups.mjs';
 import { PICKUP_KINDS } from './data/pickups.mjs';
 import { WEAPON_LIST, getWeapon } from './data/weapons.mjs';
@@ -27,7 +29,7 @@ import { getEnemy } from './data/enemies.mjs';
 import {
   SHIP_HULL_LIST, CARGO_TIER_LIST, CHARM_LIST, PLAYABLE_FACTION_LIST, WORKSHOP_UPGRADE_LIST,
 } from './data/meta.mjs';
-import { triangleMultiplier } from './data/factions.mjs';
+import { triangleMultiplier, incomingTriangleMultiplier } from './data/factions.mjs';
 import {
   loadMeta, saveMeta, resolveLoadout, recordRunResult, canAfford,
   purchaseHull, selectHull, purchaseCargoTier, purchaseCharm,
@@ -604,7 +606,7 @@ export function startApp(root) {
     },
     faction: run.faction, bossDefeated: run.bossDefeated, craftedDamageMultipliers: run.craftedDamageMultipliers,
     particleCount: particles.length, damageNumberCount: damageNumbers.length,
-    damageNumbers: damageNumbers.map((d) => ({ amount: d.amount, crit: d.crit, triangle: d.triangle })),
+    damageNumbers: damageNumbers.map((d) => ({ amount: d.amount, crit: d.crit, triangle: d.triangle, incoming: d.incoming })),
     shakeTrauma: shake.trauma, hitStopRemaining: hitStop.remaining, muted: isMuted(),
   });
   // Testing-only: teleports the boat, since a headless test driving the
@@ -778,7 +780,19 @@ export function startApp(root) {
         updateSalvageCounter();
       }
 
-      const contactDamage = resolveEnemyContacts(run.enemies, run.boat, BOAT_RADIUS);
+      // The triangle applies to damage you TAKE too (engine/enemies.mjs
+      // incomingMultiplierFor). Each hit floats a number over the boat, so
+      // "your predator hits harder" is visible, not just a faster hull bar.
+      const contactEvents = resolveEnemyContactEvents(run.enemies, run.boat, BOAT_RADIUS, incomingMultiplierFor(run.faction));
+      let contactDamage = 0;
+      for (const ev of contactEvents) {
+        contactDamage += ev.damage;
+        const m = incomingTriangleMultiplier(ev.enemy.faction, run.faction);
+        spawnDamageNumber(damageNumbers, run.boat.x, run.boat.y - BOAT_RADIUS - 6, ev.damage, {
+          incoming: true,
+          triangle: m > 1 ? 'danger' : m < 1 ? 'resist' : null,
+        });
+      }
       if (contactDamage > 0) {
         updateHullBar();
         flashHit();

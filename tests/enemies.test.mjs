@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createEnemy, spawnReefEnemies, updateEnemy, updateEnemies,
-  resolveEnemyContact, currentCounter, factionMultiplierFor,
+  resolveEnemyContact, currentCounter, factionMultiplierFor, incomingMultiplierFor, resolveEnemyContactEvents,
 } from '../src/engine/enemies.mjs';
 import { ENEMY_IDS, ARCHETYPES, getEnemy, spawnPoolForReefIndex } from '../src/data/enemies.mjs';
 import { createBoat } from '../src/engine/boat.mjs';
@@ -227,4 +227,48 @@ test('factionMultiplierFor builds a getFactionMultiplier callback matching trian
 
   const unaligned = factionMultiplierFor(null);
   assert.equal(unaligned(brigand), 1, 'no player faction chosen means no triangle effect at all');
+});
+
+// --- Incoming triangle on contact damage (2026-09-28) --------------------
+
+test('resolveEnemyContact scales contact damage by the incoming multiplier', () => {
+  const harpy = createEnemy(ENEMY_IDS.GULLSWARM_HARPY, 0, 0);
+  const boat = createBoat(0, 0, 0);
+  const before = boat.health;
+  const dmg = resolveEnemyContact(harpy, boat, 11, () => 1.3);
+  assert.equal(dmg, getEnemy(ENEMY_IDS.GULLSWARM_HARPY).contactDamage * 1.3);
+  assert.equal(boat.health, before - dmg);
+});
+
+test('incomingMultiplierFor: predator enemies hit harder, prey softer, boss and unaligned unaffected', () => {
+  const harpy = createEnemy(ENEMY_IDS.GULLSWARM_HARPY, 0, 0); // wyrdtide
+  const brigand = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 0, 0); // iron_accord
+  const boss = createEnemy(ENEMY_IDS.KRAKENS_ANCHOR, 0, 0);
+  const asReavers = incomingMultiplierFor('reavers'); // beaten by wyrdtide, beats iron_accord
+  assert.ok(asReavers(harpy) > 1);
+  assert.ok(asReavers(brigand) < 1);
+  assert.equal(asReavers(boss), 1);
+  assert.equal(incomingMultiplierFor(null)(harpy), 1);
+});
+
+test('resolveEnemyContactEvents reports one event per contact hit with its real (scaled) damage', () => {
+  const boat = createBoat(0, 0, 0);
+  const a = createEnemy(ENEMY_IDS.GULLSWARM_HARPY, 0, 0);
+  const b = createEnemy(ENEMY_IDS.REEF_SKIMMER, 500, 500); // out of range
+  const events = resolveEnemyContactEvents([a, b], boat, 11, () => 0.9);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].enemy, a);
+  assert.equal(events[0].damage, getEnemy(ENEMY_IDS.GULLSWARM_HARPY).contactDamage * 0.9);
+});
+
+test('Iron Accord (Brigands) appear from reef 2, not only reef 3 — every faction is present by mid-voyage', () => {
+  assert.ok(spawnPoolForReefIndex(1).includes(ENEMY_IDS.IRONCLAD_BRIGAND));
+  const factionsByReef2 = new Set([...spawnPoolForReefIndex(0), ...spawnPoolForReefIndex(1)].map((id) => getEnemy(id).faction).filter(Boolean));
+  assert.equal(factionsByReef2.size, 3);
+});
+
+test('spawnPoolForReefIndex returns a copy — callers cannot corrupt the shared pool', () => {
+  const pool = spawnPoolForReefIndex(0);
+  pool.push(ENEMY_IDS.KRAKENS_ANCHOR);
+  assert.ok(!spawnPoolForReefIndex(0).includes(ENEMY_IDS.KRAKENS_ANCHOR));
 });

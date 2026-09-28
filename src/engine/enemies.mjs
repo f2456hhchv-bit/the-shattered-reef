@@ -6,7 +6,7 @@
 // you're looking at.
 
 import { getEnemy, ENEMY_IDS, ARCHETYPES } from '../data/enemies.mjs';
-import { triangleMultiplier } from '../data/factions.mjs';
+import { triangleMultiplier, incomingTriangleMultiplier } from '../data/factions.mjs';
 import { resolveTileCollision } from './boat.mjs';
 
 let nextEnemyId = 1;
@@ -92,6 +92,17 @@ export function currentCounter(enemy) {
 // null).
 export function factionMultiplierFor(playerFactionId) {
   return (enemy) => triangleMultiplier(playerFactionId, enemy.faction);
+}
+
+// The triangle in the other direction: damage an enemy deals TO the
+// player. Pass as resolveEnemyContact(s)'s getIncomingMultiplier. Your
+// predator hits you harder, your prey softer — rock-paper-scissors is
+// symmetric by nature, and the PRD describes each matchup as a whole
+// fight ("speed overwhelms heavy armor before it can react"), not a
+// one-way damage bonus. Same no-op rules: unaligned player or faction-less
+// boss → 1x.
+export function incomingMultiplierFor(playerFactionId) {
+  return (enemy) => incomingTriangleMultiplier(enemy.faction, playerFactionId);
 }
 
 function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid) {
@@ -334,21 +345,37 @@ export function updateEnemies(enemies, boat, dt, grid, tileSize) {
 // happened this frame).
 const RIGGER_JAM_SECONDS = 1.1;
 
-export function resolveEnemyContact(enemy, boat, boatRadius) {
+// `getIncomingMultiplier(enemy)` is the post-slice combat triangle applied
+// to damage the PLAYER takes (see incomingMultiplierFor) — defaults to a
+// no-op 1x so every pre-triangle call site keeps working unchanged.
+export function resolveEnemyContact(enemy, boat, boatRadius, getIncomingMultiplier = () => 1) {
   if (enemy.health <= 0 || enemy.contactCooldownRemaining > 0) return 0;
   const dist = Math.hypot(enemy.x - boat.x, enemy.y - boat.y);
   if (dist > enemy.radius + boatRadius) return 0;
 
   enemy.contactCooldownRemaining = getEnemy(enemy.defId).contactCooldown;
-  boat.health = Math.max(0, boat.health - enemy.contactDamage);
+  const damage = enemy.contactDamage * getIncomingMultiplier(enemy);
+  boat.health = Math.max(0, boat.health - damage);
   if (enemy.defId === ENEMY_IDS.RIGGER) {
     boat.turnJamRemaining = Math.max(boat.turnJamRemaining || 0, RIGGER_JAM_SECONDS);
   }
-  return enemy.contactDamage;
+  return damage;
 }
 
-export function resolveEnemyContacts(enemies, boat, boatRadius) {
+// Same as resolveEnemyContacts but returns one {enemy, damage} event per
+// contact hit, so the UI can show *which* enemy hit and whether the
+// triangle amplified or softened it.
+export function resolveEnemyContactEvents(enemies, boat, boatRadius, getIncomingMultiplier = () => 1) {
+  const events = [];
+  for (const enemy of enemies) {
+    const damage = resolveEnemyContact(enemy, boat, boatRadius, getIncomingMultiplier);
+    if (damage > 0) events.push({ enemy, damage });
+  }
+  return events;
+}
+
+export function resolveEnemyContacts(enemies, boat, boatRadius, getIncomingMultiplier = () => 1) {
   let total = 0;
-  for (const enemy of enemies) total += resolveEnemyContact(enemy, boat, boatRadius);
+  for (const enemy of enemies) total += resolveEnemyContact(enemy, boat, boatRadius, getIncomingMultiplier);
   return total;
 }
