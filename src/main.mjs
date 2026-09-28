@@ -10,7 +10,10 @@ import {
 } from './engine/run.mjs';
 import { stepBoat, resolveTileCollision, applyWallImpactDamage } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
-import { drawTileGrid, drawExit, drawBoat, drawEnemies, drawProjectiles, drawPickups, PALETTE } from './engine/renderer.mjs';
+import {
+  drawTileGrid, drawExit, drawBoat, drawEnemies, drawProjectiles, drawPickups,
+  drawParticles, drawDamageNumbers, PALETTE,
+} from './engine/renderer.mjs';
 import { createJoystick } from './input/joystick.mjs';
 import {
   tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, ammoFor, isHeld,
@@ -25,6 +28,19 @@ import {
   loadMeta, saveMeta, resolveLoadout, recordRunResult, canAfford,
   purchaseHull, selectHull, purchaseCargoTier, purchaseCharm,
 } from './engine/meta.mjs';
+import {
+  createParticlePool, spawnHitSpark, spawnKillBurst, spawnExplosion, spawnSplash, updateParticles,
+  createDamageNumberPool, spawnDamageNumber, updateDamageNumbers,
+  createShake, addShake, updateShake,
+  createHitStop, triggerHitStop, applyHitStop,
+} from './engine/juice.mjs';
+import {
+  unlockAudio, setMuted, isMuted, playFire, playHit, playKill, playExplosion, playWallImpact,
+  playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playLockedWeapon,
+} from './audio/audio.mjs';
+import { WEAPON_IDS } from './data/weapons.mjs';
+
+const MUTE_STORAGE_KEY = 'shatteredReef.muted.v1';
 
 const WEAPON_SHORT_LABEL = {
   chain_shot: 'CS', grapeshot: 'GS', depth_charges: 'DC', flame_barrels: 'FB', cannonballs: 'CB',
@@ -52,6 +68,34 @@ export function startApp(root) {
     <div id="weapon-bar"></div>
   `;
   root.appendChild(hud);
+
+  // A top-level sibling (not nested inside #hud) so its own z-index isn't
+  // capped by #hud's stacking context — it needs to stay clickable above
+  // the Hub/run-summary overlays too, not just during a run.
+  const muteButton = document.createElement('button');
+  muteButton.id = 'mute-button';
+  muteButton.type = 'button';
+  muteButton.setAttribute('aria-label', 'Mute sound');
+  root.appendChild(muteButton);
+
+  // Audio hooks (step 8, src/audio/audio.mjs) — muted state persists across
+  // sessions like meta-progression does; a separate localStorage key since
+  // it's a device/UI preference, not save-file state.
+  function refreshMuteButton() {
+    muteButton.textContent = isMuted() ? '🔇' : '🔊';
+  }
+  setMuted(window.localStorage.getItem(MUTE_STORAGE_KEY) === '1');
+  refreshMuteButton();
+  muteButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setMuted(!isMuted());
+    window.localStorage.setItem(MUTE_STORAGE_KEY, isMuted() ? '1' : '0');
+    refreshMuteButton();
+  });
+  // Browsers require a real user gesture before audio can play — the first
+  // pointerdown anywhere in the app (steering, firing, a Hub button) is as
+  // good a gesture as any, so this listens once and gets out of the way.
+  window.addEventListener('pointerdown', unlockAudio, { once: true });
 
   const summaryOverlay = document.createElement('div');
   summaryOverlay.id = 'run-summary';
@@ -136,6 +180,14 @@ export function startApp(root) {
   camera.x = run.boat.x;
   camera.y = run.boat.y;
 
+  // Step 8 juice state — reset on every startRun() alongside `run` itself,
+  // so leftover particles/numbers from a finished voyage never bleed into
+  // the next one.
+  let particles = createParticlePool();
+  let damageNumbers = createDamageNumberPool();
+  const shake = createShake();
+  const hitStop = createHitStop();
+
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.round(window.innerWidth * dpr);
@@ -180,7 +232,7 @@ export function startApp(root) {
     btn.innerHTML = `<span class="weapon-name">${weapon.name}</span><span class="weapon-ammo"></span>`;
     btn.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
-      if (!isHeld(run.weapons, weapon.id)) return; // locked — found via a weapon cache pickup
+      if (!isHeld(run.weapons, weapon.id)) { playLockedWeapon(); return; } // locked — found via a weapon cache pickup
       setActiveWeapon(run.weapons, weapon.id);
       updateWeaponBar();
     });
@@ -346,6 +398,10 @@ export function startApp(root) {
     run = createRun((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) & 0xffffffff, resolveLoadout(meta));
     camera.x = run.boat.x;
     camera.y = run.boat.y;
+    particles = createParticlePool();
+    damageNumbers = createDamageNumberPool();
+    shake.trauma = 0;
+    hitStop.remaining = 0;
     setStatus(`Reef 1 of ${run.reefCount} — find the exit ⚓`);
     toast.classList.remove('show');
     hubOverlay.classList.remove('show');
@@ -382,6 +438,7 @@ export function startApp(root) {
   // meta state before the summary is shown, so "Salvage in the Hub" above
   // is already correct the moment the screen appears.
   function endRun() {
+    if (run.outcome === 'victory') playVictory(); else playSunk();
     recordRunResult(meta, run);
     saveMeta(window.localStorage, meta);
     showRunSummary();
@@ -416,6 +473,8 @@ export function startApp(root) {
       salvage: meta.salvage, ownedHulls: meta.ownedHulls, selectedHull: meta.selectedHull,
       ownedCargoTiers: meta.ownedCargoTiers, ownedCharms: meta.ownedCharms, stats: meta.stats,
     },
+    particleCount: particles.length, damageNumberCount: damageNumbers.length,
+    shakeTrauma: shake.trauma, hitStopRemaining: hitStop.remaining, muted: isMuted(),
   });
   // Testing-only: teleports the boat, since a headless test driving the
   // touch joystick can't reliably pathfind a maze it has no map of. Not
@@ -437,8 +496,13 @@ export function startApp(root) {
 
   let lastTime = performance.now();
   function frame(now) {
-    const dt = Math.min(0.05, (now - lastTime) / 1000); // clamp so a tab-switch stall can't fling the boat
+    const rawDt = Math.min(0.05, (now - lastTime) / 1000); // clamp so a tab-switch stall can't fling the boat
     lastTime = now;
+    // Hit-stop (engine/juice.mjs) only ever freezes active gameplay
+    // simulation, never the Hub/summary screens or the juice systems
+    // themselves — a brief freeze on a big hit should still let its own
+    // particles/shake play out smoothly rather than freezing with them.
+    const dt = (sailing && !run.over) ? applyHitStop(hitStop, rawDt) : rawDt;
 
     if (sailing && !run.over) {
       const jam = run.boat.turnJamRemaining > 0;
@@ -451,6 +515,10 @@ export function startApp(root) {
       if (damage > 0) {
         updateHullBar();
         flashHit();
+        const intensity = Math.min(1, damage / 15);
+        addShake(shake, 0.25 + intensity * 0.5);
+        spawnSplash(particles, run.boat.x, run.boat.y, Math.random, 8);
+        playWallImpact(intensity);
       }
 
       if (run.boat.turnJamRemaining > 0) {
@@ -459,19 +527,56 @@ export function startApp(root) {
 
       if (isFiring) {
         const fired = tryFire(run.weapons, run.boat.x, run.boat.y, computeFireHeading());
-        if (fired) updateWeaponBar();
+        if (fired) { updateWeaponBar(); playFire(run.weapons.activeWeaponId); }
       }
       stepCombat(run.weapons, dt, run.grid, run.tileSize);
       stepAmmoRegen(run.weapons, dt);
       updateEnemies(run.enemies, run.boat, dt, run.grid, run.tileSize);
 
+      // Depth Charges detonate as an AoE rather than a per-enemy direct
+      // hit, so their "something exploded" feedback (a big particle ring +
+      // boom) is tied to the projectile itself going spent, not to
+      // resolveHits' per-enemy events below — it should fire even against
+      // open water with nothing in the blast.
+      for (const p of run.weapons.projectiles) {
+        if (p.weaponId === WEAPON_IDS.DEPTH_CHARGES && p.spent) {
+          spawnExplosion(particles, p.x, p.y, 28, Math.random);
+          addShake(shake, 0.5);
+          playExplosion();
+        }
+      }
+
       let salvageGained = 0;
       const hitEvents = resolveHits(run.weapons, run.enemies, currentCounter);
       cleanupProjectiles(run.weapons);
-      for (const ev of hitEvents) if (ev.killed) salvageGained += ev.enemy.salvageDrop;
+      for (const ev of hitEvents) {
+        const weaponColor = getWeapon(ev.weaponId).color;
+        spawnDamageNumber(damageNumbers, ev.enemy.x, ev.enemy.y - ev.enemy.radius - 4, ev.damage, {
+          crit: currentCounter(ev.enemy) === ev.weaponId,
+        });
+        if (ev.killed) {
+          spawnKillBurst(particles, ev.enemy.x, ev.enemy.y, weaponColor, Math.random);
+          addShake(shake, 0.35);
+          triggerHitStop(hitStop, 0.05);
+          playKill();
+          salvageGained += ev.enemy.salvageDrop;
+        } else {
+          spawnHitSpark(particles, ev.enemy.x, ev.enemy.y, weaponColor, Math.random);
+          addShake(shake, 0.12);
+          playHit();
+        }
+      }
       for (const enemy of run.enemies) {
         const burnEvent = stepBurn(enemy, dt);
-        if (burnEvent && burnEvent.killed) salvageGained += burnEvent.enemy.salvageDrop;
+        if (burnEvent) {
+          spawnDamageNumber(damageNumbers, enemy.x, enemy.y - enemy.radius - 4, burnEvent.damage);
+          if (burnEvent.killed) {
+            spawnKillBurst(particles, enemy.x, enemy.y, PALETTE.burn, Math.random);
+            addShake(shake, 0.3);
+            playKill();
+            salvageGained += burnEvent.enemy.salvageDrop;
+          }
+        }
       }
       if (salvageGained > 0) {
         addSalvage(run, salvageGained);
@@ -482,6 +587,8 @@ export function startApp(root) {
       if (contactDamage > 0) {
         updateHullBar();
         flashHit();
+        addShake(shake, 0.3);
+        playWallImpact(Math.min(1, contactDamage / 10));
       }
 
       const pickupEvents = collectPickups(run.pickups, run.boat, BOAT_RADIUS, run.weapons);
@@ -489,9 +596,11 @@ export function startApp(root) {
         if (ev.kind === PICKUP_KINDS.WEAPON_CACHE) {
           updateWeaponBar();
           showToast(ev.freshUnlock ? `New weapon: ${getWeapon(ev.weaponId).name}! ⚓` : `${getWeapon(ev.weaponId).name} restocked ⚓`);
+          playPickupWeapon();
         } else if (ev.kind === PICKUP_KINDS.SALVAGE) {
           addSalvage(run, ev.amount);
           updateSalvageCounter();
+          playPickupSalvage();
         }
       }
 
@@ -504,10 +613,14 @@ export function startApp(root) {
       const sunkResult = checkSunk(run);
       if (sunkResult === true) {
         sailing = false;
+        spawnExplosion(particles, run.boat.x, run.boat.y, 24, Math.random);
+        addShake(shake, 0.7);
         endRun();
       } else if (sunkResult === 'revived') {
         updateHullBar();
         flashHit();
+        addShake(shake, 0.4);
+        playRevive();
         showToast('Last Gasp! Patched through at 1 hull ⚓');
       } else {
         const bankedThisReef = run.reefSalvage;
@@ -523,24 +636,30 @@ export function startApp(root) {
           updateReefIndicator();
           updateSalvageCounter();
           updateWeaponBar();
+          playReefCleared();
         }
       }
     }
 
-    updateCamera(camera, run.boat.x, run.boat.y, dt);
+    updateCamera(camera, run.boat.x, run.boat.y, rawDt);
+    particles = updateParticles(particles, rawDt);
+    damageNumbers = updateDamageNumbers(damageNumbers, rawDt);
+    const shakeOffset = updateShake(shake, rawDt);
 
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     ctx.fillStyle = PALETTE.waterDeep;
     ctx.fillRect(0, 0, vw, vh);
     ctx.save();
-    const { cx, cy } = applyCameraTransform(ctx, camera, vw, vh, run.widthPx, run.heightPx);
+    const { cx, cy } = applyCameraTransform(ctx, camera, vw, vh, run.widthPx, run.heightPx, shakeOffset);
     drawTileGrid(ctx, run.grid, run.tileSize, cx - vw / 2, cy - vh / 2, cx + vw / 2, cy + vh / 2);
     drawExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
     drawPickups(ctx, run.pickups, (p) => WEAPON_SHORT_LABEL[p.weaponId], now / 1000);
     drawEnemies(ctx, run.enemies, (e) => e.colorHex || enemyColor(e), now / 1000);
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color);
     if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS);
+    drawParticles(ctx, particles);
+    drawDamageNumbers(ctx, damageNumbers);
     ctx.restore();
 
     requestAnimationFrame(frame);

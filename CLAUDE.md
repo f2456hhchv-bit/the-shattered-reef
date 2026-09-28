@@ -630,16 +630,118 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     150). No console errors in any run (only the same benign
     `favicon.ico` 404 from the test server seen in every prior step's
     playtest).
-- **Not built yet:** art pass, audio, juice/polish (step 8), and the boss
+- **Phase:** step 8 of 8 (polish) complete — juice, audio hooks, and a
+  mobile touch-target pass. This is the vertical slice's last locked
+  build-order step; a real sprite/sample-audio art pass (as opposed to the
+  placeholder shapes/procedural sounds below) and the boss remain
+  deliberately out of scope, see "Not built yet" below.
+- **Just shipped:**
+  - `src/engine/juice.mjs` (new) — particles, screen shake, hit-stop, and
+    floating damage numbers, all pure logic (spawn/update return or mutate
+    plain arrays/small state objects — no Canvas/DOM calls), mirroring
+    `boat.mjs`/`combat.mjs`'s split. One flat particle pool with tuned
+    spawn presets (`spawnHitSpark`/`spawnKillBurst`/`spawnExplosion`/
+    `spawnSplash`) rather than per-effect classes, so `updateParticles`/
+    `drawParticles` stay generic. Screen shake uses the standard
+    trauma-based model (`addShake` raises trauma, `updateShake` decays it
+    and returns a squared-falloff random offset) so small hits barely
+    move the camera and big ones punch. Hit-stop
+    (`triggerHitStop`/`applyHitStop`) is a brief full freeze of gameplay
+    simulation on a kill — `applyHitStop` hands back the dt the caller
+    should actually simulate this frame (0 while frozen) and always
+    advances the freeze countdown with the *real* frame time, so a freeze
+    can never get stuck regardless of what dt the caller passes in.
+  - `src/audio/audio.mjs` (new) — audio hooks via lightweight WebAudio
+    oscillator/noise-burst synthesis rather than loaded sample files,
+    matching the vertical slice's locked scope ("audio hooks", not a full
+    sound-asset pipeline) — needs no asset pipeline, adds nothing to
+    deploy, and gives every gameplay event a real, distinct sound now. A
+    named cue function per event (`playFire`/`playHit`/`playKill`/
+    `playExplosion`/`playWallImpact`/`playPickupWeapon`/
+    `playPickupSalvage`/`playReefCleared`/`playVictory`/`playSunk`/
+    `playRevive`/`playLockedWeapon`) is the one call site each in
+    `main.mjs`, so swapping in real sampled SFX later only means changing
+    what each cue does internally. `unlockAudio()` lazily creates/resumes
+    the `AudioContext` on the app's first pointerdown (browsers require a
+    real user gesture first). Not unit-testable (no WebAudio in Node's
+    `node --test` runtime) — verified by ear/state in real headless-
+    browser playtesting instead, same testing split as `renderer.mjs`.
+  - `src/engine/renderer.mjs` — `drawParticles`/`drawDamageNumbers`, drawn
+    in world space inside the same camera-transformed block as every other
+    entity (not a screen-space overlay).
+  - `src/engine/camera.mjs` — `applyCameraTransform` takes an optional
+    `shakeOffset` ({x,y} screen pixels), added on top of the clamped
+    follow position as a separate additive term — kept apart from
+    `camera.x/y` itself so shake never fights the follow-camera's own
+    smoothing or gets clamped against the map edge.
+  - `src/main.mjs` — wired every juice/audio hook to its real gameplay
+    event: wall impacts (splash + shake + a hit-scaled impact sound),
+    weapon fire (a per-weapon fire tone), non-kill hits (spark + floating
+    damage number + small shake + hit sound; "crit" styling — a bigger
+    gold number — on an on-counter hit specifically, via
+    `currentCounter(enemy) === weaponId`), kills (a bigger two-tone burst +
+    bigger shake + a 0.05s hit-stop + kill sound), Depth Charges'
+    detonation (a dedicated explosion burst/sound tied to the projectile
+    itself going spent — fires even with nothing in the blast radius, not
+    per enemy hit), enemy contact damage, pickups (a weapon-cache tone vs.
+    a Salvage tone), a locked weapon-button tap (a small "no" tone),
+    reaching an exit/victory/sinking/Last Gasp reviving. Hit-stop only
+    ever freezes active gameplay simulation (`sailing && !run.over`) —
+    never the Hub/summary screens, and particles/shake/damage numbers
+    always advance on the real unscaled frame time so they read smoothly
+    even during the brief freeze rather than pausing with it. A muted
+    state (`#mute-button`, top-left, persisted in its own `localStorage`
+    key) is a **top-level sibling element, not nested inside `#hud`** —
+    nesting it inside `#hud` was tried first and found (via the headless
+    playtest below) to silently cap its `z-index` at `#hud`'s own stacking
+    context, making it unclickable while the Hub/run-summary overlay
+    (drawn on a sibling element, `z-index: 50`) was open; a real, playtest-
+    caught CSS stacking-context bug, not a hypothetical one — worth
+    remembering as a general lesson: a child's `z-index` never escapes an
+    ancestor that already established its own stacking context, so a
+    control that must out-rank *siblings of an ancestor* has to itself be
+    a sibling of that ancestor, not nested inside it.
+  - `src/ui/styles.css` — the mute button sized to 44×44px (Apple/
+    Android's own minimum recommended touch target — the 34px a purely
+    visual match to the other small HUD chips would have used was too
+    small) with `z-index: 60` so it stays usable from any screen; Hub
+    unlock-track buttons (`.hub-item-btn`) gained a `min-height: 40px`
+    and more padding for the same reason, reviewed against the project's
+    touch-target guidance during this pass rather than left at whatever
+    size looked fine on a desktop screenshot.
+  - New `tests/juice.test.mjs` (16 tests, all pure logic: particle
+    spawn-count presets and `updateParticles`' position/decay/drag/
+    removal, damage-number rounding/crit-marking/rise-then-fall/expiry,
+    shake trauma clamp/decay/squared-falloff scaling, hit-stop's
+    freeze/expire/never-shorten-a-longer-freeze semantics). **185/185
+    tests pass** across the whole repo.
+  - Verified end-to-end in a real headless browser (Playwright/Chromium):
+    the mute button toggles correctly and its muted state survives a page
+    reload; holding fire on a live enemy produced particles, floating
+    damage numbers, non-zero screen-shake trauma, and a non-zero hit-stop
+    countdown all within the same combat burst (not just individually in
+    isolation) and actually killed an enemy (enemy count dropped 7→6);
+    forcing a sink correctly ran the explosion-burst path with no crash.
+    No console errors in any run (only the same benign `favicon.ico` 404
+    from the test server seen in every prior step's playtest).
+- **Not built yet:** a real sprite/sample-audio art pass (step 8 shipped
+  polish *systems* — particles/shake/hit-stop/damage numbers/procedural
+  audio — not new art assets; placeholder shapes and synthesized tones are
+  still deliberate per the project's own "no art pass until the loop is
+  proven" rule, and the loop is proven, not art-directed), and the boss
   ("The Kraken's Anchor") is defined in data but never actually spawned
   anywhere yet — worth deciding whether it belongs on the final reef as
   this voyage structure's natural finale, or stays deferred; flagged
   below as an open question rather than silently resolved.
-- **Next up:** step 8, polish — juice (particles, screen shake, hit-stop,
-  damage numbers), audio hooks, and a mobile safe-area/UX pass. The
-  vertical slice's locked scope (steps 2-7) is now fully built end to end:
-  navigation, combat, loot, a full 3-reef roguelike run structure, and
-  persistent meta-progression between runs.
+- **Next up:** the vertical slice's entire locked build order (steps 2-8)
+  is now fully built, tested, and playtested end to end — navigation,
+  combat, loot, a full 3-reef roguelike run structure, persistent
+  meta-progression, and polish. What's left is the two items above (a
+  real art/audio-asset pass, and the boss decision) plus the confirmed
+  post-slice direction already documented (playable factions, the combat
+  triangle, the Captain's Hub → Workshop/crafting expansion) — see the
+  PRD's "Post-Slice Direction" section. Next session should open by asking
+  the project owner which of these to prioritize rather than assuming.
 
 ## Decisions log
 
@@ -877,6 +979,47 @@ Starting fresh below for the new game.)*
   luck (overlays were appended early) but was never guaranteed to stay
   correct as more UI elements were added later in boot — worth doing this
   explicitly once rather than re-discovering the same risk in step 8.
+- 2026-09-28: Audio hooks (step 8) are procedural WebAudio synthesis
+  (oscillators + filtered noise bursts), not loaded sample files — matches
+  the vertical slice's own locked scope ("audio hooks", explicitly not a
+  full sound-asset pipeline) and needs zero asset pipeline or deploy
+  weight. Every call site is a named cue function (`playHit()`,
+  `playKill()`, etc.), so swapping in real recorded SFX later only means
+  rewriting what's inside `audio.mjs`'s functions, not touching `main.mjs`.
+- 2026-09-28: Depth Charges' explosion particle/sound is tied to *the
+  projectile itself going spent* (checked directly against
+  `run.weapons.projectiles`, before `resolveHits`/`cleanupProjectiles`
+  run), not to `resolveHits`' per-enemy hit events — a depth charge that
+  detonates over open water with nothing in its blast radius still needs
+  the "something exploded" feedback; keying it to per-enemy events would
+  have silently dropped that case.
+- 2026-09-28: Hit-stop only ever freezes *active gameplay simulation*
+  (gated the same way as the rest of the frame loop's per-frame work:
+  `sailing && !run.over`) — never the Hub or run-summary screens, and
+  particles/screen-shake/damage-number updates always run on the real,
+  unscaled frame time regardless of whether hit-stop is active, so they
+  keep reading smoothly through a freeze instead of visibly pausing with
+  it (the usual "juice keeps moving while the world holds" feel).
+- 2026-09-28: Found and fixed a real CSS stacking-context bug via the
+  step-8 headless playtest (not a hypothetical/inspection-only catch): the
+  mute button was first built nested inside `#hud`, and `#hud` already
+  establishes its own stacking context (`position: absolute` + its own
+  `z-index: 2`) — a child's `z-index` can't escape that, so the mute
+  button's `z-index: 60` was silently capped at `#hud`'s own rank,
+  leaving it unclickable underneath the Hub overlay (`z-index: 50`,
+  a sibling of `#hud`, not a descendant) the moment the app opened. Fixed
+  by making the mute button a top-level sibling element instead of an
+  `#hud` child. Worth remembering as a general lesson: any control that
+  must out-rank a *sibling of one of its ancestors* has to itself be a
+  sibling of that ancestor — nesting it deeper never works, no matter how
+  high its own `z-index` is set.
+- 2026-09-28: Reviewed touch-target sizing during the step-8 polish pass
+  rather than leaving it at whatever looked fine on a desktop screenshot —
+  bumped the mute button from an initial 34px to the 44px Apple/Android
+  both recommend as a minimum, and gave the Hub's unlock-track buttons a
+  40px minimum height. Small, easy to defer, but exactly the kind of thing
+  that's cheap to fix now and easy to forget once more UI accumulates on
+  top of it.
 
 ## Known open questions (do not silently resolve — ask)
 

@@ -196,3 +196,29 @@ export function drawPickups(ctx, pickups, labelFor, t) {
     drawPickup(ctx, pickup, pickup.kind === 'weapon_cache' ? labelFor(pickup) : null, t);
   }
 }
+
+// Step 8 juice (engine/juice.mjs) — particles and floating damage numbers.
+// Both draw in world space, so they're called inside the same camera-
+// transformed block as everything else above, not as a screen-space overlay.
+export function drawParticles(ctx, particles) {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+export function drawDamageNumbers(ctx, numbers) {
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const d of numbers) {
+    ctx.globalAlpha = Math.max(0, d.life / d.maxLife);
+    ctx.font = d.crit ? 'bold 15px sans-serif' : 'bold 11px sans-serif';
+    ctx.fillStyle = d.crit ? '#e8b54b' : '#e9ddc4';
+    ctx.fillText(String(d.amount), d.x, d.y);
+  }
+  ctx.globalAlpha = 1;
+}

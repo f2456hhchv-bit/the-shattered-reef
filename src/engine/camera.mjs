@@ -12,8 +12,12 @@ export function updateCamera(camera, targetX, targetY, dt, smoothing = 8) {
 }
 
 // World -> screen transform origin: call at the start of a frame, after
-// ctx.save(), to center the camera in the viewport.
-export function applyCameraTransform(ctx, camera, viewportWidth, viewportHeight, mapWidthPx, mapHeightPx) {
+// ctx.save(), to center the camera in the viewport. `shakeOffset` (step 8,
+// engine/juice.mjs's updateShake) is an optional {x,y} in screen pixels,
+// added on top of the clamped follow position — kept as a separate additive
+// term rather than folded into `camera.x/y` so shake never fights the
+// follow-camera's own smoothing or gets clamped against the map edge.
+export function applyCameraTransform(ctx, camera, viewportWidth, viewportHeight, mapWidthPx, mapHeightPx, shakeOffset = null) {
   let cx = camera.x;
   let cy = camera.y;
   if (mapWidthPx > viewportWidth) {
@@ -26,6 +30,8 @@ export function applyCameraTransform(ctx, camera, viewportWidth, viewportHeight,
   } else {
     cy = mapHeightPx / 2;
   }
-  ctx.translate(viewportWidth / 2 - cx, viewportHeight / 2 - cy);
+  const sx = shakeOffset ? shakeOffset.x : 0;
+  const sy = shakeOffset ? shakeOffset.y : 0;
+  ctx.translate(viewportWidth / 2 - cx + sx, viewportHeight / 2 - cy + sy);
   return { cx, cy };
 }

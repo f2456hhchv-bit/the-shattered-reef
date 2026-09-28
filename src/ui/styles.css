@@ -72,6 +72,31 @@ html, body {
   border: 1px solid rgba(232, 181, 75, .4);
 }
 
+#mute-button {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: max(10px, env(safe-area-inset-left));
+  pointer-events: auto;
+  /* 44px — Apple/Android's own minimum recommended touch target, not the
+     34px a purely visual match to the other HUD chips would have used. */
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(6, 36, 53, .75);
+  border: 1px solid rgba(232, 181, 75, .35);
+  color: #e9ddc4;
+  font-size: 17px;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Above the Hub/run-summary overlays (z-index 50) so sound can be muted
+     from any screen, not just mid-run. */
+  z-index: 60;
+}
+#mute-button:active {
+  background: rgba(6, 36, 53, .95);
+}
+
 #hull-bar {
   width: 140px;
   height: 10px;
@@ -344,7 +369,8 @@ html, body {
 }
 .hub-item-btn {
   flex-shrink: 0;
-  padding: 8px 12px;
+  min-height: 40px;
+  padding: 10px 14px;
   border-radius: 999px;
   border: 1px solid rgba(232, 181, 75, .5);
   background: rgba(232, 181, 75, .25);
