@@ -5,11 +5,13 @@
 // Ship Hulls / Cargo Loadouts / Captain's Charms before "Set Sail" starts
 // an actual voyage with that loadout resolved into it.
 
+import { decodeLevelCode } from './engine/levels.mjs';
 import { buildTerrain } from './engine/terrain.mjs';
 import { createTerrainRenderer } from './engine/terrainRenderer.mjs';
 import { getBiome, BIOME_IDS } from './data/biomes.mjs';
 import {
   createRun, checkReachedExit, checkSunk, addSalvage, totalSalvage, BOAT_RADIUS,
+  TIER_COUNT,
 } from './engine/run.mjs';
 import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
@@ -604,7 +606,14 @@ export function startApp(root) {
   }
 
   function startRun() {
-    run = createRun((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) & 0xffffffff, resolveLoadout(meta));
+    // `?level=TR2-0K3F9ZA` in the URL plays that exact reef first (the
+    // share/replay hook for seeded levels — engine/levels.mjs); the rest of
+    // the voyage is generated as normal. An invalid code is ignored.
+    const sharedLevel = decodeLevelCode(new URLSearchParams(window.location.search).get('level'), TIER_COUNT);
+    run = createRun(
+      (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) & 0xffffffff, resolveLoadout(meta),
+      sharedLevel ? { levels: { 0: sharedLevel } } : {},
+    );
     camera.x = run.boat.x;
     camera.y = run.boat.y;
     particles = createParticlePool();
@@ -642,6 +651,7 @@ export function startApp(root) {
       <p>Weapons found: ${heldNiche.length ? heldNiche.map((id) => getWeapon(id).name).join(', ') : 'None'}</p>
       ${run.bossDefeated ? '<p>The Kraken\'s Anchor defeated — 1 Kraken Scale earned 🦑</p>' : ''}
       <p>Salvage in the Hub: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}</p>
+      <p class="level-codes">Reef codes: ${run.levelCodes.map((c) => `<code>${c}</code>`).join(' ')}</p>
     `;
     summaryOverlay.classList.add('show');
   }
@@ -665,7 +675,7 @@ export function startApp(root) {
     boatX: run.boat.x, boatY: run.boat.y, heading: run.boat.heading,
     hull: run.boat.health, maxHull: run.boat.maxHull, cameraX: camera.x, cameraY: camera.y,
     over: run.over, outcome: run.outcome, sailing, hubOpen: hubOverlay.classList.contains('show'),
-    reefIndex: run.reefIndex, reefCount: run.reefCount,
+    reefIndex: run.reefIndex, reefCount: run.reefCount, levelCode: run.levelCode, levelCodes: run.levelCodes.slice(),
     exitX: run.exitWorld.x, exitY: run.exitWorld.y,
     bankedSalvage: run.bankedSalvage, reefSalvage: run.reefSalvage,
     salvage: totalSalvage(run), activeWeapon: run.weapons.activeWeaponId,

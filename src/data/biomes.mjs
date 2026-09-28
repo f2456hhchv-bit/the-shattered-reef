@@ -13,6 +13,7 @@ export const BIOME_IDS = Object.freeze({ TROPICAL: 'tropical' });
 export const BIOMES = Object.freeze({
   [BIOME_IDS.TROPICAL]: {
     id: BIOME_IDS.TROPICAL,
+    code: 'TR', // level-code prefix (engine/levels.mjs) — unique per biome
     name: 'Tropical Reef Labyrinth',
     water: [
       [0, '#7fe3cf'],

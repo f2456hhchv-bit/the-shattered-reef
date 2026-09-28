@@ -191,7 +191,7 @@ export function fbm(noise, x, y, octaves = 3) {
 }
 
 export const ORGANIC_DEFAULTS = Object.freeze({
-  coreRadius: 1.6, // tiles — open disc at each cell centre
+  coreRadius: 2.0, // tiles — open disc at each cell centre (spawn/exit keep >= ~3px hull margin across 2,100 level seeds)
   passageHalfWidth: 1.5, // tiles — open band along each passage (3 tiles wide)
   noiseScale: 0.28, // lattice units per tile (≈3.5-tile blobs)
   growth: 0.45, // higher = more rock grows into rooms

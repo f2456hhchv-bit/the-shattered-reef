@@ -542,3 +542,11 @@ html, body {
 
   #run-summary-card { max-height: 92vh; overflow-y: auto; }
 }
+
+/* Seeded levels (2026-09-28): each reef's code on the run summary. */
+#run-summary-body .level-codes { font-size: 13px; opacity: 0.85; }
+#run-summary-body .level-codes code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: rgba(0, 0, 0, 0.3); border-radius: 6px; padding: 2px 6px; margin: 2px;
+  display: inline-block; user-select: all; -webkit-user-select: all;
+}

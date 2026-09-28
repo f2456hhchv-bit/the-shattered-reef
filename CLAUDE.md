@@ -1401,6 +1401,43 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   phone cost). Then the other biomes (Cliff & Cove, Glacial Fjords,
   Shipwreck Coast) as `data/biomes.mjs` entries.
 
+- **Phase:** seeded levels (project owner: "we just need to be able to
+  produce seeds for each terrain", plus the growth direction logged
+  below).
+- **Just shipped:**
+  - `src/engine/levels.mjs`: a level is `{ biomeId, tier, seed }` with a
+    shareable code, `TR2-0K3F9ZA` (biome code + tier 1-3 + base-36
+    seed). `encodeLevelCode`/`decodeLevelCode` (the decoder never
+    throws; it forgives case and whitespace) and `mixSeed`. Each biome
+    has a `code` in `data/biomes.mjs`.
+  - `run.mjs`: each reef is now built from **its own rng**, seeded by
+    its level alone (`levelForReef(runSeed, i)` derives the seeds). The
+    old design threaded one rng through all 3 reefs, so reef 2 depended
+    on everything in reef 1 and no reef could be rebuilt on its own.
+    Whole runs are still replayable from the run seed. New fields:
+    `createRun(seed, loadout, { levels })` for explicit levels,
+    `run.level`/`run.levelCode`/`run.levelCodes`, and `TIER_COUNT`.
+  - `main.mjs`: `?level=<code>` in the URL plays that reef first. The
+    run summary lists every reef's code (tap to select, so it's easy to
+    copy); the debug hook exposes them.
+  - **Real bug found by the new seed tests:** spawn/exit points were
+    half a tile off the true cell centre (`+ 0.5` applied to
+    `cellCenterTile`, which is already the geometric centre). With the
+    new odd room width (7) that put some dead-end exits within a hull-
+    width of the shore. Fixed, plus `coreRadius` 1.6 → 2.0. Worst case
+    across 2,100 levels: shore at 14.2px from the spawn/exit point (hull
+    radius 11).
+  - Tests: `tests/levels.test.mjs`. Codes round-trip; junk is rejected;
+    a reef rebuilt from its code matches the original run exactly
+    (layout, coast, enemies, pickups); 300 consecutive seeds give 300
+    distinct layouts. The spawn/exit clearance test now sweeps 600
+    levels. 270/270 tests.
+  - Verified live: the same `?level=` code loaded twice rebuilt the
+    same reef (only 0.04% of pixels differ, all animation), and an
+    invalid code falls back to a normal run.
+- **Next up:** the growth direction below (numbered levels, short
+  rounds), then the other biomes. Ask the project owner which first.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -1949,6 +1986,20 @@ Starting fresh below for the new game.)*
   would have made prettier coasts, but it would create shortcuts the
   maze graph doesn't know about, breaking exit placement and the
   balance bot.
+
+- 2026-09-28: Levels are seeded per reef, not per run. Each reef gets an
+  rng from its own level seed (tier + seed + biome), so any reef is
+  independently rebuildable and shareable by code. That's the
+  prerequisite for a large numbered level catalogue.
+- 2026-09-28 — **Confirmed growth direction (project owner):** the best
+  quick-fire phone games have rounds of a couple of minutes and
+  thousands of levels, and that's where this game should grow. Seeded
+  levels are the foundation. Not yet designed or scoped:
+  - how a level number maps to tier/biome/seed (a difficulty curve)
+  - whether a "round" is one reef or the current 3-reef voyage
+  - how meta-progression and permadeath fit a level-select structure
+  Current voyages are 3 reefs, likely longer than "a couple of minutes"
+  in total, and should be measured.
 
 ## Known open questions (do not silently resolve — ask)
 

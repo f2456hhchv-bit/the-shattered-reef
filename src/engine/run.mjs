@@ -1,9 +1,11 @@
 // Assembles and advances a whole voyage: a fixed sequence of reefs (3, per
-// the PRD's locked vertical-slice scope), increasing in size/density —
-// "difficulty scaled by size/density across a run rather than multiple
-// generation styles". A single seeded rng is threaded through every reef
-// in the voyage (not re-seeded per reef), so a whole run is deterministic
-// and replayable from one seed, not just each reef in isolation.
+// the PRD's locked vertical-slice scope), increasing in size/density.
+//
+// Seeds (2026-09-28): every reef is a *level* — { biomeId, tier, seed } —
+// and is built from its own rng seeded by that level alone (engine/
+// levels.mjs). A run's reefs derive their seeds from the run seed, so a
+// whole voyage is still replayable from one number, but any single reef
+// can also be rebuilt on its own from its level code.
 //
 // The boat, its hull, and the weapon/ammo state all carry over between
 // reefs — no mid-run healing, no re-arming. Salvage has real permadeath
@@ -13,6 +15,8 @@
 
 import { makeSeededRng } from './rng.mjs';
 import { buildCoastField } from './terrain.mjs';
+import { mixSeed, encodeLevelCode } from './levels.mjs';
+import { BIOME_IDS } from '../data/biomes.mjs';
 import { generateMazeGraph, farthestCell, buildOrganicReefGrid, cellCenterTile } from './maze.mjs';
 import { createBoat } from './boat.mjs';
 import { createWeaponState } from './combat.mjs';
@@ -55,12 +59,22 @@ const REEF_TUNING = [
   { cols: 11, rows: 11, enemyCount: 13 },
 ];
 
-function tuningFor(reefIndex) {
-  return REEF_TUNING[Math.min(reefIndex, REEF_TUNING.length - 1)];
+export const TIER_COUNT = REEF_TUNING.length;
+
+// Tier is 1-based (level codes), REEF_TUNING is 0-based.
+function tuningFor(tier) {
+  return REEF_TUNING[Math.min(tier - 1, REEF_TUNING.length - 1)];
 }
 
-function buildReefWorld(rng, reefIndex) {
-  const tuning = tuningFor(reefIndex);
+// The level a given reef of a run plays, unless the run was started with an
+// explicit one (a level code). Each reef's seed is derived independently
+// from the run seed, so any reef can be rebuilt on its own from its code.
+export function levelForReef(runSeed, reefIndex, biomeId = BIOME_IDS.TROPICAL) {
+  return { biomeId, tier: Math.min(reefIndex + 1, TIER_COUNT), seed: mixSeed(runSeed, reefIndex) };
+}
+
+function buildReefWorld(rng, tier) {
+  const tuning = tuningFor(tier);
   const maze = generateMazeGraph(tuning.cols, tuning.rows, rng);
   const grid = buildOrganicReefGrid(maze, rng, { room: ROOM, wall: WALL });
   // The smooth coastline (engine/terrain.mjs) is what the boat collides
@@ -76,8 +90,10 @@ function buildReefWorld(rng, reefIndex) {
     coast,
     coastSeed,
     tileSize: TILE_SIZE,
-    spawnWorld: { x: (startTile.tx + 0.5) * TILE_SIZE, y: (startTile.ty + 0.5) * TILE_SIZE },
-    exitWorld: { x: (exitTile.tx + 0.5) * TILE_SIZE, y: (exitTile.ty + 0.5) * TILE_SIZE },
+    // cellCenterTile is already the geometric centre in tile units (x0 +
+    // room/2); the old `+ 0.5` put spawn/exit half a tile toward a wall.
+    spawnWorld: { x: startTile.tx * TILE_SIZE, y: startTile.ty * TILE_SIZE },
+    exitWorld: { x: exitTile.tx * TILE_SIZE, y: exitTile.ty * TILE_SIZE },
     widthPx: grid.width * TILE_SIZE,
     heightPx: grid.height * TILE_SIZE,
   };
@@ -88,10 +104,17 @@ function buildReefWorld(rng, reefIndex) {
 // hull and weapons untouched — those persist across the whole voyage) and
 // this reef's at-risk Salvage tally reset to 0.
 function enterReef(run, reefIndex) {
-  const world = buildReefWorld(run.rng, reefIndex);
-  const tuning = tuningFor(reefIndex);
+  const level = run.levelOverrides[reefIndex] ?? levelForReef(run.seed, reefIndex);
+  // One rng per reef, from that reef's own seed — the whole reef (layout,
+  // coast, enemies, pickups) is a pure function of its level.
+  const rng = makeSeededRng(level.seed);
+  const world = buildReefWorld(rng, level.tier);
+  const tuning = tuningFor(level.tier);
 
   run.reefIndex = reefIndex;
+  run.level = level;
+  run.levelCode = encodeLevelCode(level);
+  run.levelCodes[reefIndex] = run.levelCode;
   run.maze = world.maze;
   run.grid = world.grid;
   run.coast = world.coast;
@@ -109,10 +132,10 @@ function enterReef(run, reefIndex) {
   run.boat.turnJamRemaining = 0;
 
   run.enemies = spawnReefEnemies(
-    spawnPoolForReefIndex(reefIndex), run.grid, run.tileSize,
-    world.spawnWorld, run.exitWorld, tuning.enemyCount, run.rng
+    spawnPoolForReefIndex(level.tier - 1), run.grid, run.tileSize,
+    world.spawnWorld, run.exitWorld, tuning.enemyCount, rng
   );
-  run.pickups = spawnReefPickups(run.grid, run.tileSize, world.spawnWorld, run.rng);
+  run.pickups = spawnReefPickups(run.grid, run.tileSize, world.spawnWorld, rng);
   run.reefSalvage = 0;
 }
 
@@ -122,10 +145,14 @@ function enterReef(run, reefIndex) {
 // this. run.mjs itself never reads raw unlock/ownership state, only the
 // already-resolved numbers, keeping it decoupled from how meta-progression
 // is stored.
-export function createRun(seed, loadout = BASELINE_LOADOUT) {
+// `options.levels` (optional): explicit levels by reef index, e.g.
+// `{ 0: decodeLevelCode('TR1-0K3F9ZA') }` to play a specific reef first.
+// Reefs without one use levelForReef(seed, index).
+export function createRun(seed, loadout = BASELINE_LOADOUT, { levels = {} } = {}) {
   const run = {
-    seed,
-    rng: makeSeededRng(seed),
+    seed: seed >>> 0,
+    levelOverrides: levels,
+    levelCodes: [], // the code of every reef this run has entered, in order
     reefIndex: 0,
     reefCount: REEF_COUNT,
     tuning: tuningForHull(loadout.hull),

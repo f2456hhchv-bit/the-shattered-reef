@@ -254,9 +254,11 @@ test('coast collision: the drawn coast never blocks a maze passage — every pas
 });
 
 test('coast collision: the spawn and exit sit in open water with room for the hull', () => {
-  for (let seed = 1; seed <= 20; seed++) {
-    const run = createRun(seed);
-    assert.ok(sampleField(run.coast, run.boat.x, run.boat.y) < -BOAT_RADIUS);
-    assert.ok(sampleField(run.coast, run.exitWorld.x, run.exitWorld.y) < -BOAT_RADIUS);
+  for (let seed = 1; seed <= 200; seed++) {
+    for (const tier of [1, 2, 3]) {
+      const run = createRun(0, undefined, { levels: { 0: { biomeId: 'tropical', tier, seed } } });
+      assert.ok(sampleField(run.coast, run.boat.x, run.boat.y) < -BOAT_RADIUS, `spawn, seed ${seed} tier ${tier}`);
+      assert.ok(sampleField(run.coast, run.exitWorld.x, run.exitWorld.y) < -BOAT_RADIUS, `exit, seed ${seed} tier ${tier}`);
+    }
   }
 });
