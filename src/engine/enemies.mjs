@@ -183,7 +183,9 @@ function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid) {
 // can't miss it by never wandering near wherever it landed. At most one
 // boss is ever placed per reef even if the random draw hits it more than
 // once — a redraw, not a second boss.
-export function spawnReefEnemies(spawnPool, grid, tileSize, boatSpawn, exitWorld, count, rng = Math.random) {
+// `exitClearance` (px): regular enemies stay at least this far from the exit
+// (the boss lair passes its pit radius, keeping the pit the boss's alone).
+export function spawnReefEnemies(spawnPool, grid, tileSize, boatSpawn, exitWorld, count, rng = Math.random, { exitClearance = tileSize * 2 } = {}) {
   const enemies = [];
   // Safe opening (2026-09-28): nothing spawns within ~1.6 maze cells of the
   // boat (was 3 tiles — inside the start room), and that's beyond aggro
@@ -216,7 +218,7 @@ export function spawnReefEnemies(spawnPool, grid, tileSize, boatSpawn, exitWorld
     const spot = findOpenSpawnTile(grid, tileSize, rng, boatSpawn, minDist);
     if (!spot) break;
     // Keep spawns off the exit tile too, loosely.
-    if (Math.hypot(spot.x - exitWorld.x, spot.y - exitWorld.y) < tileSize * 2) continue;
+    if (Math.hypot(spot.x - exitWorld.x, spot.y - exitWorld.y) < exitClearance) continue;
 
     if (defId === ENEMY_IDS.REEF_SKIMMER) {
       const packSize = Math.round(randRange(rng, def.packSize));
@@ -396,6 +398,17 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
   if (enemy.archetype !== ARCHETYPES.FLYER) {
     if (coast) resolveCoastCollision(enemy, enemy.radius, coast);
     else resolveTileCollision(enemy, enemy.radius, grid, tileSize);
+  }
+  // Tether (the boss lair): never leaves its circle around home.
+  if (enemy.tether) {
+    const tx = enemy.x - enemy.home.x; const ty = enemy.y - enemy.home.y;
+    const d = Math.hypot(tx, ty);
+    if (d > enemy.tether) {
+      enemy.x = enemy.home.x + (tx / d) * enemy.tether;
+      enemy.y = enemy.home.y + (ty / d) * enemy.tether;
+      const out = (enemy.vx * tx + enemy.vy * ty) / d;
+      if (out > 0) { enemy.vx -= (out * tx) / d; enemy.vy -= (out * ty) / d; }
+    }
   }
 
   if (enemy.contactCooldownRemaining > 0) {

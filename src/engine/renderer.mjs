@@ -65,6 +65,52 @@ export function drawExit(ctx, worldX, worldY, radius, t) {
   ctx.restore();
 }
 
+// The boss lair (2026-09-28): slow dark currents circling the pit, drawn
+// under everything else — the pit reads as deep, moving water the moment
+// it's on screen.
+export function drawLairCurrents(ctx, centre, radius, t) {
+  ctx.save();
+  ctx.translate(centre.x, centre.y);
+  ctx.lineCap = 'round';
+  for (let k = 0; k < 7; k++) {
+    const r = radius * (0.25 + k * 0.1);
+    const a0 = -t * (0.35 + (6 - k) * 0.05) + k * 1.9;
+    ctx.strokeStyle = `rgba(4, 22, 36, ${0.18 + (k % 2) * 0.08})`;
+    ctx.lineWidth = 3 + (k % 3);
+    ctx.beginPath(); ctx.arc(0, 0, r, a0, a0 + 1.6 + (k % 3) * 0.4); ctx.stroke();
+    ctx.strokeStyle = 'rgba(200, 235, 245, 0.10)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(0, 0, r + 3, a0 + 0.2, a0 + 1.1); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// A lair's exit before the boss dies: a dark, sealed vortex — clearly the
+// way out, clearly not open yet.
+export function drawSealedExit(ctx, worldX, worldY, radius, t) {
+  ctx.save();
+  ctx.translate(worldX, worldY);
+  const R = radius * 1.5;
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 1.3);
+  g.addColorStop(0, 'rgba(10, 4, 20, 0.75)');
+  g.addColorStop(1, 'rgba(10, 4, 20, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, R * 1.3, 0, Math.PI * 2); ctx.fill();
+  ctx.lineCap = 'round';
+  for (let k = 0; k < 3; k++) {
+    const a0 = -t * 1.1 + (k * Math.PI * 2) / 3;
+    ctx.strokeStyle = 'rgba(150, 110, 200, 0.45)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let u = 0; u <= 1.001; u += 0.1) {
+      const a = a0 + u * 2.4; const rr = R * (0.2 + u * 0.7);
+      if (u === 0) ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); else ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 // Wake (2026-09-28): foam V trailing the boat. `wake` points are pushed
 // by main.mjs as the boat moves; each fades out over its own life.
 export function drawWake(ctx, wake) {

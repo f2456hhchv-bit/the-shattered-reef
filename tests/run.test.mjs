@@ -83,6 +83,9 @@ test('reaching the final reef\'s exit ends the run in victory and banks all rema
   addSalvage(run, 5);
   run.boat.x = run.exitWorld.x;
   run.boat.y = run.exitWorld.y;
+  // The final level is the boss lair: its exit is sealed until the boss dies.
+  assert.equal(checkReachedExit(run), null, 'sealed while the boss lives');
+  for (const e of run.enemies) if (e.isBoss) e.health = 0;
   const result = checkReachedExit(run);
   assert.equal(result, 'victory');
   assert.equal(run.over, true);
@@ -124,6 +127,7 @@ test('sinking loses only the current reef\'s at-risk Salvage — banked Salvage 
 test('reaching the exit and sinking are mutually exclusive — whichever fires first wins', () => {
   const run = createRun(22);
   for (let i = 0; i < REEF_COUNT; i++) {
+    for (const e of run.enemies) if (e.isBoss) e.health = 0; // open the lair's exit
     run.boat.x = run.exitWorld.x;
     run.boat.y = run.exitWorld.y;
     checkReachedExit(run);

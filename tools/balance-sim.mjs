@@ -226,6 +226,8 @@ function replanIfNeeded(run, bot, dt) {
   const tp = tilePath(run, run.boat.x, run.boat.y, target.x, target.y);
   if (tp) {
     bot.waypoints = tp;
+  } else if (!run.maze) {
+    bot.waypoints = []; // lair: no graph fallback; the direct approach below
   } else {
     const fromCell = cellOf(run, run.boat.x, run.boat.y);
     const toCell = cellOf(run, target.x, target.y);

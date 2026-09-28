@@ -1508,6 +1508,59 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   - Stages 2+ are the same difficulty as stage 1 on new seeds (see
     Known open questions).
 
+- **Phase:** the boss lair (project owner: "Boss level needs to be
+  different... a circle with a main central pit where the boss has its
+  lair").
+- **Just shipped:**
+  - `src/engine/lair.mjs` (`buildLairGrid`). Level 5 of every stage is a
+    round atoll instead of a square maze: an outer ring channel (spawn
+    sits between two spokes) → 3 spokes → a middle ring → 2 spokes,
+    offset so there's no straight run in → the central pit, with 3 rock
+    pillars to kite around. Ring edges wobble with noise, but each ring
+    bends as a whole with only a small wobble on its width, so channels
+    never pinch. Same tile-grid contract as the maze, so the coast
+    field, collision, spawns and the art all work unchanged.
+  - `run.mjs`: `REEF_TUNING[4].layout = 'lair'`, and `buildLairWorld`
+    (`run.maze` is `null`; `run.lair = { centre, pitRadius }`). The boss
+    sits at the pit centre, **tethered** to the pit (`enemy.tether` in
+    `enemies.mjs`), so it never follows you out through the spokes.
+    Regular enemies never spawn in the pit
+    (`spawnReefEnemies(..., { exitClearance })`).
+  - **The lair's exit is sealed until the boss dies** (`run.exitLocked`,
+    `isExitOpen(run)`, checked in `checkReachedExit`). This replaces the
+    old "slip past the boss" rule for level 5; with the lair in the
+    centre, slipping past no longer makes sense. It's a reversible
+    design call made without asking; tell the project owner.
+  - **Art:** dark currents circle the pit (`drawLairCurrents`). The exit
+    is a dark sealed vortex (`drawSealedExit`) until the kill, then the
+    gold whirlpool, with the toast "the whirlpool opens! Sail into it".
+    The level-5 status line reads "reach the Kraken's lair and sink it".
+  - **Debug:** `__shatteredReefSetEnemyHealth(id, hp)` (testing only),
+    and the debug snapshot's enemies now include `id` and `aggro`.
+    Without the id, playtest scripts had silently been targeting
+    nothing.
+  - Tests: `tests/lair.test.mjs`, 7 tests:
+    - connected, with a hull-clear path from spawn into the pit
+    - round (solid corners, open pit)
+    - both rings keep hull clearance in the drawn coast at every angle
+      across 12 stages
+    - the boss is centred; regular enemies stay out of the pit
+    - the tether holds for 20s with the boat outside
+    - the exit is sealed until the kill
+    - deterministic
+    Two run tests updated to kill the boss before the final exit.
+    287/287 tests.
+  - Live playtest with no console errors:
+    - entering the pit wakes the boss
+    - touching the sealed exit does nothing
+    - killing the boss through the real hit path opens it
+    - sailing in gives victory and unlocks stage 2
+    - an overview render confirms the ring/spoke/pit shape
+  - Balance sim (40 runs): bots that reached the lair beat the boss
+    60% of the time, with a median level-5 clear of 118s.
+- **Next up:** play the lair and judge the fight's size and feel (pit
+  radius 176px, pillars, tether). Then the rest of the list above.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2084,6 +2137,13 @@ Starting fresh below for the new game.)*
   failure was flyers crossing the whole map to the spawn. Pacing
   encounters by exploration is the standard for maze shooters, and it
   makes enemy placement mean something.
+
+- 2026-09-28: Level 5 is a circular lair (project owner's design) with
+  the boss tethered to a central pit, and the exit sealed until the boss
+  dies. The seal overrides the earlier "guards the exit, can be slipped
+  past" answer for boss levels. That answer was given for a boss guarding
+  a maze exit; a boss whose lair *is* the exit makes the kill the point
+  of the level. Flagged to the project owner as reversible.
 
 ## Known open questions (do not silently resolve — ask)
 

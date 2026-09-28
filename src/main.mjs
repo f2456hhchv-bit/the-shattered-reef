@@ -11,12 +11,12 @@ import { createTerrainRenderer } from './engine/terrainRenderer.mjs';
 import { getBiome, BIOME_IDS } from './data/biomes.mjs';
 import {
   createRun, checkReachedExit, checkSunk, addSalvage, totalSalvage, BOAT_RADIUS,
-  TIER_COUNT, LEVELS_PER_STAGE, biomeForStage,
+  TIER_COUNT, LEVELS_PER_STAGE, biomeForStage, isExitOpen,
 } from './engine/run.mjs';
 import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
 import {
-  drawExit, drawWake, drawBoat, drawEnemies, drawProjectiles, drawPickups,
+  drawExit, drawWake, drawSealedExit, drawLairCurrents, drawBoat, drawEnemies, drawProjectiles, drawPickups,
   drawParticles, drawDamageNumbers, PALETTE,
 } from './engine/renderer.mjs';
 import { createJoystick } from './input/joystick.mjs';
@@ -629,6 +629,7 @@ export function startApp(root) {
     return r.stage ? `Stage ${r.stage} – Level ${r.reefIndex + 1}/${r.reefCount}` : `Level ${r.reefIndex + 1}/${r.reefCount}`;
   }
   function levelStartStatus(r = run) {
+    if (r.lair) return `${stageLevelText(r)} — reach the Kraken's lair and sink it ⚓`;
     return r.enemies.some((e) => e.isBoss)
       ? `${stageLevelText(r)} — the Kraken's Anchor guards the exit ⚓`
       : `${stageLevelText(r)} — find the exit ⚓`;
@@ -721,7 +722,7 @@ export function startApp(root) {
     enemyCount: run.enemies.filter((e) => e.health > 0).length,
     projectileCount: run.weapons.projectiles.length,
     enemies: run.enemies.filter((e) => e.health > 0).map((e) => ({
-      defId: e.defId, x: e.x, y: e.y, health: e.health, invulnerable: e.invulnerable,
+      id: e.id, defId: e.defId, aggro: e.aggro, x: e.x, y: e.y, health: e.health, invulnerable: e.invulnerable,
       isBoss: e.isBoss, phaseIndex: e.phaseIndex,
     })),
     firing: isFiring, cooldownRemaining: run.weapons.cooldownRemaining,
@@ -766,6 +767,13 @@ export function startApp(root) {
   window.__shatteredReefMoveEnemy = (id, x, y) => {
     const e = run.enemies.find((en) => en.id === id);
     if (e) { e.x = x; e.y = y; e.vx = 0; e.vy = 0; }
+    return !!e;
+  };
+  // Testing-only: set a live enemy's health (e.g. 1, to finish a boss
+  // through the real hit path in a playtest). Unreachable from any UI.
+  window.__shatteredReefSetEnemyHealth = (id, health) => {
+    const e = run.enemies.find((en) => en.id === id);
+    if (e) e.health = health;
     return !!e;
   };
   window.__shatteredReefSpawnEnemy = (defId, x, y, health) => {
@@ -881,7 +889,7 @@ export function startApp(root) {
             addShake(shake, 1);
             triggerHitStop(hitStop, 0.15);
             playBossDefeated();
-            showToast("The Kraken's Anchor is defeated! ⚓");
+            showToast(run.lair ? "The Kraken's Anchor is defeated — the whirlpool opens! Sail into it ⚓" : "The Kraken's Anchor is defeated! ⚓");
             run.bossDefeated = true; // engine/meta.mjs's recordRunResult awards a Kraken Scale
           } else {
             spawnKillBurst(particles, ev.enemy.x, ev.enemy.y, weaponColor, Math.random);
@@ -909,7 +917,7 @@ export function startApp(root) {
               addShake(shake, 1);
               triggerHitStop(hitStop, 0.15);
               playBossDefeated();
-              showToast("The Kraken's Anchor is defeated! ⚓");
+              showToast(run.lair ? "The Kraken's Anchor is defeated — the whirlpool opens! Sail into it ⚓" : "The Kraken's Anchor is defeated! ⚓");
               run.bossDefeated = true;
             } else {
               spawnKillBurst(particles, enemy.x, enemy.y, PALETTE.burn, Math.random);
@@ -1034,8 +1042,10 @@ export function startApp(root) {
     ensureTerrain();
     terrainRenderer.draw(ctx, view.visible, now / 1000, { forceVisible: terrainFresh, maxNewChunks: 0 });
     terrainFresh = false;
+    if (run.lair) drawLairCurrents(ctx, run.lair.centre, run.lair.pitRadius, now / 1000);
     drawWake(ctx, wake);
-    drawExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
+    if (isExitOpen(run)) drawExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
+    else drawSealedExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
     drawPickups(ctx, run.pickups, (p) => WEAPON_SHORT_LABEL[p.weaponId], now / 1000);
     drawEnemies(
       ctx, run.enemies, (e) => e.colorHex || enemyColor(e), now / 1000,

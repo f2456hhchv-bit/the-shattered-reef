@@ -15,6 +15,7 @@
 
 import { makeSeededRng } from './rng.mjs';
 import { buildCoastField } from './terrain.mjs';
+import { buildLairGrid } from './lair.mjs';
 import { mixSeed, encodeLevelCode } from './levels.mjs';
 import { BIOME_IDS } from '../data/biomes.mjs';
 import { generateMazeGraph, farthestCell, buildOrganicReefGrid, cellCenterTile } from './maze.mjs';
@@ -63,7 +64,8 @@ const REEF_TUNING = [
   { cols: 6, rows: 6, enemyCount: 6 },
   { cols: 7, rows: 7, enemyCount: 8 },
   { cols: 8, rows: 8, enemyCount: 10 },
-  { cols: 9, rows: 9, enemyCount: 11, boss: true },
+  // Level 5 is the boss lair (engine/lair.mjs): a round atoll, not a maze.
+  { cols: 9, rows: 9, enemyCount: 11, boss: true, layout: 'lair' },
 ]
 
 export const TIER_COUNT = REEF_TUNING.length;
@@ -91,8 +93,30 @@ export function stageLevel(stage, levelIndex) {
   return { biomeId: biomeForStage(stage), tier: levelIndex + 1, seed: mixSeed(STAGE_SEED_BASE + stage, levelIndex) };
 }
 
+function buildLairWorld(rng) {
+  const lair = buildLairGrid(rng);
+  const coastSeed = Math.floor(rng() * 2 ** 31);
+  const coast = buildCoastField(lair.grid, TILE_SIZE, coastSeed);
+  return {
+    maze: null, // no graph maze: the lair is rings and spokes
+    lair: {
+      centre: { x: lair.centreTile.tx * TILE_SIZE, y: lair.centreTile.ty * TILE_SIZE },
+      pitRadius: lair.pitRadiusTiles * TILE_SIZE,
+    },
+    grid: lair.grid,
+    coast,
+    coastSeed,
+    tileSize: TILE_SIZE,
+    spawnWorld: { x: lair.spawnTile.tx * TILE_SIZE, y: lair.spawnTile.ty * TILE_SIZE },
+    exitWorld: { x: lair.centreTile.tx * TILE_SIZE, y: lair.centreTile.ty * TILE_SIZE },
+    widthPx: lair.grid.width * TILE_SIZE,
+    heightPx: lair.grid.height * TILE_SIZE,
+  };
+}
+
 function buildReefWorld(rng, tier) {
   const tuning = tuningFor(tier);
+  if (tuning.layout === 'lair') return buildLairWorld(rng);
   const maze = generateMazeGraph(tuning.cols, tuning.rows, rng);
   const grid = buildOrganicReefGrid(maze, rng, { room: ROOM, wall: WALL });
   // The smooth coastline (engine/terrain.mjs) is what the boat collides
@@ -135,6 +159,9 @@ function enterReef(run, reefIndex) {
   run.levelCode = encodeLevelCode(level);
   run.levelCodes[reefIndex] = run.levelCode;
   run.maze = world.maze;
+  run.lair = world.lair || null;
+  // A lair's exit is a sealed whirlpool until its boss dies (isExitOpen).
+  run.exitLocked = !!world.lair;
   run.grid = world.grid;
   run.coast = world.coast;
   run.coastSeed = world.coastSeed;
@@ -152,11 +179,23 @@ function enterReef(run, reefIndex) {
 
   run.enemies = spawnReefEnemies(
     spawnPoolForReefIndex(level.tier - 1), run.grid, run.tileSize,
-    world.spawnWorld, run.exitWorld, tuning.enemyCount, rng
+    world.spawnWorld, run.exitWorld, tuning.enemyCount, rng,
+    // In a lair the pit belongs to the boss alone.
+    world.lair ? { exitClearance: world.lair.pitRadius + run.tileSize * 2 } : {},
   );
   if (tuning.boss) {
     // The stage finale: The Kraken's Anchor always guards level 5's exit.
-    run.enemies.push(...spawnReefEnemies([ENEMY_IDS.KRAKENS_ANCHOR], run.grid, run.tileSize, world.spawnWorld, run.exitWorld, 1, rng));
+    const bosses = spawnReefEnemies([ENEMY_IDS.KRAKENS_ANCHOR], run.grid, run.tileSize, world.spawnWorld, run.exitWorld, 1, rng);
+    if (world.lair) {
+      for (const b of bosses) {
+        // Lives in its pit: centred, and tethered so it never follows you
+        // out through the spokes.
+        b.x = b.home.x = world.lair.centre.x;
+        b.y = b.home.y = world.lair.centre.y;
+        b.tether = world.lair.pitRadius - b.radius - 4;
+      }
+    }
+    run.enemies.push(...bosses);
   }
   run.pickups = spawnReefPickups(run.grid, run.tileSize, world.spawnWorld, rng);
   run.reefSalvage = 0;
@@ -235,8 +274,15 @@ export function addSalvage(run, amount) {
 //   'advanced' — this reef's Salvage was banked and the voyage moved on to
 //                the next reef (run stays in progress)
 //   'victory'  — the last reef's exit was reached; the whole voyage is over
+// The exit is open unless it's a lair's sealed whirlpool with its boss
+// still alive.
+export function isExitOpen(run) {
+  return !run.exitLocked || !run.enemies.some((e) => e.isBoss && e.health > 0);
+}
+
 export function checkReachedExit(run) {
   if (run.over) return null;
+  if (!isExitOpen(run)) return null;
   const dx = run.boat.x - run.exitWorld.x;
   const dy = run.boat.y - run.exitWorld.y;
   if (Math.hypot(dx, dy) > EXIT_RADIUS_TILES * run.tileSize) return null;
