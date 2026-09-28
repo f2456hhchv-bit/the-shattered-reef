@@ -50,11 +50,20 @@ export const SHIP_HULLS = {
     name: 'Skiff',
     description: 'Fast and nimble but fragile — outrun trouble instead of tanking it.',
     cost: 150,
-    maxHull: Math.round(MAX_HULL * 0.75), // 75
+    // Retuned 2026-09-28 (faction balance pass): was 75 hull / dragMult
+    // 0.95. Low drag made the fastest hull also the slipperiest — it
+    // coasted into rock far more than any other hull (wall damage ~2x the
+    // Sloop's even with a wall-aware evasive bot), so it sank ~45% of
+    // voyages vs the Sloop's ~19%: a 150-Salvage downgrade. "Nimble" means
+    // snappy, so drag is now HIGHER than baseline (stops/turns crisply),
+    // and hull 85 — still the frailest hull, but its agility now buys
+    // Sloop-level survival (~20% sunk, less contact damage taken) instead
+    // of losing to it. See tools/faction-compare.mjs.
+    maxHull: Math.round(MAX_HULL * 0.85), // 85
     accelMult: 1.15,
     maxSpeedMult: 1.2,
     turnRateMult: 1.3,
-    dragMult: 0.95,
+    dragMult: 1.15,
   },
 };
 
@@ -196,34 +205,49 @@ export function getCharm(id) {
 // baseline loadout). The combat-TRIANGLE damage bonus itself (Reavers >
 // Iron Accord > Wyrdtide > Reavers) lives in data/factions.mjs and applies
 // automatically once selectedFaction is set — nothing here computes it.
+//
+// WEAPON-BIAS RULE — "cover your weakness" (decided 2026-09-28 with data,
+// enforced by tests/meta.test.mjs): each faction starts holding the counter
+// weapon for an enemy of the faction that BEATS it. The triangle already
+// favors you against your prey; your kit is what gets you through your
+// predator. The roster is heavily skewed (Reavers ~70% of enemies, Iron
+// Accord absent until reef 3), and this rule puts each faction's help
+// exactly where its triangle hurts most: Iron Accord's worst reef is 1
+// (Reaver packs) → Grapeshot; the Reavers' worst is 2 (Harpies + Crawlers)
+// → Chain Shot; Wyrdtide, already the strongest, gets Flame Barrels, which
+// only matters against reef-3 Brigands. The "hunter" rule (counter your
+// prey) was measured and rejected: it hands the dominant faction the best
+// early weapon. Passives were swapped the same way: the fragile Reavers
+// get the survival charm (Last Gasp), the strongest faction gets the
+// economy one (First Haul). Measured with tools/faction-compare.mjs.
 export const PLAYABLE_FACTION_IDS = FACTION_IDS;
 
 export const PLAYABLE_FACTIONS = {
   [FACTION_IDS.REAVERS]: {
     id: FACTION_IDS.REAVERS,
     name: FACTIONS[FACTION_IDS.REAVERS].name,
-    description: 'Sail as the Reavers: the Skiff hull, Grapeshot loaded from Reef 1, and a raider\'s instinct for early plunder (First Haul\'s Salvage bonus, free).',
+    description: 'Sail as the Reavers: the Skiff hull, Chain Shot loaded from Reef 1 to bring down the Wyrdtide flyers that prey on you, and a raider\'s refusal to sink (Last Gasp\'s once-per-run revive, free).',
     cost: 200,
     hullId: HULL_IDS.SKIFF,
-    extraHeldWeapon: WEAPON_IDS.GRAPESHOT,
-    grantsCharm: CHARM_IDS.FIRST_HAUL,
+    extraHeldWeapon: WEAPON_IDS.CHAIN_SHOT,
+    grantsCharm: CHARM_IDS.LAST_GASP,
   },
   [FACTION_IDS.WYRDTIDE]: {
     id: FACTION_IDS.WYRDTIDE,
     name: FACTIONS[FACTION_IDS.WYRDTIDE].name,
-    description: 'Sail as Wyrdtide: the Sloop hull, Depth Charges loaded from Reef 1, and a mystic reprieve from death (Last Gasp\'s once-per-run revive, free).',
+    description: 'Sail as Wyrdtide: the Sloop hull, Flame Barrels loaded from Reef 1 to burn through the Iron Accord armor that preys on you, and the tide\'s early favor (First Haul\'s Salvage bonus, free).',
     cost: 200,
     hullId: HULL_IDS.SLOOP,
-    extraHeldWeapon: WEAPON_IDS.DEPTH_CHARGES,
-    grantsCharm: CHARM_IDS.LAST_GASP,
+    extraHeldWeapon: WEAPON_IDS.FLAME_BARRELS,
+    grantsCharm: CHARM_IDS.FIRST_HAUL,
   },
   [FACTION_IDS.IRON_ACCORD]: {
     id: FACTION_IDS.IRON_ACCORD,
     name: FACTIONS[FACTION_IDS.IRON_ACCORD].name,
-    description: 'Sail as the Iron Accord: the Longboat hull, Chain Shot loaded from Reef 1, and disciplined reload drills (Steady Hands\' ammo regen, free).',
+    description: 'Sail as the Iron Accord: the Longboat hull, Grapeshot loaded from Reef 1 to shred the Reaver packs that prey on you, and disciplined reload drills (Steady Hands\' ammo regen, free).',
     cost: 200,
     hullId: HULL_IDS.LONGBOAT,
-    extraHeldWeapon: WEAPON_IDS.CHAIN_SHOT,
+    extraHeldWeapon: WEAPON_IDS.GRAPESHOT,
     grantsCharm: CHARM_IDS.STEADY_HANDS,
   },
 };

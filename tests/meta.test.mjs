@@ -7,7 +7,8 @@ import {
   PLAYABLE_FACTIONS, getPlayableFaction,
   WORKSHOP_UPGRADE_IDS, WORKSHOP_UPGRADES,
 } from '../src/data/meta.mjs';
-import { FACTION_IDS } from '../src/data/factions.mjs';
+import { FACTION_IDS, FACTION_LIST } from '../src/data/factions.mjs';
+import { ENEMIES } from '../src/data/enemies.mjs';
 import { WEAPON_IDS } from '../src/data/weapons.mjs';
 import {
   createDefaultMeta, loadMeta, saveMeta,
@@ -298,11 +299,12 @@ test('resolveLoadout with a faction selected overrides the hull, adds its weapon
 test('a faction\'s weapon bias does not duplicate one already granted by an owned Cargo Loadout tier', () => {
   const meta = createDefaultMeta();
   meta.salvage = 1000;
-  const faction = getPlayableFaction(FACTION_IDS.IRON_ACCORD); // grants Chain Shot
+  const faction = getPlayableFaction(FACTION_IDS.REAVERS); // grants Chain Shot
+  assert.equal(faction.extraHeldWeapon, WEAPON_IDS.CHAIN_SHOT, 'precondition: this test needs an overlap to be meaningful');
   // Chain Locker also grants Chain Shot.
   purchaseCargoTier(meta, CARGO_TIER_IDS.CHAIN_LOCKER);
-  purchaseFaction(meta, FACTION_IDS.IRON_ACCORD);
-  selectFaction(meta, FACTION_IDS.IRON_ACCORD);
+  purchaseFaction(meta, FACTION_IDS.REAVERS);
+  selectFaction(meta, FACTION_IDS.REAVERS);
 
   const loadout = resolveLoadout(meta);
   const count = loadout.extraHeldWeapons.filter((w) => w === faction.extraHeldWeapon).length;
@@ -313,8 +315,8 @@ test('a faction\'s granted passive stacks with (does not replace) a separately o
   const meta = createDefaultMeta();
   meta.salvage = 1000;
   purchaseCharm(meta, CHARM_IDS.FIRST_HAUL);
-  purchaseFaction(meta, FACTION_IDS.WYRDTIDE); // grants Last Gasp
-  selectFaction(meta, FACTION_IDS.WYRDTIDE);
+  purchaseFaction(meta, FACTION_IDS.REAVERS); // grants Last Gasp
+  selectFaction(meta, FACTION_IDS.REAVERS);
 
   const loadout = resolveLoadout(meta);
   assert.equal(loadout.charms.firstHaul, true, 'separately owned charm should still apply');
@@ -424,4 +426,26 @@ test('loadMeta keeps a valid, owned faction/hull selection untouched', () => {
   assert.equal(meta.selectedFaction, FACTION_IDS.WYRDTIDE);
   assert.equal(meta.selectedHull, HULL_IDS.SKIFF);
   assert.equal(meta.krakenScales, 3);
+});
+
+// The weapon-bias rule, enforced (2026-09-28): "cover your weakness" —
+// each faction's starting weapon must counter at least one enemy of the
+// faction that beats it. Guards against the biases drifting back to
+// arbitrary picks (the original set satisfied no consistent rule).
+test('every faction\'s weapon bias counters an enemy of the faction that beats it', () => {
+  for (const pf of Object.values(PLAYABLE_FACTIONS)) {
+    const predator = FACTION_LIST.find((f) => f.beats === pf.id);
+    assert.ok(predator, `${pf.id} should have a predator in the triangle`);
+    const predatorCounters = Object.values(ENEMIES)
+      .filter((e) => e.faction === predator.id)
+      .map((e) => e.counter);
+    assert.ok(predatorCounters.length > 0, `${predator.id} should field at least one enemy`);
+    assert.ok(predatorCounters.includes(pf.extraHeldWeapon),
+      `${pf.id} starts with ${pf.extraHeldWeapon}, which counters none of its predator (${predator.id})'s enemies: ${predatorCounters}`);
+  }
+});
+
+test('the three factions grant three different passives (no duplicated identity)', () => {
+  const charms = Object.values(PLAYABLE_FACTIONS).map((f) => f.grantsCharm);
+  assert.equal(new Set(charms).size, charms.length);
 });

@@ -396,3 +396,13 @@ test('the faction and crafted multipliers stack multiplicatively', () => {
   const expected = damageAgainst(WEAPONS[WEAPON_IDS.CANNONBALLS], enemy.counter) * 1.3 * 1.2;
   assert.ok(Math.abs(events[0].damage - expected) < 1e-9);
 });
+
+test('stepAmmoRegen reports whether any ammo was actually gained (drives the ammo display refresh)', () => {
+  const state = createWeaponState([WEAPON_IDS.CHAIN_SHOT], 0);
+  assert.equal(stepAmmoRegen(state, 5), false, 'no charm: never reports a change');
+  state.ammoRegenPerSecond = 1;
+  assert.equal(stepAmmoRegen(state, 0.5), false, 'half a tick accumulated: nothing gained yet');
+  assert.equal(stepAmmoRegen(state, 0.5), true, 'crossing a whole unit reports a change');
+  state.ammo[WEAPON_IDS.CHAIN_SHOT] = WEAPONS[WEAPON_IDS.CHAIN_SHOT].ammoMax;
+  assert.equal(stepAmmoRegen(state, 5), false, 'already full: no change to report');
+});

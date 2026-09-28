@@ -204,7 +204,68 @@ function standOffDistance(run, bot) {
   return Math.max(enemy.radius + BOAT_RADIUS + 6, weapon.range * 0.6);
 }
 
+// Evasion (added 2026-09-28, Opus faction pass): the bot previously never
+// retreated, so every hull took the same contact damage and a speed-based
+// hull (the Skiff, i.e. the Reavers) was systematically undervalued — the
+// tool was blind to exactly the variable being tuned. Now any live enemy
+// inside DANGER_RADIUS of contact range pushes a weighted flee vector
+// (1 at contact, 0 at the edge), blended with the route so the bot kites
+// around threats instead of pinning itself in a corner. BOT_EVASION=0
+// restores the old behaviour for A/B comparison on the same seeds.
+const EVASION = process.env.BOT_EVASION !== '0';
+const DANGER_RADIUS = 55;
+function threatVector(run) {
+  let tx = 0, ty = 0;
+  for (const e of run.enemies) {
+    if (e.health <= 0) continue;
+    const dx = run.boat.x - e.x, dy = run.boat.y - e.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const contact = e.radius + BOAT_RADIUS;
+    if (d > contact + DANGER_RADIUS) continue;
+    const w = Math.min(1, 1 - (d - contact) / DANGER_RADIUS);
+    tx += (dx / d) * w;
+    ty += (dy / d) * w;
+  }
+  return { x: tx, y: ty, mag: Math.hypot(tx, ty) };
+}
+
+// Context steering: score 16 candidate headings by how well they flee the
+// threat, follow the route, and keep clear of rock (a short raycast into
+// the tile grid) — a naive "flee straight away" rammed walls constantly
+// (wall damage rose from ~4 to 30-40 per voyage), which no real player
+// does. Only engages when something is actually inside DANGER_RADIUS.
+function wallClearance(run, dirX, dirY) {
+  const step = run.tileSize / 2;
+  const maxDist = run.tileSize * 3;
+  for (let d = step; d <= maxDist; d += step) {
+    const tx = Math.floor((run.boat.x + dirX * d) / run.tileSize);
+    const ty = Math.floor((run.boat.y + dirY * d) / run.tileSize);
+    if (tx < 0 || ty < 0 || tx >= run.grid.width || ty >= run.grid.height) return d / maxDist;
+    if (run.grid.tiles[ty][tx] === 1) return d / maxDist;
+  }
+  return 1;
+}
+
 function steerVector(run, bot) {
+  const base = routeVector(run, bot);
+  if (!EVASION) return base;
+  const t = threatVector(run);
+  if (t.mag < 0.15) return base;
+  const threatW = Math.min(1.5, t.mag);
+  let best = base, bestScore = -Infinity;
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    const dx = Math.cos(a), dy = Math.sin(a);
+    const clear = wallClearance(run, dx, dy);
+    const score = threatW * (dx * t.x + dy * t.y) / t.mag
+      + 0.6 * (dx * base.x + dy * base.y)
+      - 2.2 * (1 - clear);
+    if (score > bestScore) { bestScore = score; best = { x: dx, y: dy }; }
+  }
+  return best;
+}
+
+function routeVector(run, bot) {
   if (!bot.waypoints.length) return { x: 0, y: 0 };
 
   const standOff = standOffDistance(run, bot);

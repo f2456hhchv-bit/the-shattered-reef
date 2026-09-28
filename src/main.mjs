@@ -591,6 +591,7 @@ export function startApp(root) {
     })),
     firing: isFiring, cooldownRemaining: run.weapons.cooldownRemaining,
     heldWeapons: Array.from(run.weapons.heldWeapons),
+    ammo: { ...run.weapons.ammo },
     pickupsRemaining: run.pickups.filter((p) => !p.collected).length,
     pickups: run.pickups.map((p) => ({
       kind: p.kind, weaponId: p.weaponId, x: p.x, y: p.y, collected: p.collected,
@@ -672,7 +673,7 @@ export function startApp(root) {
         if (fired) { updateWeaponBar(); playFire(run.weapons.activeWeaponId); }
       }
       stepCombat(run.weapons, dt, run.grid, run.tileSize);
-      stepAmmoRegen(run.weapons, dt);
+      if (stepAmmoRegen(run.weapons, dt)) updateWeaponBar();
       updateEnemies(run.enemies, run.boat, dt, run.grid, run.tileSize);
 
       // The Kraken's Anchor announces its own phase swaps (submerged/

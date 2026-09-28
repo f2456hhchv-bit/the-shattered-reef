@@ -43,8 +43,14 @@ export function createWeaponState(extraHeldWeapons = [], startingAmmoMultiplier 
 // Steady Hands charm support: slowly regenerates ammo for every held,
 // finite-ammo weapon over time, independent of pickups. A no-op (cheap to
 // call unconditionally) when ammoRegenPerSecond is 0 — no charm owned.
+//
+// Returns true if any weapon actually gained ammo this call, so the caller
+// can refresh the ammo display only then — without it the regen was
+// invisible (the weapon bar only redrew on fire/pickup), making the charm
+// look broken on a phone (found in a live playtest, 2026-09-28).
 export function stepAmmoRegen(state, dt) {
-  if (state.ammoRegenPerSecond <= 0) return;
+  if (state.ammoRegenPerSecond <= 0) return false;
+  let changed = false;
   for (const weaponId of state.heldWeapons) {
     const weapon = getWeapon(weaponId);
     if (!Number.isFinite(weapon.ammoMax)) continue;
@@ -57,10 +63,12 @@ export function stepAmmoRegen(state, dt) {
     if (gained > 0) {
       state.ammo[weaponId] = Math.min(weapon.ammoMax, state.ammo[weaponId] + gained);
       state.ammoRegenAccum[weaponId] = accum - gained;
+      changed = true;
     } else {
       state.ammoRegenAccum[weaponId] = accum;
     }
   }
+  return changed;
 }
 
 export function isHeld(state, weaponId) {
