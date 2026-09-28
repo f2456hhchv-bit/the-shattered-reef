@@ -20,8 +20,11 @@ export const MAX_HULL = 100;
 export const WALL_IMPACT_DAMAGE_THRESHOLD = 40; // px/s of inward speed below this: no damage (a graze)
 export const WALL_IMPACT_DAMAGE_PER_SPEED = 0.12; // hull lost per px/s of inward speed above the threshold
 
-export function createBoat(x, y, heading = 0) {
-  return { x, y, heading, vx: 0, vy: 0, health: MAX_HULL };
+// `maxHull` defaults to the baseline MAX_HULL but can be overridden per the
+// selected Ship Hull (data/meta.mjs) — stored on the boat itself so UI and
+// damage code read the boat's own capacity rather than a fixed constant.
+export function createBoat(x, y, heading = 0, maxHull = MAX_HULL) {
+  return { x, y, heading, vx: 0, vy: 0, health: maxHull, maxHull };
 }
 
 function shortestAngleDelta(from, to) {

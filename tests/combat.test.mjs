@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   createWeaponState, setActiveWeapon, canFire, tryFire, ammoFor, isHeld,
   collectWeaponCache, stepCombat, cleanupProjectiles, resolveHits, applyDamageToEnemy, stepBurn,
+  stepAmmoRegen,
 } from '../src/engine/combat.mjs';
 import { WEAPON_IDS, WEAPONS, damageAgainst } from '../src/data/weapons.mjs';
 import { ENEMY_IDS } from '../src/data/enemies.mjs';
@@ -248,4 +249,50 @@ test('applyDamageToEnemy reports a kill once health reaches 0', () => {
   const killed = applyDamageToEnemy(enemy, enemy.maxHealth + 10);
   assert.equal(killed, true);
   assert.equal(enemy.health, 0);
+});
+
+// --- createWeaponState's Cargo Loadout params (step 7) ------------------
+
+test('createWeaponState grants extra held weapons with ammo scaled by the starting-ammo multiplier', () => {
+  const state = createWeaponState([WEAPON_IDS.CHAIN_SHOT], 1);
+  assert.equal(isHeld(state, WEAPON_IDS.CHAIN_SHOT), true);
+  assert.equal(ammoFor(state, WEAPON_IDS.CHAIN_SHOT), WEAPONS[WEAPON_IDS.CHAIN_SHOT].ammoMax);
+
+  const boosted = createWeaponState([WEAPON_IDS.GRAPESHOT], 1.5);
+  const expected = Math.min(WEAPONS[WEAPON_IDS.GRAPESHOT].ammoMax, Math.round(WEAPONS[WEAPON_IDS.GRAPESHOT].ammoMax * 1.5));
+  assert.equal(ammoFor(boosted, WEAPON_IDS.GRAPESHOT), expected);
+});
+
+test('createWeaponState with no extra weapons behaves exactly like the no-arg call (backward compatible)', () => {
+  const state = createWeaponState();
+  assert.deepEqual(Array.from(state.heldWeapons), [WEAPON_IDS.CANNONBALLS]);
+});
+
+// --- stepAmmoRegen (Steady Hands charm support) -------------------------
+
+test('stepAmmoRegen does nothing when ammoRegenPerSecond is 0 (no charm owned)', () => {
+  const state = createWeaponState([WEAPON_IDS.CHAIN_SHOT], 0);
+  const before = ammoFor(state, WEAPON_IDS.CHAIN_SHOT);
+  stepAmmoRegen(state, 100);
+  assert.equal(ammoFor(state, WEAPON_IDS.CHAIN_SHOT), before);
+});
+
+test('stepAmmoRegen slowly regenerates ammo for held finite-ammo weapons over time, clamped at max', () => {
+  const state = createWeaponState([WEAPON_IDS.CHAIN_SHOT], 0);
+  state.ammoRegenPerSecond = 1; // 1 ammo/sec for this test, easy to reason about
+  assert.equal(ammoFor(state, WEAPON_IDS.CHAIN_SHOT), 0);
+  stepAmmoRegen(state, 3.4);
+  assert.equal(ammoFor(state, WEAPON_IDS.CHAIN_SHOT), 3, 'partial seconds should accumulate, not round up early');
+  stepAmmoRegen(state, 0.6);
+  assert.equal(ammoFor(state, WEAPON_IDS.CHAIN_SHOT), 4, 'the leftover 0.6+0.4 should now cross a whole ammo');
+
+  stepAmmoRegen(state, 1000);
+  assert.equal(ammoFor(state, WEAPON_IDS.CHAIN_SHOT), WEAPONS[WEAPON_IDS.CHAIN_SHOT].ammoMax, 'should clamp at the weapon max');
+});
+
+test('stepAmmoRegen never touches Cannonballs (unlimited ammo already, nothing to regen)', () => {
+  const state = createWeaponState();
+  state.ammoRegenPerSecond = 5;
+  stepAmmoRegen(state, 10);
+  assert.equal(ammoFor(state, WEAPON_IDS.CANNONBALLS), Infinity);
 });

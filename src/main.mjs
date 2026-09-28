@@ -1,21 +1,30 @@
 // Boots the game: canvas setup, the run/level, input, combat, the game
-// loop, and the HUD. Step 3 (combat core) is now wired in alongside the
-// step 2 navigation loop: weapons, projectiles, hit detection, and enemy
-// AI with niches — the Overboard hook (wrong weapon = little/no effect).
+// loop, the HUD, and the Captain's Hub (step 7 — meta-progression). The
+// app now opens on the Hub rather than straight into a run: Salvage
+// persisted across runs (localStorage, engine/meta.mjs) is spent there on
+// Ship Hulls / Cargo Loadouts / Captain's Charms before "Set Sail" starts
+// an actual voyage with that loadout resolved into it.
 
-import { createRun, checkReachedExit, checkSunk, addSalvage, totalSalvage, BOAT_RADIUS } from './engine/run.mjs';
-import { stepBoat, resolveTileCollision, applyWallImpactDamage, DEFAULT_BOAT_TUNING, MAX_HULL } from './engine/boat.mjs';
+import {
+  createRun, checkReachedExit, checkSunk, addSalvage, totalSalvage, BOAT_RADIUS,
+} from './engine/run.mjs';
+import { stepBoat, resolveTileCollision, applyWallImpactDamage } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
 import { drawTileGrid, drawExit, drawBoat, drawEnemies, drawProjectiles, drawPickups, PALETTE } from './engine/renderer.mjs';
 import { createJoystick } from './input/joystick.mjs';
 import {
-  tryFire, stepCombat, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, ammoFor, isHeld,
+  tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, ammoFor, isHeld,
 } from './engine/combat.mjs';
 import { updateEnemies, resolveEnemyContacts, currentCounter } from './engine/enemies.mjs';
 import { collectPickups } from './engine/pickups.mjs';
 import { PICKUP_KINDS } from './data/pickups.mjs';
 import { WEAPON_LIST, getWeapon } from './data/weapons.mjs';
 import { getEnemy } from './data/enemies.mjs';
+import { SHIP_HULL_LIST, CARGO_TIER_LIST, CHARM_LIST } from './data/meta.mjs';
+import {
+  loadMeta, saveMeta, resolveLoadout, recordRunResult, canAfford,
+  purchaseHull, selectHull, purchaseCargoTier, purchaseCharm,
+} from './engine/meta.mjs';
 
 const WEAPON_SHORT_LABEL = {
   chain_shot: 'CS', grapeshot: 'GS', depth_charges: 'DC', flame_barrels: 'FB', cannonballs: 'CB',
@@ -50,13 +59,47 @@ export function startApp(root) {
     <div id="run-summary-card">
       <h1 id="run-summary-title"></h1>
       <div id="run-summary-body"></div>
-      <button type="button" id="run-summary-btn">Sail again ⚓</button>
+      <button type="button" id="run-summary-btn">Return to Hub ⚓</button>
     </div>
   `;
   root.appendChild(summaryOverlay);
   const summaryTitle = summaryOverlay.querySelector('#run-summary-title');
   const summaryBody = summaryOverlay.querySelector('#run-summary-body');
   const summaryBtn = summaryOverlay.querySelector('#run-summary-btn');
+
+  // Captain's Hub — the app's home screen between runs. Persistent Salvage
+  // (meta.salvage, separate from a single run's bankedSalvage) is spent
+  // here on the 3 unlock tracks; "Set Sail" resolves the current loadout
+  // (engine/meta.mjs's resolveLoadout) and starts a fresh run with it.
+  const hubOverlay = document.createElement('div');
+  hubOverlay.id = 'captains-hub';
+  hubOverlay.innerHTML = `
+    <div id="hub-card">
+      <h1>Captain's Hub ⚓</h1>
+      <p id="hub-salvage"></p>
+      <p id="hub-stats"></p>
+      <section class="hub-section">
+        <h2>Ship Hulls</h2>
+        <div id="hub-hulls" class="hub-list"></div>
+      </section>
+      <section class="hub-section">
+        <h2>Cargo Loadouts</h2>
+        <div id="hub-cargo" class="hub-list"></div>
+      </section>
+      <section class="hub-section">
+        <h2>Captain's Charms</h2>
+        <div id="hub-charms" class="hub-list"></div>
+      </section>
+      <button type="button" id="hub-set-sail">Set Sail ⚓</button>
+    </div>
+  `;
+  root.appendChild(hubOverlay);
+  const hubSalvage = hubOverlay.querySelector('#hub-salvage');
+  const hubStats = hubOverlay.querySelector('#hub-stats');
+  const hubHulls = hubOverlay.querySelector('#hub-hulls');
+  const hubCargo = hubOverlay.querySelector('#hub-cargo');
+  const hubCharms = hubOverlay.querySelector('#hub-charms');
+  const hubSetSailBtn = hubOverlay.querySelector('#hub-set-sail');
 
   const fireButton = document.createElement('button');
   fireButton.id = 'fire-button';
@@ -82,7 +125,13 @@ export function startApp(root) {
   const ctx = canvas.getContext('2d');
   const joystick = createJoystick(touchLayer);
 
-  let run = createRun(Date.now() & 0xffffffff);
+  // Persistent meta-progression (localStorage). `run` always exists (so
+  // the frame loop below has something to render/step against even before
+  // the first voyage), but `sailing` gates whether physics/combat actually
+  // advance — false while the Hub overlay is up.
+  const meta = loadMeta(window.localStorage);
+  let run = createRun(Date.now() & 0xffffffff, resolveLoadout(meta));
+  let sailing = false;
   const camera = createCamera();
   camera.x = run.boat.x;
   camera.y = run.boat.y;
@@ -103,7 +152,7 @@ export function startApp(root) {
   }
 
   function updateHullBar() {
-    const pct = Math.max(0, Math.min(100, (run.boat.health / MAX_HULL) * 100));
+    const pct = Math.max(0, Math.min(100, (run.boat.health / run.boat.maxHull) * 100));
     const fill = document.getElementById('hull-bar-fill');
     fill.style.width = `${pct}%`;
     fill.classList.toggle('low', pct <= 30);
@@ -209,18 +258,104 @@ export function startApp(root) {
     flashTimer = setTimeout(() => hitFlash.classList.remove('show'), 160);
   }
 
-  function nextRun() {
-    run = createRun((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) & 0xffffffff);
+  // Rebuilds the Hub's displayed state from `meta` — called on boot and
+  // after every purchase/selection so the screen always reflects what was
+  // actually saved, not optimistic UI state.
+  function renderHub() {
+    hubSalvage.textContent = `Salvage: ${meta.salvage} ⚓`;
+    hubStats.textContent = `Runs sailed: ${meta.stats.runsPlayed} · Best reefs cleared: ${meta.stats.bestReefsCleared}/${run.reefCount} · Deepest reef reached: ${meta.stats.deepestReefReached}`;
+
+    hubHulls.innerHTML = '';
+    for (const hull of SHIP_HULL_LIST) {
+      const owned = meta.ownedHulls.includes(hull.id);
+      const selected = meta.selectedHull === hull.id;
+      const disabled = selected || (!owned && !canAfford(meta, hull.cost));
+      const label = selected ? 'Selected' : owned ? 'Select' : `Buy ${hull.cost} ⚓`;
+      const row = document.createElement('div');
+      row.className = 'hub-item';
+      row.innerHTML = `
+        <div class="hub-item-info">
+          <span class="hub-item-name">${hull.name}${selected ? ' ✓' : ''}</span>
+          <span class="hub-item-desc">${hull.description}</span>
+        </div>
+        <button type="button" class="hub-item-btn" data-hull-id="${hull.id}"${disabled ? ' disabled' : ''}>${label}</button>
+      `;
+      row.querySelector('button').addEventListener('click', () => {
+        if (!owned) {
+          const res = purchaseHull(meta, hull.id);
+          if (res.ok) selectHull(meta, hull.id);
+        } else {
+          selectHull(meta, hull.id);
+        }
+        saveMeta(window.localStorage, meta);
+        renderHub();
+      });
+      hubHulls.appendChild(row);
+    }
+
+    hubCargo.innerHTML = '';
+    for (const tier of CARGO_TIER_LIST) {
+      const owned = meta.ownedCargoTiers.includes(tier.id);
+      const disabled = owned || !canAfford(meta, tier.cost);
+      const row = document.createElement('div');
+      row.className = 'hub-item';
+      row.innerHTML = `
+        <div class="hub-item-info">
+          <span class="hub-item-name">${tier.name}${owned ? ' ✓' : ''}</span>
+          <span class="hub-item-desc">${tier.description}</span>
+        </div>
+        <button type="button" class="hub-item-btn" data-cargo-id="${tier.id}"${disabled ? ' disabled' : ''}>${owned ? 'Owned' : `Buy ${tier.cost} ⚓`}</button>
+      `;
+      row.querySelector('button').addEventListener('click', () => {
+        purchaseCargoTier(meta, tier.id);
+        saveMeta(window.localStorage, meta);
+        renderHub();
+      });
+      hubCargo.appendChild(row);
+    }
+
+    hubCharms.innerHTML = '';
+    for (const charm of CHARM_LIST) {
+      const owned = meta.ownedCharms.includes(charm.id);
+      const disabled = owned || !canAfford(meta, charm.cost);
+      const row = document.createElement('div');
+      row.className = 'hub-item';
+      row.innerHTML = `
+        <div class="hub-item-info">
+          <span class="hub-item-name">${charm.name}${owned ? ' ✓' : ''}</span>
+          <span class="hub-item-desc">${charm.description}</span>
+        </div>
+        <button type="button" class="hub-item-btn" data-charm-id="${charm.id}"${disabled ? ' disabled' : ''}>${owned ? 'Owned' : `Buy ${charm.cost} ⚓`}</button>
+      `;
+      row.querySelector('button').addEventListener('click', () => {
+        purchaseCharm(meta, charm.id);
+        saveMeta(window.localStorage, meta);
+        renderHub();
+      });
+      hubCharms.appendChild(row);
+    }
+  }
+
+  function openHub() {
+    sailing = false;
+    renderHub();
+    hubOverlay.classList.add('show');
+  }
+
+  function startRun() {
+    run = createRun((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) & 0xffffffff, resolveLoadout(meta));
     camera.x = run.boat.x;
     camera.y = run.boat.y;
     setStatus(`Reef 1 of ${run.reefCount} — find the exit ⚓`);
     toast.classList.remove('show');
-    summaryOverlay.classList.remove('show');
+    hubOverlay.classList.remove('show');
     updateHullBar();
     updateSalvageCounter();
     updateReefIndicator();
     updateWeaponBar();
+    sailing = true;
   }
+  hubSetSailBtn.addEventListener('click', startRun);
 
   // A voyage ends in exactly two ways: cleared every reef (`victory`) or
   // sank before finishing one (`sunk`). Either way the same summary
@@ -236,20 +371,32 @@ export function startApp(root) {
     const reefsCleared = victory ? run.reefCount : run.reefIndex;
     summaryBody.innerHTML = `
       <p>Reefs cleared: ${reefsCleared} / ${run.reefCount}</p>
-      <p>Salvage banked: ${run.bankedSalvage}</p>
+      <p>Salvage banked this voyage: ${run.bankedSalvage}</p>
       ${run.reefSalvage > 0 ? `<p class="lost">Salvage lost with the ship: ${run.reefSalvage}</p>` : ''}
       <p>Weapons found: ${heldNiche.length ? heldNiche.map((id) => getWeapon(id).name).join(', ') : 'None'}</p>
+      <p>Salvage in the Hub: ${meta.salvage} ⚓</p>
     `;
     summaryOverlay.classList.add('show');
   }
-  summaryBtn.addEventListener('click', nextRun);
+  // Every ending banks this voyage's Salvage/stats into the persistent
+  // meta state before the summary is shown, so "Salvage in the Hub" above
+  // is already correct the moment the screen appears.
+  function endRun() {
+    recordRunResult(meta, run);
+    saveMeta(window.localStorage, meta);
+    showRunSummary();
+  }
+  summaryBtn.addEventListener('click', () => {
+    summaryOverlay.classList.remove('show');
+    openHub();
+  });
 
   // A tiny debug hook for headless/automated testing — not user-facing,
   // costs nothing at runtime, and saves having to poke at internals.
   window.__shatteredReefDebug = () => ({
     boatX: run.boat.x, boatY: run.boat.y, heading: run.boat.heading,
-    hull: run.boat.health, cameraX: camera.x, cameraY: camera.y,
-    over: run.over, outcome: run.outcome,
+    hull: run.boat.health, maxHull: run.boat.maxHull, cameraX: camera.x, cameraY: camera.y,
+    over: run.over, outcome: run.outcome, sailing, hubOpen: hubOverlay.classList.contains('show'),
     reefIndex: run.reefIndex, reefCount: run.reefCount,
     exitX: run.exitWorld.x, exitY: run.exitWorld.y,
     bankedSalvage: run.bankedSalvage, reefSalvage: run.reefSalvage,
@@ -265,6 +412,10 @@ export function startApp(root) {
     pickups: run.pickups.map((p) => ({
       kind: p.kind, weaponId: p.weaponId, x: p.x, y: p.y, collected: p.collected,
     })),
+    meta: {
+      salvage: meta.salvage, ownedHulls: meta.ownedHulls, selectedHull: meta.selectedHull,
+      ownedCargoTiers: meta.ownedCargoTiers, ownedCharms: meta.ownedCharms, stats: meta.stats,
+    },
   });
   // Testing-only: teleports the boat, since a headless test driving the
   // touch joystick can't reliably pathfind a maze it has no map of. Not
@@ -280,15 +431,18 @@ export function startApp(root) {
   // "sank with unbanked Salvage" scenario without needing to actually
   // steer onto a pickup first.
   window.__shatteredReefAddSalvage = (amount) => { addSalvage(run, amount); updateSalvageCounter(); };
+  // Testing-only: grants Hub Salvage directly, so a headless test can
+  // afford an unlock without grinding a full voyage first.
+  window.__shatteredReefAddHubSalvage = (amount) => { meta.salvage += amount; saveMeta(window.localStorage, meta); if (hubOverlay.classList.contains('show')) renderHub(); };
 
   let lastTime = performance.now();
   function frame(now) {
     const dt = Math.min(0.05, (now - lastTime) / 1000); // clamp so a tab-switch stall can't fling the boat
     lastTime = now;
 
-    if (!run.over) {
+    if (sailing && !run.over) {
       const jam = run.boat.turnJamRemaining > 0;
-      const tuning = jam ? { ...DEFAULT_BOAT_TUNING, turnRate: DEFAULT_BOAT_TUNING.turnRate * 0.5 } : DEFAULT_BOAT_TUNING;
+      const tuning = jam ? { ...run.tuning, turnRate: run.tuning.turnRate * 0.5 } : run.tuning;
 
       const vec = joystick.getVector();
       stepBoat(run.boat, vec, dt, tuning);
@@ -308,6 +462,7 @@ export function startApp(root) {
         if (fired) updateWeaponBar();
       }
       stepCombat(run.weapons, dt, run.grid, run.tileSize);
+      stepAmmoRegen(run.weapons, dt);
       updateEnemies(run.enemies, run.boat, dt, run.grid, run.tileSize);
 
       let salvageGained = 0;
@@ -340,13 +495,26 @@ export function startApp(root) {
         }
       }
 
-      if (checkSunk(run)) {
-        showRunSummary();
+      // checkSunk has three outcomes: false (nothing happened), true (the
+      // voyage is over — bank stats and show the summary), or the string
+      // 'revived' (the Last Gasp charm patched the boat through at 1 hull
+      // instead — the run continues, so this must NOT be treated as a
+      // truthy "game over", which the old plain `if (checkSunk(run))`
+      // check would have done).
+      const sunkResult = checkSunk(run);
+      if (sunkResult === true) {
+        sailing = false;
+        endRun();
+      } else if (sunkResult === 'revived') {
+        updateHullBar();
+        flashHit();
+        showToast('Last Gasp! Patched through at 1 hull ⚓');
       } else {
         const bankedThisReef = run.reefSalvage;
         const reefResult = checkReachedExit(run);
         if (reefResult === 'victory') {
-          showRunSummary();
+          sailing = false;
+          endRun();
         } else if (reefResult === 'advanced') {
           camera.x = run.boat.x;
           camera.y = run.boat.y;
@@ -383,6 +551,7 @@ export function startApp(root) {
   updateSalvageCounter();
   updateReefIndicator();
   updateWeaponBar();
+  openHub();
 }
 
 // Resolves an enemy's draw color from its data definition, cached on the

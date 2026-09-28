@@ -490,18 +490,156 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     stakes read correctly, not just theoretically correct in the data.
     No console errors (only the same benign `favicon.ico` 404 from the
     test server).
-- **Not built yet:** meta-progression/Captain's Hub with persistent
-  currency + unlocks (step 7 — `localStorage` isn't touched anywhere yet;
-  every run currently starts from the same zero state), art pass, audio,
-  juice/polish (step 8), and the boss ("The Kraken's Anchor") is defined
-  in data but never actually spawned anywhere yet — worth deciding
-  whether it belongs on the final reef as this voyage structure's natural
-  finale, or stays deferred; flagged below as an open question rather
-  than silently resolved.
-- **Next up:** step 7, meta-progression hub — a Captain's Hub screen
-  between runs, persistent Salvage that survives across *runs* (not just
-  within one, which step 6 now handles) stored in `localStorage`, and the
-  3 locked unlock tracks (Ship Hulls, Cargo Loadouts, Captain's Charms).
+- **Phase:** step 7 of 8 (meta-progression hub) complete. The app now
+  opens on a Captain's Hub screen instead of straight into a run:
+  persistent Salvage (survives across *runs*, in `localStorage` — distinct
+  from a single run's `bankedSalvage`/`reefSalvage`, which stay reset each
+  voyage) is spent there on the PRD's 3 locked unlock tracks, and "Set
+  Sail" resolves the current loadout into a fresh run.
+- **Just shipped:**
+  - `src/data/meta.mjs` — the 3 unlock tracks' content: **Ship Hulls**
+    (Sloop/Longboat/Skiff — mutually exclusive, one selected at a time,
+    each with its own `maxHull` and accel/speed/turn/drag multipliers
+    applied on top of `DEFAULT_BOAT_TUNING` via `tuningForHull`),
+    **Cargo Loadouts** (Forward Magazine/Chain Locker/Deep Stores —
+    permanent and stacking, each either boosting starting ammo or
+    granting a niche weapon held from run start; `cargoLoadoutFor`
+    combines every owned tier additively), and **Captain's Charms**
+    (Steady Hands/Last Gasp/First Haul — permanent and stacking, matching
+    the PRD's own literal examples: passive ammo regen, a once-per-run
+    revive at 1 hull, and a 1.5x Salvage bonus on the first reef only).
+    All costs/multipliers are a first-pass balance with no real
+    playtesting data yet — the PRD deliberately left exact numbers open —
+    documented as such, expect retuning.
+  - `src/engine/meta.mjs` — persistence + purchase logic. `loadMeta`/
+    `saveMeta` take an injected `storage` object (`{getItem, setItem}`)
+    rather than reaching for `window.localStorage` globally, so this
+    module stays pure/unit-testable like the rest of `engine/*.mjs` (only
+    `main.mjs` passes the real `window.localStorage`; tests use an
+    in-memory fake). Never throws — a missing key, disabled storage, or
+    corrupt/partial JSON all degrade to `createDefaultMeta()` rather than
+    crashing the app over save data, and `loadMeta` merges field-by-field
+    onto the defaults so an older save missing a newer field still loads
+    cleanly. `purchaseHull`/`purchaseCargoTier`/`purchaseCharm` each
+    check ownership + affordability and return `{ok, reason?}`;
+    `resolveLoadout(meta)` is the one place raw ownership arrays turn
+    into the plain loadout object `createRun` expects —
+    **`run.mjs` never reads raw unlock state itself**, only this resolved
+    shape, mirroring the existing "resolve then hand to run.mjs" pattern
+    from `spawnPoolForReefIndex`. `recordRunResult(meta, run)` folds a
+    finished voyage's `bankedSalvage` and best-run stats into the
+    persistent meta state.
+  - `src/engine/boat.mjs` — `createBoat(x, y, heading, maxHull = MAX_HULL)`
+    takes an optional max-hull override so a selected hull's capacity is
+    stored on the boat itself.
+  - `src/engine/combat.mjs` — `createWeaponState(extraHeldWeapons = [],
+    startingAmmoMultiplier = 1)` grants Cargo Loadout weapons held from
+    run start with ammo scaled by the multiplier (clamped at max); new
+    `stepAmmoRegen(state, dt)` drives the Steady Hands charm — a
+    per-weapon accumulator (`ammoRegenAccum`) so fractional regen rates
+    (e.g. 1 ammo per 8 seconds) accumulate correctly across frames.
+  - `src/engine/run.mjs` — `createRun(seed, loadout = BASELINE_LOADOUT)`
+    applies the resolved hull's tuning/max-hull, held weapons, and ammo
+    bonus; `addSalvage` applies First Haul's 1.5x multiplier while
+    `reefIndex === 0`; `checkSunk` gained a third return value —
+    `'revived'` — when Last Gasp is owned and hasn't fired yet this run
+    (patches hull to 1 and lets the voyage continue instead of ending it).
+    `BASELINE_LOADOUT` (Sloop, no extra weapons/ammo bonus, no charms) is
+    the default for every existing call site/test that predates step 7,
+    kept backward-compatible via default parameters.
+  - `src/main.mjs` — a `#captains-hub` overlay (Salvage total, best-run
+    stats, a row per Ship Hull/Cargo Loadout/Captain's Charm with a
+    Buy/Select/Owned button reflecting real affordability and ownership)
+    shown on boot instead of starting a run immediately; `renderHub()`
+    rebuilds it from `meta` after every purchase. "Set Sail" resolves
+    `resolveLoadout(meta)` into a fresh `createRun` and hides the hub;
+    the run-summary screen's button is now "Return to Hub" instead of
+    restarting a run directly, and a run ending (`checkSunk === true` or
+    `checkReachedExit === 'victory'`) now calls `recordRunResult` +
+    `saveMeta` before showing the summary, so the Hub reflects the just-
+    finished voyage's earnings the moment it reopens. Fixed two real
+    correctness gaps this surfaced: (1) the frame loop's old
+    `if (checkSunk(run))` was a plain truthy check, which would have
+    mistreated the new `'revived'` string as "game over" — replaced with
+    an explicit three-way branch (`true` / `'revived'` / `else`); (2) the
+    boat-physics step was hardcoded to the raw `DEFAULT_BOAT_TUNING`
+    constant regardless of the selected hull — changed to `run.tuning`
+    (the hull-adjusted tuning `createRun` now computes and stores), so a
+    Longboat/Skiff's actual stat differences apply in play, not just in
+    data. `updateHullBar()` now reads `run.boat.maxHull` instead of the
+    fixed `MAX_HULL` constant, since hull capacity now varies. Added a
+    `stepAmmoRegen(run.weapons, dt)` call to the frame loop (previously
+    written but never wired in). Overlay stacking (Hub/run-summary over
+    the canvas/HUD/fire button/toast) now uses explicit `z-index` in
+    `styles.css` instead of relying on DOM append order, which was a
+    latent risk flagged but not yet fixed in step 6. New testing-only
+    debug hook `__shatteredReefAddHubSalvage(amount)` (grants persistent
+    Salvage directly, unreachable from any in-game UI) alongside the
+    existing warp/hull/salvage hooks, and `__shatteredReefDebug()` now
+    also reports `sailing`, `hubOpen`, `maxHull`, and a `meta` snapshot.
+  - New `tests/meta.test.mjs` (19 tests: `tuningForHull`,
+    `cargoLoadoutFor`, `createDefaultMeta`, `loadMeta`/`saveMeta`
+    round-trips and corrupt/partial-JSON/disabled-storage edge cases, all
+    3 purchase functions' ownership/affordability checks, `resolveLoadout`,
+    `recordRunResult`, and `run.mjs` integration — hull tuning/max-hull
+    applied, Cargo Loadout weapons/ammo applied, Last Gasp reviving
+    exactly once then letting a second sink end the run, First Haul
+    boosting only reef-1 Salvage) plus 5 new tests in
+    `tests/combat.test.mjs` for extra-held-weapons/ammo-multiplier
+    behavior and `stepAmmoRegen` (no-op at 0 rate, gradual regen clamped
+    at max, never touches Cannonballs' unlimited ammo). **169/169 tests
+    pass** across the whole repo.
+  - **Real bug found via the test suite itself (not a playtest — a pure
+    float-precision issue `node --test` was well-suited to catch):**
+    `stepAmmoRegen`'s first version used `Math.floor(accum)` to decide
+    how much ammo to grant from the accumulated regen time. A test
+    driving it with `dt = 3.4` then `dt = 0.6` at a rate of 1 ammo/sec
+    expected 4 ammo gained (3.4 + 0.6 = 4.0 seconds → 4 ammo) but got 3 —
+    `3.4 - 3` in IEEE 754 double precision evaluates to
+    `0.39999999999999947`, not exactly `0.4`, so `0.4 + 0.6` (really
+    `0.39999999999999947 + 0.6`) came out to `0.9999999999999994`, and
+    `Math.floor` of that silently dropped a tick that should have fired.
+    Fixed with a tiny epsilon guard (`Math.floor(accum + 1e-9)`) — worth
+    remembering as a general lesson: any "accumulate a fractional rate
+    over frame-by-frame `dt` calls, then floor to a whole unit" pattern
+    (ammo regen here; the same shape would apply to, say, a future
+    resource-tick or regen system) needs this guard, since the bug isn't
+    about picking "nice" test numbers — ordinary variable frame times
+    hit the same float-drift case in real play, just less predictably.
+  - Verified end-to-end in a real headless browser (Playwright/Chromium):
+    the Hub shows on load with only the Sloop owned/selected and every
+    other item's Buy button correctly disabled (can't afford, salvage 0);
+    granting Hub Salvage immediately re-enables affordable buttons;
+    buying the Longboat hull deducts its cost, adds it to `ownedHulls`,
+    and auto-selects it; buying a Cargo Loadout tier and a Charm both
+    deduct cost and add to their owned lists; "Set Sail" starts a run
+    whose `boat.maxHull` is 140 (the Longboat's value, not the base 100)
+    and whose held weapons include Chain Shot from run start (the Chain
+    Locker tier) — the loadout demonstrably reached the actual run, not
+    just the data layer. Forcing hull to 0 with Last Gasp owned revives
+    the boat at 1 hull and the run continues (`over: false`); forcing it
+    to 0 again ends the run for real (`outcome: 'sunk'`), shows the run
+    summary, and immediately folds that voyage's Salvage into the Hub's
+    persistent total. Clicking "Return to Hub" reopens the Hub reflecting
+    the updated stats. **Reloading the page from scratch preserves every
+    purchase, the selected hull, and the accumulated stats** — persistence
+    genuinely round-trips through `localStorage`, not just within the
+    live session. Separately verified Steady Hands/First Haul in actual
+    play (not just unit tests): sailing with First Haul owned and adding
+    Salvage while on reef 1 applied the exact 1.5x multiplier (100 →
+    150). No console errors in any run (only the same benign
+    `favicon.ico` 404 from the test server seen in every prior step's
+    playtest).
+- **Not built yet:** art pass, audio, juice/polish (step 8), and the boss
+  ("The Kraken's Anchor") is defined in data but never actually spawned
+  anywhere yet — worth deciding whether it belongs on the final reef as
+  this voyage structure's natural finale, or stays deferred; flagged
+  below as an open question rather than silently resolved.
+- **Next up:** step 8, polish — juice (particles, screen shake, hit-stop,
+  damage numbers), audio hooks, and a mobile safe-area/UX pass. The
+  vertical slice's locked scope (steps 2-7) is now fully built end to end:
+  navigation, combat, loot, a full 3-reef roguelike run structure, and
+  persistent meta-progression between runs.
 
 ## Decisions log
 
@@ -687,6 +825,58 @@ Starting fresh below for the new game.)*
   real play, does a full boss fight fit the reef-3 maze size/pacing) that
   it deserves its own decision rather than riding in on the run-structure
   commit.
+- 2026-09-28: Meta-progression persistence uses dependency-injected storage
+  (`loadMeta(storage)`/`saveMeta(storage, meta)` take a `{getItem,
+  setItem}`-shaped object) rather than `engine/meta.mjs` reaching for
+  `window.localStorage` globally — keeps it pure/unit-testable exactly
+  like every other `engine/*.mjs` module (tests use an in-memory fake
+  storage); only `main.mjs` ever passes the real `window.localStorage`.
+- 2026-09-28: `run.mjs` never reads raw meta-progression ownership state
+  (`ownedHulls`, `ownedCargoTiers`, etc.) — only a pre-resolved plain
+  `loadout` object that `engine/meta.mjs`'s `resolveLoadout(meta)`
+  computes. Mirrors the existing "resolve first, hand run.mjs the
+  resolved numbers" pattern already used for `spawnPoolForReefIndex`, and
+  keeps `run.mjs` decoupled from *how* meta-progression is persisted —
+  a different storage mechanism later wouldn't need to touch it.
+- 2026-09-28: Ship Hulls are mutually exclusive/selectable (own several,
+  sail with one at a time); Cargo Loadouts and Captain's Charms are
+  permanent and stacking (every owned tier/charm is always in effect).
+  Matches the PRD's own framing — "alternative starting hulls" implies
+  picking one, since a ship can't sail as two hulls at once, while the
+  other two tracks are described as unlocks that simply apply once owned.
+- 2026-09-28: Captain's Charms were built as exactly the PRD's own literal
+  examples (ammo regen, a one-time revive, a first-reef Salvage bonus)
+  rather than inventing unrelated mechanics — the PRD gave themes/examples
+  for this track but deliberately left exact numbers open, so the charms'
+  *identity* follows the PRD closely while their costs/rates are a
+  documented first-pass balance guess.
+- 2026-09-28: `checkSunk` gained a third return value, `'revived'`,
+  instead of reusing `true`/`false` with a side flag — a boolean return
+  can't distinguish "the run is over" from "the run continues, but
+  something notable happened," and the frame loop genuinely needs to
+  branch three ways (nothing happened / revived, keep playing / actually
+  over). Required fixing the frame loop's old `if (checkSunk(run))`
+  truthy check, which would have wrongly treated the truthy `'revived'`
+  string as "game over" — a good example of why a multi-state outcome
+  should be a discriminated value, not a boolean plus something implicit.
+- 2026-09-28: Found and fixed a floating-point-drift bug in
+  `stepAmmoRegen` via `node --test` itself (not a playtest) — accumulating
+  fractional seconds (`dt = 3.4` then `0.6`) and flooring the sum to a
+  whole ammo count lost a tick because `3.4 - 3` isn't exactly `0.4` in
+  IEEE 754 double precision. Fixed with a small epsilon guard before
+  flooring. Worth remembering as a general lesson for any future
+  "accumulate a fractional rate across variable `dt` calls, then floor to
+  a whole unit" system (a future resource-tick or regen mechanic would hit
+  the identical failure mode) — the guard belongs in the pattern itself,
+  not just this one call site.
+- 2026-09-28: Fixed a latent DOM-stacking risk carried over from step 6:
+  `#run-summary` and the new `#captains-hub` overlay now have an explicit
+  `z-index` in `styles.css` rather than relying on DOM append order to
+  keep them visually and interactively on top of the canvas/HUD/fire
+  button/toast. The old append-order-only approach happened to work by
+  luck (overlays were appended early) but was never guaranteed to stay
+  correct as more UI elements were added later in boot — worth doing this
+  explicitly once rather than re-discovering the same risk in step 8.
 
 ## Known open questions (do not silently resolve — ask)
 

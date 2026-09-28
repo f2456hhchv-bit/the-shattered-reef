@@ -18,6 +18,19 @@ import { createWeaponState } from './combat.mjs';
 import { spawnReefEnemies } from './enemies.mjs';
 import { spawnPoolForReefIndex } from '../data/enemies.mjs';
 import { spawnReefPickups } from './pickups.mjs';
+import { SHIP_HULLS, HULL_IDS, tuningForHull, CHARMS, CHARM_IDS } from '../data/meta.mjs';
+
+// A run with no meta-progression applied yet (a first-ever run, or Salvage
+// hasn't been spent on anything) — the Sloop hull, no extra held weapons,
+// no ammo bonus, no charms. `createRun`'s default when no loadout is
+// passed, so every existing call site (and every test) keeps working
+// unchanged.
+export const BASELINE_LOADOUT = Object.freeze({
+  hull: SHIP_HULLS[HULL_IDS.SLOOP],
+  extraHeldWeapons: [],
+  startingAmmoMultiplier: 1,
+  charms: { steadyHands: false, lastGasp: false, firstHaul: false },
+});
 
 export const TILE_SIZE = 16; // px per tile at 1x zoom
 export const BOAT_RADIUS = 11; // px, collision + draw radius
@@ -88,19 +101,34 @@ function enterReef(run, reefIndex) {
   run.reefSalvage = 0;
 }
 
-export function createRun(seed) {
+// `loadout` is a resolved meta-progression loadout (see BASELINE_LOADOUT's
+// shape) — the Captain's Hub (main.mjs, step 7) computes it from persisted
+// unlocks via data/meta.mjs's cargoLoadoutFor()/getHull() before calling
+// this. run.mjs itself never reads raw unlock/ownership state, only the
+// already-resolved numbers, keeping it decoupled from how meta-progression
+// is stored.
+export function createRun(seed, loadout = BASELINE_LOADOUT) {
   const run = {
     seed,
     rng: makeSeededRng(seed),
     reefIndex: 0,
     reefCount: REEF_COUNT,
-    boat: createBoat(0, 0, 0),
-    weapons: createWeaponState(),
+    tuning: tuningForHull(loadout.hull),
+    boat: createBoat(0, 0, 0, loadout.hull.maxHull),
+    weapons: createWeaponState(loadout.extraHeldWeapons, loadout.startingAmmoMultiplier),
     bankedSalvage: 0, // safe — carried from every reef already cleared
     reefSalvage: 0,   // at risk — lost if the boat sinks before this reef's exit
+    charms: {
+      firstHaul: loadout.charms.firstHaul,
+      lastGasp: loadout.charms.lastGasp,
+      lastGaspUsed: false,
+    },
     over: false,
     outcome: null, // 'victory' | 'sunk', once over
   };
+  if (loadout.charms.steadyHands) {
+    run.weapons.ammoRegenPerSecond = CHARMS[CHARM_IDS.STEADY_HANDS].ammoRegenPerSecond;
+  }
   enterReef(run, 0);
   return run;
 }
@@ -110,9 +138,13 @@ export function totalSalvage(run) {
 }
 
 // Call whenever Salvage is gained (a kill drop or a pickup) — it's at risk
-// until the current reef's exit is reached.
+// until the current reef's exit is reached. Applies the First Haul charm's
+// bonus while still on the first reef, if owned.
 export function addSalvage(run, amount) {
-  run.reefSalvage += amount;
+  const boosted = (run.charms.firstHaul && run.reefIndex === 0)
+    ? amount * CHARMS[CHARM_IDS.FIRST_HAUL].firstReefSalvageMultiplier
+    : amount;
+  run.reefSalvage += boosted;
 }
 
 // Checked every frame. Returns:
@@ -141,13 +173,23 @@ export function checkReachedExit(run) {
 // Checked every frame after collision/damage is applied. A sunk boat ends
 // the whole voyage immediately (permadeath) — whatever Salvage was still
 // at risk in the current reef (run.reefSalvage) is lost; only
-// run.bankedSalvage survives into the run summary.
+// run.bankedSalvage survives into the run summary. Returns:
+//   false      — hull is above 0, nothing happened
+//   true       — the boat sank; the whole voyage is over
+//   'revived'  — the boat would have sunk, but the Last Gasp charm (owned,
+//                unused this run) patched it through at 1 hull instead;
+//                the run continues
 export function checkSunk(run) {
   if (run.over) return false;
-  if (run.boat.health <= 0) {
-    run.over = true;
-    run.outcome = 'sunk';
-    return true;
+  if (run.boat.health > 0) return false;
+
+  if (run.charms.lastGasp && !run.charms.lastGaspUsed) {
+    run.charms.lastGaspUsed = true;
+    run.boat.health = 1;
+    return 'revived';
   }
-  return false;
+
+  run.over = true;
+  run.outcome = 'sunk';
+  return true;
 }

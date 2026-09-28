@@ -6,11 +6,14 @@ import { WEAPON_IDS, WEAPONS, getWeapon, damageAgainst } from '../data/weapons.m
 
 let nextProjectileId = 1;
 
-// Only Cannonballs is held from the start — the four niche weapons are
-// found in-run as weapon caches (data/pickups.mjs). This is the default,
-// un-upgraded case per the PRD; the Cargo Loadouts meta-progression track
-// (step 7) will let a run start with more of the kit already held.
-export function createWeaponState() {
+// Only Cannonballs is held from the start by default — the four niche
+// weapons are found in-run as weapon caches (data/pickups.mjs), unless the
+// Cargo Loadouts meta-progression track (data/meta.mjs, step 7) grants
+// some of them from Reef 1. `extraHeldWeapons` is that track's
+// `extraHeldWeapons` list; `startingAmmoMultiplier` its ammo-reserve
+// bonus, applied only to what's held at run start (a weapon found later
+// via a pickup still gets the pickup's own fixed amount, unaffected).
+export function createWeaponState(extraHeldWeapons = [], startingAmmoMultiplier = 1) {
   const ammo = {};
   const heldWeapons = new Set();
   for (const weapon of Object.values(WEAPONS)) {
@@ -20,13 +23,44 @@ export function createWeaponState() {
       heldWeapons.add(weapon.id); // Cannonballs: unlimited ammo, held from the start
     }
   }
+  for (const weaponId of extraHeldWeapons) {
+    const weapon = getWeapon(weaponId);
+    if (!Number.isFinite(weapon.ammoMax)) continue; // already held, no ammo to grant
+    heldWeapons.add(weaponId);
+    ammo[weaponId] = Math.min(weapon.ammoMax, Math.round(weapon.ammoMax * startingAmmoMultiplier));
+  }
   return {
     activeWeaponId: WEAPON_IDS.CANNONBALLS,
     ammo,
     heldWeapons,
     cooldownRemaining: 0,
     projectiles: [],
+    ammoRegenPerSecond: 0, // set by the Steady Hands charm, see stepAmmoRegen
+    ammoRegenAccum: {},
   };
+}
+
+// Steady Hands charm support: slowly regenerates ammo for every held,
+// finite-ammo weapon over time, independent of pickups. A no-op (cheap to
+// call unconditionally) when ammoRegenPerSecond is 0 — no charm owned.
+export function stepAmmoRegen(state, dt) {
+  if (state.ammoRegenPerSecond <= 0) return;
+  for (const weaponId of state.heldWeapons) {
+    const weapon = getWeapon(weaponId);
+    if (!Number.isFinite(weapon.ammoMax)) continue;
+    if (state.ammo[weaponId] >= weapon.ammoMax) continue;
+    const accum = (state.ammoRegenAccum[weaponId] || 0) + state.ammoRegenPerSecond * dt;
+    // The tiny epsilon guards against float drift landing just under a
+    // whole number (e.g. 0.4 + 0.6 evaluating to 0.999999999999994) and
+    // silently dropping a tick that should have fired this frame.
+    const gained = Math.floor(accum + 1e-9);
+    if (gained > 0) {
+      state.ammo[weaponId] = Math.min(weapon.ammoMax, state.ammo[weaponId] + gained);
+      state.ammoRegenAccum[weaponId] = accum - gained;
+    } else {
+      state.ammoRegenAccum[weaponId] = accum;
+    }
+  }
 }
 
 export function isHeld(state, weaponId) {
