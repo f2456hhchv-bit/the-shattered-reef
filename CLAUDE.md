@@ -4,6 +4,12 @@ Read this file first, every session. It replaces a handoff report — update
 the "Current status" and "Decisions log" sections at the end of every
 session, before anything else.
 
+**Full design PRD** (weapon list, enemy roster, run structure, meta-
+progression, vertical slice scope, roadmap, open risks — all in one place):
+https://claude.ai/artifact/FwH7vbLuCQ9ao1Hm7bB1KH — this file stays the
+authoritative build log/status; the PRD is the design reference, read it
+before starting step 3+.
+
 ## What this is (pivoted 2026-09-28)
 
 A mobile, single-player nautical roguelite: you captain a ship through
@@ -90,16 +96,29 @@ Architecture → Vertical slice → Core systems → Content → Polish → Test
 Each step its own commit, each step end-to-end testable headless before
 depending on the next, matching how the archived project was built.
 
-## Vertical slice scope (steps 2-7, not yet fully scoped past step 2)
+## Vertical slice scope (locked 2026-09-28 by the PRD — steps 2-7)
 
-Not locked in detail yet beyond step 2. Rough target once content starts
-(step 4+): one ship, 5-6 enemy types each with a clear niche, 4-5 weapon
-types (cannonballs as the weak all-purpose default; then niche picks —
-depth charges, chain shot, flame barrels, grapeshot are the leading
-candidates, not finalized), one maze-generation "reef" style, one boss,
-and a minimal meta-progression (currency + 2-3 unlocks) — enough to prove
-the full loop without over-building before it's validated. Revisit/narrow
-this list for real before step 4 starts.
+Locked, not a rough target anymore. Full detail (stats, counters, behavior)
+lives in the PRD linked at the top of this file; the locked content list:
+
+- **1 ship** (current boat + the Ship Hulls unlock track once step 7 lands)
+- **5 weapons**: Cannonballs (default) + Chain Shot, Grapeshot, Depth
+  Charges, Flame Barrels — each with one real counter-role, not a stat
+  variant of another
+- **5 enemy types + 1 boss**: Reef Skimmers (Grapeshot), Gullswarm Harpies
+  (Chain Shot), Deep Crawlers (Depth Charges), Ironclad Brigands (Flame
+  Barrels), Riggers/Sailcutters (Chain Shot), boss "The Kraken's Anchor"
+  (working name, forces a mid-fight weapon swap)
+- **1 reef-generation style** (existing room/corridor maze), difficulty
+  scaled by size/density across a run rather than multiple generation
+  styles
+- **3 reefs per run**, fixed sequence, increasing difficulty, hull carries
+  over between reefs (no mid-run healing)
+- **Minimal meta-progression**: Salvage currency + 3 unlock tracks (Ship
+  Hulls, Cargo Loadouts, Captain's Charms), 2-3 tiers each
+
+Out of scope for the slice: multiple biomes, more than one boss, crafting,
+quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 
 ## Current status (update this every session)
 
@@ -298,16 +317,22 @@ Starting fresh below for the new game.)*
   normal) rather than inventing a separate damage-detection mechanism,
   so "sliding = free, ramming = costly" falls out of the existing
   physics instead of needing its own state tracking.
+- 2026-09-28: Wrote a full PRD (linked at the top of this file) before
+  starting step 3, resolving all three previously-open design questions:
+  weapon list + enemy counters (5 weapons, 5 enemies + boss, each with one
+  real counter-role), run structure (3 reefs per run, fixed sequence,
+  Salvage banked per-reef, hull carries over with no mid-run healing), and
+  meta-progression (Salvage currency, Captain's Hub, 3 unlock tracks — Ship
+  Hulls, Cargo Loadouts, Captain's Charms). Also flagged real open risks in
+  the PRD's own "Open Risks" section (firing control UX untested, one-
+  handed weapon-select on phone screens is the riskiest UI element, 3
+  reefs/run is a guess at session length) — those are prototyping/
+  playtesting questions to revisit during steps 3-6, not blockers to
+  starting.
 
 ## Known open questions (do not silently resolve — ask)
 
-- Exact weapon list and which enemy types they counter — Overboard!'s
-  examples (rockets vs. flyers, depth charges vs. submerged) are a
-  starting point, not a locked list. Needs deciding before step 3.
-- How "reaching the exit" should actually end a run once the roguelike
-  structure (step 6) exists — right now it's a placeholder that just
-  regenerates a fresh single maze with no stakes. Multi-room progression
-  within one run vs. one maze = one full run isn't decided yet.
-- What meta-progression actually unlocks (new ship hulls? starting
-  weapons? passive relics/captain talents? some mix?) — flagged in the
-  build order as a step 7 concern, not decided yet.
+None blocking step 3 as of 2026-09-28 — see the PRD's "Open Risks &
+Provisional Decisions" section for items to revisit during implementation
+(firing control choice, one-handed weapon-select UX, Depth Charges'
+prediction-based design, reef count per run, hull-carryover fairness).
