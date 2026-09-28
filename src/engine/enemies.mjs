@@ -16,6 +16,17 @@ function randRange(rng, [min, max]) {
 
 export function createEnemy(defId, x, y, rng = Math.random) {
   const def = getEnemy(defId);
+  // A boss's *effective* starting archetype is its phase-0 archetype, not
+  // its top-level `def.archetype` (which only exists as a fallback/label —
+  // see data/enemies.mjs). Archetype-specific state below must init off
+  // this effective value, not `def.archetype` directly: a boss whose
+  // phase-0 archetype is SUBMERGED but whose `def.archetype` is TANK would
+  // otherwise never get `submergedState`/`submergedTimer`/`invulnerable`
+  // set up, silently skipping its own invulnerable/surfaced cycle from the
+  // moment it spawns — a real bug found during the balance pass (see
+  // CLAUDE.md's decisions log for the full failure mode, including how it
+  // could leave the boss permanently invulnerable after looping phases).
+  const startArchetype = def.isBoss ? def.phases[0].archetype : def.archetype;
   const enemy = {
     id: nextEnemyId++,
     defId,
@@ -26,8 +37,8 @@ export function createEnemy(defId, x, y, rng = Math.random) {
     maxHealth: def.maxHealth,
     radius: def.radius,
     speed: def.speed,
-    archetype: def.archetype,
-    counter: def.counter, // fixed for non-bosses; bosses override via currentCounter()
+    archetype: startArchetype,
+    counter: def.isBoss ? def.phases[0].counter : def.counter, // fixed for non-bosses; bosses override via currentCounter()
     contactDamage: def.contactDamage,
     contactCooldownRemaining: 0,
     invulnerable: false,
@@ -36,26 +47,24 @@ export function createEnemy(defId, x, y, rng = Math.random) {
     burn: null,
   };
 
-  if (def.archetype === ARCHETYPES.FLYER) {
+  if (startArchetype === ARCHETYPES.FLYER) {
     enemy.diveState = 'circling';
     enemy.diveTimer = randRange(rng, def.diveIntervalSeconds);
   }
-  if (def.archetype === ARCHETYPES.SUBMERGED) {
+  if (startArchetype === ARCHETYPES.SUBMERGED) {
     enemy.submergedState = 'submerged';
     enemy.submergedTimer = randRange(rng, def.submergedSeconds);
     enemy.invulnerable = true;
   }
-  if (def.archetype === ARCHETYPES.SWARM) {
+  if (startArchetype === ARCHETYPES.SWARM) {
     enemy.orbitSign = rng() < 0.5 ? -1 : 1;
   }
-  if (def.archetype === ARCHETYPES.FLANKER) {
+  if (startArchetype === ARCHETYPES.FLANKER) {
     enemy.flankSign = rng() < 0.5 ? -1 : 1;
   }
   if (def.isBoss) {
     enemy.phaseIndex = 0;
     enemy.phaseTimer = def.phases[0].durationSeconds;
-    enemy.counter = def.phases[0].counter;
-    enemy.archetype = def.phases[0].archetype;
   }
 
   return enemy;
@@ -252,7 +261,22 @@ function updateBossPhase(enemy, def, dt) {
     enemy.phaseTimer = phase.durationSeconds;
     enemy.counter = phase.counter;
     enemy.archetype = phase.archetype;
-    enemy.invulnerable = phase.archetype === ARCHETYPES.SUBMERGED;
+    // A phase swap into SUBMERGED must (re)start its own submerge/surface
+    // state machine, not just flip `invulnerable` — otherwise, on a long
+    // fight that loops back through phase 0 a second time, the boss would
+    // go invulnerable here but `updateSubmerged` never runs its own timer
+    // (updateEnemy only calls it while enemy.archetype === SUBMERGED,
+    // which is true, but its internal state was never reset), so it could
+    // never surface again for the rest of the fight — permanently
+    // unkillable. Explicitly reset the state machine on every entry into
+    // a SUBMERGED phase, the same way createEnemy does for the first one.
+    if (phase.archetype === ARCHETYPES.SUBMERGED) {
+      enemy.submergedState = 'submerged';
+      enemy.submergedTimer = randRange(Math.random, def.submergedSeconds);
+      enemy.invulnerable = true;
+    } else {
+      enemy.invulnerable = false;
+    }
   }
 }
 

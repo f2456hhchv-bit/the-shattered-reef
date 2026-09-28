@@ -84,7 +84,17 @@ export const WEAPONS = {
     id: WEAPON_IDS.FLAME_BARRELS,
     name: 'Flame Barrels',
     kind: 'area',
-    damage: 4, // per tick while burning
+    // 4 → 5 (balance pass, 2026-09-28): at 4, killing its counter target
+    // (Ironclad Brigand, 60 HP) needed 15 direct hits — one MORE than
+    // ammoMax (14), leaving a single cache's worth of ammo unable to
+    // finish the kill on direct-hit damage alone (only survivable via the
+    // last shot's full burn tail landing uninterrupted). At 5, it's 12
+    // hits for 60 direct damage — comfortably under ammoMax with margin
+    // for missed shots, while every other weapon/counter pair already
+    // kills its target well within one cache (see tools/balance-sim.mjs's
+    // TTK math in the decisions log). Also raises the burn tick itself by
+    // the same amount, since both reuse this one field.
+    damage: 5, // per tick while burning
     offCounterFraction: 0.15,
     cooldown: 0.8,
     projectileSpeed: 140,

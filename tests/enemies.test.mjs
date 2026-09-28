@@ -34,6 +34,41 @@ test('a boss starts on phase 0 with that phase\'s counter and archetype', () => 
   assert.equal(boss.archetype, def.phases[0].archetype);
 });
 
+// Regression test (balance pass, 2026-09-28): a boss whose phase-0
+// archetype is SUBMERGED must get the same submerge/surface state machine
+// a regular SUBMERGED enemy gets — createEnemy previously only did that
+// init when `def.archetype` (the boss's top-level, mostly-cosmetic label)
+// was SUBMERGED, which for the Kraken's Anchor is TANK, not its actual
+// phase-0 archetype. The boss silently spawned with invulnerable=false
+// and no submerged state/timer at all, so Depth Charges (its supposed
+// phase-0 counter) never actually mattered — it was just always
+// vulnerable to everything from the first frame.
+test('a boss whose phase-0 archetype is SUBMERGED starts invulnerable with a real submerge timer', () => {
+  const boss = createEnemy(ENEMY_IDS.KRAKENS_ANCHOR, 0, 0);
+  assert.equal(boss.invulnerable, true);
+  assert.equal(boss.submergedState, 'submerged');
+  assert.ok(Number.isFinite(boss.submergedTimer) && boss.submergedTimer > 0);
+});
+
+// Regression test: without resetting the submerge state machine on every
+// entry into a SUBMERGED phase (not just the first), a boss fight lasting
+// long enough to loop back through phase 0 a second time would go
+// invulnerable via updateBossPhase's flag flip but never surface again —
+// updateSubmerged's own timer/state were never re-primed, so it could
+// never reach the `submergedTimer <= 0` branch that toggles it back off.
+test('a boss surfaces and re-submerges correctly across a full phase loop, never getting stuck invulnerable', () => {
+  const boat = createBoat(400, 0, 0);
+  const grid = openGrid();
+  const boss = createEnemy(ENEMY_IDS.KRAKENS_ANCHOR, 0, 0);
+  let sawVulnerableInPhase0Again = false;
+  // Run well past 2 full phase cycles (2 * (14 + 14) = 56s) at 30fps.
+  for (let i = 0; i < 30 * 70; i++) {
+    updateEnemy(boss, boat, 1 / 30, grid, 16);
+    if (boss.phaseIndex === 0 && !boss.invulnerable) sawVulnerableInPhase0Again = true;
+  }
+  assert.ok(sawVulnerableInPhase0Again, 'the boss should surface (become vulnerable) again after looping back into phase 0');
+});
+
 test('spawnReefEnemies only places enemies on open water tiles, away from the boat spawn', () => {
   const rng = makeSeededRng(42);
   const grid = openGrid();

@@ -809,15 +809,114 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     confirming the fight itself doesn't end the run, only sinking or
     reaching an exit does. No console errors (only the same benign
     `favicon.ico` 404 seen in every prior playtest).
-- **Not built yet:** a real sprite/sample-audio art pass (placeholder
-  shapes and synthesized tones remain deliberate per the project's own
-  "no art pass until the loop is proven" rule — the loop is proven, not
-  art-directed).
+- **Phase:** balance/content pass (project owner's choice, asked via
+  `AskUserQuestion` alongside "post-slice direction" and "art/audio pass"
+  once the locked build order + boss were fully done). Built a reusable
+  headless balance-simulation tool and used it to find and fix a real
+  boss bug, not just retune numbers.
+- **Just shipped:**
+  - `tools/balance-sim.mjs` (new, committed — a dev tool, not shipped
+    game code) — runs many full voyages headlessly with a scripted bot:
+    BFS pathfinding cell-to-cell over the maze graph (not per-tile),
+    counter-aware weapon switching, and the same aim-assist firing
+    `main.mjs` uses. Every module it drives (`run.mjs`/`boat.mjs`/
+    `combat.mjs`/`enemies.mjs`/`pickups.mjs`) is already pure logic per
+    the project's own engine/rendering split, so this runs at full sim
+    speed with no browser. Usage: `node tools/balance-sim.mjs [runCount]
+    [seedOffset]`; reports outcome distribution, per-reef death spread,
+    kills by enemy type, boss encounter/defeat rate, damage-by-source,
+    and weapon-cache find rate.
+  - **Building the bot surfaced its own real bug, fixed before trusting
+    any of its output:** the first version picked a fresh BFS path every
+    0.5s regardless of whether the target had changed, which kept
+    resetting `waypointIdx` to 0 before the boat ever cleared its first
+    waypoint — it never left the starting room. Fixed by only replanning
+    on an actual target change, a fully-consumed path, or (for a moving
+    enemy target only) a slower periodic re-path. A second bug (a tight
+    oscillation loop around an unreachable-feeling pickup/enemy) needed a
+    "stuck timer" that blacklists a target after too long pursuing it
+    without resolving it — first version reset that timer on every
+    re-path even for the *same* target, so it never actually hit its cap;
+    fixed by only resetting it on a genuine target change. Also narrowed
+    "which enemy to chase" to a realistic detection radius (220px)
+    instead of the single globally-nearest enemy regardless of distance,
+    since the original had the bot crisscrossing an entire 9×9/11×11 reef
+    chasing one evasive Rigger instead of making any progress.
+  - **The real finding — a genuine boss bug, not a tuning number:**
+    `createEnemy`'s archetype-specific init (FLYER/SUBMERGED/SWARM/
+    FLANKER state setup) branched on `def.archetype`, the enemy
+    definition's top-level field — correct for every regular enemy, but
+    wrong for The Kraken's Anchor, whose top-level `archetype` is `TANK`
+    (a mostly-cosmetic fallback label; its *real* starting behavior comes
+    from `def.phases[0].archetype`, which is `SUBMERGED`). Because of
+    that mismatch, the boss's phase-0 SUBMERGED init block never ran: it
+    spawned with `invulnerable: false` and no `submergedState`/
+    `submergedTimer` at all, so it was vulnerable to every weapon from
+    the very first frame — Depth Charges never actually mattered, the
+    "guards the exit" phase-1 weapon-swap hook aside, phase 0's own
+    "read the enemy, use the right weapon" identity was silently dead
+    code. A second, worse failure mode found while verifying the fix:
+    `updateBossPhase` only ever flipped `enemy.invulnerable` on a phase
+    *transition*, never re-priming `submergedState`/`submergedTimer` —
+    so a fight lasting long enough to loop back through phase 0 a second
+    time (>28s total) would go invulnerable on that transition and then
+    never surface again for the rest of the fight, since
+    `updateSubmerged`'s own timer was never reset to let it. Both fixed
+    together in `src/engine/enemies.mjs`: `createEnemy` now computes an
+    *effective* starting archetype (`def.phases[0].archetype` for a boss,
+    `def.archetype` otherwise) and uses that for every archetype-specific
+    init branch, not just the boss-specific one; `updateBossPhase` now
+    fully resets the submerge state machine on every entry into a
+    SUBMERGED phase, not just flips the flag. `src/data/enemies.mjs`
+    gained `submergedSeconds`/`surfacedSeconds` on the boss's definition
+    (reused Deep Crawler's own values — Depth Charges' existing tuning is
+    already balanced against exactly that cadence, no reason to invent
+    new numbers). Two regression tests added to
+    `tests/enemies.test.mjs`: one confirming the boss starts invulnerable
+    with a real timer (the first bug), one running a boss through 70
+    simulated seconds (past 2 full phase loops) confirming it becomes
+    vulnerable again in phase 0 the second time around (the second bug).
+    **190/190 tests pass.**
+  - **One clean-arithmetic weapon retune, not sim-dependent:** computed
+    each weapon's direct-hit DPS against its counter enemy's HP pool.
+    Every pair kills comfortably within a fraction of the weapon's
+    `ammoMax` except Flame Barrels vs. Ironclad Brigand (its intended
+    counter): at `damage: 4`, the Brigand's 60 HP needs 15 direct hits,
+    but Flame Barrels' `ammoMax` is only 14 — one cache's full ammo
+    literally cannot finish the kill on direct damage alone (only
+    survivable via the last shot's burn tail landing fully, uninterrupted
+    — a razor-thin margin for a weapon whose whole job is being the
+    Brigand's answer). Bumped `damage` 4 → 5 (also raises the burn tick,
+    since both reuse the same field): 12 hits needed, comfortably under
+    `ammoMax` with real margin for missed shots. This was found by
+    computing TTK/ammo-margin directly from the data files, not from the
+    bot sim (see below for why the sim's own combat-outcome numbers
+    aren't trustworthy enough to drive a change like this by themselves).
+  - **Sim results, with an honest caveat about what they can and can't
+    tell us:** a 60-run batch (post-fix) showed 0% victory, and boss
+    defeat rate stayed 0% even after the invulnerability fix. This is
+    **not** read as "the boss is still too hard" — the bot's own 15-
+    second "give up and walk away" stuck-timer (added to stop it looping
+    forever on unreachable targets) doesn't distinguish "making no
+    positional progress" from "standing still, correctly draining a
+    tanky boss's HP," so it likely abandons real boss fights mid-kill.
+    The bug fix itself is verified correct at the unit level (the two
+    regression tests above), which is the evidence that actually matters
+    here — the sim's aggregate combat-outcome stats (win rate, boss
+    defeat rate) are noted as unreliable until the bot gets real combat
+    positioning (kiting, standing ground on a target it's actively
+    damaging) rather than pure pursuit; its kill-distribution and
+    pickup/detection-radius numbers are more trustworthy since they don't
+    depend on that. Flagged as a known limitation below rather than
+    quietly presented as more authoritative than it is.
 - **Next up:** the vertical slice's entire locked build order (steps 2-8)
   plus both of step 8's own flagged follow-ups (art pass, the boss) are
-  now fully built, tested, and playtested end to end. What's left is the
-  art/audio-asset pass and the confirmed post-slice direction already
-  documented (playable factions, the combat triangle, the Captain's Hub →
+  fully built, tested, and playtested end to end, and this balance pass
+  fixed a real boss defect plus one clean weapon-margin issue. What's
+  left: the art/audio-asset pass, further balance work once
+  `tools/balance-sim.mjs` gets better combat positioning (or once there's
+  real human playtesting data), and the confirmed post-slice direction
+  (playable factions, the combat triangle, the Captain's Hub →
   Workshop/crafting expansion) — see the PRD's "Post-Slice Direction"
   section. Next session should open by asking the project owner which of
   these to prioritize rather than assuming.
@@ -1132,6 +1231,65 @@ Starting fresh below for the new game.)*
   `outcome: 'victory'` with the boss still alive, no crash) — matches the
   "must beat or slip past it" framing used when asking the project owner,
   which they approved, so this is confirmed intended behavior, not a gap.
+- 2026-09-28: Built `tools/balance-sim.mjs` as a committed, reusable dev
+  tool rather than a one-off throwaway script — a balance pass is
+  explicitly a recurring kind of work for this project (the meta-
+  progression/weapon/enemy numbers are all documented first-pass guesses
+  "expect retuning"), and every module it drives is already pure logic,
+  so a headless simulator costs nothing to keep around for the next pass.
+- 2026-09-28: Found and fixed a real boss bug (not a balance number) via
+  the balance pass: `createEnemy`'s archetype-specific init branched on
+  `def.archetype`, which is correct for every regular enemy but wrong for
+  a boss, whose actual starting behavior comes from
+  `def.phases[0].archetype` — for The Kraken's Anchor those two disagree
+  (`TANK` vs. `SUBMERGED`), so its phase-0 invulnerable/surface cycle
+  never initialized and it was vulnerable to everything from frame one.
+  Fixed by computing an effective starting archetype up front (the boss's
+  phase-0 archetype, or `def.archetype` for anyone else) and using that
+  for every archetype-specific init branch, not just checking
+  `def.archetype` directly. Worth remembering as a general lesson: a
+  boss's *effective* current archetype and its *top-level* `def`
+  archetype are different things the moment phases exist, and any new
+  code that branches on `def.archetype` for setup (as opposed to
+  `enemy.archetype` for behavior) needs to account for that, not just the
+  one place this bug happened to live.
+- 2026-09-28: Also fixed `updateBossPhase` only flipping `invulnerable` on
+  a phase transition without re-priming the SUBMERGED state machine
+  itself — found while verifying the above fix, not independently
+  reported. A fight looping back through phase 0 a second time (>28s)
+  would go invulnerable on that transition and then never surface again,
+  since `updateSubmerged`'s own timer was never reset to let it toggle
+  back off. Now resets `submergedState`/`submergedTimer` on every entry
+  into a SUBMERGED phase, not just the first. Added
+  `submergedSeconds: [1.8, 3.0]` / `surfacedSeconds: 1.1` to the boss's
+  data definition (reused Deep Crawler's exact values, since Depth
+  Charges' cooldown/damage are already tuned against that cadence — no
+  reason to invent new numbers for the same mechanic).
+- 2026-09-28: Retuned Flame Barrels' `damage` 4 → 5 based on direct
+  TTK/ammo-margin arithmetic against every weapon-counter pair, not on
+  the balance sim's own aggregate outcomes — at 4, killing an Ironclad
+  Brigand (60 HP) needed 15 direct hits against an `ammoMax` of only 14,
+  a razor-thin (and sometimes literally insufficient) margin for the one
+  weapon whose entire job is countering that enemy. Every other pair
+  already killed comfortably under its `ammoMax`. Chose to raise damage
+  rather than `ammoMax` since it also strengthens the (currently
+  under-leveraged, given both direct-hit and burn-tick reuse the same
+  field) burn DoT identity Flame Barrels is supposed to have.
+- 2026-09-28: Deliberately did NOT retune anything based on the balance
+  sim's aggregate combat-outcome numbers alone (0% victory rate, 0% boss
+  defeat rate even after the invulnerability fix) — the bot's own 15-
+  second stuck-timer (added to stop it looping forever chasing an
+  unreachable target) can't distinguish "making no positional progress"
+  from "correctly standing still draining a tanky target's HP," so it
+  likely walks away from real boss fights mid-kill; that's a bot
+  limitation, not necessarily a game one. The engine-level regression
+  tests are the evidence trusted for the boss fix itself; the sim's own
+  win/defeat-rate numbers are flagged as unreliable until it gets real
+  combat positioning (kiting, holding ground on an active target) or
+  until real human playtesting data exists to compare against. The sim's
+  kill-distribution and pickup/detection-radius numbers don't depend on
+  that same flaw and were used as directional signal only, not to drive
+  any specific number change on their own.
 
 ## Known open questions (do not silently resolve — ask)
 

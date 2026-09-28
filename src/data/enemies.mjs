@@ -105,6 +105,13 @@ export const ENEMIES = {
     contactCooldown: 1.2,
     salvageDrop: [40, 60],
     color: '#3a2a4a',
+    // Read by engine/enemies.mjs's updateSubmerged during phase 0 (and
+    // any later phase whose archetype is SUBMERGED) — the same shape as
+    // Deep Crawler's own fields, reused rather than invented fresh so
+    // Depth Charges' existing tuning (already balanced against exactly
+    // this submerge/surface cadence) applies unchanged to the boss.
+    submergedSeconds: [1.8, 3.0],
+    surfacedSeconds: 1.1,
     // Alternates phases; engine/enemies.mjs reads `phases[phaseIndex]` to
     // pick the current counter weapon and archetype behavior.
     phases: [
