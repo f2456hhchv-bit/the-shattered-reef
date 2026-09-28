@@ -132,6 +132,7 @@ export function startApp(root) {
       <h1>Captain's Hub ⚓</h1>
       <p id="hub-salvage"></p>
       <p id="hub-stats"></p>
+      <div class="hub-sections">
       <section class="hub-section">
         <h2>Ship Hulls</h2>
         <p id="hub-hulls-note" class="hub-section-note" hidden></p>
@@ -154,7 +155,10 @@ export function startApp(root) {
         <p class="hub-section-note">Craft permanent upgrades with Salvage + Kraken Scales — earn a Scale by defeating The Kraken's Anchor.</p>
         <div id="hub-workshop" class="hub-list"></div>
       </section>
-      <button type="button" id="hub-set-sail">Set Sail ⚓</button>
+      </div>
+      <!-- Sticky: the Hub grew to ~3 screens (portrait) / ~5.5 (landscape)
+           of shops, and the one action you always want sat at the bottom. -->
+      <div class="hub-footer"><button type="button" id="hub-set-sail">Set Sail ⚓</button></div>
     </div>
   `;
   root.appendChild(hubOverlay);
@@ -250,23 +254,44 @@ export function startApp(root) {
   // after the HUD's own DOM writes would force a synchronous layout every
   // frame on mobile.
   const hudInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+  let lastView = null; // last frame's camera view — debug hook only
+  // Short landscape phones get a different HUD (ui/styles.css, same query):
+  // one compact top row, and the weapon bar as a grid above the fire
+  // button in the right-thumb zone — so the camera reserves a RIGHT band
+  // instead of a tall top band plus a bottom band. Keep in sync with CSS.
+  const LANDSCAPE_QUERY = '(orientation: landscape) and (max-height: 540px)';
+  const landscapeMql = window.matchMedia ? window.matchMedia(LANDSCAPE_QUERY) : null;
   function measureHudInsets() {
     const margin = 8;
+    const vw = window.innerWidth;
     const vh = window.innerHeight;
+    const weaponBar = document.getElementById('weapon-bar');
     const top = Math.max(0, Math.round(hud.getBoundingClientRect().bottom + margin));
+    if (landscapeMql && landscapeMql.matches) {
+      const leftEdge = Math.min(weaponBar.getBoundingClientRect().left, fireButton.getBoundingClientRect().left);
+      hudInsets.top = top;
+      hudInsets.right = Math.max(0, Math.round(vw - leftEdge + margin));
+      hudInsets.bottom = 0;
+      hudInsets.left = 0;
+      return;
+    }
     const bottom = Math.max(0, Math.round(vh - fireButton.getBoundingClientRect().top + margin));
     hudInsets.top = top;
-    // In a short (landscape) viewport, reserving both bands would leave a
-    // sliver of playfield — drop the fire-button band first (it only
-    // covers one corner anyway), keeping the top band that covers the boat.
+    hudInsets.right = 0;
+    hudInsets.left = 0;
+    // In a short viewport, reserving both bands would leave a sliver of
+    // playfield — drop the fire-button band first (it only covers one
+    // corner anyway), keeping the top band that covers the boat.
     hudInsets.bottom = (top + bottom) > vh * 0.5 ? 0 : bottom;
   }
   measureHudInsets();
   window.addEventListener('resize', measureHudInsets);
+  if (landscapeMql && landscapeMql.addEventListener) landscapeMql.addEventListener('change', measureHudInsets);
   if (typeof ResizeObserver !== 'undefined') {
     const ro = new ResizeObserver(measureHudInsets);
     ro.observe(hud);
     ro.observe(fireButton);
+    ro.observe(document.getElementById('weapon-bar'));
   }
   camera.x = run.boat.x;
   camera.y = run.boat.y;
@@ -647,6 +672,8 @@ export function startApp(root) {
       ownedFactions: meta.ownedFactions, selectedFaction: meta.selectedFaction,
       krakenScales: meta.krakenScales, ownedWorkshopUpgrades: meta.ownedWorkshopUpgrades,
     },
+    hudInsets: { ...hudInsets },
+    boatScreen: lastView && { x: run.boat.x + lastView.translateX, y: run.boat.y + lastView.translateY },
     faction: run.faction, bossDefeated: run.bossDefeated, craftedDamageMultipliers: run.craftedDamageMultipliers,
     particleCount: particles.length, damageNumberCount: damageNumbers.length,
     damageNumbers: damageNumbers.map((d) => ({ amount: d.amount, crit: d.crit, triangle: d.triangle, incoming: d.incoming })),
@@ -928,6 +955,7 @@ export function startApp(root) {
     ctx.fillRect(0, 0, vw, vh);
     ctx.save();
     const view = applyCameraTransform(ctx, camera, vw, vh, run.widthPx, run.heightPx, shakeOffset, hudInsets);
+    lastView = view;
     drawTileGrid(ctx, run.grid, run.tileSize, view.visible.left, view.visible.top, view.visible.right, view.visible.bottom);
     drawExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
     drawPickups(ctx, run.pickups, (p) => WEAPON_SHORT_LABEL[p.weaponId], now / 1000);

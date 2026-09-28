@@ -71,3 +71,15 @@ test('updateCamera converges on its target', () => {
   for (let i = 0; i < 120; i++) updateCamera(cam, 100, 50, 1 / 60);
   assert.ok(Math.abs(cam.x - 100) < 0.1 && Math.abs(cam.y - 50) < 0.1);
 });
+
+// Landscape layout (2026-09-28): the weapon grid + fire button form a RIGHT
+// band instead of top/bottom bands.
+test('a right-side HUD band keeps the map\'s right edge — and a boat on it — clear of the controls', () => {
+  const insets = { top: 42, right: 146, bottom: 0, left: 0 };
+  const W = 667, H = 375;
+  const boat = { x: MAP - 30, y: 800 };
+  const view = computeCameraView(boat, W, H, MAP, MAP, insets);
+  assert.ok(toScreen(view, boat.x, boat.y).x <= W - insets.right, 'boat must render left of the control band');
+  assert.equal(toScreen(view, MAP, 0).x, W - insets.right, 'map right edge sits exactly at the band');
+  assert.equal(toScreen(view, 0, 0).y, insets.top);
+});

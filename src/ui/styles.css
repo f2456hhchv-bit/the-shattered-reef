@@ -154,6 +154,17 @@ html, body {
   display: flex;
   gap: 6px;
   margin-top: 2px;
+  /* Equal-width buttons inset from the screen edges (and any notch /
+     rounded corner): at 390px the content-sized buttons ran flush to both
+     edges, where curved screens clip them. */
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 460px;
+  padding: 0 max(8px, env(safe-area-inset-left)) 0 max(8px, env(safe-area-inset-right));
+}
+#weapon-bar .weapon-btn {
+  flex: 1 1 0;
+  min-width: 0;
 }
 .weapon-btn {
   display: flex;
@@ -328,6 +339,9 @@ html, body {
 #hub-card {
   width: min(420px, 90vw);
   max-height: 86vh;
+  /* Leave the always-on-top mute button (top-left, 44px) clear above and
+     below; dvh tracks mobile browser URL bars, 86vh is the fallback. */
+  max-height: calc(100dvh - 2 * (max(8px, env(safe-area-inset-top)) + 52px));
   overflow-y: auto;
   background: rgba(11, 58, 82, .97);
   border: 1px solid rgba(232, 181, 75, .4);
@@ -420,8 +434,24 @@ html, body {
 .hub-item-btn:disabled {
   opacity: .4;
 }
+/* Pinned to the bottom of the scrolling Hub card at every orientation:
+   the card is several screens of shops, and Set Sail — the action you
+   always want — was at the very end of it. Opaque, with a fade above, so
+   rows scrolling underneath don't show through. */
+.hub-footer {
+  position: sticky;
+  bottom: -26px; /* sit over the card's own bottom padding */
+  margin: 14px -20px -26px;
+  padding: 12px 20px calc(14px + env(safe-area-inset-bottom));
+  background: rgb(11, 58, 82);
+  box-shadow: 0 -14px 14px -4px rgb(11, 58, 82);
+  border-radius: 0 0 16px 16px;
+  z-index: 1;
+}
 #hub-set-sail {
-  margin-top: 20px;
+  margin-top: 0;
+  min-height: 48px;
+  min-width: 200px;
   padding: 12px 26px;
   border-radius: 999px;
   border: 1px solid rgba(232, 181, 75, .6);
@@ -433,4 +463,82 @@ html, body {
 }
 #hub-set-sail:active {
   background: rgba(232, 181, 75, .6);
+}
+
+
+/* ------------------------------------------------------------------------
+   Short landscape phones (2026-09-28). Keep this query in sync with
+   LANDSCAPE_QUERY in main.mjs, which reserves the matching camera inset.
+   Portrait stacked the whole HUD in a 133px top band — over a third of a
+   375px-tall landscape screen. Here: one compact top row, and the weapon
+   bar becomes a 2-column grid directly above the fire button (the
+   right-thumb zone), so the playfield keeps nearly its full height. A
+   single column of 44px targets doesn't fit above the fire button on a
+   360px-tall phone, and targets don't shrink below 44px to make it.
+   ------------------------------------------------------------------------ */
+@media (orientation: landscape) and (max-height: 540px) {
+  #hud {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: nowrap;
+    top: max(8px, env(safe-area-inset-top));
+    padding: 0 calc(max(10px, env(safe-area-inset-left)) + 52px);
+    gap: 8px;
+  }
+  #hud-status {
+    font-size: 12px;
+    padding: 5px 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 38vw;
+  }
+  #hull-bar { width: 110px; flex-shrink: 0; }
+  #stat-row { flex-shrink: 0; }
+  #salvage-counter, #reef-indicator { padding: 4px 10px; font-size: 11px; }
+
+  #weapon-bar {
+    width: auto;
+    max-width: none;
+    padding: 0;
+    position: fixed;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: calc(max(20px, env(safe-area-inset-bottom)) + 76px + 10px);
+    display: grid;
+    grid-template-columns: repeat(2, 60px);
+    gap: 6px;
+    margin: 0;
+  }
+  /* Same left-to-right order as portrait (muscle memory carries over); the
+     odd fifth button sits in the right column, nearest the thumb. */
+  #weapon-bar .weapon-btn:nth-child(5) { grid-column: 2; }
+  .weapon-btn {
+    min-width: 0;
+    min-height: 44px;
+    padding: 4px 4px;
+    font-size: 9.5px;
+    line-height: 1.15;
+    justify-content: center;
+  }
+  #fire-button {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(20px, env(safe-area-inset-bottom));
+    /* Centre under the 2-column weapon grid (126px wide) */
+    margin-right: 25px;
+  }
+
+  #hub-card {
+    /* Clear the always-on-top mute button (44px + its inset) on both sides. */
+    width: min(900px, calc(100vw - 2 * (max(10px, env(safe-area-inset-left)) + 52px)));
+    max-height: 92vh;
+    max-height: 92dvh;
+    padding: 14px 18px 26px;
+  }
+  #hub-card h1 { margin: 0 0 2px; font-size: 20px; }
+  #hub-card #hub-salvage, #hub-card #hub-stats { margin: 2px 0; }
+  .hub-sections { columns: 2; column-gap: 18px; }
+  .hub-section { break-inside: avoid; margin-top: 12px; }
+
+  #run-summary-card { max-height: 92vh; overflow-y: auto; }
 }
