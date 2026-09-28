@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   FACTION_IDS, FACTIONS, FACTION_LIST, getFaction,
   triangleMultiplier, TRIANGLE_ADVANTAGE_MULTIPLIER, TRIANGLE_DISADVANTAGE_MULTIPLIER,
-  incomingTriangleMultiplier, INCOMING_TRIANGLE,
+  incomingTriangleMultiplier, INCOMING_TRIANGLE, matchupFor, relationTo,
 } from '../src/data/factions.mjs';
 
 test('every faction has exactly one distinct beats target, forming a 3-cycle', () => {
@@ -79,4 +79,21 @@ test('the triangle is consistent in both directions: whoever you beat, you out-d
       if (out === 1) assert.equal(inc, 1);
     }
   }
+});
+
+test('matchupFor names each faction\'s prey and predator consistently with the triangle', () => {
+  for (const f of FACTION_LIST) {
+    const m = matchupFor(f.id);
+    assert.ok(triangleMultiplier(f.id, m.prey.id) > 1);
+    assert.ok(triangleMultiplier(f.id, m.predator.id) < 1);
+  }
+  assert.equal(matchupFor(null), null);
+});
+
+test('relationTo drives the enemy pips: prey / predator / null (mirror, unaligned, boss)', () => {
+  assert.equal(relationTo(FACTION_IDS.IRON_ACCORD, FACTION_IDS.WYRDTIDE), 'prey');
+  assert.equal(relationTo(FACTION_IDS.IRON_ACCORD, FACTION_IDS.REAVERS), 'predator');
+  assert.equal(relationTo(FACTION_IDS.IRON_ACCORD, FACTION_IDS.IRON_ACCORD), null);
+  assert.equal(relationTo(null, FACTION_IDS.REAVERS), null);
+  assert.equal(relationTo(FACTION_IDS.REAVERS, null), null);
 });

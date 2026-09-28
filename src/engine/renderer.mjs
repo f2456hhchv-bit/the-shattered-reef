@@ -3,6 +3,8 @@
 // with real art direction once the loop is proven, not before). Colors
 // live here as constants so the eventual art pass has one place to retune.
 
+import { damageNumberStyle, DAMAGE_NUMBER_COLORS } from './juice.mjs';
+
 export const PALETTE = {
   water: '#0b3a52',
   waterDeep: '#062435',
@@ -88,7 +90,7 @@ export function drawBoat(ctx, boat, radius) {
 // stay visually distinct even before real sprites exist. A thin outer ring
 // while invulnerable (submerged Deep Crawlers) and a flickering overlay
 // while burning give the two status effects a readable tell.
-export function drawEnemy(ctx, enemy, color, t, name = null) {
+export function drawEnemy(ctx, enemy, color, t, name = null, badge = null) {
   ctx.save();
   ctx.translate(enemy.x, enemy.y);
 
@@ -139,12 +141,39 @@ export function drawEnemy(ctx, enemy, color, t, name = null) {
     ctx.textAlign = 'center';
     ctx.fillText(name, enemy.x, enemy.y - enemy.radius - 14);
   }
+
+  // Combat-triangle matchup pip (2026-09-28): lets the player read the
+  // matchup BEFORE firing. 'prey' = cyan ▲ (the triangle favors you),
+  // 'predator' = red ! in a ring (this one hits you harder and shrugs off
+  // your shots). Reveals the faction relationship, never the counter
+  // weapon — the weapon read stays the player's job. Drawn beside the
+  // health bar's end so the two never overlap.
+  if (badge) {
+    const bx = enemy.x + enemy.radius + 5;
+    const by = enemy.y - enemy.radius - 5;
+    ctx.save();
+    ctx.lineJoin = 'round';
+    if (badge === 'prey') {
+      ctx.beginPath();
+      ctx.moveTo(bx, by - 5); ctx.lineTo(bx + 5, by + 4); ctx.lineTo(bx - 5, by + 4); ctx.closePath();
+      ctx.lineWidth = 3; ctx.strokeStyle = DAMAGE_NUMBER_COLORS.outline; ctx.stroke();
+      ctx.fillStyle = DAMAGE_NUMBER_COLORS.favored; ctx.fill();
+    } else if (badge === 'predator') {
+      ctx.beginPath(); ctx.arc(bx, by, 5.5, 0, Math.PI * 2);
+      ctx.fillStyle = DAMAGE_NUMBER_COLORS.outline; ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = DAMAGE_NUMBER_COLORS.hurtDanger; ctx.stroke();
+      ctx.fillStyle = DAMAGE_NUMBER_COLORS.hurtDanger;
+      ctx.font = '900 9px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('!', bx, by + 0.5);
+    }
+    ctx.restore();
+  }
 }
 
-export function drawEnemies(ctx, enemies, colorFor, t, nameFor = null) {
+export function drawEnemies(ctx, enemies, colorFor, t, nameFor = null, badgeFor = null) {
   for (const enemy of enemies) {
     if (enemy.health <= 0) continue;
-    drawEnemy(ctx, enemy, colorFor(enemy), t, nameFor ? nameFor(enemy) : null);
+    drawEnemy(ctx, enemy, colorFor(enemy), t, nameFor ? nameFor(enemy) : null, badgeFor ? badgeFor(enemy) : null);
   }
 }
 
@@ -221,35 +250,27 @@ export function drawParticles(ctx, particles) {
   ctx.globalAlpha = 1;
 }
 
-// Crit (on-counter) controls size; the combat-triangle status controls
-// color, independent of and stacked with crit — a triangle-advantaged
-// on-counter hit is a big gold number with a ▲ suffix, a
-// triangle-disadvantaged one is small and dull red with a ▼, and a plain
-// hit with no triangle effect keeps the original cream color.
+// Draws floating damage numbers. All styling decisions (colours, glyphs,
+// size, pop) live in engine/juice.mjs's damageNumberStyle — pure and
+// unit-tested — so this only lays out the coloured parts side by side,
+// outline first, then fill, centred on the number's position.
 export function drawDamageNumbers(ctx, numbers) {
-  ctx.textAlign = 'center';
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
   for (const d of numbers) {
-    ctx.globalAlpha = Math.max(0, d.life / d.maxLife);
-    ctx.font = d.crit ? 'bold 15px sans-serif' : 'bold 11px sans-serif';
-    if (d.incoming) {
-      // Damage taken: always reads as a loss (red, minus sign); the
-      // triangle only changes the glyph — ▲ your predator hit harder, ▼
-      // your prey hit softer.
-      ctx.fillStyle = d.triangle === 'danger' ? '#ff5a4a' : d.triangle === 'resist' ? '#d98a7a' : '#e0705f';
-      const glyph = d.triangle === 'danger' ? ' ▲' : d.triangle === 'resist' ? ' ▼' : '';
-      ctx.fillText(`-${d.amount}${glyph}`, d.x, d.y);
-      continue;
-    }
-    if (d.triangle === 'advantage') {
-      ctx.fillStyle = d.crit ? '#6be0c9' : '#4fb3a0';
-    } else if (d.triangle === 'disadvantage') {
-      ctx.fillStyle = d.crit ? '#c97a6a' : '#8a5a52';
-    } else {
-      ctx.fillStyle = d.crit ? '#e8b54b' : '#e9ddc4';
-    }
-    const suffix = d.triangle === 'advantage' ? ' ▲' : d.triangle === 'disadvantage' ? ' ▼' : '';
-    ctx.fillText(String(d.amount) + suffix, d.x, d.y);
+    const style = damageNumberStyle(d);
+    ctx.globalAlpha = Math.max(0, Math.min(1, d.life / (d.maxLife * 0.5)));
+    ctx.font = `800 ${style.size.toFixed(1)}px system-ui, -apple-system, 'Segoe UI', sans-serif`;
+    const widths = style.parts.map((p) => ctx.measureText(p.text).width);
+    const gap = style.size * 0.08;
+    const total = widths.reduce((a, b) => a + b, 0) + gap * (style.parts.length - 1);
+    let x = d.x - total / 2;
+    ctx.lineWidth = style.outlineWidth;
+    ctx.strokeStyle = style.outline;
+    style.parts.forEach((p, i) => { ctx.strokeText(p.text, x, d.y); x += widths[i] + gap; });
+    x = d.x - total / 2;
+    style.parts.forEach((p, i) => { ctx.fillStyle = p.color; ctx.fillText(p.text, x, d.y); x += widths[i] + gap; });
   }
   ctx.globalAlpha = 1;
 }

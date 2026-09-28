@@ -29,7 +29,8 @@ import { getEnemy } from './data/enemies.mjs';
 import {
   SHIP_HULL_LIST, CARGO_TIER_LIST, CHARM_LIST, PLAYABLE_FACTION_LIST, WORKSHOP_UPGRADE_LIST,
 } from './data/meta.mjs';
-import { triangleMultiplier, incomingTriangleMultiplier } from './data/factions.mjs';
+import { triangleMultiplier, incomingTriangleMultiplier, matchupFor, relationTo } from './data/factions.mjs';
+import { ENEMY_LIST } from './data/enemies.mjs';
 import {
   loadMeta, saveMeta, resolveLoadout, recordRunResult, canAfford,
   purchaseHull, selectHull, purchaseCargoTier, purchaseCharm,
@@ -181,11 +182,51 @@ export function startApp(root) {
   toast.id = 'pickup-toast';
   root.appendChild(toast);
   let toastTimer = null;
-  function showToast(text) {
-    toast.textContent = text;
+  // `parts` (optional) replaces `text` with coloured segments
+  // [{text, cls}] — built as DOM nodes, never innerHTML. `ms` extends the
+  // default 1.6s for messages that carry more to read; `dark` swaps the
+  // gold pill for a dark one so cyan/red segments stay legible.
+  function showToast(text, { ms = 1600, parts = null, dark = false } = {}) {
+    toast.replaceChildren();
+    if (parts) {
+      for (const p of parts) {
+        const span = document.createElement('span');
+        span.textContent = p.text;
+        if (p.cls) span.className = p.cls;
+        toast.appendChild(span);
+      }
+    } else {
+      toast.textContent = text;
+    }
+    toast.classList.toggle('dark', dark);
+    // The dark briefing is longer-lived, so it sits just below the HUD
+    // (the camera's measured inset) rather than over the weapon bar.
+    toast.style.top = dark ? `${hudInsets.top + 4}px` : '';
     toast.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), ms);
+  }
+
+  // Player-facing names of the enemies a faction fields, e.g. "Gullswarm
+  // Harpy, Deep Crawler" — so "strong vs Wyrdtide" means something the
+  // player can recognise in the water.
+  function enemyNamesOf(factionId) {
+    return ENEMY_LIST.filter((e) => e.faction === factionId).map((e) => e.name).join(', ');
+  }
+
+  // Run-start briefing for a faction run: the same ▲ / ! glyphs the enemy
+  // matchup pips use, so the pips are self-explaining from the first second.
+  function showMatchupBriefing(factionId) {
+    const m = matchupFor(factionId);
+    if (!m) return;
+    showToast(null, {
+      ms: 4200,
+      dark: true,
+      parts: [
+        { text: `\u25B2 Strong vs ${m.prey.name}`, cls: 'm-prey' },
+        { text: `! Weak vs ${m.predator.name}`, cls: 'm-pred' },
+      ],
+    });
   }
 
   const ctx = canvas.getContext('2d');
@@ -475,6 +516,7 @@ export function startApp(root) {
       row.innerHTML = `
         <div class="hub-item-info">
           <span class="hub-item-name">${faction.name}${selected ? ' ✓' : ''}</span>
+          <span class="hub-matchup"><span class="m-prey">\u25B2 Strong vs ${matchupFor(faction.id).prey.name}</span> <span class="m-who">(${enemyNamesOf(matchupFor(faction.id).prey.id)})</span><br><span class="m-pred">! Weak vs ${matchupFor(faction.id).predator.name}</span> <span class="m-who">(${enemyNamesOf(matchupFor(faction.id).predator.id)})</span></span>
           <span class="hub-item-desc">${faction.description}</span>
         </div>
         <button type="button" class="hub-item-btn" data-faction-id="${faction.id}"${disabled ? ' disabled' : ''}>${label}</button>
@@ -530,6 +572,7 @@ export function startApp(root) {
     hitStop.remaining = 0;
     setStatus(`Reef 1 of ${run.reefCount} — find the exit ⚓`);
     toast.classList.remove('show');
+    if (run.faction) showMatchupBriefing(run.faction);
     hubOverlay.classList.remove('show');
     updateHullBar();
     updateSalvageCounter();
@@ -725,6 +768,7 @@ export function startApp(root) {
         // damage number can say so distinctly from a plain on-counter crit.
         const triangleMult = triangleMultiplier(run.faction, ev.enemy.faction);
         spawnDamageNumber(damageNumbers, ev.enemy.x, ev.enemy.y - ev.enemy.radius - 4, ev.damage, {
+          jitterX: (Math.random() - 0.5) * 10,
           crit: currentCounter(ev.enemy) === ev.weaponId,
           triangle: triangleMult > 1 ? 'advantage' : triangleMult < 1 ? 'disadvantage' : null,
         });
@@ -788,7 +832,10 @@ export function startApp(root) {
       for (const ev of contactEvents) {
         contactDamage += ev.damage;
         const m = incomingTriangleMultiplier(ev.enemy.faction, run.faction);
-        spawnDamageNumber(damageNumbers, run.boat.x, run.boat.y - BOAT_RADIUS - 6, ev.damage, {
+        // Offset left of the boat: an enemy touching the boat spawns its own
+        // (outgoing) numbers at nearly the same point, and the two used to
+        // overprint each other.
+        spawnDamageNumber(damageNumbers, run.boat.x - 30, run.boat.y - BOAT_RADIUS - 8, ev.damage, {
           incoming: true,
           triangle: m > 1 ? 'danger' : m < 1 ? 'resist' : null,
         });
@@ -875,7 +922,11 @@ export function startApp(root) {
     drawTileGrid(ctx, run.grid, run.tileSize, view.visible.left, view.visible.top, view.visible.right, view.visible.bottom);
     drawExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
     drawPickups(ctx, run.pickups, (p) => WEAPON_SHORT_LABEL[p.weaponId], now / 1000);
-    drawEnemies(ctx, run.enemies, (e) => e.colorHex || enemyColor(e), now / 1000, (e) => (e.isBoss ? "The Kraken's Anchor" : null));
+    drawEnemies(
+      ctx, run.enemies, (e) => e.colorHex || enemyColor(e), now / 1000,
+      (e) => (e.isBoss ? "The Kraken's Anchor" : null),
+      (e) => relationTo(run.faction, e.faction),
+    );
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color);
     if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS);
     drawParticles(ctx, particles);

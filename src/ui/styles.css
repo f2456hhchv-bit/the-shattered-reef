@@ -207,6 +207,34 @@ html, body {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+/* Dark variant for multi-colour messages (the faction matchup briefing):
+   cyan/red segments are unreadable on the gold pill. */
+#pickup-toast.dark {
+  background: rgba(7, 19, 28, .94);
+  color: #f2e8d0;
+  border: 1px solid rgba(95, 242, 214, .35);
+  border-radius: 14px;
+  font-size: 14px;
+  padding: 8px 18px;
+  white-space: normal;
+  /* An absolute box at left:50% shrink-wraps to HALF the screen, which
+     wrapped "Iron Accord" onto two lines; size to content instead. */
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  line-height: 1.5;
+}
+/* One matchup per line — "Blacksail Reavers" is long enough that a single
+   nowrap line overflowed a 360px-wide phone. */
+#pickup-toast.dark > span { display: block; }
+#pickup-toast .m-prey, .hub-matchup .m-prey { color: #5ff2d6; font-weight: 800; }
+#pickup-toast .m-pred, .hub-matchup .m-pred { color: #ff6b5b; font-weight: 800; }
+.hub-matchup {
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin: 2px 0 1px;
+}
+.hub-matchup .m-who { color: #b3bdc8; }
 
 #fire-button {
   position: absolute;

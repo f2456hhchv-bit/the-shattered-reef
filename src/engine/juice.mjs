@@ -108,8 +108,10 @@ export function spawnDamageNumber(pool, x, y, amount, options = {}) {
     y,
     amount: Math.max(1, Math.round(amount)),
     vy: -30,
-    life: 0.7,
-    maxLife: 0.7,
+    // Triangle-tagged numbers live a little longer — they carry a second
+    // piece of information (the matchup) that needs a moment to register.
+    life: options.triangle ? 0.9 : 0.7,
+    maxLife: options.triangle ? 0.9 : 0.7,
     crit: !!options.crit, // "on-counter" hit — drawn larger/gold
     // Post-slice combat-triangle feedback: 'advantage' | 'disadvantage' |
     // null/undefined (no faction chosen, a mirror match, or the
@@ -176,4 +178,50 @@ export function applyHitStop(hitStop, realDt) {
     return 0;
   }
   return realDt;
+}
+
+// --- Damage-number visual language (2026-09-28 legibility pass) ----------
+// Pure, so the rules are unit-tested (tests/juice.test.mjs) rather than
+// left to taste; renderer.mjs only draws what this returns. The language:
+//   * RED (with a minus sign) means damage YOU took — nothing else is red.
+//     Its glyph: ▲ your predator hit harder, ▼ your prey hit softer.
+//   * The NUMBER colour of damage you dealt reports the weapon match:
+//     gold = counter weapon, cream = anything else (unchanged from step 8).
+//   * A separately coloured GLYPH reports the faction match: cyan ▲ =
+//     amplified against your prey, grey ▼ = resisted by your predator.
+//     (Before: the whole number was tinted, a resisted hit became dark red
+//     on dark water — near-invisible — and red meant two opposite things.)
+//   * Every number has a dark outline so it reads on water, deep water and
+//     rock alike, and amplified numbers (yours or theirs) pop in larger.
+export const DAMAGE_NUMBER_COLORS = Object.freeze({
+  normal: '#f2e8d0',
+  counter: '#ffc94d',
+  favored: '#5ff2d6',
+  resisted: '#b3bdc8',
+  hurt: '#ff6b5b',
+  hurtDanger: '#ff4d40',
+  hurtResist: '#ff9d8f',
+  outline: '#07131c',
+});
+
+export function damageNumberStyle(d) {
+  const C = DAMAGE_NUMBER_COLORS;
+  const age = d.maxLife - d.life;
+  const amplified = d.triangle === 'advantage' || d.triangle === 'danger';
+  const pop = amplified ? 1 + 0.4 * Math.max(0, 1 - age / 0.18) : 1;
+  let size;
+  const parts = [];
+  if (d.incoming) {
+    size = d.triangle === 'danger' ? 17 : 14;
+    const color = d.triangle === 'danger' ? C.hurtDanger : d.triangle === 'resist' ? C.hurtResist : C.hurt;
+    parts.push({ text: `-${d.amount}`, color });
+    if (d.triangle === 'danger') parts.push({ text: '\u25B2', color });
+    if (d.triangle === 'resist') parts.push({ text: '\u25BC', color });
+  } else {
+    size = (d.crit ? 17 : 13) + (d.triangle === 'advantage' ? 2 : 0);
+    parts.push({ text: String(d.amount), color: d.crit ? C.counter : C.normal });
+    if (d.triangle === 'advantage') parts.push({ text: '\u25B2', color: C.favored });
+    if (d.triangle === 'disadvantage') parts.push({ text: '\u25BC', color: C.resisted });
+  }
+  return { parts, size: size * pop, outline: C.outline, outlineWidth: 3.5 };
 }

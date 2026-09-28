@@ -188,3 +188,73 @@ test('spawnDamageNumber marks damage the player took as incoming, separately fro
   assert.equal(pool[0].triangle, 'danger');
   assert.equal(pool[1].incoming, false);
 });
+
+// --- Damage-number visual language (2026-09-28 legibility pass) ----------
+import { damageNumberStyle, DAMAGE_NUMBER_COLORS } from '../src/engine/juice.mjs';
+import { PALETTE } from '../src/engine/renderer.mjs';
+
+// WCAG relative luminance / contrast ratio.
+function lum(hex) {
+  const c = hex.replace('#', '').match(/../g).map((h) => parseInt(h, 16) / 255)
+    .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+function contrast(a, b) { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); }
+
+const ALL_CASES = [];
+for (const incoming of [false, true]) for (const crit of [false, true])
+  for (const triangle of incoming ? [null, 'danger', 'resist'] : [null, 'advantage', 'disadvantage'])
+    ALL_CASES.push({ amount: 9, crit, triangle, incoming, life: 0.1, maxLife: 0.9 });
+
+test('red is reserved for damage the player took — no dealt-damage style uses it', () => {
+  const reds = [DAMAGE_NUMBER_COLORS.hurt, DAMAGE_NUMBER_COLORS.hurtDanger, DAMAGE_NUMBER_COLORS.hurtResist];
+  for (const d of ALL_CASES) {
+    const colors = damageNumberStyle(d).parts.map((p) => p.color);
+    if (d.incoming) assert.ok(colors.every((c) => reds.includes(c)), `incoming ${d.triangle} should be red`);
+    else assert.ok(colors.every((c) => !reds.includes(c)), `dealt ${d.triangle} must not use red: ${colors}`);
+  }
+});
+
+test('every number colour has strong contrast against its outline (legible on any background)', () => {
+  for (const d of ALL_CASES) for (const p of damageNumberStyle(d).parts) {
+    const r = contrast(p.color, DAMAGE_NUMBER_COLORS.outline);
+    assert.ok(r >= 4.5, `${p.text} ${p.color} vs outline: ${r.toFixed(2)} < 4.5`);
+  }
+});
+
+test('every number colour clears 3:1 against every real tile colour even without its outline', () => {
+  for (const bg of [PALETTE.water, PALETTE.waterDeep, PALETTE.rock]) for (const d of ALL_CASES) for (const p of damageNumberStyle(d).parts) {
+    const r = contrast(p.color, bg);
+    assert.ok(r >= 3, `${p.text} ${p.color} vs tile ${bg}: ${r.toFixed(2)} < 3`);
+  }
+});
+
+test('a resisted hit keeps a full-brightness number — only its glyph is muted (the old version was near-invisible)', () => {
+  const s = damageNumberStyle({ amount: 5, crit: false, triangle: 'disadvantage', incoming: false, life: 0.9, maxLife: 0.9 });
+  assert.equal(s.parts[0].color, DAMAGE_NUMBER_COLORS.normal);
+  assert.equal(s.parts[1].text, '▼');
+});
+
+test('the counter-weapon gold survives a triangle advantage — the two signals stack, not overwrite', () => {
+  const s = damageNumberStyle({ amount: 30, crit: true, triangle: 'advantage', incoming: false, life: 0.9, maxLife: 0.9 });
+  assert.equal(s.parts[0].color, DAMAGE_NUMBER_COLORS.counter);
+  assert.equal(s.parts[1].color, DAMAGE_NUMBER_COLORS.favored);
+});
+
+test('amplified numbers (advantage / danger) pop in larger, then settle to their resting size', () => {
+  for (const triangle of ['advantage', 'danger']) {
+    const incoming = triangle === 'danger';
+    const fresh = damageNumberStyle({ amount: 9, crit: false, triangle, incoming, life: 0.9, maxLife: 0.9 });
+    const settled = damageNumberStyle({ amount: 9, crit: false, triangle, incoming, life: 0.5, maxLife: 0.9 });
+    assert.ok(fresh.size > settled.size * 1.3, `${triangle} should pop`);
+  }
+  const plain = damageNumberStyle({ amount: 9, crit: false, triangle: null, incoming: false, life: 0.7, maxLife: 0.7 });
+  assert.ok(plain.size >= 13, 'even plain numbers are at least 13px (was 11px)');
+});
+
+test('triangle-tagged numbers stay on screen longer than plain ones', () => {
+  const pool = createDamageNumberPool();
+  spawnDamageNumber(pool, 0, 0, 5);
+  spawnDamageNumber(pool, 0, 0, 5, { triangle: 'advantage' });
+  assert.ok(pool[1].maxLife > pool[0].maxLife);
+});

@@ -98,3 +98,24 @@ export function incomingTriangleMultiplier(enemyFactionId, playerFactionId) {
   if (m < 1) return INCOMING_TRIANGLE.disadvantage;
   return 1;
 }
+
+// Player-facing matchup for a faction: which faction it beats (its prey,
+// the triangle favors you) and which beats it (its predator). Used by the
+// Hub, the run-start toast and the enemy matchup pips, so the player can
+// read the triangle before firing rather than inferring it from numbers.
+export function matchupFor(factionId) {
+  if (!factionId) return null;
+  const self = getFaction(factionId);
+  const predator = FACTION_LIST.find((f) => f.beats === factionId);
+  return { prey: getFaction(self.beats), predator };
+}
+
+// 'prey' | 'predator' | null — how an enemy of `enemyFactionId` relates to
+// a player of `playerFactionId`. Null for unaligned players, faction-less
+// enemies (the boss) and mirror matches.
+export function relationTo(playerFactionId, enemyFactionId) {
+  const m = triangleMultiplier(playerFactionId, enemyFactionId);
+  if (m > 1) return 'prey';
+  if (m < 1) return 'predator';
+  return null;
+}
