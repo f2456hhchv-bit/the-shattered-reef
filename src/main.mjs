@@ -6,14 +6,20 @@
 import { createRun, checkReachedExit, checkSunk, BOAT_RADIUS } from './engine/run.mjs';
 import { stepBoat, resolveTileCollision, applyWallImpactDamage, DEFAULT_BOAT_TUNING, MAX_HULL } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
-import { drawTileGrid, drawExit, drawBoat, drawEnemies, drawProjectiles, PALETTE } from './engine/renderer.mjs';
+import { drawTileGrid, drawExit, drawBoat, drawEnemies, drawProjectiles, drawPickups, PALETTE } from './engine/renderer.mjs';
 import { createJoystick } from './input/joystick.mjs';
 import {
-  tryFire, stepCombat, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, ammoFor,
+  tryFire, stepCombat, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, ammoFor, isHeld,
 } from './engine/combat.mjs';
 import { updateEnemies, resolveEnemyContacts, currentCounter } from './engine/enemies.mjs';
+import { collectPickups } from './engine/pickups.mjs';
+import { PICKUP_KINDS } from './data/pickups.mjs';
 import { WEAPON_LIST, getWeapon } from './data/weapons.mjs';
 import { getEnemy } from './data/enemies.mjs';
+
+const WEAPON_SHORT_LABEL = {
+  chain_shot: 'CS', grapeshot: 'GS', depth_charges: 'DC', flame_barrels: 'FB', cannonballs: 'CB',
+};
 
 export function startApp(root) {
   root.innerHTML = '';
@@ -44,6 +50,17 @@ export function startApp(root) {
   const hitFlash = document.createElement('div');
   hitFlash.id = 'hit-flash';
   root.appendChild(hitFlash);
+
+  const toast = document.createElement('div');
+  toast.id = 'pickup-toast';
+  root.appendChild(toast);
+  let toastTimer = null;
+  function showToast(text) {
+    toast.textContent = text;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
+  }
 
   const ctx = canvas.getContext('2d');
   const joystick = createJoystick(touchLayer);
@@ -93,6 +110,7 @@ export function startApp(root) {
     btn.innerHTML = `<span class="weapon-name">${weapon.name}</span><span class="weapon-ammo"></span>`;
     btn.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
+      if (!isHeld(run.weapons, weapon.id)) return; // locked — found via a weapon cache pickup
       setActiveWeapon(run.weapons, weapon.id);
       updateWeaponBar();
     });
@@ -100,12 +118,23 @@ export function startApp(root) {
     weaponButtons[weapon.id] = btn;
   }
 
+  // Unheld weapons (not yet found this run — everything but Cannonballs at
+  // the start, per the loot/economy design: the niche kit is discovered via
+  // weapon-cache pickups, not available from the outset) show a lock glyph
+  // in place of an ammo count and can't be tapped active.
   function updateWeaponBar() {
     for (const weapon of WEAPON_LIST) {
       const btn = weaponButtons[weapon.id];
-      btn.classList.toggle('active', run.weapons.activeWeaponId === weapon.id);
-      const ammo = ammoFor(run.weapons, weapon.id);
-      btn.querySelector('.weapon-ammo').textContent = Number.isFinite(ammo) ? ammo : '∞';
+      const held = isHeld(run.weapons, weapon.id);
+      btn.classList.toggle('active', held && run.weapons.activeWeaponId === weapon.id);
+      btn.classList.toggle('locked', !held);
+      const ammoEl = btn.querySelector('.weapon-ammo');
+      if (!held) {
+        ammoEl.textContent = '🔒';
+      } else {
+        const ammo = ammoFor(run.weapons, weapon.id);
+        ammoEl.textContent = Number.isFinite(ammo) ? ammo : '∞';
+      }
     }
   }
 
@@ -164,6 +193,7 @@ export function startApp(root) {
     camera.x = run.boat.x;
     camera.y = run.boat.y;
     setStatus('Find the exit ⚓');
+    toast.classList.remove('show');
     updateHullBar();
     updateSalvageCounter();
     updateWeaponBar();
@@ -182,7 +212,16 @@ export function startApp(root) {
       defId: e.defId, x: e.x, y: e.y, health: e.health, invulnerable: e.invulnerable,
     })),
     firing: isFiring, cooldownRemaining: run.weapons.cooldownRemaining,
+    heldWeapons: Array.from(run.weapons.heldWeapons),
+    pickupsRemaining: run.pickups.filter((p) => !p.collected).length,
+    pickups: run.pickups.map((p) => ({
+      kind: p.kind, weaponId: p.weaponId, x: p.x, y: p.y, collected: p.collected,
+    })),
   });
+  // Testing-only: teleports the boat, since a headless test driving the
+  // touch joystick can't reliably pathfind a maze it has no map of. Not
+  // reachable from any in-game UI.
+  window.__shatteredReefWarp = (x, y) => { run.boat.x = x; run.boat.y = y; run.boat.vx = 0; run.boat.vy = 0; };
 
   let lastTime = performance.now();
   function frame(now) {
@@ -232,6 +271,17 @@ export function startApp(root) {
         flashHit();
       }
 
+      const pickupEvents = collectPickups(run.pickups, run.boat, BOAT_RADIUS, run.weapons);
+      for (const ev of pickupEvents) {
+        if (ev.kind === PICKUP_KINDS.WEAPON_CACHE) {
+          updateWeaponBar();
+          showToast(ev.freshUnlock ? `New weapon: ${getWeapon(ev.weaponId).name}! ⚓` : `${getWeapon(ev.weaponId).name} restocked ⚓`);
+        } else if (ev.kind === PICKUP_KINDS.SALVAGE) {
+          run.salvage += ev.amount;
+          updateSalvageCounter();
+        }
+      }
+
       if (checkSunk(run)) {
         setStatus('Your ship has sunk! Tap to try again ⚓');
       } else if (checkReachedExit(run)) {
@@ -249,6 +299,7 @@ export function startApp(root) {
     const { cx, cy } = applyCameraTransform(ctx, camera, vw, vh, run.widthPx, run.heightPx);
     drawTileGrid(ctx, run.grid, run.tileSize, cx - vw / 2, cy - vh / 2, cx + vw / 2, cy + vh / 2);
     drawExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
+    drawPickups(ctx, run.pickups, (p) => WEAPON_SHORT_LABEL[p.weaponId], now / 1000);
     drawEnemies(ctx, run.enemies, (e) => e.colorHex || enemyColor(e), now / 1000);
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color);
     if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS);

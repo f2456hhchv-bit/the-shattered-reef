@@ -344,14 +344,85 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     comparable stretch — the counter-swap hook is reading correctly, not
     just theoretically correct in the data. No console errors across every
     playtest run this session.
-- **Not built yet:** loot pickups/ammo-as-a-found-resource (step 5), the
-  real 3-reef run structure with Salvage banking and permadeath stakes
-  (step 6 — today's `run.salvage` is a flat tally, not banked-per-reef),
-  meta-progression/Captain's Hub (step 7), art pass, audio, juice (step 8).
-- **Next up:** step 4, enemy content — this is mostly a balance/playtesting
-  pass now (the data and archetypes already exist from step 3), then step
-  5 (loot/economy) so ammo pickups and Salvage actually mean something in
-  a run rather than the current step-3 placeholder tally.
+- **Phase:** step 5 of 8 (loot/economy) complete. Weapon availability
+  changed from "all 5 held from the start" (step 3's placeholder) to the
+  PRD's actual design: only Cannonballs is held at run start, and the four
+  niche weapons must be found in-run via weapon cache pickups. Salvage is
+  now a real found resource instead of only an enemy-kill drop.
+- **Just shipped:**
+  - `src/data/pickups.mjs` — `PICKUP_KINDS` (`WEAPON_CACHE`, `SALVAGE`),
+    `CACHE_WEAPON_IDS` (the 4 niche weapons — Cannonballs needs no cache),
+    `PICKUP_TUNING` (cache/salvage pickup radii, `weaponCacheAmmoFraction:
+    0.5`, Salvage range [3,6] per pickup, 6 Salvage pickups/reef), and
+    `weaponCacheAmount(weaponId)`.
+  - `src/engine/pickups.mjs` — `spawnReefPickups` (one weapon cache per
+    niche weapon + 6 Salvage pickups, placed on open tiles away from the
+    boat spawn — mirrors `enemies.mjs`'s `spawnReefEnemies` placement
+    logic exactly) and `collectPickups` (circle-vs-circle proximity check
+    each frame, same style as `resolveEnemyContact`/`resolveHits`; applies
+    the pickup's effect and returns `{kind, weaponId?, amount,
+    freshUnlock?}` events; marks `collected` in place rather than
+    splicing, so nothing shifts under a caller mid-iteration).
+  - `src/engine/combat.mjs` — reworked the held-weapon model:
+    `createWeaponState()` now starts with niche-weapon ammo at 0 and a
+    `heldWeapons` Set containing only Cannonballs; `setActiveWeapon()`
+    returns a boolean and refuses to switch to an unheld weapon;
+    `canFire()` also checks `isHeld`; new `isHeld(state, weaponId)` and
+    `collectWeaponCache(state, weaponId, amount)` (clamps at `ammoMax`,
+    returns whether this was a fresh unlock vs. a refill). This corrects
+    a real gap from step 3, which had quietly diverged from the PRD's own
+    Weapons/Meta-Progression sections (ammo "restocked by pickups";
+    starting with the full kit is what the Cargo Loadouts *unlock* is
+    supposed to grant, not the default).
+  - `src/engine/run.mjs` — `createRun` now also calls `spawnReefPickups`
+    and returns `pickups` on the run object.
+  - `src/engine/renderer.mjs` — `drawPickup`/`drawPickups`: a bobbing
+    diamond with a 2-letter weapon-code label for weapon caches, a small
+    bobbing dot for Salvage; both skip already-`collected` pickups.
+  - `src/main.mjs` — weapon-select buttons now show a 🔒 instead of an
+    ammo count and can't be tapped active while unheld (`updateWeaponBar`
+    reads `isHeld`); the frame loop calls `collectPickups` each frame and
+    routes its events to `updateWeaponBar()` + a toast ("New weapon: X!"
+    / "X restocked") for weapon caches, and `run.salvage +=
+    amount`/`updateSalvageCounter()` for Salvage; added a `#pickup-toast`
+    HUD element (`styles.css`) that shows briefly rather than overwriting
+    the persistent "Find the exit" status text; `drawPickups(...)` added
+    to the render pass; `__shatteredReefDebug()` extended with
+    `heldWeapons`, `pickupsRemaining`, and per-pickup state; added a
+    testing-only `__shatteredReefWarp(x, y)` teleport hook (not reachable
+    from any in-game UI) since a headless test driving the touch joystick
+    has no maze pathfinding and can't reliably steer to a pickup across a
+    generated maze — that's a test-harness limitation, not a game concern
+    (real navigation was already proven in step 2's playtesting).
+  - New `tests/pickups.test.mjs` (spawn placement/determinism/pickup
+    counts, weapon-cache unlock vs. refill vs. already-collected,
+    Salvage collection, proximity gating) plus 5 new tests in
+    `tests/combat.test.mjs` for the held-weapon-set behavior
+    (`isHeld`/`setActiveWeapon` refusing an unheld weapon/`canFire`
+    refusing to fire one/`collectWeaponCache` unlock vs. refill).
+    **141/141 tests pass** across the whole repo.
+  - Verified end-to-end in a real headless browser: a fresh run holds
+    only Cannonballs (4 locked weapon buttons shown with 🔒); warping the
+    boat onto each of the reef's 10 pickups (4 weapon caches + 6 Salvage)
+    collected all of them, unlocked all 4 niche weapons with the correct
+    starting ammo (`weaponCacheAmount`), showed the "New weapon!" toast,
+    banked 29 Salvage into the HUD counter matching `run.salvage` exactly,
+    and cleared every locked-button indicator; tapping a newly-unlocked
+    weapon button correctly switched the active weapon; re-visiting an
+    already-collected cache's spot did not re-collect it (`collected`
+    flag holds). No console errors (only a benign `favicon.ico` 404 from
+    the test server itself).
+- **Not built yet:** the real 3-reef run structure with Salvage banking
+  and permadeath stakes (step 6 — `run.salvage` is still a flat
+  single-reef tally, not banked-per-reef), meta-progression/Captain's Hub
+  (step 7), art pass, audio, juice (step 8).
+- **Next up:** step 6, roguelike run structure — multi-reef progression
+  (3 reefs/run per the PRD), the exit leading to the *next* reef instead
+  of a fresh unrelated run, permadeath (a `sunk` outcome should end the
+  whole run, not just the current reef), Salvage banking per-reef, and a
+  run summary screen. Step 4 (enemy content) remains folded into ongoing
+  playtesting per its own step-3 assessment — no separate action needed
+  unless a specific balance issue turns up.
 
 ## Decisions log
 
@@ -482,6 +553,35 @@ Starting fresh below for the new game.)*
   playtested alone). Positioning: "Archero on water" — build-around-your-
   kit progression carrying PS1 naval-battler nostalgia, not a straight
   Overboard clone.
+- 2026-09-28: Step 5 (loot/economy) corrected a real inconsistency left
+  over from step 3: `createWeaponState()` originally held all 5 weapons
+  from run start, which the PRD's own text never actually specified — its
+  Weapons section describes ammo as "restocked by pickups" and its
+  Meta-Progression section frames starting with extra weapons as what the
+  Cargo Loadouts *unlock* grants, implying the unmodified default is
+  finding them in-run. Reworked to a `heldWeapons` Set (only Cannonballs
+  held at start) rather than adding a second parallel "is this available"
+  flag, so `isHeld`/`setActiveWeapon`/`canFire` all check one source of
+  truth instead of three call sites needing to agree on what "usable"
+  means.
+- 2026-09-28: Pickup collection (`collectPickups`) mutates a `collected`
+  flag in place instead of removing pickups from the array — deliberately
+  matches `resolveHits`'/`stepCombat`'s existing pattern of marking
+  entities `spent`/dead rather than splicing mid-frame, so render/update
+  code has one consistent "is this thing still live" check
+  (`!collected`/`health > 0`/`!spent`) across projectiles, enemies and
+  pickups instead of three different removal conventions.
+- 2026-09-28: Added a testing-only `__shatteredReefWarp(x, y)` debug hook
+  (teleports the boat, never called from any in-game UI) after a headless
+  playtest script driving the touch joystick couldn't reliably navigate a
+  generated maze to reach pickups — it has no pathfinding, and straight-
+  line joystick aiming gets stuck on maze walls the same way a player
+  would if they weren't actually steering around them. Real player
+  navigation through walls was already proven in step 2's playtesting;
+  the warp hook exists purely so step 5's playtest could verify
+  collection/UI wiring (unlock, ammo top-up, Salvage banking, toast,
+  locked-button state) without re-proving maze traversal it didn't need
+  to re-test.
 
 ## Known open questions (do not silently resolve — ask)
 

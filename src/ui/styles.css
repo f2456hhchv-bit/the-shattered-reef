@@ -140,6 +140,33 @@ html, body {
   font-size: 11px;
   opacity: .85;
 }
+.weapon-btn.locked {
+  opacity: .45;
+}
+.weapon-btn.locked .weapon-ammo {
+  opacity: .7;
+}
+
+#pickup-toast {
+  position: absolute;
+  top: max(64px, calc(env(safe-area-inset-top) + 54px));
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  background: rgba(232, 181, 75, .92);
+  color: #241c0c;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s ease, transform .15s ease;
+}
+#pickup-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
 
 #fire-button {
   position: absolute;

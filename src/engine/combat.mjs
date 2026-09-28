@@ -6,22 +6,55 @@ import { WEAPON_IDS, WEAPONS, getWeapon, damageAgainst } from '../data/weapons.m
 
 let nextProjectileId = 1;
 
+// Only Cannonballs is held from the start — the four niche weapons are
+// found in-run as weapon caches (data/pickups.mjs). This is the default,
+// un-upgraded case per the PRD; the Cargo Loadouts meta-progression track
+// (step 7) will let a run start with more of the kit already held.
 export function createWeaponState() {
   const ammo = {};
+  const heldWeapons = new Set();
   for (const weapon of Object.values(WEAPONS)) {
-    if (Number.isFinite(weapon.ammoMax)) ammo[weapon.id] = weapon.ammoMax;
+    if (Number.isFinite(weapon.ammoMax)) {
+      ammo[weapon.id] = 0; // starts empty — a weapon cache both unlocks and fills it
+    } else {
+      heldWeapons.add(weapon.id); // Cannonballs: unlimited ammo, held from the start
+    }
   }
   return {
     activeWeaponId: WEAPON_IDS.CANNONBALLS,
     ammo,
+    heldWeapons,
     cooldownRemaining: 0,
     projectiles: [],
   };
 }
 
+export function isHeld(state, weaponId) {
+  return state.heldWeapons.has(weaponId);
+}
+
+// Only switches to a weapon the player has actually found. Returns
+// whether the switch happened, so UI code can no-op cleanly on a locked
+// weapon rather than needing its own held-check.
 export function setActiveWeapon(state, weaponId) {
   getWeapon(weaponId); // throws on an unknown id
+  if (!isHeld(state, weaponId)) return false;
   state.activeWeaponId = weaponId;
+  return true;
+}
+
+// Unlocks a weapon cache's weapon into the held set (if not already held)
+// and adds ammo, clamped at the weapon's max — the same effect whether
+// this is the first cache of that weapon found (an unlock) or a repeat
+// (a refill). Returns true if this was a fresh unlock (for UI feedback:
+// "New weapon!" vs. a plain ammo-pickup toast).
+export function collectWeaponCache(state, weaponId, amount) {
+  const weapon = getWeapon(weaponId);
+  if (!Number.isFinite(weapon.ammoMax)) return false; // Cannonballs needs no cache
+  const freshUnlock = !isHeld(state, weaponId);
+  state.heldWeapons.add(weaponId);
+  state.ammo[weaponId] = Math.min(weapon.ammoMax, (state.ammo[weaponId] || 0) + amount);
+  return freshUnlock;
 }
 
 export function ammoFor(state, weaponId) {
@@ -32,6 +65,7 @@ export function ammoFor(state, weaponId) {
 export function canFire(state) {
   const weapon = getWeapon(state.activeWeaponId);
   if (state.cooldownRemaining > 0) return false;
+  if (!isHeld(state, weapon.id)) return false;
   return ammoFor(state, weapon.id) > 0;
 }
 

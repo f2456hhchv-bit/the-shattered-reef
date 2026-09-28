@@ -16,6 +16,8 @@ export const PALETTE = {
   healthBarFill: '#c94f3f',
   invulnerable: 'rgba(120, 190, 230, .55)',
   burn: '#e8813f',
+  pickupWeapon: '#e8b54b',
+  pickupSalvage: '#7bc9e0',
 };
 
 export function drawTileGrid(ctx, grid, tileSize, viewLeft, viewTop, viewRight, viewBottom) {
@@ -147,5 +149,50 @@ export function drawProjectiles(ctx, projectiles, colorFor) {
   for (const p of projectiles) {
     if (p.spent) continue;
     drawProjectile(ctx, p, colorFor(p));
+  }
+}
+
+// Placeholder pickup shapes: a diamond for a weapon cache (label carries
+// which weapon), a small glinting dot for Salvage. Both bob gently so
+// they read as pickups rather than static scenery.
+export function drawPickup(ctx, pickup, label, t) {
+  const bob = Math.sin(t * 2.4 + pickup.id) * 2;
+  ctx.save();
+  ctx.translate(pickup.x, pickup.y + bob);
+
+  if (pickup.kind === 'weapon_cache') {
+    ctx.fillStyle = PALETTE.pickupWeapon;
+    ctx.strokeStyle = '#241c0c';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -9);
+    ctx.lineTo(9, 0);
+    ctx.lineTo(0, 9);
+    ctx.lineTo(-9, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    if (label) {
+      ctx.fillStyle = '#241c0c';
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, 0, 0);
+    }
+  } else {
+    ctx.fillStyle = PALETTE.pickupSalvage;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.arc(0, 0, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
+export function drawPickups(ctx, pickups, labelFor, t) {
+  for (const pickup of pickups) {
+    if (pickup.collected) continue;
+    drawPickup(ctx, pickup, pickup.kind === 'weapon_cache' ? labelFor(pickup) : null, t);
   }
 }

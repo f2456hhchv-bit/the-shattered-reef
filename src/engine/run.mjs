@@ -9,6 +9,7 @@ import { createBoat } from './boat.mjs';
 import { createWeaponState } from './combat.mjs';
 import { spawnReefEnemies } from './enemies.mjs';
 import { spawnPoolForReefIndex } from '../data/enemies.mjs';
+import { spawnReefPickups } from './pickups.mjs';
 
 export const TILE_SIZE = 16; // px per tile at 1x zoom
 export const BOAT_RADIUS = 11; // px, collision + draw radius
@@ -37,6 +38,7 @@ export function createRun(seed, { cols = 9, rows = 9, room = 6, wall = 2, reefIn
   const enemies = spawnReefEnemies(
     spawnPoolForReefIndex(reefIndex), grid, TILE_SIZE, boat, exitWorld, ENEMY_COUNT, rng
   );
+  const pickups = spawnReefPickups(grid, TILE_SIZE, boat, rng);
 
   return {
     seed,
@@ -48,6 +50,7 @@ export function createRun(seed, { cols = 9, rows = 9, room = 6, wall = 2, reefIn
     widthPx: grid.width * TILE_SIZE,
     heightPx: grid.height * TILE_SIZE,
     enemies,
+    pickups,
     weapons: createWeaponState(),
     salvage: 0, // step 3 placeholder tally — real per-reef banking is step 6 (Run Structure)
     over: false,

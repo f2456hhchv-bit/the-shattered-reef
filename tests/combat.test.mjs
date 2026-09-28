@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createWeaponState, setActiveWeapon, canFire, tryFire, ammoFor,
-  stepCombat, cleanupProjectiles, resolveHits, applyDamageToEnemy, stepBurn,
+  createWeaponState, setActiveWeapon, canFire, tryFire, ammoFor, isHeld,
+  collectWeaponCache, stepCombat, cleanupProjectiles, resolveHits, applyDamageToEnemy, stepBurn,
 } from '../src/engine/combat.mjs';
 import { WEAPON_IDS, WEAPONS, damageAgainst } from '../src/data/weapons.mjs';
 import { ENEMY_IDS } from '../src/data/enemies.mjs';
@@ -11,6 +11,15 @@ import { createEnemy } from '../src/engine/enemies.mjs';
 function openGrid(width = 60, height = 60) {
   const tiles = Array.from({ length: height }, () => Array(width).fill(0));
   return { width, height, tiles };
+}
+
+// Most combat tests are about a niche weapon's damage/behavior once it's
+// in hand, not about the find-it-first pickup flow (that's
+// tests/pickups.test.mjs and the held-weapon tests below) — this fills
+// the weapon's ammo to max and equips it in one call.
+function holdAndEquip(state, weaponId) {
+  collectWeaponCache(state, weaponId, WEAPONS[weaponId].ammoMax);
+  setActiveWeapon(state, weaponId);
 }
 
 // Mirrors the game loop's per-frame order (stepCombat then resolveHits)
@@ -63,7 +72,7 @@ test('tryFire respects its cooldown', () => {
 
 test('tryFire respects finite ammo and Cannonballs never runs dry', () => {
   const state = createWeaponState();
-  setActiveWeapon(state, WEAPON_IDS.GRAPESHOT);
+  holdAndEquip(state, WEAPON_IDS.GRAPESHOT);
   const maxAmmo = WEAPONS[WEAPON_IDS.GRAPESHOT].ammoMax;
   for (let i = 0; i < maxAmmo; i++) {
     state.cooldownRemaining = 0; // simulate cooldown elapsed between shots
@@ -109,7 +118,7 @@ test('a projectile is removed the frame it hits a solid tile', () => {
 
 test('resolveHits deals full damage with the correct counter', () => {
   const state = createWeaponState();
-  setActiveWeapon(state, WEAPON_IDS.GRAPESHOT); // counters Reef Skimmer; fires 5 pellets/shot
+  holdAndEquip(state, WEAPON_IDS.GRAPESHOT); // counters Reef Skimmer; fires 5 pellets/shot
   const grid = openGrid();
   const skimmer = createEnemy(ENEMY_IDS.REEF_SKIMMER, 40, 0);
   tryFire(state, 0, 0, 0, () => 0.5); // rng=0.5 -> zero spread offset, straight at +x, all pellets overlap
@@ -121,7 +130,7 @@ test('resolveHits deals full damage with the correct counter', () => {
 
 test('resolveHits deals reduced damage when the weapon does not counter the enemy', () => {
   const state = createWeaponState();
-  setActiveWeapon(state, WEAPON_IDS.CHAIN_SHOT); // does not counter an Ironclad Brigand; fires 3 pellets/shot
+  holdAndEquip(state, WEAPON_IDS.CHAIN_SHOT); // does not counter an Ironclad Brigand; fires 3 pellets/shot
   const grid = openGrid();
   const brigand = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 40, 0);
   const weapon = WEAPONS[WEAPON_IDS.CHAIN_SHOT];
@@ -134,7 +143,7 @@ test('resolveHits deals reduced damage when the weapon does not counter the enem
 
 test('resolveHits ignores invulnerable (submerged) enemies', () => {
   const state = createWeaponState();
-  setActiveWeapon(state, WEAPON_IDS.GRAPESHOT);
+  holdAndEquip(state, WEAPON_IDS.GRAPESHOT);
   const grid = openGrid();
   const skimmer = createEnemy(ENEMY_IDS.REEF_SKIMMER, 40, 0);
   skimmer.invulnerable = true;
@@ -150,13 +159,13 @@ test('Depth Charges deal AoE damage to multiple enemies in the blast radius, not
   // Find the actual detonation point empirically (travel speed/fuse are
   // data-driven, not worth hard-coding the arithmetic here).
   const probeState = createWeaponState();
-  setActiveWeapon(probeState, WEAPON_IDS.DEPTH_CHARGES);
+  holdAndEquip(probeState, WEAPON_IDS.DEPTH_CHARGES);
   tryFire(probeState, 0, 0, 0);
   for (let i = 0; i < 200 && !probeState.projectiles[0].spent; i++) stepCombat(probeState, 1 / 30, grid, 16);
   const { x: blastX, y: blastY } = probeState.projectiles[0];
 
   const state = createWeaponState();
-  setActiveWeapon(state, WEAPON_IDS.DEPTH_CHARGES); // counters Deep Crawler
+  holdAndEquip(state, WEAPON_IDS.DEPTH_CHARGES); // counters Deep Crawler
   // Depth Charges are meant to be pre-placed for the moment a Deep Crawler
   // surfaces (it's invulnerable while submerged) — surface these targets
   // so the blast actually has something vulnerable to hit.
@@ -176,7 +185,7 @@ test('Depth Charges deal AoE damage to multiple enemies in the blast radius, not
 
 test('Flame Barrels attach a burn that keeps ticking after the initial hit', () => {
   const state = createWeaponState();
-  setActiveWeapon(state, WEAPON_IDS.FLAME_BARRELS); // counters Ironclad Brigand
+  holdAndEquip(state, WEAPON_IDS.FLAME_BARRELS); // counters Ironclad Brigand
   const grid = openGrid();
   const brigand = createEnemy(ENEMY_IDS.IRONCLAD_BRIGAND, 30, 0);
 
@@ -194,6 +203,44 @@ test('Flame Barrels attach a burn that keeps ticking after the initial hit', () 
   assert.ok(ticked, 'burn should have dealt at least one tick of damage');
   assert.ok(brigand.health < healthAfterHit, 'burn ticks should keep lowering health after the initial hit');
   assert.equal(brigand.burn, null, 'burn should clear itself once it runs out');
+});
+
+test('a fresh weapon state holds only Cannonballs; the niche weapons must be found', () => {
+  const state = createWeaponState();
+  assert.equal(isHeld(state, WEAPON_IDS.CANNONBALLS), true);
+  for (const id of [WEAPON_IDS.CHAIN_SHOT, WEAPON_IDS.GRAPESHOT, WEAPON_IDS.DEPTH_CHARGES, WEAPON_IDS.FLAME_BARRELS]) {
+    assert.equal(isHeld(state, id), false, `${id} should not be held from the start`);
+  }
+});
+
+test('setActiveWeapon refuses to switch to a weapon that has not been found', () => {
+  const state = createWeaponState();
+  const switched = setActiveWeapon(state, WEAPON_IDS.CHAIN_SHOT);
+  assert.equal(switched, false);
+  assert.equal(state.activeWeaponId, WEAPON_IDS.CANNONBALLS, 'active weapon should not have changed');
+});
+
+test('canFire refuses to fire an unheld weapon even if somehow made active', () => {
+  const state = createWeaponState();
+  state.activeWeaponId = WEAPON_IDS.CHAIN_SHOT; // bypass setActiveWeapon's guard directly
+  assert.equal(canFire(state), false);
+});
+
+test('collectWeaponCache unlocks a new weapon with starting ammo', () => {
+  const state = createWeaponState();
+  const freshUnlock = collectWeaponCache(state, WEAPON_IDS.GRAPESHOT, 20);
+  assert.equal(freshUnlock, true);
+  assert.equal(isHeld(state, WEAPON_IDS.GRAPESHOT), true);
+  assert.equal(ammoFor(state, WEAPON_IDS.GRAPESHOT), 20);
+});
+
+test('collectWeaponCache on an already-held weapon just refills ammo, clamped at max', () => {
+  const state = createWeaponState();
+  collectWeaponCache(state, WEAPON_IDS.GRAPESHOT, 20);
+  const maxAmmo = WEAPONS[WEAPON_IDS.GRAPESHOT].ammoMax;
+  const secondPickup = collectWeaponCache(state, WEAPON_IDS.GRAPESHOT, maxAmmo);
+  assert.equal(secondPickup, false, 'should report this as a refill, not a fresh unlock');
+  assert.equal(ammoFor(state, WEAPON_IDS.GRAPESHOT), maxAmmo, 'ammo should clamp at the weapon max, not overflow');
 });
 
 test('applyDamageToEnemy reports a kill once health reaches 0', () => {
