@@ -103,7 +103,7 @@ function bfsPath(run, fromCell, toCell) {
 function createBot() {
   return {
     waypoints: [], waypointIdx: 0, replanTimer: 0, targetKind: null, targetId: null,
-    blacklist: new Set(), stuckTimer: 0,
+    blacklist: new Set(), stuckTimer: 0, lastEnemyHealth: null,
   };
 }
 
@@ -129,14 +129,32 @@ function replanIfNeeded(run, bot, dt) {
   bot.replanTimer -= dt;
 
   // Stuck detection: a hard cap on total time spent pursuing the same
-  // target (pickup or enemy) without resolving it — usually wall
-  // geometry the simplistic steering can't quite thread, or an evasive
-  // enemy it can't catch. Once exceeded, give up on it for this reef
-  // rather than looping forever.
-  if (bot.targetKind === 'pickup' || bot.targetKind === 'enemy') {
+  // target without resolving it — usually wall geometry the simplistic
+  // steering can't quite thread, or an evasive enemy it can't catch.
+  // Once exceeded, give up on it for this reef rather than looping
+  // forever. For an enemy target specifically, actually damaging it
+  // counts as progress and resets the clock — otherwise the bot would
+  // walk away mid-kill from a tanky, stationary-ish fight (a boss) just
+  // because its *position* wasn't the thing making progress. This was a
+  // real gap in the first version: it measured only position, so the
+  // sim's own boss-defeat-rate numbers were unusable (see CLAUDE.md).
+  if (bot.targetKind === 'pickup') {
     bot.stuckTimer += dt;
-    const cap = bot.targetKind === 'enemy' ? 15 : 10;
-    if (bot.stuckTimer > cap) {
+    if (bot.stuckTimer > 10) {
+      bot.blacklist.add(bot.targetId);
+      bot.stuckTimer = 0;
+      bot.waypoints = [];
+    }
+  } else if (bot.targetKind === 'enemy') {
+    const enemy = bot.targetId; // the enemy object itself, see pickTarget
+    const health = enemy.health;
+    if (bot.lastEnemyHealth == null || health < bot.lastEnemyHealth - 0.01) {
+      bot.stuckTimer = 0;
+    } else {
+      bot.stuckTimer += dt;
+    }
+    bot.lastEnemyHealth = health;
+    if (bot.stuckTimer > 15) {
       bot.blacklist.add(bot.targetId);
       bot.stuckTimer = 0;
       bot.waypoints = [];
@@ -155,7 +173,10 @@ function replanIfNeeded(run, bot, dt) {
   // a re-path onto the *same* target (waypointsExhausted firing while
   // still circling it) must not restart the clock, or a target that
   // keeps triggering waypointsExhausted would never hit the cap above.
-  if (targetChanged) bot.stuckTimer = 0;
+  if (targetChanged) {
+    bot.stuckTimer = 0;
+    bot.lastEnemyHealth = null;
+  }
   bot.targetKind = target.kind;
   bot.targetId = target.id;
   const fromCell = cellOf(run, run.boat.x, run.boat.y);
@@ -167,8 +188,31 @@ function replanIfNeeded(run, bot, dt) {
   return target;
 }
 
+// A real player holding fire on a target doesn't keep driving into
+// point-blank/contact range once it's within weapon range — they stand
+// off and shoot. Without this the bot rammed straight into every enemy's
+// contact-damage radius on every approach, which inflated enemy-contact
+// damage in a way no attentive player's run would show. Only applies
+// once genuinely in range; getting there in the first place still uses
+// full pathing.
+function standOffDistance(run, bot) {
+  if (bot.targetKind !== 'enemy') return null;
+  const enemy = bot.targetId;
+  if (enemy.health <= 0) return null;
+  const weapon = getWeapon(run.weapons.activeWeaponId);
+  return Math.max(enemy.radius + BOAT_RADIUS + 6, weapon.range * 0.6);
+}
+
 function steerVector(run, bot) {
   if (!bot.waypoints.length) return { x: 0, y: 0 };
+
+  const standOff = standOffDistance(run, bot);
+  if (standOff != null) {
+    const dx = run.boat.x - bot.targetId.x, dy = run.boat.y - bot.targetId.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < standOff) return { x: 0, y: 0 }; // close enough — hold and fire
+  }
+
   while (bot.waypointIdx < bot.waypoints.length - 1) {
     const wp = bot.waypoints[bot.waypointIdx];
     const dist = Math.hypot(wp.x - run.boat.x, wp.y - run.boat.y);
