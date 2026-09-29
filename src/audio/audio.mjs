@@ -232,3 +232,10 @@ export function playBossDefeated() {
   ));
   setTimeout(() => noiseBurst({ duration: 0.4, gain: 0.25, filterFreq: 400 }), 260);
 }
+
+// An enemy cannon going off: deeper and duller than yours, so you can tell
+// incoming fire from your own by ear.
+export function playEnemyFire() {
+  tone(95, { duration: 0.16, type: 'triangle', gain: 0.12, glideTo: 55 });
+  noiseBurst({ duration: 0.12, gain: 0.09, filterFreq: 420 });
+}

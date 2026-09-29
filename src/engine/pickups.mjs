@@ -29,11 +29,11 @@ function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid, zone = 
 // player find the full kit) plus a handful of Salvage pickups, all on
 // open water away from the boat's spawn point — mirrors
 // enemies.mjs's spawnReefEnemies placement logic.
-export function spawnReefPickups(grid, tileSize, boatSpawn, rng = Math.random, { repairs = 1, avoid = null } = {}) {
+export function spawnReefPickups(grid, tileSize, boatSpawn, rng = Math.random, { repairs = 1, avoid = null, cacheWeapons = CACHE_WEAPON_IDS } = {}) {
   const pickups = [];
   const minDist = tileSize * 2;
 
-  for (const weaponId of CACHE_WEAPON_IDS) {
+  for (const weaponId of cacheWeapons) {
     const spot = findOpenSpawnTile(grid, tileSize, rng, boatSpawn, minDist);
     if (!spot) continue;
     pickups.push({

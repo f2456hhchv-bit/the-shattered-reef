@@ -3,6 +3,8 @@
 // no image assets — per the 2026-09-28 art pass; each sprite function is
 // the one place to swap in a real image later.
 
+import { SPRITES, drawAttackTelegraphs, drawEnemyProjectiles } from './enemySprites.mjs';
+export { drawEnemyProjectiles };
 import { damageNumberStyle, DAMAGE_NUMBER_COLORS } from './juice.mjs';
 
 export const PALETTE = {
@@ -224,7 +226,8 @@ function waterShadow(ctx, r, ox = 2.5, oy = 3.5, a = 0.32) {
   ctx.beginPath(); ctx.ellipse(ox, oy, r * 1.15, r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
 }
 
-export function drawEnemyBody(ctx, enemy, color, t) {
+export function drawEnemyBody(ctx, enemy, color, t, boat = null) {
+  if (SPRITES[enemy.defId]) { SPRITES[enemy.defId](ctx, enemy, color, t, boat); return; }
   const r = enemy.radius;
   const h = facingOf(enemy);
   const id = enemy.defId;
@@ -372,14 +375,14 @@ export function drawEnemyBody(ctx, enemy, color, t) {
 // Enemy overlays: body sprite (drawEnemyBody above), then status tells —
 // a thin outer ring while invulnerable (submerged Deep Crawlers, the
 // boss's submerged phase) and a flickering overlay while burning.
-export function drawEnemy(ctx, enemy, color, t, name = null, badge = null) {
+export function drawEnemy(ctx, enemy, color, t, name = null, badge = null, boat = null) {
   ctx.save();
   ctx.translate(enemy.x, enemy.y);
 
   if (enemy.invulnerable) {
     ctx.globalAlpha = 0.35;
   }
-  drawEnemyBody(ctx, enemy, color, t);
+  drawEnemyBody(ctx, enemy, color, t, boat);
   ctx.globalAlpha = 1;
 
   if (enemy.invulnerable) {
@@ -449,11 +452,12 @@ export function drawEnemy(ctx, enemy, color, t, name = null, badge = null) {
   }
 }
 
-export function drawEnemies(ctx, enemies, colorFor, t, nameFor = null, badgeFor = null) {
+export function drawEnemies(ctx, enemies, colorFor, t, nameFor = null, badgeFor = null, boat = null) {
   for (const enemy of enemies) if (enemy.health > 0 && enemy.diveState === 'windup') drawDiveTelegraph(ctx, enemy, t);
+  drawAttackTelegraphs(ctx, enemies, t);
   for (const enemy of enemies) {
     if (enemy.health <= 0) continue;
-    drawEnemy(ctx, enemy, colorFor(enemy), t, nameFor ? nameFor(enemy) : null, badgeFor ? badgeFor(enemy) : null);
+    drawEnemy(ctx, enemy, colorFor(enemy), t, nameFor ? nameFor(enemy) : null, badgeFor ? badgeFor(enemy) : null, boat);
   }
 }
 

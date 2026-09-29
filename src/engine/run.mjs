@@ -22,7 +22,9 @@ import { generateMazeGraph, farthestCell, buildOrganicReefGrid, cellCenterTile }
 import { createBoat } from './boat.mjs';
 import { createWeaponState } from './combat.mjs';
 import { spawnReefEnemies } from './enemies.mjs';
-import { spawnPoolForReefIndex, ENEMY_IDS } from '../data/enemies.mjs';
+import { getEnemy } from '../data/enemies.mjs';
+import { stagePool, bossForStage, stageScaling } from '../data/stages.mjs';
+import { CACHE_WEAPON_IDS } from '../data/pickups.mjs';
 import { spawnReefPickups } from './pickups.mjs';
 import { SHIP_HULLS, HULL_IDS, tuningForHull, CHARMS, CHARM_IDS } from '../data/meta.mjs';
 
@@ -192,15 +194,22 @@ function enterReef(run, reefIndex) {
   run.boat.heading = 0;
   run.boat.turnJamRemaining = 0;
 
+  // Stage rosters (data/stages.mjs): ships first, monsters later, and
+  // stages past the table scale enemy hull/damage up.
+  const stage = run.stage || 1;
+  const pool = stagePool(stage, level.tier - 1);
+  const scale = stageScaling(stage);
   run.enemies = spawnReefEnemies(
-    spawnPoolForReefIndex(level.tier - 1), run.grid, run.tileSize,
+    pool, run.grid, run.tileSize,
     world.spawnWorld, run.exitWorld, tuning.enemyCount, rng,
     // In a lair the pit belongs to the boss alone.
-    world.lair ? { exitClearance: world.lair.pitRadius + run.tileSize * 2 } : {},
+    world.lair ? { exitClearance: world.lair.pitRadius + run.tileSize * 2, scale } : { scale },
   );
+  run.enemyProjectiles = [];
+  const bossId = tuning.boss ? bossForStage(stage) : null;
   if (tuning.boss) {
-    // The stage finale: The Kraken's Anchor always guards level 5's exit.
-    const bosses = spawnReefEnemies([ENEMY_IDS.KRAKENS_ANCHOR], run.grid, run.tileSize, world.spawnWorld, run.exitWorld, 1, rng);
+    // The stage finale: the stage's boss waits in the lair at level 5.
+    const bosses = spawnReefEnemies([bossId], run.grid, run.tileSize, world.spawnWorld, run.exitWorld, 1, rng, { scale });
     if (world.lair) {
       for (const b of bosses) {
         // Lives in its pit: centred, and tethered so it never follows you
@@ -212,7 +221,18 @@ function enterReef(run, reefIndex) {
     }
     run.enemies.push(...bosses);
   }
+  // A weapon turns up in the level that first needs it: caches here are
+  // for the weapons this level's enemies (and boss) are countered by.
+  const needed = new Set(pool.map((id) => getEnemy(id).counter));
+  if (bossId) {
+    for (const ph of getEnemy(bossId).phases || []) {
+      needed.add(ph.counter);
+      if (ph.summon) needed.add(getEnemy(ph.summon.defId).counter);
+    }
+  }
+  const cacheWeapons = CACHE_WEAPON_IDS.filter((w) => needed.has(w));
   run.pickups = spawnReefPickups(run.grid, run.tileSize, world.spawnWorld, rng, {
+    cacheWeapons,
     repairs: tuning.repairs ?? 1,
     avoid: world.lair ? { x: world.lair.centre.x, y: world.lair.centre.y, r: world.lair.pitRadius } : null,
   });

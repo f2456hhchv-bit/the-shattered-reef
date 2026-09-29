@@ -37,7 +37,8 @@ import {
   tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, isHeld, ammoFor,
   craftedMultiplierFor,
 } from '../src/engine/combat.mjs';
-import { updateEnemies, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor } from '../src/engine/enemies.mjs';
+import { updateEnemyGuns, stepEnemyProjectiles } from '../src/engine/enemyGuns.mjs';
+import { updateEnemies, stepSummons, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor } from '../src/engine/enemies.mjs';
 import { collectPickups } from '../src/engine/pickups.mjs';
 import { isOpenWithClearance } from '../src/engine/maze.mjs';
 import { getWeapon, WEAPON_IDS } from '../src/data/weapons.mjs';
@@ -368,8 +369,9 @@ function maybeSwitchWeapon(run) {
 
 // --- One voyage ---
 
+const SIM_STAGE = Number(process.env.STAGE) || 1;
 function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
-  const run = createRun(seed, loadout);
+  const run = createRun(seed, loadout, { stage: SIM_STAGE });
   const bot = createBot();
   const stats = {
     seed, outcome: null, reefsReached: 1, timeoutReef: null,
@@ -412,7 +414,13 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     stepCombat(run.weapons, DT, run.grid, run.tileSize, run.enemies);
     stepAmmoRegen(run.weapons, DT);
     updateEnemies(run.enemies, run.boat, DT, run.grid, run.tileSize, run.coast);
+    stepSummons(run.enemies, DT);
     trackEnemyMotion(run.enemies, DT);
+    const simWorld = { grid: run.grid, tileSize: run.tileSize, coast: run.coast };
+    updateEnemyGuns(run.enemies, run.boat, DT, simWorld, run.enemyProjectiles);
+    for (const h of stepEnemyProjectiles(run.enemyProjectiles, run.boat, BOAT_RADIUS, DT, simWorld, incomingMultiplierFor(run.faction)).hits) {
+      stats.damageBySource.gunfire = (stats.damageBySource.gunfire || 0) + h.damage;
+    }
 
     const hitEvents = resolveHits(
       run.weapons, run.enemies, currentCounter,
@@ -475,6 +483,7 @@ function summarize(results) {
   let bossEncounters = 0, bossDefeats = 0;
   let totalWallDmg = 0, totalContactDmg = 0;
   const weaponFoundCount = {};
+  var totalGunDmg = 0;
 
   for (const r of results) {
     outcomes[r.outcome] = (outcomes[r.outcome] || 0) + 1;
@@ -485,6 +494,7 @@ function summarize(results) {
     if (r.bossDefeated) bossDefeats++;
     totalWallDmg += r.damageBySource.wall;
     totalContactDmg += r.damageBySource.enemyContact;
+    totalGunDmg = (typeof totalGunDmg === 'number' ? totalGunDmg : 0) + (r.damageBySource.gunfire || 0);
     for (const w of r.weaponsFound) weaponFoundCount[w] = (weaponFoundCount[w] || 0) + 1;
   }
 
@@ -502,6 +512,9 @@ function summarize(results) {
   console.log('Median bot clear time per level:', levelTimes.join(' | '));
   console.log(`Avg banked Salvage per run: ${(totalBanked / n).toFixed(1)}`);
   console.log('Kills by enemy type:', killsByType);
+  console.log(`Avg gunfire damage taken per run: ${(totalGunDmg / n).toFixed(1)}`);
+  const sinkBy = {}; for (const r of results) if (r.outcome === 'sunk') sinkBy[r.reefsReached] = (sinkBy[r.reefsReached] || 0) + 1;
+  console.log('Sunk on level:', sinkBy);
   console.log(`Boss encounter rate: ${(bossEncounters / n * 100).toFixed(1)}% | defeat rate (of encounters): ${bossEncounters ? (bossDefeats / bossEncounters * 100).toFixed(1) : 'n/a'}%`);
   console.log(`Avg wall-impact damage taken per run: ${(totalWallDmg / n).toFixed(1)} | avg enemy-contact damage: ${(totalContactDmg / n).toFixed(1)}`);
   console.log('Weapon-cache find rate:', Object.fromEntries(Object.entries(weaponFoundCount).map(([k, v]) => [k, (v / n * 100).toFixed(0) + '%'])));

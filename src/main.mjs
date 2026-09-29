@@ -23,7 +23,7 @@ import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from './engine
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
 import {
   drawExit, drawWake, drawSealedExit, drawLairCurrents, drawBoat, drawEnemies, drawProjectiles, drawPickups,
-  drawParticles, drawDamageNumbers, drawTargetReticle, PALETTE,
+  drawParticles, drawDamageNumbers, drawTargetReticle, drawEnemyProjectiles, PALETTE,
 } from './engine/renderer.mjs';
 import { createJoystick } from './input/joystick.mjs';
 import {
@@ -31,12 +31,14 @@ import {
   craftedMultiplierFor,
 } from './engine/combat.mjs';
 import {
-  createEnemy, updateEnemies, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor,
+  createEnemy, updateEnemies, stepSummons, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor,
 } from './engine/enemies.mjs';
 import { collectPickups, makeRepairKit } from './engine/pickups.mjs';
 import { PICKUP_KINDS, PICKUP_TUNING } from './data/pickups.mjs';
 import { WEAPON_LIST, getWeapon } from './data/weapons.mjs';
 import { getEnemy } from './data/enemies.mjs';
+import { bossForStage, stageInfo } from './data/stages.mjs';
+import { updateEnemyGuns, stepEnemyProjectiles } from './engine/enemyGuns.mjs';
 import {
   SHIP_HULL_LIST, CARGO_TIER_LIST, CHARM_LIST, PLAYABLE_FACTION_LIST, WORKSHOP_UPGRADE_LIST,
 } from './data/meta.mjs';
@@ -57,7 +59,7 @@ import {
 import {
   unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact,
   playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playLockedWeapon,
-  playBossPhaseChange, playBossDefeated,
+  playBossPhaseChange, playBossDefeated, playEnemyFire,
 } from './audio/audio.mjs';
 import { WEAPON_IDS } from './data/weapons.mjs';
 
@@ -172,7 +174,7 @@ export function startApp(root) {
             <button type="button" id="stage-next" aria-label="Next stage">▶</button>
           </div>
           <div class="vc-pips" aria-label="5 levels, boss on level 5">
-            <span>1</span><span>2</span><span>3</span><span>4</span><span class="boss" title="The Kraken's lair">☠</span>
+            <span>1</span><span>2</span><span>3</span><span>4</span><span class="boss" title="The boss lair">☠</span>
           </div>
         </div>
       </div>
@@ -205,7 +207,7 @@ export function startApp(root) {
             <div id="hub-factions" class="hub-list"></div>
           </section>
           <section class="hub-section" data-panel="workshop">
-            <p class="hub-section-note">Craft permanent upgrades with Salvage + Kraken Scales — earn a Scale by defeating The Kraken's Anchor.</p>
+            <p class="hub-section-note">Craft permanent upgrades with Salvage + Kraken Scales — earn a Scale by sinking a stage boss.</p>
             <div id="hub-workshop" class="hub-list"></div>
           </section>
           <section class="hub-section" data-panel="log">
@@ -797,7 +799,7 @@ export function startApp(root) {
     selectedStage = Math.min(Math.max(1, selectedStage), meta.highestStageUnlocked);
     stageLabel.querySelector('strong').textContent = `Stage ${selectedStage}`;
     const cleared = selectedStage < meta.highestStageUnlocked;
-    stageLabel.querySelector('span').textContent = `${getBiome(biomeForStage(selectedStage)).name} · ${LEVELS_PER_STAGE} levels${cleared ? ' · Cleared ✓' : ''}`;
+    stageLabel.querySelector('span').textContent = `${stageInfo(selectedStage).name} · boss: ${getEnemy(bossForStage(selectedStage)).name}${cleared ? ' · Cleared ✓' : ''}`;
     stagePrevBtn.disabled = selectedStage <= 1;
     stageNextBtn.disabled = selectedStage >= meta.highestStageUnlocked;
     renderVoyagePreview(selectedStage);
@@ -805,13 +807,17 @@ export function startApp(root) {
   stagePrevBtn.addEventListener('click', () => { selectedStage -= 1; renderStagePicker(); });
   stageNextBtn.addEventListener('click', () => { selectedStage += 1; renderStagePicker(); });
 
+  function bossName(r = run) {
+    const b = r.enemies.find((e) => e.isBoss) || null;
+    return b ? getEnemy(b.defId).name : getEnemy(bossForStage(r.stage || 1)).name;
+  }
   function stageLevelText(r = run) {
     return r.stage ? `Stage ${r.stage} – Level ${r.reefIndex + 1}/${r.reefCount}` : `Level ${r.reefIndex + 1}/${r.reefCount}`;
   }
   function levelStartStatus(r = run) {
-    if (r.lair) return `${stageLevelText(r)} — reach the Kraken's lair and sink it ⚓`;
+    if (r.lair) return `${stageLevelText(r)} — sink ${bossName(r)} in its lair ⚓`;
     return r.enemies.some((e) => e.isBoss)
-      ? `${stageLevelText(r)} — the Kraken's Anchor guards the exit ⚓`
+      ? `${stageLevelText(r)} — ${bossName(r)} guards the exit ⚓`
       : `${stageLevelText(r)} — find the exit ⚓`;
   }
 
@@ -957,7 +963,7 @@ export function startApp(root) {
       ${newlyUnlocked ? `<p><strong>Stage ${meta.highestStageUnlocked} unlocked!</strong></p>` : ''}
       <p>Salvage banked this voyage: ${Math.round(run.bankedSalvage)}</p>
       <p>Weapons found: ${heldNiche.length ? heldNiche.map((id) => getWeapon(id).name).join(', ') : 'None'}</p>
-      ${run.bossDefeated ? '<p>The Kraken\'s Anchor defeated — 1 Kraken Scale earned 🦑</p>' : ''}
+      ${run.bossDefeated ? `<p>${bossName(run)} sunk — 1 Kraken Scale earned 🦑</p>` : ''}
       <p>Salvage in the Harbour: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}</p>
       <p class="level-codes">Level codes: ${run.levelCodes.map((c) => `<code>${c}</code>`).join(' ')}</p>
     ` : `
@@ -1018,9 +1024,9 @@ export function startApp(root) {
     projectileCount: run.weapons.projectiles.length,
     enemies: run.enemies.filter((e) => e.health > 0).map((e) => ({
       id: e.id, defId: e.defId, aggro: e.aggro, x: e.x, y: e.y, health: e.health, invulnerable: e.invulnerable,
-      isBoss: e.isBoss, phaseIndex: e.phaseIndex, diveState: e.diveState,
+      isBoss: e.isBoss, phaseIndex: e.phaseIndex, diveState: e.diveState, sharkState: e.sharkState, submergedState: e.submergedState, gunWindup: e.gunWindup,
     })),
-    aimTargetId: aimTarget ? aimTarget.id : null, suggestedWeapon,
+    aimTargetId: aimTarget ? aimTarget.id : null, suggestedWeapon, enemyShots: run.enemyProjectiles.length, volleysAtYou: run.volleysAtYou || 0,
     firing: isFiring, cooldownRemaining: run.weapons.cooldownRemaining,
     heldWeapons: Array.from(run.weapons.heldWeapons),
     ammo: { ...run.weapons.ammo },
@@ -1050,7 +1056,7 @@ export function startApp(root) {
   // (wall-impact damage was already proven correct in step 2's dedicated
   // playtesting) — this just lets a test reach a "nearly sunk"/"sunk"
   // state on demand to check what happens *after*, e.g. the run summary.
-  window.__shatteredReefSetHull = (hp) => { run.boat.health = hp; };
+  window.__shatteredReefSetHull = (hp) => { run.boat.health = hp; if (hp > run.boat.maxHull) run.boat.maxHull = hp; };
   // Testing-only: places an enemy (optionally at reduced health) at a world
   // position — added so a headless playtest can reliably stage a specific
   // fight (e.g. the boss, which only appears by chance on reef 3) without
@@ -1129,7 +1135,27 @@ export function startApp(root) {
       stepCombat(run.weapons, dt, run.grid, run.tileSize, run.enemies);
       if (stepAmmoRegen(run.weapons, dt)) updateWeaponBar();
       updateEnemies(run.enemies, run.boat, dt, run.grid, run.tileSize, run.coast);
+      if (stepSummons(run.enemies, dt).length) playBossPhaseChange();
       trackEnemyMotion(run.enemies, dt);
+      // Enemy gunnery: wind-up, fire, and shots in flight.
+      const world = { grid: run.grid, tileSize: run.tileSize, coast: run.coast };
+      const volleys = updateEnemyGuns(run.enemies, run.boat, dt, world, run.enemyProjectiles);
+      if (volleys > 0) { playEnemyFire(); run.volleysAtYou = (run.volleysAtYou || 0) + volleys; }
+      const shotResult = stepEnemyProjectiles(run.enemyProjectiles, run.boat, BOAT_RADIUS, dt, world, incomingMultiplierFor(run.faction));
+      for (const sp of shotResult.splashes) spawnSplash(particles, sp.x, sp.y, Math.random, 5);
+      if (shotResult.hits.length) {
+        for (const h of shotResult.hits) {
+          const m = incomingTriangleMultiplier(h.shot.faction, run.faction);
+          spawnDamageNumber(damageNumbers, run.boat.x + 24, run.boat.y - BOAT_RADIUS - 8, h.damage, {
+            incoming: true, triangle: m > 1 ? 'danger' : m < 1 ? 'resist' : null,
+          });
+          spawnHitSpark(particles, h.shot.x, h.shot.y, '#ffb347', Math.random);
+        }
+        updateHullBar();
+        flashHit();
+        addShake(shake, 0.35);
+        playWallImpact(0.7);
+      }
 
       // The Kraken's Anchor announces its own phase swaps (submerged/
       // Depth-Charges <-> tank/Flame-Barrels) — the whole point of the
@@ -1145,7 +1171,7 @@ export function startApp(root) {
           enemy._lastAnnouncedPhase = enemy.phaseIndex;
         } else if (enemy.phaseIndex !== enemy._lastAnnouncedPhase) {
           enemy._lastAnnouncedPhase = enemy.phaseIndex;
-          showToast(`The Kraken's Anchor shifts — try ${getWeapon(enemy.counter).name}! ⚓`);
+          showToast(`${getEnemy(enemy.defId).name} changes tactics — ${getWeapon(enemy.counter).name} hurts it most ⚓`);
           playBossPhaseChange();
           addShake(shake, 0.3);
         }
@@ -1190,7 +1216,7 @@ export function startApp(root) {
             addShake(shake, 1);
             triggerHitStop(hitStop, 0.15);
             playBossDefeated();
-            showToast(run.lair ? "The Kraken's Anchor is defeated — the whirlpool opens! Sail into it ⚓" : "The Kraken's Anchor is defeated! ⚓");
+            showToast(run.lair ? `${bossName(run)} is sunk — the whirlpool opens! Sail into it ⚓` : `${bossName(run)} is sunk! ⚓`);
             run.bossDefeated = true; // engine/meta.mjs's recordRunResult awards a Kraken Scale
           } else {
             spawnKillBurst(particles, ev.enemy.x, ev.enemy.y, weaponColor, Math.random);
@@ -1219,7 +1245,7 @@ export function startApp(root) {
               addShake(shake, 1);
               triggerHitStop(hitStop, 0.15);
               playBossDefeated();
-              showToast(run.lair ? "The Kraken's Anchor is defeated — the whirlpool opens! Sail into it ⚓" : "The Kraken's Anchor is defeated! ⚓");
+              showToast(run.lair ? `${bossName(run)} is sunk — the whirlpool opens! Sail into it ⚓` : `${bossName(run)} is sunk! ⚓`);
               run.bossDefeated = true;
             } else {
               spawnKillBurst(particles, enemy.x, enemy.y, PALETTE.burn, Math.random);
@@ -1314,7 +1340,7 @@ export function startApp(root) {
           const boss = run.enemies.find((e) => e.isBoss);
           if (boss) {
             boss._lastAnnouncedPhase = boss.phaseIndex; // don't fire a false "swap" on first sight
-            showToast(`Level ${run.reefIndex} cleared! +${bankedThisReef} Salvage banked ⚓ — The Kraken's Anchor guards the exit! Try ${getWeapon(boss.counter).name} ⚓`);
+            showToast(`Level ${run.reefIndex} cleared! +${Math.round(bankedThisReef)} Salvage ⚓ — ${getEnemy(boss.defId).name} waits in its lair`);
           } else {
             showToast(`Level ${run.reefIndex} cleared! +${bankedThisReef} Salvage banked ⚓`);
           }
@@ -1365,9 +1391,11 @@ export function startApp(root) {
     drawPickups(ctx, run.pickups, (p) => WEAPON_SHORT_LABEL[p.weaponId], now / 1000);
     drawEnemies(
       ctx, run.enemies, (e) => e.colorHex || enemyColor(e), now / 1000,
-      (e) => (e.isBoss ? "The Kraken's Anchor" : null),
+      (e) => (e.isBoss ? getEnemy(e.defId).name : null),
       (e) => relationTo(run.faction, e.faction),
+      run.boat,
     );
+    drawEnemyProjectiles(ctx, run.enemyProjectiles, now / 1000);
     if (aimTarget && aimTarget.health > 0 && sailing && !run.over) drawTargetReticle(ctx, aimTarget, now / 1000, isFiring);
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color);
     if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS, now / 1000);

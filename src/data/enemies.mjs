@@ -13,6 +13,13 @@ export const ENEMY_IDS = Object.freeze({
   IRONCLAD_BRIGAND: 'ironclad_brigand',
   RIGGER: 'rigger',
   KRAKENS_ANCHOR: 'krakens_anchor', // boss
+  // 2026-09-29 roster rework: ships first, monsters later.
+  PIRATE_CUTTER: 'pirate_cutter',
+  PIRATE_BRIG: 'pirate_brig',
+  REEF_SHARK: 'reef_shark',
+  SEA_SERPENT: 'sea_serpent',
+  PIRATE_FLAGSHIP: 'pirate_flagship', // boss, stage 1
+  BLOODFIN_MATRIARCH: 'bloodfin_matriarch', // boss, stage 2
 });
 
 // Movement/attack archetypes — engine/enemies.mjs switches on this string.
@@ -22,6 +29,25 @@ export const ARCHETYPES = Object.freeze({
   SUBMERGED: 'submerged', // invulnerable/hidden until it surfaces to strike
   TANK: 'tank', // slow, high HP, armored, relentless approach
   FLANKER: 'flanker', // fast, circles, tries to stay off the player's bow
+  SKIRMISHER: 'skirmisher', // keeps its distance and shoots
+  BROADSIDER: 'broadsider', // circles to bring its broadside to bear
+  SHARK: 'shark', // circles, telegraphs, charges in a straight line
+  SERPENT: 'serpent', // dives, resurfaces beside you, spits
+});
+
+// Enemy guns (engine/enemyGuns.mjs). Every shot has a wind-up the player
+// can see (glowing gunports, a sighting line) and a projectile slow enough
+// to dodge; early ships reload slowly. `pattern`:
+//   aimed     — `count` balls at where you're heading, `spread` apart
+//   broadside — `count` parallel balls fired off the side facing you
+//   ring      — `count` balls in all directions (boss finale)
+export const GUNS = Object.freeze({
+  cutter: { pattern: 'aimed', count: 1, spread: 0, speed: 150, damage: 6, range: 190, windup: 0.55, cooldown: [2.4, 3.4], kind: 'ball' },
+  brig: { pattern: 'broadside', count: 3, spread: 12, speed: 140, damage: 8, range: 170, windup: 0.8, cooldown: [3.2, 4.2], kind: 'ball' },
+  ironclad: { pattern: 'aimed', count: 1, spread: 0, speed: 120, damage: 14, range: 200, windup: 0.9, cooldown: [3.5, 4.5], kind: 'heavy' },
+  serpent: { pattern: 'aimed', count: 3, spread: 0.32, speed: 135, damage: 7, range: 170, windup: 0.5, cooldown: [0.1, 0.1], kind: 'glob', onlyWhenSurfaced: true, oncePerSurface: true },
+  flagshipBroadside: { pattern: 'broadside', count: 5, spread: 11, speed: 145, damage: 9, range: 200, windup: 0.9, cooldown: [2.4, 3.0], kind: 'ball', bothSides: true },
+  flagshipChase: { pattern: 'aimed', count: 3, spread: 0.28, speed: 160, damage: 8, range: 220, windup: 0.6, cooldown: [1.8, 2.4], kind: 'ball' },
 });
 
 export const ENEMIES = {
@@ -130,6 +156,125 @@ export const ENEMIES = {
     phases: [
       { archetype: ARCHETYPES.SUBMERGED, counter: WEAPON_IDS.DEPTH_CHARGES, durationSeconds: 14 },
       { archetype: ARCHETYPES.TANK, counter: WEAPON_IDS.FLAME_BARRELS, durationSeconds: 14 },
+    ],
+  },
+
+  // ---- 2026-09-29 roster: stage 1 is ships only, easy to sink. ----
+  [ENEMY_IDS.PIRATE_CUTTER]: {
+    id: ENEMY_IDS.PIRATE_CUTTER,
+    name: 'Pirate Cutter',
+    archetype: ARCHETYPES.SKIRMISHER,
+    counter: WEAPON_IDS.CANNONBALLS,
+    faction: FACTION_IDS.REAVERS,
+    maxHealth: 22,
+    radius: 10,
+    speed: 72, // slower than any hull: you can always catch or escape it
+    preferredRange: 125,
+    contactDamage: 5,
+    contactCooldown: 1.0,
+    gun: GUNS.cutter,
+    salvageDrop: [3, 5],
+    color: '#c0392b', // red sail
+  },
+  [ENEMY_IDS.PIRATE_BRIG]: {
+    id: ENEMY_IDS.PIRATE_BRIG,
+    name: 'Pirate Brig',
+    archetype: ARCHETYPES.BROADSIDER,
+    counter: WEAPON_IDS.CANNONBALLS,
+    faction: FACTION_IDS.IRON_ACCORD,
+    maxHealth: 48,
+    radius: 12,
+    speed: 58,
+    preferredRange: 105,
+    contactDamage: 8,
+    contactCooldown: 1.0,
+    gun: GUNS.brig,
+    salvageDrop: [6, 10],
+    color: '#2c3e50', // black sails
+  },
+  // ---- Monsters, from stage 2 on. ----
+  [ENEMY_IDS.REEF_SHARK]: {
+    id: ENEMY_IDS.REEF_SHARK,
+    name: 'Reef Shark',
+    archetype: ARCHETYPES.SHARK,
+    counter: WEAPON_IDS.GRAPESHOT,
+    faction: FACTION_IDS.REAVERS,
+    maxHealth: 28,
+    radius: 9,
+    speed: 95,
+    chargeSpeed: 250,
+    circleRadius: 95,
+    chargeWindup: 0.65,
+    chargeSeconds: 0.7,
+    chargeEvery: [2.2, 3.4],
+    contactDamage: 11,
+    contactCooldown: 0.9,
+    salvageDrop: [4, 7],
+    color: '#5d7688',
+  },
+  [ENEMY_IDS.SEA_SERPENT]: {
+    id: ENEMY_IDS.SEA_SERPENT,
+    name: 'Sea Serpent',
+    archetype: ARCHETYPES.SERPENT,
+    counter: WEAPON_IDS.DEPTH_CHARGES,
+    faction: FACTION_IDS.WYRDTIDE,
+    maxHealth: 36,
+    radius: 10,
+    speed: 115, // while submerged, closing in
+    submergedSeconds: [1.6, 2.4],
+    surfacedSeconds: 1.8,
+    surfaceDistance: 80, // resurfaces this far from the boat
+    contactDamage: 9,
+    contactCooldown: 1.0,
+    gun: GUNS.serpent,
+    salvageDrop: [5, 9],
+    color: '#2e8b6f',
+  },
+  // ---- Stage bosses (engine/run.mjs puts one in each lair). ----
+  [ENEMY_IDS.PIRATE_FLAGSHIP]: {
+    id: ENEMY_IDS.PIRATE_FLAGSHIP,
+    name: 'The Black Gale',
+    archetype: ARCHETYPES.BROADSIDER,
+    isBoss: true,
+    maxHealth: 240,
+    radius: 20,
+    speed: 48,
+    preferredRange: 110,
+    contactDamage: 14,
+    contactCooldown: 1.2,
+    salvageDrop: [40, 60],
+    color: '#1b1b22',
+    phases: [
+      { archetype: ARCHETYPES.BROADSIDER, counter: WEAPON_IDS.CANNONBALLS, durationSeconds: 13, gun: GUNS.flagshipBroadside },
+      { archetype: ARCHETYPES.SKIRMISHER, counter: WEAPON_IDS.CANNONBALLS, durationSeconds: 11, gun: GUNS.flagshipChase,
+        summon: { defId: ENEMY_IDS.PIRATE_CUTTER, count: 2, everySeconds: 7, max: 4 } },
+    ],
+  },
+  [ENEMY_IDS.BLOODFIN_MATRIARCH]: {
+    id: ENEMY_IDS.BLOODFIN_MATRIARCH,
+    name: 'Bloodfin Matriarch',
+    archetype: ARCHETYPES.SHARK,
+    isBoss: true,
+    maxHealth: 260,
+    radius: 18,
+    speed: 90,
+    chargeSpeed: 230,
+    circleRadius: 115,
+    chargeWindup: 0.8,
+    chargeSeconds: 0.9,
+    chargeEvery: [1.8, 2.6],
+    contactDamage: 16,
+    contactCooldown: 1.0,
+    submergedSeconds: [2.2, 3.0],
+    surfacedSeconds: 1.6,
+    salvageDrop: [45, 65],
+    color: '#8a4b52',
+    phases: [
+      { archetype: ARCHETYPES.SHARK, counter: WEAPON_IDS.GRAPESHOT, durationSeconds: 14 },
+      // Dives out of reach and sends the gulls: kill the Harpies (Chain
+      // Shot), then punish her when she surfaces (Grapeshot).
+      { archetype: ARCHETYPES.SUBMERGED, counter: WEAPON_IDS.GRAPESHOT, durationSeconds: 12,
+        summon: { defId: ENEMY_IDS.GULLSWARM_HARPY, count: 2, everySeconds: 5, max: 4 } },
     ],
   },
 };

@@ -57,7 +57,7 @@ export function wakeEnemy(enemy) {
   enemy.aggro = true;
 }
 
-export function createEnemy(defId, x, y, rng = Math.random) {
+export function createEnemy(defId, x, y, rng = Math.random, { scale = null } = {}) {
   const def = getEnemy(defId);
   // A boss's *effective* starting archetype is its phase-0 archetype, not
   // its top-level `def.archetype` (which only exists as a fallback/label —
@@ -76,8 +76,9 @@ export function createEnemy(defId, x, y, rng = Math.random) {
     x, y,
     vx: 0, vy: 0,
     heading: 0,
-    health: def.maxHealth,
-    maxHealth: def.maxHealth,
+    health: Math.round(def.maxHealth * (scale?.health ?? 1)),
+    maxHealth: Math.round(def.maxHealth * (scale?.health ?? 1)),
+    damageScale: scale?.damage ?? 1,
     radius: def.radius,
     speed: def.speed,
     archetype: startArchetype,
@@ -86,7 +87,8 @@ export function createEnemy(defId, x, y, rng = Math.random) {
     // undefined for the boss (deliberately faction-less), which normalizes
     // to null here so callers can check truthiness uniformly.
     faction: def.faction || null,
-    contactDamage: def.contactDamage,
+    contactDamage: def.contactDamage * (scale?.damage ?? 1),
+    gun: def.isBoss ? (def.phases[0].gun || null) : (def.gun || null),
     contactCooldownRemaining: 0,
     invulnerable: false,
     salvageDrop: def.salvageDrop ? Math.round(randRange(rng, def.salvageDrop)) : 0,
@@ -98,30 +100,49 @@ export function createEnemy(defId, x, y, rng = Math.random) {
     home: { x, y },
     idlePhase: rng() * Math.PI * 2,
     senseTimer: rng() * AGGRO.senseInterval,
-    lastHealth: def.maxHealth,
+    lastHealth: 0,
   };
+  enemy.lastHealth = enemy.health;
 
-  if (startArchetype === ARCHETYPES.FLYER) {
-    enemy.diveState = 'circling';
-    enemy.diveTimer = randRange(rng, def.diveIntervalSeconds);
-  }
-  if (startArchetype === ARCHETYPES.SUBMERGED) {
-    enemy.submergedState = 'submerged';
-    enemy.submergedTimer = randRange(rng, def.submergedSeconds);
-    enemy.invulnerable = true;
-  }
-  if (startArchetype === ARCHETYPES.SWARM) {
-    enemy.orbitSign = rng() < 0.5 ? -1 : 1;
-  }
-  if (startArchetype === ARCHETYPES.FLANKER) {
-    enemy.flankSign = rng() < 0.5 ? -1 : 1;
-  }
+  initArchetypeState(enemy, startArchetype, def, rng);
   if (def.isBoss) {
     enemy.phaseIndex = 0;
     enemy.phaseTimer = def.phases[0].durationSeconds;
   }
 
   return enemy;
+}
+
+// Per-archetype state, set on spawn and again whenever a boss enters a
+// phase with that archetype (a phase swap must restart the state machine,
+// or e.g. a SUBMERGED phase entered twice would never surface again).
+function initArchetypeState(enemy, archetype, def, rng = Math.random) {
+  enemy.invulnerable = false;
+  if (archetype === ARCHETYPES.FLYER) {
+    enemy.diveState = 'circling';
+    enemy.diveTimer = randRange(rng, def.diveIntervalSeconds || [1.6, 2.6]);
+  }
+  if (archetype === ARCHETYPES.SUBMERGED) {
+    enemy.submergedState = 'submerged';
+    enemy.submergedTimer = randRange(rng, def.submergedSeconds);
+    enemy.invulnerable = true;
+  }
+  if (archetype === ARCHETYPES.SERPENT) {
+    enemy.submergedState = 'submerged';
+    enemy.submergedTimer = randRange(rng, def.submergedSeconds);
+    enemy.invulnerable = true;
+    enemy.surfaceAngle = rng() * Math.PI * 2;
+  }
+  if (archetype === ARCHETYPES.SHARK) {
+    enemy.sharkState = 'circling';
+    enemy.sharkTimer = randRange(rng, def.chargeEvery);
+  }
+  if (archetype === ARCHETYPES.SWARM || archetype === ARCHETYPES.SKIRMISHER || archetype === ARCHETYPES.BROADSIDER || archetype === ARCHETYPES.SHARK) {
+    enemy.orbitSign = enemy.orbitSign ?? (rng() < 0.5 ? -1 : 1);
+  }
+  if (archetype === ARCHETYPES.FLANKER) {
+    enemy.flankSign = rng() < 0.5 ? -1 : 1;
+  }
 }
 
 // Resolves an enemy's *current* counter weapon — a plain field for regular
@@ -185,7 +206,7 @@ function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid) {
 // once — a redraw, not a second boss.
 // `exitClearance` (px): regular enemies stay at least this far from the exit
 // (the boss lair passes its pit radius, keeping the pit the boss's alone).
-export function spawnReefEnemies(spawnPool, grid, tileSize, boatSpawn, exitWorld, count, rng = Math.random, { exitClearance = tileSize * 2 } = {}) {
+export function spawnReefEnemies(spawnPool, grid, tileSize, boatSpawn, exitWorld, count, rng = Math.random, { exitClearance = tileSize * 2, scale = null } = {}) {
   const enemies = [];
   // Safe opening (2026-09-28): nothing spawns within ~1.6 maze cells of the
   // boat (was 3 tiles — inside the start room), and that's beyond aggro
@@ -209,7 +230,7 @@ export function spawnReefEnemies(spawnPool, grid, tileSize, boatSpawn, exitWorld
       if (bossPlaced) continue; // already have one this reef — redraw
       const jitterX = exitWorld.x + (rng() - 0.5) * tileSize * 1.4;
       const jitterY = exitWorld.y + (rng() - 0.5) * tileSize * 1.4;
-      enemies.push(createEnemy(defId, jitterX, jitterY, rng));
+      enemies.push(createEnemy(defId, jitterX, jitterY, rng, { scale }));
       placed++;
       bossPlaced = true;
       continue;
@@ -225,11 +246,11 @@ export function spawnReefEnemies(spawnPool, grid, tileSize, boatSpawn, exitWorld
       for (let i = 0; i < packSize && placed < count; i++) {
         const jitterX = spot.x + (rng() - 0.5) * tileSize * 2;
         const jitterY = spot.y + (rng() - 0.5) * tileSize * 2;
-        enemies.push(createEnemy(defId, jitterX, jitterY, rng));
+        enemies.push(createEnemy(defId, jitterX, jitterY, rng, { scale }));
         placed++;
       }
     } else {
-      enemies.push(createEnemy(defId, spot.x, spot.y, rng));
+      enemies.push(createEnemy(defId, spot.x, spot.y, rng, { scale }));
       placed++;
     }
   }
@@ -350,6 +371,100 @@ function updateFlanker(enemy, boat, dt) {
   steerToward(enemy, boat.x + perpX, boat.y + perpY, dt, 1.1);
 }
 
+// SKIRMISHER (Pirate Cutter): holds its preferred range and circles —
+// comes in if you run, backs off if you close. Its gun does the work.
+function updateSkirmisher(enemy, boat, dt, def) {
+  const R = def.preferredRange || 120;
+  const d = Math.hypot(boat.x - enemy.x, boat.y - enemy.y);
+  if (d > R + 25) steerToward(enemy, boat.x, boat.y, dt);
+  else if (d < R - 30) {
+    const ax = enemy.x - boat.x; const ay = enemy.y - boat.y; const k = 1 / (d || 1);
+    steerToward(enemy, enemy.x + ax * k * 40, enemy.y + ay * k * 40, dt, 0.9);
+  } else steerOrbit(enemy, boat.x, boat.y, dt, R, enemy.orbitSign, 0.7);
+}
+
+// BROADSIDER (Pirate Brig, the flagship): circles you at close range. A
+// ship circling you points its side at you, so its broadside bears.
+function updateBroadsider(enemy, boat, dt, def) {
+  const R = def.preferredRange || 105;
+  const d = Math.hypot(boat.x - enemy.x, boat.y - enemy.y);
+  if (d > R + 60) steerToward(enemy, boat.x, boat.y, dt);
+  else steerOrbit(enemy, boat.x, boat.y, dt, R, enemy.orbitSign, 0.85);
+}
+
+// SHARK: circles with its fin up, marks a line (the telegraph), then
+// charges along it at speed. A charge that ends in the shore stuns it:
+// that's the moment to punish.
+function updateShark(enemy, boat, dt, def) {
+  enemy.sharkTimer -= dt;
+  if (enemy.sharkState === 'circling') {
+    steerOrbit(enemy, boat.x, boat.y, dt, def.circleRadius || 95, enemy.orbitSign, 0.85);
+    if (enemy.sharkTimer <= 0 && Math.hypot(boat.x - enemy.x, boat.y - enemy.y) < (def.circleRadius || 95) * 1.6) {
+      enemy.sharkState = 'windup';
+      enemy.sharkTimer = def.chargeWindup;
+      // Aim a little ahead of the boat, then commit.
+      const t = 0.35;
+      enemy.chargeTargetX = boat.x + (boat.vx || 0) * t;
+      enemy.chargeTargetY = boat.y + (boat.vy || 0) * t;
+    }
+  } else if (enemy.sharkState === 'windup') {
+    enemy.vx *= Math.exp(-5 * dt); enemy.vy *= Math.exp(-5 * dt);
+    enemy.x += enemy.vx * dt; enemy.y += enemy.vy * dt;
+    const a = Math.atan2(enemy.chargeTargetY - enemy.y, enemy.chargeTargetX - enemy.x);
+    enemy.heading = a;
+    if (enemy.sharkTimer <= 0) {
+      enemy.sharkState = 'charging';
+      enemy.sharkTimer = def.chargeSeconds;
+      enemy.chargeDirX = Math.cos(a); enemy.chargeDirY = Math.sin(a);
+    }
+  } else if (enemy.sharkState === 'charging') {
+    enemy.vx = enemy.chargeDirX * def.chargeSpeed; enemy.vy = enemy.chargeDirY * def.chargeSpeed;
+    enemy.x += enemy.vx * dt; enemy.y += enemy.vy * dt;
+    enemy.heading = Math.atan2(enemy.vy, enemy.vx);
+    if (enemy.sharkTimer <= 0) { enemy.sharkState = 'recover'; enemy.sharkTimer = 0.7; }
+  } else if (enemy.sharkState === 'stunned') {
+    enemy.vx *= Math.exp(-4 * dt); enemy.vy *= Math.exp(-4 * dt);
+    enemy.x += enemy.vx * dt; enemy.y += enemy.vy * dt;
+    if (enemy.sharkTimer <= 0) { enemy.sharkState = 'recover'; enemy.sharkTimer = 0.5; }
+  } else { // recover: swim off to circling distance
+    const ax = enemy.x - boat.x; const ay = enemy.y - boat.y; const d = Math.hypot(ax, ay) || 1;
+    steerToward(enemy, boat.x + (ax / d) * (def.circleRadius || 95), boat.y + (ay / d) * (def.circleRadius || 95), dt, 0.9);
+    if (enemy.sharkTimer <= 0) { enemy.sharkState = 'circling'; enemy.sharkTimer = randRange(Math.random, def.chargeEvery); }
+  }
+}
+
+// SERPENT: dives, swims under you to a spot beside the boat, rears up,
+// spits a spread (engine/enemyGuns.mjs, once per surfacing), then dives.
+// Only hittable while up; Depth Charges' proximity fuse ignores it while
+// submerged, so time the throw to the surfacing.
+function updateSerpent(enemy, boat, dt, def) {
+  enemy.submergedTimer -= dt;
+  if (enemy.submergedState === 'submerged') {
+    enemy.invulnerable = true;
+    enemy.surfaceAngle += dt * 0.6 * (enemy.orbitSign || 1);
+    const tx = boat.x + Math.cos(enemy.surfaceAngle) * def.surfaceDistance;
+    const ty = boat.y + Math.sin(enemy.surfaceAngle) * def.surfaceDistance;
+    steerToward(enemy, tx, ty, dt);
+    if (enemy.submergedTimer <= 0) {
+      enemy.submergedState = 'surfaced';
+      enemy.invulnerable = false;
+      enemy.submergedTimer = def.surfacedSeconds;
+      enemy._shotThisSurface = false;
+      if (enemy.gun) enemy.gunTimer = 0.15; // rear up, then spit
+    }
+  } else {
+    enemy.vx *= Math.exp(-4 * dt); enemy.vy *= Math.exp(-4 * dt);
+    enemy.x += enemy.vx * dt; enemy.y += enemy.vy * dt;
+    enemy.heading = Math.atan2(boat.y - enemy.y, boat.x - enemy.x);
+    if (enemy.submergedTimer <= 0) {
+      enemy.submergedState = 'submerged';
+      enemy.invulnerable = true;
+      enemy.submergedTimer = randRange(Math.random, def.submergedSeconds);
+      enemy.surfaceAngle = Math.atan2(enemy.y - boat.y, enemy.x - boat.x) + (Math.random() - 0.5) * 2.4;
+    }
+  }
+}
+
 function updateBossPhase(enemy, def, dt) {
   enemy.phaseTimer -= dt;
   if (enemy.phaseTimer <= 0) {
@@ -358,22 +473,10 @@ function updateBossPhase(enemy, def, dt) {
     enemy.phaseTimer = phase.durationSeconds;
     enemy.counter = phase.counter;
     enemy.archetype = phase.archetype;
-    // A phase swap into SUBMERGED must (re)start its own submerge/surface
-    // state machine, not just flip `invulnerable` — otherwise, on a long
-    // fight that loops back through phase 0 a second time, the boss would
-    // go invulnerable here but `updateSubmerged` never runs its own timer
-    // (updateEnemy only calls it while enemy.archetype === SUBMERGED,
-    // which is true, but its internal state was never reset), so it could
-    // never surface again for the rest of the fight — permanently
-    // unkillable. Explicitly reset the state machine on every entry into
-    // a SUBMERGED phase, the same way createEnemy does for the first one.
-    if (phase.archetype === ARCHETYPES.SUBMERGED) {
-      enemy.submergedState = 'submerged';
-      enemy.submergedTimer = randRange(Math.random, def.submergedSeconds);
-      enemy.invulnerable = true;
-    } else {
-      enemy.invulnerable = false;
-    }
+    enemy.gun = phase.gun || null;
+    enemy.summonTimer = phase.summon ? phase.summon.everySeconds * 0.4 : 0;
+    // Restart the phase's state machine from scratch — see initArchetypeState.
+    initArchetypeState(enemy, phase.archetype, def);
   }
 }
 
@@ -413,8 +516,12 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
   }
 
   if (enemy.archetype !== ARCHETYPES.FLYER) {
-    if (coast) resolveCoastCollision(enemy, enemy.radius, coast);
-    else resolveTileCollision(enemy, enemy.radius, grid, tileSize);
+    const impact = coast ? resolveCoastCollision(enemy, enemy.radius, coast) : resolveTileCollision(enemy, enemy.radius, grid, tileSize);
+    // A shark that charges into the shore stuns itself.
+    if (enemy.sharkState === 'charging' && impact > 60) {
+      enemy.sharkState = 'stunned';
+      enemy.sharkTimer = 1.1;
+    }
   }
   // Tether (the boss lair): never leaves its circle around home.
   if (enemy.tether) {
@@ -440,6 +547,10 @@ function moveAggroed(enemy, boat, dt, def) {
     case ARCHETYPES.SUBMERGED: updateSubmerged(enemy, boat, dt, def); break;
     case ARCHETYPES.TANK: updateTank(enemy, boat, dt); break;
     case ARCHETYPES.FLANKER: updateFlanker(enemy, boat, dt); break;
+    case ARCHETYPES.SKIRMISHER: updateSkirmisher(enemy, boat, dt, def); break;
+    case ARCHETYPES.BROADSIDER: updateBroadsider(enemy, boat, dt, def); break;
+    case ARCHETYPES.SHARK: updateShark(enemy, boat, dt, def); break;
+    case ARCHETYPES.SERPENT: updateSerpent(enemy, boat, dt, def); break;
     default: updateTank(enemy, boat, dt); break;
   }
 }
@@ -501,4 +612,34 @@ export function resolveEnemyContacts(enemies, boat, boatRadius, getIncomingMulti
   let total = 0;
   for (const enemy of enemies) total += resolveEnemyContact(enemy, boat, boatRadius, getIncomingMultiplier);
   return total;
+}
+
+// Boss summons (a phase's `summon`: { defId, count, everySeconds, max }):
+// reinforcements appear beside the boss while that phase lasts, up to
+// `max` alive at once. They're already awake and carry little Salvage (no
+// farming a boss for endless drops). Returns the newly spawned enemies,
+// which are also appended to `enemies`.
+export function stepSummons(enemies, dt, rng = Math.random) {
+  const spawned = [];
+  for (const boss of enemies) {
+    if (!boss.isBoss || boss.health <= 0 || !boss.aggro) continue;
+    const phase = getEnemy(boss.defId).phases?.[boss.phaseIndex];
+    const sm = phase?.summon;
+    if (!sm) continue;
+    boss.summonTimer = (boss.summonTimer ?? sm.everySeconds * 0.4) - dt;
+    if (boss.summonTimer > 0) continue;
+    boss.summonTimer = sm.everySeconds;
+    const alive = enemies.filter((e) => e.summonedBy === boss.id && e.health > 0).length;
+    for (let i = 0; i < Math.min(sm.count, sm.max - alive); i++) {
+      const a = rng() * Math.PI * 2;
+      const e = createEnemy(sm.defId, boss.x + Math.cos(a) * (boss.radius + 22), boss.y + Math.sin(a) * (boss.radius + 22), rng,
+        { scale: { health: 1, damage: boss.damageScale || 1 } });
+      e.aggro = true;
+      e.summonedBy = boss.id;
+      e.salvageDrop = 1;
+      enemies.push(e);
+      spawned.push(e);
+    }
+  }
+  return spawned;
 }
