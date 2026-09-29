@@ -691,3 +691,7 @@ body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
   font-size: 11px; padding: 1px 6px; border-radius: 999px;
   background: rgba(6, 36, 53, .75); border: 1px solid rgba(232, 181, 75, .3); color: #f3e7c9;
 }
+
+.hull-preview { width: 56px; height: 56px; flex-shrink: 0; border-radius: 50%; border: 2px solid rgba(232, 181, 75, .5); }
+.hull-stats { font-size: 11px; color: #9fd0e8; margin-top: 2px; }
+.hull-stats b { color: #ffd978; font-weight: 700; }

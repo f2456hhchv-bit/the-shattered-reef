@@ -325,6 +325,16 @@ export function createRun(seed, loadout = BASELINE_LOADOUT, { levels = {}, stage
   // auto-fire can never leave you with a counter weapon stuck at zero.
   run.weapons.baseRegenPerSecond = 0.2;
   run.upgrades = {};
+  run.boat.style = loadout.hull.id;
+  // Hull perks (data/meta.mjs): a starting build on the same run fields
+  // the upgrade cards use.
+  const perks = loadout.hull.perks || {};
+  if (perks.pickupReach) run.pickupReach = perks.pickupReach;
+  if (perks.ammoMaxMult) run.weapons.mods.ammoMax *= perks.ammoMaxMult;
+  if (perks.regenMult) run.weapons.baseRegenPerSecond *= perks.regenMult;
+  if (perks.ramDamage) run.ramDamage = (run.ramDamage || 0) + perks.ramDamage;
+  if (perks.contactDamageTaken) run.contactDamageTaken = (run.contactDamageTaken ?? 1) * perks.contactDamageTaken;
+  if (perks.extraCannonballs) run.weapons.mods.extraShots.cannonballs = (run.weapons.mods.extraShots.cannonballs || 0) + perks.extraCannonballs;
   if (loadout.charms.steadyHands) {
     run.weapons.ammoRegenPerSecond = CHARMS[CHARM_IDS.STEADY_HANDS].ammoRegenPerSecond;
   }

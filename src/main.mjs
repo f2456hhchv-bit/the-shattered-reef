@@ -594,6 +594,17 @@ export function startApp(root) {
     }));
   }
 
+  // A ship's portrait for the Shipyard: the same art you'll sail.
+  let baseBoatStyle = 'sloop';
+  function drawHullPreview(cv, hullId) {
+    const c = cv.getContext('2d');
+    c.clearRect(0, 0, cv.width, cv.height);
+    c.fillStyle = '#1f7fa0'; c.beginPath(); c.arc(56, 56, 54, 0, Math.PI * 2); c.fill();
+    c.save(); c.translate(56, 56); c.scale(2.3, 2.3);
+    drawBoat(c, { x: 0, y: 0, heading: -Math.PI / 2, style: hullId }, BOAT_RADIUS, 0.4);
+    c.restore();
+  }
+
   let hullRegenUiTimer = 0;
   // One place for everything a hit does: damage number, sparks, kill
   // feedback, boss death, drops. Returns the Salvage it earned.
@@ -671,6 +682,7 @@ export function startApp(root) {
     } else {
       hubHullsNote.hidden = true;
     }
+    try { baseBoatStyle = resolveLoadout(meta).hull.id; } catch { baseBoatStyle = 'sloop'; }
     hubHulls.innerHTML = '';
     for (const hull of SHIP_HULL_LIST) {
       const owned = meta.ownedHulls.includes(hull.id);
@@ -680,12 +692,15 @@ export function startApp(root) {
       const row = document.createElement('div');
       row.className = 'hub-item';
       row.innerHTML = `
+        <canvas class="hull-preview" width="112" height="112" aria-hidden="true"></canvas>
         <div class="hub-item-info">
           <span class="hub-item-name">${hull.name}${selected ? ' ✓' : ''}</span>
           <span class="hub-item-desc">${hull.description}</span>
+          <span class="hull-stats">🛡️ ${hull.maxHull} · ⛵ ${Math.round(hull.maxSpeedMult * 100)}% · ↻ ${Math.round(hull.turnRateMult * 100)}%${hull.perk ? ` · <b>${hull.perk}</b>` : ''}</span>
         </div>
         <button type="button" class="hub-item-btn" data-hull-id="${hull.id}"${disabled ? ' disabled' : ''}>${label}</button>
       `;
+      drawHullPreview(row.querySelector('canvas'), hull.id);
       row.querySelector('button').addEventListener('click', () => {
         if (!owned) {
           const res = purchaseHull(meta, hull.id);
@@ -982,7 +997,7 @@ export function startApp(root) {
     }
     drawWake(ctx, b.wake);
     ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1.5, 1.5); ctx.translate(-p.x, -p.y);
-    drawBoat(ctx, { x: p.x, y: p.y, heading: p.heading }, BOAT_RADIUS, t);
+    drawBoat(ctx, { x: p.x, y: p.y, heading: p.heading, style: baseBoatStyle }, BOAT_RADIUS, t);
     ctx.restore();
     drawBaseBuildings(ctx, b.world.buildings, t, { selectedFaction: meta.selectedFaction });
     drawGulls(ctx, b.world.centre, t);

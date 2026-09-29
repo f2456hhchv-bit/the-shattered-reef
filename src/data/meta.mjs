@@ -20,6 +20,11 @@ export const HULL_IDS = Object.freeze({
   SLOOP: 'sloop',
   LONGBOAT: 'longboat',
   SKIFF: 'skiff',
+  // 2026-09-29: more ship styles, each with a look and one perk.
+  CATAMARAN: 'catamaran',
+  JUNK: 'junk',
+  STEAMER: 'steamer',
+  GALLEON: 'galleon',
 });
 
 export const SHIP_HULLS = {
@@ -70,6 +75,60 @@ export const SHIP_HULLS = {
     maxSpeedMult: 1.2,
     turnRateMult: 1.3,
     dragMult: 1.15,
+  },
+  // Perks reuse run fields the upgrade cards already drive
+  // (engine/upgrades.mjs), so a hull is "a starting build", not a new system.
+  [HULL_IDS.CATAMARAN]: {
+    id: HULL_IDS.CATAMARAN,
+    name: 'Catamaran',
+    description: 'Twin hulls skim the water: the fastest ship afloat, and it scoops up loot from afar. Fragile.',
+    perk: 'Salvage Magnet built in',
+    cost: 220,
+    maxHull: 80,
+    accelMult: 1.25,
+    maxSpeedMult: 1.3,
+    turnRateMult: 1.35,
+    dragMult: 1.2,
+    perks: { pickupReach: 3 },
+  },
+  [HULL_IDS.JUNK]: {
+    id: HULL_IDS.JUNK,
+    name: 'Junk',
+    description: 'Battened sails and deep holds: carries far more special ammo, and it refills faster.',
+    perk: '+50% special ammo, double ammo trickle',
+    cost: 260,
+    maxHull: 105,
+    accelMult: 0.95,
+    maxSpeedMult: 0.95,
+    turnRateMult: 1.05,
+    dragMult: 1.0,
+    perks: { ammoMaxMult: 1.5, regenMult: 2 },
+  },
+  [HULL_IDS.STEAMER]: {
+    id: HULL_IDS.STEAMER,
+    name: 'Ironclad Steamer',
+    description: 'Iron plates and paddlewheels: stops on a coin, rams hard and shrugs off bites.',
+    perk: 'Iron Ram built in',
+    cost: 320,
+    maxHull: 130,
+    accelMult: 1.0,
+    maxSpeedMult: 0.9,
+    turnRateMult: 0.95,
+    dragMult: 1.35,
+    perks: { ramDamage: 20, contactDamageTaken: 0.75 },
+  },
+  [HULL_IDS.GALLEON]: {
+    id: HULL_IDS.GALLEON,
+    name: 'Galleon',
+    description: 'A floating fortress: huge hull and an extra cannon on every volley, but slow to turn.',
+    perk: 'Twin Cannons built in',
+    cost: 400,
+    maxHull: 160,
+    accelMult: 0.75,
+    maxSpeedMult: 0.78,
+    turnRateMult: 0.7,
+    dragMult: 1.05,
+    perks: { extraCannonballs: 1 },
   },
 };
 

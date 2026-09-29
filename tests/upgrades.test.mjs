@@ -91,3 +91,18 @@ test('auto-fire spends a special weapon only on what it counters, and falls back
   s.ammo.grapeshot = 0;
   assert.equal(chooseAutoFire([shark], boat, 'grapeshot', opts).weaponId, 'cannonballs');
 });
+
+test('each new ship style carries its perk into the run', async () => {
+  const { SHIP_HULLS } = await import('../src/data/meta.mjs');
+  const { BASELINE_LOADOUT } = await import('../src/engine/run.mjs');
+  const sail = (id) => createRun(8, { ...BASELINE_LOADOUT, hull: SHIP_HULLS[id] });
+  const g = sail('galleon');
+  tryFire(g.weapons, 0, 0, 0);
+  assert.equal(g.weapons.projectiles.length, 2, 'Galleon: two balls per volley');
+  assert.equal(g.boat.maxHull, 160);
+  assert.equal(g.boat.style, 'galleon');
+  assert.equal(sail('catamaran').pickupReach, 3);
+  const st = sail('steamer'); assert.ok(st.ramDamage > 0 && st.contactDamageTaken < 1);
+  const j = sail('junk'); assert.ok(j.weapons.mods.ammoMax > 1 && j.weapons.baseRegenPerSecond > 0.2);
+  assert.ok(sail('catamaran').tuning.maxSpeed > sail('galleon').tuning.maxSpeed);
+});

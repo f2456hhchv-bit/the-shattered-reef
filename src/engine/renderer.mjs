@@ -4,6 +4,7 @@
 // the one place to swap in a real image later.
 
 import { SPRITES, drawAttackTelegraphs, drawEnemyProjectiles } from './enemySprites.mjs';
+import { BOAT_STYLES, BOAT_STYLE_SCALE } from './boatSprites.mjs';
 export { drawEnemyProjectiles };
 import { damageNumberStyle, DAMAGE_NUMBER_COLORS } from './juice.mjs';
 
@@ -149,6 +150,15 @@ export function drawBoat(ctx, boat, radius, t = 0) {
   ctx.restore();
 
   ctx.rotate(boat.heading);
+  // Other ship styles (engine/boatSprites.mjs), by the hull you sail.
+  const style = BOAT_STYLES[boat.style];
+  if (style) {
+    const k = BOAT_STYLE_SCALE[boat.style] || 1;
+    ctx.scale(k, k);
+    style(ctx, radius, t);
+    ctx.restore();
+    return;
+  }
   // Hull
   const hg = ctx.createLinearGradient(0, -B, 0, B);
   hg.addColorStop(0, '#b8783a'); hg.addColorStop(0.5, '#96592a'); hg.addColorStop(1, '#6d3d1b');
