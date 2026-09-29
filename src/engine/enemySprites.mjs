@@ -1,3 +1,4 @@
+import { drawSeal } from './armamentArt.mjs';
 // Code-drawn sprites for the 2026-09-29 roster (pirate ships, sharks, the
 // sea serpent, the stage bosses) plus enemy shots and attack telegraphs.
 // Everything hostile that's about to hurt you is marked in red/orange: a
@@ -237,6 +238,7 @@ export const SPRITES = {
   reef_shark: scaled(1.3, (ctx, e, c, t, boat) => drawShark(ctx, e, c, t, boat, false)),
   bloodfin_matriarch: scaled(1.2, (ctx, e, c, t, boat) => drawShark(ctx, e, c, t, boat, true)),
   sea_serpent: scaled(1.3, (ctx, e, c, t) => drawSerpent(ctx, e, c, t)),
+  warding_seal: (ctx, e, c, t) => drawSeal(ctx, e, c, t),
 };
 
 // Telegraphs, drawn under the enemies: an aimed gun's sighting line, a

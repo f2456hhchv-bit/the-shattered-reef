@@ -103,21 +103,23 @@ function now() {
 
 // A single short tone with a percussive volume envelope — the building
 // block for every beep-like cue (fire, pickups, UI).
-function tone(freq, { duration = 0.12, type = 'sine', gain = 0.18, glideTo = null } = {}) {
+function tone(freq, { duration = 0.12, type = 'sine', gain = 0.18, glideTo = null, delay = 0 } = {}) {
   if (masterMuted) return;
   const c = getCtx();
   if (!c) return;
   const osc = c.createOscillator();
   const amp = c.createGain();
+  const t0 = now() + delay;
   osc.type = type;
-  osc.frequency.setValueAtTime(freq, now());
-  if (glideTo != null) osc.frequency.exponentialRampToValueAtTime(Math.max(1, glideTo), now() + duration);
+  osc.frequency.setValueAtTime(freq, t0);
+  if (glideTo != null) osc.frequency.exponentialRampToValueAtTime(Math.max(1, glideTo), t0 + duration);
   amp.gain.setValueAtTime(0, now());
-  amp.gain.linearRampToValueAtTime(gain, now() + 0.008);
-  amp.gain.exponentialRampToValueAtTime(0.0001, now() + duration);
+  amp.gain.setValueAtTime(0, t0);
+  amp.gain.linearRampToValueAtTime(gain, t0 + 0.008);
+  amp.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
   osc.connect(amp).connect(sfxBus);
-  osc.start();
-  osc.stop(now() + duration + 0.02);
+  osc.start(now());
+  osc.stop(t0 + duration + 0.02);
 }
 
 // A short burst of filtered white noise — for splashy/explosive/impact
@@ -154,7 +156,29 @@ const WEAPON_FIRE_TONE = {
   grapeshot: { freq: 260, type: 'sawtooth', duration: 0.07, gain: 0.1 },
   depth_charges: { freq: 110, type: 'sine', duration: 0.16, gain: 0.16, glideTo: 60 },
   flame_barrels: { freq: 200, type: 'sawtooth', duration: 0.12, gain: 0.13, glideTo: 140 },
+  // Armaments (2026-09-29): quieter, so a busy kit doesn't drown the guns.
+  arm_swivel: { freq: 520, type: 'square', duration: 0.04, gain: 0.05 },
+  arm_harpoon: { freq: 700, type: 'triangle', duration: 0.14, gain: 0.08, glideTo: 240 },
+  arm_mortar: { freq: 90, type: 'sine', duration: 0.22, gain: 0.14, glideTo: 50 },
+  arm_keg: { freq: 150, type: 'triangle', duration: 0.08, gain: 0.06 },
+  arm_stern: { freq: 190, type: 'square', duration: 0.08, gain: 0.08 },
+  arm_broadside: { freq: 130, type: 'square', duration: 0.16, gain: 0.14, glideTo: 80 },
 };
+
+// Opening a treasure chest: a bright rising arpeggio.
+export function playTreasure() {
+  [523, 659, 784, 1047].forEach((f, i) => tone(f, { duration: 0.16, type: 'triangle', gain: 0.1, delay: i * 0.07 }));
+}
+
+// A shot glancing off a boss's ward.
+export function playWardClink() {
+  tone(1400, { duration: 0.05, type: 'sine', gain: 0.05, glideTo: 1900 });
+}
+
+// St Elmo's Fire arcing.
+export function playZap() {
+  noiseBurst({ duration: 0.06, gain: 0.06, filterFreq: 3000 });
+}
 
 export function playFire(weaponId) {
   const preset = WEAPON_FIRE_TONE[weaponId] || WEAPON_FIRE_TONE.cannonballs;

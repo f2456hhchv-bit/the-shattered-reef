@@ -816,3 +816,10 @@ body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
   font-size: 12px; color: rgba(246, 230, 194, .7); opacity: 0; transition: opacity .6s; pointer-events: none;
 }
 .intro-skip.show { opacity: 1; }
+
+/* Armaments (2026-09-29): treasure-chest weapons. */
+.up-card.arm { border-color: #7fd8e8; background: linear-gradient(180deg, rgba(14, 52, 70, .97), rgba(8, 28, 40, .97)); }
+.up-card.arm .up-text b { color: #bff3ff; }
+.up-card.arm .up-lv { color: #ffd978; }
+.up-kind { display: block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+#upgrade-strip span.arm { border-color: rgba(127, 216, 232, .6); background: rgba(8, 44, 60, .85); }

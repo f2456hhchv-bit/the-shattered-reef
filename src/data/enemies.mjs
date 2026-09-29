@@ -20,6 +20,7 @@ export const ENEMY_IDS = Object.freeze({
   SEA_SERPENT: 'sea_serpent',
   PIRATE_FLAGSHIP: 'pirate_flagship', // boss, stage 1
   BLOODFIN_MATRIARCH: 'bloodfin_matriarch', // boss, stage 2
+  WARDING_SEAL: 'warding_seal', // lair: shields the boss until destroyed
 });
 
 // Movement/attack archetypes — engine/enemies.mjs switches on this string.
@@ -33,6 +34,7 @@ export const ARCHETYPES = Object.freeze({
   BROADSIDER: 'broadsider', // circles to bring its broadside to bear
   SHARK: 'shark', // circles, telegraphs, charges in a straight line
   SERPENT: 'serpent', // dives, resurfaces beside you, spits
+  TOTEM: 'totem', // never moves; shoots whatever comes in range
 });
 
 // Enemy guns (engine/enemyGuns.mjs). Every shot has a wind-up the player
@@ -47,6 +49,7 @@ export const GUNS = Object.freeze({
   ironclad: { pattern: 'aimed', count: 1, spread: 0, speed: 120, damage: 14, range: 200, windup: 0.9, cooldown: [3.5, 4.5], kind: 'heavy' },
   serpent: { pattern: 'aimed', count: 3, spread: 0.32, speed: 135, damage: 7, range: 170, windup: 0.5, cooldown: [0.1, 0.1], kind: 'glob', onlyWhenSurfaced: true, oncePerSurface: true },
   flagshipBroadside: { pattern: 'broadside', count: 5, spread: 11, speed: 145, damage: 9, range: 200, windup: 0.9, cooldown: [2.4, 3.0], kind: 'ball', bothSides: true },
+  seal: { pattern: 'aimed', count: 3, spread: 0.34, speed: 125, damage: 7, range: 210, windup: 0.8, cooldown: [2.4, 3.2], kind: 'glob' },
   flagshipChase: { pattern: 'aimed', count: 3, spread: 0.28, speed: 160, damage: 8, range: 220, windup: 0.6, cooldown: [1.8, 2.4], kind: 'ball' },
 });
 
@@ -137,7 +140,7 @@ export const ENEMIES = {
     // faction-aligned" per the PRD. triangleMultiplier() treats a missing
     // faction as a no-op (1x), so the boss is never triangle-affected
     // regardless of the player's chosen faction.
-    maxHealth: 220,
+    maxHealth: 380,
     radius: 22,
     speed: 55,
     contactDamage: 18,
@@ -236,7 +239,7 @@ export const ENEMIES = {
     name: 'The Black Gale',
     archetype: ARCHETYPES.BROADSIDER,
     isBoss: true,
-    maxHealth: 240,
+    maxHealth: 400,
     radius: 20,
     speed: 48,
     preferredRange: 110,
@@ -255,7 +258,7 @@ export const ENEMIES = {
     name: 'Bloodfin Matriarch',
     archetype: ARCHETYPES.SHARK,
     isBoss: true,
-    maxHealth: 260,
+    maxHealth: 420,
     radius: 18,
     speed: 90,
     chargeSpeed: 230,
@@ -278,6 +281,30 @@ export const ENEMIES = {
     ],
   },
 };
+
+// The lair's warding seals (2026-09-29, project owner: "Boss too easy").
+// One stands on each ring of the lair; while any stands, the boss can't be
+// hurt. Stationary, spits a fan of shot at anything in range, and sinks to
+// any weapon (counter: Cannonballs, so auto-fire always has an answer).
+ENEMIES[ENEMY_IDS.WARDING_SEAL] = {
+  id: ENEMY_IDS.WARDING_SEAL,
+  name: 'Warding Seal',
+  archetype: ARCHETYPES.TOTEM,
+  counter: WEAPON_IDS.CANNONBALLS,
+  maxHealth: 70,
+  radius: 13,
+  speed: 0,
+  aggroRadius: 210,
+  contactDamage: 0,
+  contactCooldown: 1,
+  gun: GUNS.seal,
+  salvageDrop: [8, 12],
+  color: '#7a5cff',
+};
+
+// Bosses enrage below half hull once their seals are gone: faster, and
+// their guns reload quicker (engine/enemies.mjs, engine/enemyGuns.mjs).
+export const BOSS_ENRAGE = Object.freeze({ at: 0.5, speed: 1.35, reload: 0.6 });
 
 export const ENEMY_LIST = Object.values(ENEMIES);
 

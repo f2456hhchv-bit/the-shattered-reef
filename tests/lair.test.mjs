@@ -47,13 +47,13 @@ test('lair: it is round — the map corners are solid and the pit is open water'
   assert.equal(L.grid.tiles[Math.floor(W / 2)][Math.floor(W / 2)], 0);
 });
 
-test('lair: channels never pinch below a hull-width in the drawn coast along both rings', () => {
+test('lair: channels never pinch below a hull-width in the drawn coast along every ring', () => {
   for (let stage = 1; stage <= 12; stage++) {
     const run = toLair(stage);
     assert.ok(run.lair, `stage ${stage} level 5 should be a lair`);
     const c = run.lair.centre;
     // Along each ring, the best radius at every angle must leave room for the hull.
-    for (const ring of [LAIR_TUNING.middleRing, LAIR_TUNING.outerRing]) {
+    for (const ring of LAIR_TUNING.rings) {
       for (let a = 0; a < Math.PI * 2; a += 0.05) {
         let best = Infinity;
         for (let dr = -ring.halfWidth - 3; dr <= ring.halfWidth + 3; dr += 0.25) {
@@ -105,4 +105,72 @@ test('lair: deterministic from its level', () => {
   const a = toLair(9); const b = toLair(9);
   assert.deepEqual(a.grid.tiles, b.grid.tiles);
   assert.equal(a.levelCode, b.levelCode);
+});
+
+test('lair: three warding seals, one per ring, shield the boss until all are sunk', () => {
+  for (let stage = 1; stage <= 8; stage++) {
+    const run = toLair(stage);
+    const seals = run.enemies.filter((e) => e.seal);
+    const boss = run.enemies.find((e) => e.isBoss);
+    assert.equal(seals.length, LAIR_TUNING.rings.length);
+    for (const s of seals) {
+      assert.ok(sampleField(run.coast, s.x, s.y) < -s.radius, `stage ${stage}: seal on land`);
+      assert.ok(Math.hypot(s.x - run.lair.centre.x, s.y - run.lair.centre.y) > run.lair.pitRadius);
+    }
+    assert.equal(boss.warded, true);
+    // Seals are on different rings (distinct distances from the centre).
+    const radii = seals.map((s) => Math.hypot(s.x - run.lair.centre.x, s.y - run.lair.centre.y)).sort((a, b) => a - b);
+    for (let i = 1; i < radii.length; i++) assert.ok(radii[i] - radii[i - 1] > 6 * TILE_SIZE);
+    seals.forEach((s) => { s.health = 0; });
+    updateEnemies(run.enemies, run.boat, 1 / 60, run.grid, run.tileSize, run.coast);
+    assert.equal(boss.warded, false);
+  }
+});
+
+test('lair: seals never move', () => {
+  const run = toLair(2);
+  const seal = run.enemies.find((e) => e.seal);
+  const x = seal.x; const y = seal.y;
+  const boat = createBoat(seal.x + 60, seal.y, 0);
+  for (let i = 0; i < 300; i++) updateEnemies([seal], boat, 1 / 60, run.grid, run.tileSize, run.coast);
+  assert.equal(seal.x, x); assert.equal(seal.y, y);
+  assert.ok(seal.aggro);
+});
+
+test('lair: the way in winds — the spawn is far from the pit by water', () => {
+  for (let seed = 1; seed <= 10; seed++) {
+    const L = buildLairGrid(makeSeededRng(seed));
+    const W = L.grid.width; const dist = new Int32Array(W * W).fill(-1);
+    const s = Math.floor(L.spawnTile.ty) * W + Math.floor(L.spawnTile.tx);
+    const q = [s]; dist[s] = 0;
+    for (let i = 0; i < q.length; i++) {
+      const k = q[i]; const x = k % W; const y = (k / W) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nk = (y + dy) * W + x + dx;
+        if (dist[nk] >= 0 || L.grid.tiles[y + dy][x + dx] !== 0) continue;
+        dist[nk] = dist[k] + 1; q.push(nk);
+      }
+    }
+    const c = Math.floor(L.centreTile.ty) * W + Math.floor(L.centreTile.tx);
+    const straight = Math.hypot(L.spawnTile.tx - L.centreTile.tx, L.spawnTile.ty - L.centreTile.ty);
+    assert.ok(dist[c] > straight * 1.5, `seed ${seed}: path ${dist[c]} vs straight ${straight.toFixed(0)}`);
+  }
+});
+
+test('boss: a sealed boss takes no damage; unsealed, it enrages below half hull', async () => {
+  const { resolveHits, createWeaponState, tryFire } = await import('../src/engine/combat.mjs');
+  const run = toLair(1);
+  const boss = run.enemies.find((e) => e.isBoss);
+  const ws = createWeaponState();
+  tryFire(ws, boss.x - 40, boss.y, 0);
+  for (let i = 0; i < 30; i++) { for (const p of ws.projectiles) { p.x += p.vx / 60; p.y += p.vy / 60; } const ev = resolveHits(ws, [boss], (e) => e.counter); if (ev.length) { assert.ok(ev[0].blocked); break; } }
+  assert.equal(boss.health, boss.maxHealth);
+  run.enemies.filter((e) => e.seal).forEach((s) => { s.health = 0; });
+  boss.aggro = true;
+  const speed = boss.speed;
+  boss.health = boss.maxHealth * 0.4;
+  updateEnemies(run.enemies, run.boat, 1 / 60, run.grid, run.tileSize, run.coast);
+  updateEnemies(run.enemies, run.boat, 1 / 60, run.grid, run.tileSize, run.coast);
+  assert.ok(boss.enraged);
+  assert.ok(boss.speed > speed);
 });

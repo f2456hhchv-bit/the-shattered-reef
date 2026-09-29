@@ -41,6 +41,7 @@ import { rollUpgradeChoices, applyUpgrade } from '../src/engine/upgrades.mjs';
 import { updateEnemyGuns, stepEnemyProjectiles } from '../src/engine/enemyGuns.mjs';
 import { updateEnemies, stepSummons, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor } from '../src/engine/enemies.mjs';
 import { collectPickups } from '../src/engine/pickups.mjs';
+import { grantArmament, rollArmamentChoices, stepArmaments, chainLightning } from '../src/engine/armaments.mjs';
 import { isOpenWithClearance } from '../src/engine/maze.mjs';
 import { getWeapon, WEAPON_IDS } from '../src/data/weapons.mjs';
 import { PICKUP_KINDS } from '../src/data/pickups.mjs';
@@ -156,11 +157,22 @@ function pickTarget(run, blacklist) {
 
   let nearestEnemy = null, bestDist = DETECTION_RADIUS;
   for (const enemy of run.enemies) {
-    if (enemy.health <= 0 || blacklist.has(enemy)) continue;
+    if (enemy.health <= 0 || enemy.warded || blacklist.has(enemy)) continue;
     const dist = Math.hypot(enemy.x - run.boat.x, enemy.y - run.boat.y);
     if (dist < bestDist) { bestDist = dist; nearestEnemy = enemy; }
   }
   if (nearestEnemy) return { kind: 'enemy', x: nearestEnemy.x, y: nearestEnemy.y, id: nearestEnemy };
+
+  // Treasure, and in a lair the seals: a player goes looking for them.
+  const chest = run.pickups.find((p) => !p.collected && !blacklist.has(p.id) && p.kind === PICKUP_KINDS.CHEST);
+  if (chest) return { kind: 'pickup', x: chest.x, y: chest.y, id: chest.id };
+  let seal = null; let sd = Infinity;
+  for (const e of run.enemies) {
+    if (!e.seal || e.health <= 0 || blacklist.has(e)) continue;
+    const d = Math.hypot(e.x - run.boat.x, e.y - run.boat.y);
+    if (d < sd) { sd = d; seal = e; }
+  }
+  if (seal) return { kind: 'enemy', x: seal.x, y: seal.y, id: seal };
 
   const salvage = run.pickups.find((p) => !p.collected && !blacklist.has(p.id) && p.kind === PICKUP_KINDS.SALVAGE);
   if (salvage) return { kind: 'pickup', x: salvage.x, y: salvage.y, id: salvage.id };
@@ -423,6 +435,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     stepSummons(run.enemies, DT);
     trackEnemyMotion(run.enemies, DT);
     const simWorld = { grid: run.grid, tileSize: run.tileSize, coast: run.coast };
+    const armEvents = process.env.NO_ARMAMENTS ? [] : stepArmaments(run, DT, simWorld).events;
     updateEnemyGuns(run.enemies, run.boat, DT, simWorld, run.enemyProjectiles);
     for (const h of stepEnemyProjectiles(run.enemyProjectiles, run.boat, BOAT_RADIUS, DT, simWorld, incomingMultiplierFor(run.faction)).hits) {
       stats.damageBySource.gunfire = (stats.damageBySource.gunfire || 0) + h.damage;
@@ -432,8 +445,11 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
       run.weapons, run.enemies, currentCounter,
       factionMultiplierFor(run.faction), craftedMultiplierFor(run.craftedDamageMultipliers)
     );
-    for (const ev of hitEvents) {
+    const chainEvents = chainLightning(run, hitEvents).events;
+    for (const ev of [...hitEvents, ...armEvents, ...chainEvents]) {
       if (ev.killed) {
+        if (ev.enemy.elite) stats.elitesSunk = (stats.elitesSunk || 0) + 1;
+        if (ev.enemy.seal) stats.sealsSunk = (stats.sealsSunk || 0) + 1;
         stats.kills[ev.enemy.defId] = (stats.kills[ev.enemy.defId] || 0) + 1;
         addSalvage(run, ev.enemy.salvageDrop);
         if (ev.enemy.isBoss) stats.bossDefeated = true;
@@ -458,7 +474,11 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     const pickupEvents = collectPickups(run.pickups, run.boat, BOAT_RADIUS, run.weapons);
     for (const ev of pickupEvents) {
       if (ev.kind === PICKUP_KINDS.WEAPON_CACHE) stats.weaponsFound.add(ev.weaponId);
-      else addSalvage(run, ev.amount);
+      else if (ev.kind === PICKUP_KINDS.CHEST) {
+        stats.chestsOpened = (stats.chestsOpened || 0) + 1;
+        const pick = process.env.NO_ARMAMENTS ? null : rollArmamentChoices(run)[0];
+        if (pick) grantArmament(run, pick);
+      } else addSalvage(run, ev.amount);
     }
 
     if (checkSunk(run) === true) break;
@@ -523,6 +543,8 @@ function summarize(results) {
   console.log('Sunk on level:', sinkBy);
   console.log(`Boss encounter rate: ${(bossEncounters / n * 100).toFixed(1)}% | defeat rate (of encounters): ${bossEncounters ? (bossDefeats / bossEncounters * 100).toFixed(1) : 'n/a'}%`);
   console.log(`Avg wall-impact damage taken per run: ${(totalWallDmg / n).toFixed(1)} | avg enemy-contact damage: ${(totalContactDmg / n).toFixed(1)}`);
+  const sum = (k) => results.reduce((a, r) => a + (r[k] || 0), 0);
+  console.log(`Per voyage: chests ${(sum('chestsOpened') / n).toFixed(2)} | elites sunk ${(sum('elitesSunk') / n).toFixed(2)} | seals sunk ${(sum('sealsSunk') / n).toFixed(2)}`);
   console.log('Weapon-cache find rate:', Object.fromEntries(Object.entries(weaponFoundCount).map(([k, v]) => [k, (v / n * 100).toFixed(0) + '%'])));
 }
 

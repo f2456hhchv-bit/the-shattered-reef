@@ -6,7 +6,9 @@
 //   outer ring channel  ── spawn sits on it, between two spokes
 //        │ 3 spokes (random angles)
 //   middle ring channel
-//        │ 2 spokes, offset from the outer ones, so you must travel around
+//        │ 2 spokes, offset from the ones above
+//   inner ring channel
+//        │ 2 spokes, offset again, so you must travel around each ring
 //   central pit         ── the Kraken's Anchor, tethered here; the exit is a
 //                          sealed whirlpool at its centre (run.mjs opens it
 //                          when the boss dies)
@@ -20,12 +22,18 @@
 import { makeValueNoise, fbm } from './maze.mjs';
 
 export const LAIR_TUNING = Object.freeze({
-  size: 93, // tiles square (same footprint as a 9×9 maze level)
+  // 2026-09-29 (project owner: "Boss maze I took 2 turns and was at the
+  // centre"): three rings instead of two, each joined to the next by
+  // spokes offset from the ones before, so the way in winds.
+  size: 113, // tiles square
   pitRadius: 11, // tiles
-  middleRing: { radius: 22.5, halfWidth: 2.9 },
-  outerRing: { radius: 37, halfWidth: 3.1 },
-  outerSpokes: 3,
-  innerSpokes: 2,
+  // Outermost first. `spokes` = channels from this ring inward (the last
+  // ring's spokes open into the pit).
+  rings: [
+    { radius: 47, halfWidth: 3.1, spokes: 3 },
+    { radius: 34, halfWidth: 2.9, spokes: 2 },
+    { radius: 21.5, halfWidth: 2.9, spokes: 2 },
+  ],
   spokeHalfWidth: 2.6, // tiles
   ringWobble: 2.2, // tiles the ring centre-line can bend in or out
   widthWobble: 0.5, // tiles either way on a ring's half-width
@@ -51,48 +59,65 @@ export function buildLairGrid(rng, o = LAIR_TUNING) {
   const wob = (a, k) => (fbm(noise, Math.cos(a) * 1.6 + k * 7.1, Math.sin(a) * 1.6 + k * 3.3, 2) - 0.5) * 2;
   const tiles = Array.from({ length: W }, () => Array(W).fill(1));
 
-  const outerStart = rng() * TAU;
-  const outerAngles = Array.from({ length: o.outerSpokes }, (_, i) => outerStart + (i * TAU) / o.outerSpokes + (rng() - 0.5) * 0.5);
-  const innerStart = outerStart + Math.PI / o.outerSpokes; // offset: no straight run to the pit
-  const innerAngles = Array.from({ length: o.innerSpokes }, (_, i) => innerStart + (i * TAU) / o.innerSpokes + (rng() - 0.5) * 0.4);
+  const rings = o.rings;
+  // Spoke angles per ring (inward from ring i), each set rotated half a gap
+  // from the set before so there is never a straight run to the pit.
+  const spokeAngles = [];
+  let start = rng() * TAU;
+  for (let i = 0; i < rings.length; i++) {
+    const n = rings[i].spokes;
+    spokeAngles.push(Array.from({ length: n }, (_, j) => start + (j * TAU) / n + (rng() - 0.5) * 0.45));
+    start += Math.PI / n;
+  }
   const pillarStart = rng() * TAU;
   const pillars = Array.from({ length: o.pillars }, (_, i) => {
     const a = pillarStart + (i * TAU) / o.pillars;
     return { x: c + Math.cos(a) * o.pitRadius * o.pillarOrbit, y: c + Math.sin(a) * o.pitRadius * o.pillarOrbit };
   });
 
-  const ringCentre = (ring, a, k) => ring.radius + wob(a, k) * o.ringWobble;
-  const inRing = (ring, r, a, k) => Math.abs(r - ringCentre(ring, a, k)) <= ring.halfWidth + wob(a, k + 11) * o.widthWobble;
-  const at = (ring, a, k) => ({ x: c + Math.cos(a) * ringCentre(ring, a, k), y: c + Math.sin(a) * ringCentre(ring, a, k) });
+  const ringCentre = (i, a) => rings[i].radius + wob(a, i + 1) * o.ringWobble;
+  const inRing = (i, r, a) => Math.abs(r - ringCentre(i, a)) <= rings[i].halfWidth + wob(a, i + 12) * o.widthWobble;
+  const at = (i, a) => ({ x: c + Math.cos(a) * ringCentre(i, a), y: c + Math.sin(a) * ringCentre(i, a) });
+
+  // Spoke segments: ring i -> ring i+1, or the last ring -> the pit centre.
+  const segs = [];
+  for (let i = 0; i < rings.length; i++) {
+    for (const sa of spokeAngles[i]) {
+      const p = at(i, sa);
+      const q = i + 1 < rings.length ? at(i + 1, sa) : { x: c, y: c };
+      segs.push({ p, q, toPit: i + 1 >= rings.length });
+    }
+  }
 
   for (let y = 0; y < W; y++) {
     for (let x = 0; x < W; x++) {
       const px = x + 0.5 - c; const py = y + 0.5 - c;
       const r = Math.hypot(px, py); const a = Math.atan2(py, px);
-      let water = r <= o.pitRadius + wob(a, 5) * 1.2
-        || inRing(o.middleRing, r, a, 1)
-        || inRing(o.outerRing, r, a, 2);
-      if (!water) {
-        for (const sa of outerAngles) {
-          const p = at(o.middleRing, sa, 1); const q = at(o.outerRing, sa, 2);
-          if (segDist(x + 0.5, y + 0.5, p.x, p.y, q.x, q.y) <= o.spokeHalfWidth) { water = true; break; }
-        }
-      }
-      if (!water) {
-        for (const sa of innerAngles) {
-          const q = at(o.middleRing, sa, 1);
-          if (segDist(x + 0.5, y + 0.5, c, c, q.x, q.y) <= o.spokeHalfWidth && r >= o.pitRadius - 2) { water = true; break; }
-        }
+      let water = r <= o.pitRadius + wob(a, 5) * 1.2;
+      for (let i = 0; !water && i < rings.length; i++) water = inRing(i, r, a);
+      for (let k = 0; !water && k < segs.length; k++) {
+        const s = segs[k];
+        if (segDist(x + 0.5, y + 0.5, s.p.x, s.p.y, s.q.x, s.q.y) <= o.spokeHalfWidth && (!s.toPit || r >= o.pitRadius - 2)) water = true;
       }
       if (water && pillars.some((p) => Math.hypot(x + 0.5 - p.x, y + 0.5 - p.y) <= o.pillarRadius)) water = false;
       if (water) tiles[y][x] = 0;
     }
   }
 
-  // Spawn: on the outer ring, halfway between two outer spokes.
-  const spawnAngle = outerAngles[0] + Math.PI / o.outerSpokes;
-  const sp = at(o.outerRing, spawnAngle, 2);
+  // Spawn: on the outer ring, halfway between two of its spokes.
+  const n0 = rings[0].spokes;
+  const spawnAngle = spokeAngles[0][0] + Math.PI / n0;
+  const sp = at(0, spawnAngle);
   const spawnTile = { tx: sp.x, ty: sp.y };
+  // Warding seals: one on each ring, in a stretch between that ring's
+  // inward spokes (never the stretch the spawn sits in), so reaching each
+  // one means sailing the ring rather than cutting straight through.
+  const seals = rings.map((ring, i) => {
+    const gaps = spokeAngles[i].map((sa) => sa + Math.PI / ring.spokes);
+    const choice = i === 0 ? gaps[1 % gaps.length] : gaps[Math.floor(rng() * gaps.length)];
+    const p = at(i, choice);
+    return { tx: p.x, ty: p.y, ring: i };
+  });
 
   // Fill any pocket not reachable from the spawn (keeps isFullyConnected).
   const seen = Array.from({ length: W }, () => Array(W).fill(false));
@@ -113,6 +138,6 @@ export function buildLairGrid(rng, o = LAIR_TUNING) {
     spawnTile,
     centreTile: { tx: c, ty: c },
     pitRadiusTiles: o.pitRadius,
-    outerAngles, innerAngles, pillars,
+    spokeAngles, pillars, seals,
   };
 }

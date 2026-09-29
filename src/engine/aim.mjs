@@ -98,7 +98,7 @@ export function computeAim(enemies, boat, weapon, {
   const speed = weapon.projectileSpeed;
   const reach = weapon.range;
   for (const e of enemies) {
-    if (e.health <= 0 || e.invulnerable) continue;
+    if (e.health <= 0 || e.invulnerable || e.warded) continue;
     const d = Math.hypot(e.x - boat.x, e.y - boat.y);
     if (d > reach + e.radius) continue;
     const aim = interceptHeading(boat.x, boat.y, e, speed);

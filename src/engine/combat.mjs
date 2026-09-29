@@ -61,6 +61,7 @@ export function createWeaponMods() {
 // The weapon as it fires right now: base data with this run's upgrades.
 export function effectiveWeapon(state, weaponId) {
   const w = getWeapon(weaponId);
+  if (!WEAPONS[weaponId]) return w; // armament guns: their own stats, no upgrades
   const m = state.mods || createWeaponMods();
   return {
     ...w,
@@ -229,14 +230,16 @@ export function stepCombat(state, dt, grid, tileSize, enemies = []) {
 
     if (p.fuseRemaining != null) {
       p.fuseRemaining -= dt;
+      if (p.armDelay > 0) p.armDelay -= dt; // a dropped keg arms after a moment
       if (p.fuseRemaining <= 0) p.spent = true; // detonate at end of fuse
-      else if (enemies.some((e) => e.health > 0 && !e.invulnerable
+      else if (!(p.armDelay > 0) && enemies.some((e) => e.health > 0 && !e.invulnerable && !e.warded
         && Math.hypot(e.x - p.x, e.y - p.y) <= e.radius + (p.radius ?? 0) + DEPTH_CHARGE_PROXIMITY_MARGIN)) {
         p.spent = true; // proximity fuse
       }
     }
     if (p.traveled >= p.maxRange) p.spent = true;
-    if (isSolidAt(grid, p.x, p.y, tileSize)) p.spent = true;
+    // A mortar shell arcs over land; everything else stops at the shore.
+    if (!p.overLand && isSolidAt(grid, p.x, p.y, tileSize)) p.spent = true;
   }
 }
 
@@ -270,22 +273,28 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
   const events = [];
 
   for (const p of state.projectiles) {
-    if (p.spent && p.weaponId !== WEAPON_IDS.DEPTH_CHARGES) continue; // already resolved elsewhere
     const weapon = effectiveWeapon(state, p.weaponId);
+    const lobbed = weapon.kind === 'lobbed';
+    if (p.spent && !lobbed) continue; // already resolved elsewhere
+    // An armament projectile carries its own damage and ignores counters.
+    const baseDamage = (enemy) => (p.damage != null ? p.damage : damageAgainst(weapon, getEnemyCounter(enemy)));
 
-    if (weapon.kind === 'lobbed' && p.fuseRemaining != null && p.fuseRemaining > 0 && !p.spent) {
+    if (lobbed && p.fuseRemaining != null && p.fuseRemaining > 0 && !p.spent) {
       continue; // still travelling — only resolves on impact/fuse-out below
     }
 
-    if (weapon.id === WEAPON_IDS.DEPTH_CHARGES) {
+    if (lobbed) {
       // AoE on wall impact or fuse expiry, whichever came first (stepCombat
-      // already marked `spent` in either case).
-      if (!p.spent) continue;
+      // already marked `spent` in either case). Depth Charges, the Deck
+      // Mortar and Powder Kegs all blow up this way.
+      if (!p.spent || p.detonated) continue;
+      p.detonated = true;
+      const radius = p.blastRadius ?? weapon.blastRadius;
       for (const enemy of enemies) {
-        if (enemy.health <= 0 || enemy.invulnerable) continue;
+        if (enemy.health <= 0 || enemy.invulnerable || enemy.warded) continue;
         const dist = Math.hypot(enemy.x - p.x, enemy.y - p.y);
-        if (dist <= weapon.blastRadius + enemy.radius) {
-          const dmg = damageAgainst(weapon, getEnemyCounter(enemy)) * getFactionMultiplier(enemy) * getWeaponMultiplier(weapon.id);
+        if (dist <= radius + enemy.radius) {
+          const dmg = baseDamage(enemy) * getFactionMultiplier(enemy) * getWeaponMultiplier(weapon.id);
           const killed = applyDamageToEnemy(enemy, dmg);
           events.push({ enemy, weaponId: weapon.id, damage: dmg, killed });
         }
@@ -297,6 +306,15 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
 
     for (const enemy of enemies) {
       if (enemy.health <= 0 || enemy.invulnerable) continue;
+      if (enemy.warded) {
+        // A seal's ward: the shot glances off the shield (no damage).
+        if (Math.hypot(enemy.x - p.x, enemy.y - p.y) <= p.radius + enemy.radius + 6) {
+          p.spent = true;
+          events.push({ enemy, weaponId: weapon.id, damage: 0, killed: false, blocked: true });
+          break;
+        }
+        continue;
+      }
       if (p.hitIds && p.hitIds.has(enemy.id)) continue; // a piercing shot hits each enemy once
       const dist = Math.hypot(enemy.x - p.x, enemy.y - p.y);
       if (dist <= p.radius + enemy.radius) {
@@ -304,7 +322,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
         // they're independent (one keyed by enemy, one by weapon) but both
         // apply multiplicatively on top of the weapon-counter fraction.
         const extraMult = getFactionMultiplier(enemy) * getWeaponMultiplier(weapon.id);
-        const dmg = damageAgainst(weapon, getEnemyCounter(enemy)) * extraMult;
+        const dmg = baseDamage(enemy) * extraMult;
         const killed = applyDamageToEnemy(enemy, dmg);
         events.push({ enemy, weaponId: weapon.id, damage: dmg, killed });
         if (p.pierceLeft > 0) {
@@ -342,7 +360,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
 // the same way for burn ticks as for direct hits.
 export function stepBurn(enemy, dt) {
   const burn = enemy.burn;
-  if (!burn || enemy.health <= 0 || enemy.invulnerable) return null;
+  if (!burn || enemy.health <= 0 || enemy.invulnerable || enemy.warded) return null;
 
   burn.tickTimer -= dt;
   if (burn.tickTimer > 0) return null;

@@ -18,12 +18,14 @@ test('every enemy dies to its own counter within 60% of one cache, even under a 
   }
 });
 
-test('the Kraken\'s Anchor dies to its phase counters with Flame Barrels to spare (the reason Flame damage is 5)', () => {
-  // Spamming Depth Charges (the less skilled pattern) at perfect aim: at
-  // Flame damage 4 this averaged 13/14 Flame Barrels — no margin for a
-  // single miss; at 5 it averages ~10.
+test('the Kraken\'s Anchor is a real fight: always winnable with its counters (plus the Cannonball fallback), never a quick kill', () => {
+  // 2026-09-29 (project owner: "Boss too easy"): boss hull was raised
+  // 220 -> 380. Even at perfect aim, pure damage output now takes ~25s+,
+  // before the seals and dodging; with misses it still always dies.
   const fights = Array.from({ length: 30 }, () => bossFight({ depthMode: 'spam' }));
   assert.ok(fights.every((f) => f.killed), 'every fight should end in a kill');
-  const avgFlame = fights.reduce((a, f) => a + f.used.flame_barrels, 0) / fights.length;
-  assert.ok(avgFlame <= 12, `phase-1 needs ${avgFlame.toFixed(1)}/14 Flame Barrels on average — too little margin for misses`);
+  const avg = fights.reduce((a, f) => a + f.seconds, 0) / fights.length;
+  assert.ok(avg >= 20, `boss dies in ${avg.toFixed(1)}s of perfect fire — too quick`);
+  const sloppy = Array.from({ length: 20 }, () => bossFight({ depthMode: 'reactive', missRate: 0.35 }));
+  assert.ok(sloppy.every((f) => f.killed && f.seconds < 120), 'a sloppy player must still be able to finish it');
 });

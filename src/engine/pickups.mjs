@@ -70,6 +70,10 @@ export function spawnReefPickups(grid, tileSize, boatSpawn, rng = Math.random, {
   return pickups;
 }
 
+export function makeChest(x, y) {
+  return { id: nextPickupId++, kind: PICKUP_KINDS.CHEST, amount: 1, x, y, collected: false };
+}
+
 export function makeRepairKit(x, y) {
   return { id: nextPickupId++, kind: PICKUP_KINDS.REPAIR, amount: PICKUP_TUNING.repairFraction, x, y, collected: false };
 }
@@ -85,7 +89,7 @@ export function collectPickups(pickups, boat, boatRadius, weaponState) {
   const events = [];
   for (const pickup of pickups) {
     if (pickup.collected) continue;
-    const radius = pickup.kind === PICKUP_KINDS.WEAPON_CACHE ? PICKUP_TUNING.weaponCacheRadius
+    const radius = pickup.kind === PICKUP_KINDS.WEAPON_CACHE || pickup.kind === PICKUP_KINDS.CHEST ? PICKUP_TUNING.weaponCacheRadius
       : pickup.kind === PICKUP_KINDS.REPAIR ? PICKUP_TUNING.repairRadius
         : PICKUP_TUNING.salvageRadius;
     const dist = Math.hypot(pickup.x - boat.x, pickup.y - boat.y);

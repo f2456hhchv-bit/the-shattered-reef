@@ -111,8 +111,24 @@ export const WEAPONS = {
 
 export const WEAPON_LIST = Object.values(WEAPONS);
 
+// Armament guns (data/armaments.mjs): fired automatically alongside your
+// main weapon. Not in WEAPON_LIST (they never appear in the weapon dock).
+// They ignore the counter rule (offCounterFraction 1); each projectile
+// carries its own damage from the armament's level.
+const armamentGun = (id, o) => ({ id, pelletCount: 1, spreadRad: 0, ammoMax: Infinity, offCounterFraction: 1, cooldown: 0, damage: 0, projectileRadius: 3, ...o });
+export const ARMAMENT_WEAPONS = {
+  arm_swivel: armamentGun('arm_swivel', { name: 'Swivel Gun', kind: 'projectile', projectileSpeed: 380, projectileRadius: 2.2, range: 150, color: '#e8e2d0' }),
+  arm_harpoon: armamentGun('arm_harpoon', { name: 'Harpoon', kind: 'projectile', projectileSpeed: 420, projectileRadius: 3.5, range: 270, pierce: 99, color: '#c9d4dc' }),
+  arm_mortar: armamentGun('arm_mortar', { name: 'Deck Mortar', kind: 'lobbed', projectileSpeed: 170, projectileRadius: 4, range: 260, fuseSeconds: 1, blastRadius: 34, color: '#ffb347' }),
+  arm_keg: armamentGun('arm_keg', { name: 'Powder Keg', kind: 'lobbed', projectileSpeed: 0, projectileRadius: 5, range: 9999, fuseSeconds: 6, blastRadius: 36, color: '#8a5a2b' }),
+  arm_stern: armamentGun('arm_stern', { name: 'Stern Chaser', kind: 'projectile', projectileSpeed: 340, projectileRadius: 3, range: 220, color: '#d9b36a' }),
+  arm_broadside: armamentGun('arm_broadside', { name: 'Broadside Battery', kind: 'projectile', projectileSpeed: 330, projectileRadius: 3.2, range: 200, color: '#f0c070' }),
+  sea_spirit: armamentGun('sea_spirit', { name: 'Sea Spirit', kind: 'aura', projectileSpeed: 0, range: 0, color: '#7ff0e0' }),
+  st_elmos_fire: armamentGun('st_elmos_fire', { name: "St Elmo's Fire", kind: 'aura', projectileSpeed: 0, range: 0, color: '#b8e4ff' }),
+};
+
 export function getWeapon(id) {
-  const weapon = WEAPONS[id];
+  const weapon = WEAPONS[id] || ARMAMENT_WEAPONS[id];
   if (!weapon) throw new Error(`Unknown weapon id: ${id}`);
   return weapon;
 }

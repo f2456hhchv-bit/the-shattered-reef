@@ -5,7 +5,7 @@
 // the whole point of the counter-swap hook is being able to tell what
 // you're looking at.
 
-import { getEnemy, ENEMY_IDS, ARCHETYPES } from '../data/enemies.mjs';
+import { BOSS_ENRAGE, getEnemy, ENEMY_IDS, ARCHETYPES } from '../data/enemies.mjs';
 import { triangleMultiplier, incomingTriangleMultiplier } from '../data/factions.mjs';
 import { resolveTileCollision, resolveCoastCollision } from './boat.mjs';
 import { sampleField } from './terrain.mjs';
@@ -492,6 +492,11 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
   const dist = Math.hypot(boat.x - enemy.x, boat.y - enemy.y);
   const radius = def.aggroRadius ?? AGGRO.radius;
   if (enemy.health < enemy.lastHealth) enemy.aggro = true; // shot at: always wakes
+  // Boss enrage: below half hull (only reachable once its seals are down).
+  if (def.isBoss && !enemy.enraged && enemy.health < enemy.maxHealth * BOSS_ENRAGE.at) {
+    enemy.enraged = true;
+    enemy.speed *= BOSS_ENRAGE.speed;
+  }
   enemy.lastHealth = enemy.health;
   if (!enemy.aggro) {
     enemy.senseTimer -= dt;
@@ -503,7 +508,10 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
     enemy.aggro = false; // lost the boat: drift back home
   }
 
-  if (!enemy.aggro) {
+  if (enemy.archetype === ARCHETYPES.TOTEM) {
+    // Rooted in place: a seal never drifts or chases.
+    enemy.x = enemy.home.x; enemy.y = enemy.home.y; enemy.vx = 0; enemy.vy = 0;
+  } else if (!enemy.aggro) {
     // Dormant: a lazy drift around home (or back toward it after a leash).
     enemy.idlePhase += dt * 0.5;
     const tx = enemy.home.x + Math.cos(enemy.idlePhase) * AGGRO.idleRadius;
@@ -551,6 +559,7 @@ function moveAggroed(enemy, boat, dt, def) {
     case ARCHETYPES.BROADSIDER: updateBroadsider(enemy, boat, dt, def); break;
     case ARCHETYPES.SHARK: updateShark(enemy, boat, dt, def); break;
     case ARCHETYPES.SERPENT: updateSerpent(enemy, boat, dt, def); break;
+    case ARCHETYPES.TOTEM: break;
     default: updateTank(enemy, boat, dt); break;
   }
 }
@@ -562,6 +571,7 @@ export function updateEnemies(enemies, boat, dt, grid, tileSize, coast = null) {
     updateEnemy(enemy, boat, dt, grid, tileSize, coast);
     if (!was && enemy.aggro) woke.push(enemy);
   }
+  updateWards(enemies);
   // Pack alert: one waking rouses dormant neighbours (a Skimmer pack
   // attacks together rather than trickling in one by one).
   for (const w of woke) {
@@ -569,6 +579,21 @@ export function updateEnemies(enemies, boat, dt, grid, tileSize, coast = null) {
       if (!e.aggro && e.health > 0 && Math.hypot(e.x - w.x, e.y - w.y) <= AGGRO.packAlertRadius) e.aggro = true;
     }
   }
+}
+
+// Lair wards: while any warding seal stands, every boss is `warded` (takes
+// no damage — see isHittable). Returns how many seals still stand.
+export function updateWards(enemies) {
+  let seals = 0;
+  for (const e of enemies) if (e.seal && e.health > 0) seals++;
+  for (const e of enemies) if (e.isBoss) e.warded = seals > 0;
+  return seals;
+}
+
+// Can this enemy take damage right now? (Not sunk, not submerged, not
+// shielded by a seal.)
+export function isHittable(enemy) {
+  return enemy.health > 0 && !enemy.invulnerable && !enemy.warded;
 }
 
 // Contact damage: an enemy touching the boat hurts it, on its own

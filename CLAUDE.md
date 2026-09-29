@@ -1735,6 +1735,59 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   feel: enemy fire rate, shark charges, the serpent, card choices. The
   numbers are first-pass.
 
+- **Phase:** depth pass (project owner, 2026-09-29: "Boss too easy. More
+  meaning for exploring each maze rather than just heading to the exit.
+  Boss maze I took 2 turns and was at the centre. No real new weapons
+  during play — upgrades were more hull buffs or damage increase").
+- **Just shipped:**
+  - **Treasure chests** (`engine/treasure.mjs`, `makeChest`): 1/2/2/3 on
+    levels 1-4, in dead ends off the start→exit route (on-route only if a
+    maze has no side passages). Opening one pauses on a pick of 3
+    **armaments**.
+  - **Armaments** (`data/armaments.mjs`, `engine/armaments.mjs`,
+    `ARMAMENT_WEAPONS` in `data/weapons.mjs`): 8 second weapons that fire
+    on their own, each levelling to 3:
+    - Swivel Gun, Harpoon (pierces everything), Deck Mortar (arcs over
+      land, only at awake enemies), Powder Kegs (dropped in your wake)
+    - Stern Chaser, Broadside Battery, Sea Spirit (orbiting wisps), St
+      Elmo's Fire (Cannonball hits chain lightning)
+    The level-clear offer is now 2 upgrades + 1 armament. Retrying a
+    level keeps the armaments you arrived with.
+  - **Elites:** the chest farthest from the spawn (if >280px away) is
+    guarded by a gold-ringed elite: x2.8 hull, x1.25 damage, x3 Salvage.
+  - **Lair rework** (`engine/lair.mjs`): three rings instead of two (size
+    93→113 tiles); each set of spokes is offset from the last, so the way
+    in winds (tested: water path > 1.5x the straight line).
+  - **Warding seals** (`WARDING_SEAL`, archetype `TOTEM`): one stationary,
+    shooting seal on each ring. While any stands, the boss is `warded`:
+    shots glance off (a `blocked` hit event), aim-assist and armaments
+    skip it, and a shield bubble with beams from each seal is drawn.
+    `updateWards` runs inside `updateEnemies`; `isHittable` is exported.
+  - **Tougher bosses:** hull 220/240/260 → 380/400/420, plus an **enrage**
+    below half hull (x1.35 speed, x0.6 reload; `BOSS_ENRAGE`).
+  - Art in `engine/armamentArt.mjs` (projectiles, wisps, lightning, chest
+    with a light beam, elite aura, seal, ward, enrage ring); new sounds
+    (`playTreasure`, `playWardClink`, `playZap`, armament fire tones).
+  - Also fixed: Powder Kegs arm after 0.6s (`armDelay`), so they don't
+    blow up on the ship that dropped them.
+  - `tools/ttk-check.mjs` boss fight now models the real game (0.2/s
+    ammo regen, Cannonball fallback). `tests/balance.test.mjs` guards
+    "always winnable, never under 20s of perfect fire" instead of the old
+    Flame-ammo check. New `tests/armaments.test.mjs`, 4 new lair tests.
+    337/337 tests.
+  - Balance sim (24 voyages per stage; the bot now opens chests and hunts
+    seals): about 3 chests and 2.4 elites per voyage; boss defeated in
+    38% / 60% / 75% of lair encounters on stages 1-3; bot lair clear time
+    130-180s (was 118s).
+  - Headless playtest, portrait, no console errors:
+    - chest → 3 armament cards → HUD chip
+    - all 8 armaments firing live
+    - level-clear offer mixes upgrades and an armament
+    - lair has 3 seals; the warded boss takes 0 damage
+    - seals sunk → ward down → enrage at <50% → kill → victory
+- **Next up:** the project owner flagged the intro ship and the chart
+  islands as plain; that art pass is next.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2348,6 +2401,13 @@ Starting fresh below for the new game.)*
 - 2026-09-29: Hull perks reuse upgrade-card fields rather than a new
   system, so a ship is "a starting build".
 
+- 2026-09-29: New weapons during play come from armaments (independent
+  second guns) rather than more special ammo types. The counter-weapon
+  roles stay intact, and a build now visibly changes what the ship does.
+- 2026-09-29: A boss is gated by seals spread across the lair's rings,
+  not by more boss HP alone. That makes exploring the lair the point of
+  level 5, which is what the owner said was missing.
+
 ## Known open questions (do not silently resolve — ask)
 
 - See the PRD's "Open Risks & Provisional Decisions" section
@@ -2374,6 +2434,8 @@ Starting fresh below for the new game.)*
   reef-3 start, and ~8ms per chunk (64 chunks), streamed at 3ms per
   frame. A phone is plausibly 2-4x slower. If the reef-start hitch shows
   up, the field build can move into row bands like the chunks.
+- **Armaments make levels 1-4 easier** (bot sinks dropped); bosses got
+  tougher. Judge the overall curve by real play before retuning.
 - **Difficulty after the aim fix.** Players now land most shots, so
   levels are easier. Retune enemy HP/counts after real play, not before.
 - **The enemy matchup pips add clutter to Skimmer packs** (one pip per

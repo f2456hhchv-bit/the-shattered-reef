@@ -1,3 +1,4 @@
+import { BOSS_ENRAGE } from '../data/enemies.mjs';
 // Enemy gunnery (2026-09-29). Ships shoot back; serpents spit. Pure logic.
 //
 // Every shot is readable: a wind-up (`enemy.gunWindup`, drawn as glowing
@@ -72,7 +73,7 @@ export function updateEnemyGuns(enemies, boat, dt, { grid = null, tileSize = 16,
         e.gunWindup = 0;
         fire(e, boat, out);
         fired++;
-        e.gunTimer = randRange(rng, g.cooldown);
+        e.gunTimer = randRange(rng, g.cooldown) * (e.enraged ? BOSS_ENRAGE.reload : 1);
       }
       continue;
     }

@@ -3,6 +3,7 @@
 // no image assets — per the 2026-09-28 art pass; each sprite function is
 // the one place to swap in a real image later.
 
+import { drawArmamentProjectile, drawChest, drawEliteAura } from './armamentArt.mjs';
 import { SPRITES, drawAttackTelegraphs, drawEnemyProjectiles } from './enemySprites.mjs';
 import { BOAT_STYLES, BOAT_STYLE_SCALE } from './boatSprites.mjs';
 export { drawEnemyProjectiles };
@@ -386,6 +387,7 @@ export function drawEnemyBody(ctx, enemy, color, t, boat = null) {
 // a thin outer ring while invulnerable (submerged Deep Crawlers, the
 // boss's submerged phase) and a flickering overlay while burning.
 export function drawEnemy(ctx, enemy, color, t, name = null, badge = null, boat = null) {
+  if (enemy.elite) drawEliteAura(ctx, enemy, t);
   ctx.save();
   ctx.translate(enemy.x, enemy.y);
 
@@ -474,6 +476,7 @@ export function drawEnemies(ctx, enemies, colorFor, t, nameFor = null, badgeFor 
 // Your shots (2026-09-29 armaments pass): each weapon looks like what it
 // is, so you can see what you're firing without reading the weapon bar.
 export function drawProjectile(ctx, p, color, t = 0) {
+  if (p.weaponId.startsWith('arm_') && drawArmamentProjectile(ctx, p, t)) return;
   const sp = Math.hypot(p.vx, p.vy) || 1;
   const ux = p.vx / sp; const uy = p.vy / sp;
   switch (p.weaponId) {
@@ -553,6 +556,11 @@ export function drawPickup(ctx, pickup, label, t) {
   ctx.translate(0, bob);
   ctx.rotate(tilt);
 
+  if (pickup.kind === 'chest') {
+    ctx.restore();
+    drawChest(ctx, pickup, t);
+    return;
+  }
   if (pickup.kind === 'repair') {
     // A life ring with a green cross: reads as "help" at a glance, and
     // green is the one colour nothing hostile uses.

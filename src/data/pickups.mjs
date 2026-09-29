@@ -12,6 +12,7 @@ export const PICKUP_KINDS = Object.freeze({
   WEAPON_CACHE: 'weapon_cache',
   SALVAGE: 'salvage',
   REPAIR: 'repair', // 2026-09-29: patches the hull
+  CHEST: 'chest', // 2026-09-29: treasure — a choice of armaments
 });
 
 // The niche weapons a reef guarantees one cache of each — Cannonballs

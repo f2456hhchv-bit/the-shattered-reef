@@ -17,7 +17,7 @@
 // Usage: node tools/ttk-check.mjs            (current data)
 //        FLAME_DAMAGE=4 node tools/ttk-check.mjs   (override for comparison)
 import {
-  createWeaponState, collectWeaponCache, setActiveWeapon, tryFire, stepCombat,
+  createWeaponState, collectWeaponCache, setActiveWeapon, tryFire, stepCombat, stepAmmoRegen,
   resolveHits, cleanupProjectiles, stepBurn,
 } from '../src/engine/combat.mjs';
 import { createEnemy, updateEnemy, currentCounter } from '../src/engine/enemies.mjs';
@@ -52,6 +52,7 @@ export function killStats(enemyId, weaponId, mult = 1, distance = 60) {
 
 export function bossFight({ depthMode = 'reactive', maxSeconds = 180, missRate = 0 } = {}) {
   const s = createWeaponState();
+  s.baseRegenPerSecond = 0.2;
   collectWeaponCache(s, WEAPON_IDS.DEPTH_CHARGES, WEAPONS[WEAPON_IDS.DEPTH_CHARGES].ammoMax);
   collectWeaponCache(s, WEAPON_IDS.FLAME_BARRELS, WEAPONS[WEAPON_IDS.FLAME_BARRELS].ammoMax);
   const boat = createBoat(400, 400, 0);
@@ -71,7 +72,11 @@ export function bossFight({ depthMode = 'reactive', maxSeconds = 180, missRate =
     // A miss still spends the ammo — it just goes wide (real play: a
     // moving, kited boss and imperfect aim-assist geometry).
     const heading = Math.random() < missRate ? Math.PI : 0;
+    // As in play (2026-09-29): specials trickle back, and auto-fire falls
+    // back to Cannonballs whenever the counter weapon is empty.
     if (wantFire && tryFire(s, boat.x, boat.y, heading, straight)) used[phaseWeapon]++;
+    else if (wantFire && s.ammo[phaseWeapon] === 0) { setActiveWeapon(s, WEAPON_IDS.CANNONBALLS); tryFire(s, boat.x, boat.y, heading, straight); }
+    stepAmmoRegen(s, DT);
     if (s.ammo[phaseWeapon] === 0 && ranDry[phaseWeapon] == null) ranDry[phaseWeapon] = t;
     stepCombat(s, DT, GRID, 16, [boss]);
     resolveHits(s, [boss], currentCounter);

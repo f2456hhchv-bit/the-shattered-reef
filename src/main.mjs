@@ -9,6 +9,9 @@ import { chooseAutoFire, trackEnemyMotion } from './engine/aim.mjs';
 import { playMusic, currentMusic } from './audio/music.mjs';
 import { rollUpgradeChoices, applyUpgrade, upgradeLevel } from './engine/upgrades.mjs';
 import { UPGRADE_BY_ID } from './data/upgrades.mjs';
+import { ARMAMENT_BY_ID, ARMAMENT_MAX_LEVEL } from './data/armaments.mjs';
+import { armamentLevel, grantArmament, rollArmamentChoices, stepArmaments, spiritPositions, chainLightning } from './engine/armaments.mjs';
+import { drawSpirits, drawLightning, drawWard, drawEnrage } from './engine/armamentArt.mjs';
 import { BASE_BUILDINGS } from './data/base.mjs';
 import { buildBaseWorld, computeBaseView, boatOrbitPoint } from './engine/base.mjs';
 import { drawBaseBuildings, drawGulls, BUILDING_SCALE } from './engine/baseRenderer.mjs';
@@ -63,7 +66,7 @@ import {
 import {
   unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact,
   playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playLockedWeapon,
-  playBossPhaseChange, playBossDefeated, playEnemyFire,
+  playBossPhaseChange, playBossDefeated, playEnemyFire, playTreasure, playWardClink, playZap,
 } from './audio/audio.mjs';
 import { WEAPON_IDS } from './data/weapons.mjs';
 
@@ -425,6 +428,7 @@ export function startApp(root) {
   // the next one.
   let particles = createParticlePool();
   let damageNumbers = createDamageNumberPool();
+  let lightning = []; // St Elmo's Fire arcs (armamentArt.drawLightning)
   const shake = createShake();
   const hitStop = createHitStop();
 
@@ -556,41 +560,74 @@ export function startApp(root) {
     suggestedWeapon = want;
   }
 
-  // Upgrade cards: offered after each cleared level; the voyage waits.
-  function offerUpgrades(title, sub = '') {
-    const choices = rollUpgradeChoices(run);
-    if (!choices.length) { if (sub) showToast(`${title} ${sub}`); return; }
+  // Choice cards (upgrades and armaments): the voyage waits while you pick.
+  // A card is { kind: 'upgrade' | 'armament', id }.
+  function cardView(c) {
+    if (c.kind === 'armament') {
+      const a = ARMAMENT_BY_ID[c.id]; const lv = armamentLevel(run, c.id);
+      return { icon: a.icon, name: a.name, desc: a.desc[Math.min(lv, a.desc.length - 1)], lv: lv ? `Lv ${lv + 1}/${ARMAMENT_MAX_LEVEL}` : 'NEW', arm: true };
+    }
+    const u = UPGRADE_BY_ID[c.id]; const lv = upgradeLevel(run, c.id);
+    return { icon: u.icon, name: u.name, desc: u.desc, lv: u.max > 1 ? `${lv + 1}/${u.max}` : '', arm: false };
+  }
+  function offerChoices(title, sub, choices) {
+    if (!choices.length) { if (sub) showToast(`${title} ${sub}`); return false; }
     sailing = false;
     upgradeOverlay.querySelector('#up-title').textContent = title;
-    upgradeOverlay.querySelector('.up-sub').textContent = `${sub ? `${sub}. ` : ''}Choose one upgrade for the rest of this stage.`;
+    upgradeOverlay.querySelector('.up-sub').textContent = sub;
     const cards = upgradeOverlay.querySelector('#up-cards');
-    cards.replaceChildren(...choices.map((id) => {
-      const u = UPGRADE_BY_ID[id];
+    cards.replaceChildren(...choices.map((c) => {
+      const v = cardView(c);
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'up-card'; b.dataset.upgrade = id;
-      const lv = upgradeLevel(run, id);
-      b.innerHTML = `<span class="up-icon"></span><span class="up-text"><b></b><span></span></span><span class="up-lv"></span>`;
-      b.querySelector('.up-icon').textContent = u.icon;
-      b.querySelector('b').textContent = u.name;
-      b.querySelector('.up-text span').textContent = u.desc;
-      b.querySelector('.up-lv').textContent = u.max > 1 ? `${lv + 1}/${u.max}` : '';
+      b.type = 'button'; b.className = `up-card${v.arm ? ' arm' : ''}`;
+      b.dataset[c.kind === 'armament' ? 'armament' : 'upgrade'] = c.id;
+      b.innerHTML = `<span class="up-icon"></span><span class="up-text"><small class="up-kind"></small><b></b><span></span></span><span class="up-lv"></span>`;
+      b.querySelector('.up-icon').textContent = v.icon;
+      b.querySelector('.up-kind').textContent = v.arm ? 'Armament' : 'Upgrade';
+      b.querySelector('b').textContent = v.name;
+      b.querySelector('.up-text span').textContent = v.desc;
+      b.querySelector('.up-lv').textContent = v.lv;
       b.addEventListener('click', () => {
         if (upgradeOverlay.hidden) return;
-        applyUpgrade(run, id);
+        if (c.kind === 'armament') grantArmament(run, c.id); else applyUpgrade(run, c.id);
         snapshotLevelStart(run);
         upgradeOverlay.hidden = true;
         playPickupWeapon();
-        showToast(`${u.icon} ${u.name}!`);
+        showToast(`${v.icon} ${v.name}${c.kind === 'armament' && armamentLevel(run, c.id) > 1 ? ` Lv ${armamentLevel(run, c.id)}` : ''}!`);
         updateHullBar(); updateWeaponBar(); renderUpgradeStrip();
         sailing = true;
       });
       return b;
     }));
     upgradeOverlay.hidden = false;
+    return true;
+  }
+  // After a level: two upgrade cards and one armament.
+  function offerUpgrades(title, sub = '') {
+    const ups = rollUpgradeChoices(run).slice(0, 2).map((id) => ({ kind: 'upgrade', id }));
+    const arms = rollArmamentChoices(run, Math.random, 1).map((id) => ({ kind: 'armament', id }));
+    const choices = [...ups, ...arms];
+    if (choices.length < 3) choices.push(...rollUpgradeChoices(run).slice(2, 2 + 3 - choices.length).map((id) => ({ kind: 'upgrade', id })));
+    offerChoices(title, `${sub ? `${sub}. ` : ''}Choose one for the rest of this stage.`, choices);
+  }
+  // A treasure chest: pick one of three armaments.
+  function offerTreasure() {
+    const choices = rollArmamentChoices(run, Math.random, 3).map((id) => ({ kind: 'armament', id }));
+    playTreasure();
+    if (!offerChoices('Treasure! 💰', 'Choose an armament. It fires on its own, alongside your guns.', choices)) {
+      addSalvage(run, 25); updateSalvageCounter(); showToast('Treasure: +25 Salvage ⚓');
+    }
   }
   function renderUpgradeStrip() {
     const strip = document.getElementById('upgrade-strip');
-    strip.replaceChildren(...Object.entries(run.upgrades || {}).map(([id, n]) => {
+    const arms = Object.entries(run.armaments || {}).map(([id, n]) => {
+      const el = document.createElement('span');
+      el.className = 'arm';
+      el.textContent = `${ARMAMENT_BY_ID[id].icon}${n > 1 ? `${n}` : ''}`;
+      el.title = ARMAMENT_BY_ID[id].name;
+      return el;
+    });
+    strip.replaceChildren(...arms, ...Object.entries(run.upgrades || {}).map(([id, n]) => {
       const el = document.createElement('span');
       el.textContent = `${UPGRADE_BY_ID[id].icon}${n > 1 ? `×${n}` : ''}`;
       el.title = UPGRADE_BY_ID[id].name;
@@ -612,8 +649,20 @@ export function startApp(root) {
   let hullRegenUiTimer = 0;
   // One place for everything a hit does: damage number, sparks, kill
   // feedback, boss death, drops. Returns the Salvage it earned.
+  let wardClinkCooldown = 0;
   function processHitEvent(ev, { burn = false, ram = false } = {}) {
     const enemy = ev.enemy;
+    if (ev.blocked) {
+      // A shot glancing off the boss's ward.
+      spawnHitSpark(particles, enemy.x, enemy.y, '#b9a6ff', Math.random);
+      if (wardClinkCooldown <= 0) {
+        wardClinkCooldown = 2.5;
+        playWardClink();
+        const n = run.enemies.filter((e) => e.seal && e.health > 0).length;
+        showToast(`Warded! Sink the ${n} seal${n === 1 ? '' : 's'} first 🔮`);
+      }
+      return 0;
+    }
     const color = burn ? PALETTE.burn : getWeapon(ev.weaponId).color;
     // Post-slice combat-triangle feedback: the raw multiplier (not the
     // damage, which has it baked in) says whether this hit was favoured.
@@ -640,6 +689,16 @@ export function startApp(root) {
       run.bossDefeated = true; // engine/meta.mjs's recordRunResult awards a Kraken Scale
     } else {
       spawnKillBurst(particles, enemy.x, enemy.y, color, Math.random);
+      if (enemy.seal) {
+        spawnExplosion(particles, enemy.x, enemy.y, 30, Math.random);
+        addShake(shake, 0.5);
+        playBossPhaseChange();
+        const n = run.enemies.filter((e) => e.seal && e.health > 0).length;
+        showToast(n ? `A seal shatters — ${n} left 🔮` : `The ward breaks! ${bossName(run)} can be hurt ⚓`);
+        setStatus(levelStartStatus());
+      } else if (enemy.elite) {
+        showToast('Elite sunk! ⚓');
+      }
       maybeDropRepair(enemy);
       addShake(shake, 0.35);
       if (!burn) triggerHitStop(hitStop, 0.05);
@@ -936,7 +995,10 @@ export function startApp(root) {
     return r.stage ? `${stageName(r.stage)} – Level ${r.reefIndex + 1}/${r.reefCount}` : `Level ${r.reefIndex + 1}/${r.reefCount}`;
   }
   function levelStartStatus(r = run) {
-    if (r.lair) return `${stageLevelText(r)} — sink ${bossName(r)} in its lair ⚓`;
+    if (r.lair) {
+      const n = r.enemies.filter((e) => e.seal && e.health > 0).length;
+      return n ? `${stageLevelText(r)} — break ${n} seal${n === 1 ? '' : 's'} 🔮` : `${stageLevelText(r)} — sink ${bossName(r)} ⚓`;
+    }
     return r.enemies.some((e) => e.isBoss)
       ? `${stageLevelText(r)} — ${bossName(r)} guards the exit ⚓`
       : `${stageLevelText(r)} — find the exit ⚓`;
@@ -1178,7 +1240,10 @@ export function startApp(root) {
       id: e.id, defId: e.defId, aggro: e.aggro, x: e.x, y: e.y, health: e.health, invulnerable: e.invulnerable,
       isBoss: e.isBoss, phaseIndex: e.phaseIndex, diveState: e.diveState, sharkState: e.sharkState, submergedState: e.submergedState, gunWindup: e.gunWindup,
     })),
-    upgrades: { ...(run.upgrades || {}) }, aimTargetId: aimTarget ? aimTarget.id : null, suggestedWeapon, enemyShots: run.enemyProjectiles.length, volleysAtYou: run.volleysAtYou || 0,
+    upgrades: { ...(run.upgrades || {}) }, armaments: { ...(run.armaments || {}) }, lightningArcs: lightning.length,
+    seals: run.enemies.filter((e) => e.seal && e.health > 0).length,
+    boss: (() => { const b = run.enemies.find((e) => e.isBoss); return b ? { id: b.id, health: b.health, maxHealth: b.maxHealth, warded: !!b.warded, enraged: !!b.enraged } : null; })(),
+    choice: upgradeOverlay.hidden ? null : { title: upgradeOverlay.querySelector('#up-title').textContent, cards: [...upgradeOverlay.querySelectorAll('.up-card')].map((c) => c.dataset.armament ? `arm:${c.dataset.armament}` : `up:${c.dataset.upgrade}`) }, aimTargetId: aimTarget ? aimTarget.id : null, suggestedWeapon, enemyShots: run.enemyProjectiles.length, volleysAtYou: run.volleysAtYou || 0,
     firing: isFiring, cooldownRemaining: run.weapons.cooldownRemaining,
     heldWeapons: Array.from(run.weapons.heldWeapons),
     ammo: { ...run.weapons.ammo },
@@ -1202,6 +1267,7 @@ export function startApp(root) {
   // Testing-only: teleports the boat, since a headless test driving the
   // touch joystick can't reliably pathfind a maze it has no map of. Not
   // reachable from any in-game UI.
+  window.__shatteredReefGrantArmament = (id) => { const lv = grantArmament(run, id); renderUpgradeStrip(); return lv; };
   window.__shatteredReefWarp = (x, y) => { run.boat.x = x; run.boat.y = y; run.boat.vx = 0; run.boat.vy = 0; };
   // Testing-only: sets hull directly, since reliably sinking the boat by
   // simulating wall rams through a headless pointer script is unreliable
@@ -1297,6 +1363,24 @@ export function startApp(root) {
       updateEnemies(run.enemies, run.boat, dt, run.grid, run.tileSize, run.coast);
       if (stepSummons(run.enemies, dt).length) playBossPhaseChange();
       trackEnemyMotion(run.enemies, dt);
+      // Armaments (treasure-chest weapons) fire on their own.
+      if (wardClinkCooldown > 0) wardClinkCooldown -= dt;
+      const armStep = stepArmaments(run, dt, { grid: run.grid, tileSize: run.tileSize, coast: run.coast }, { t: now / 1000 });
+      for (const id of armStep.fired) {
+        playFire(id);
+        if (id === 'arm_broadside') addShake(shake, 0.15);
+      }
+      let armSalvage = 0;
+      for (const ev of armStep.events) armSalvage += processHitEvent(ev);
+      if (armSalvage > 0) { addSalvage(run, armSalvage); updateSalvageCounter(); }
+      // Boss enrage (below half hull): announce it once.
+      for (const e of run.enemies) {
+        if (e.isBoss && e.enraged && !e._enrageAnnounced && e.health > 0) {
+          e._enrageAnnounced = true;
+          showToast(`${getEnemy(e.defId).name} is enraged! 🔥`);
+          playBossPhaseChange(); addShake(shake, 0.5);
+        }
+      }
       // Enemy gunnery: wind-up, fire, and shots in flight.
       const world = { grid: run.grid, tileSize: run.tileSize, coast: run.coast };
       const volleys = updateEnemyGuns(run.enemies, run.boat, dt, world, run.enemyProjectiles);
@@ -1343,8 +1427,8 @@ export function startApp(root) {
       // resolveHits' per-enemy events below — it should fire even against
       // open water with nothing in the blast.
       for (const p of run.weapons.projectiles) {
-        if (p.weaponId === WEAPON_IDS.DEPTH_CHARGES && p.spent) {
-          spawnExplosion(particles, p.x, p.y, 28, Math.random);
+        if (p.spent && !p.detonated && getWeapon(p.weaponId).kind === 'lobbed') {
+          spawnExplosion(particles, p.x, p.y, p.blastRadius || 28, Math.random);
           addShake(shake, 0.5);
           playExplosion();
         }
@@ -1357,6 +1441,11 @@ export function startApp(root) {
       );
       cleanupProjectiles(run.weapons);
       for (const ev of hitEvents) salvageGained += processHitEvent(ev);
+      // St Elmo's Fire: cannonball hits arc lightning on.
+      const chain = chainLightning(run, hitEvents);
+      for (const ev of chain.events) salvageGained += processHitEvent(ev);
+      for (const a of chain.arcs) lightning.push({ ...a, life: 0.22, maxLife: 0.22, jag: Array.from({ length: 9 }, Math.random) });
+      if (chain.arcs.length) playZap();
       for (const enemy of run.enemies) {
         const burnEvent = stepBurn(enemy, dt);
         if (burnEvent) salvageGained += processHitEvent(burnEvent, { burn: true });
@@ -1364,7 +1453,7 @@ export function startApp(root) {
       // Iron Ram (upgrade): touching an enemy hurts it.
       if (run.ramDamage) {
         for (const e of run.enemies) {
-          if (e.health <= 0 || e.invulnerable || (e.ramCooldown || 0) > 0) continue;
+          if (e.health <= 0 || e.invulnerable || e.warded || (e.ramCooldown || 0) > 0) continue;
           if (Math.hypot(e.x - run.boat.x, e.y - run.boat.y) > e.radius + BOAT_RADIUS + 2) continue;
           e.ramCooldown = 0.8;
           const killed = applyDamageToEnemy(e, run.ramDamage);
@@ -1413,6 +1502,9 @@ export function startApp(root) {
           updateWeaponBar();
           showToast(ev.freshUnlock ? `New weapon: ${getWeapon(ev.weaponId).name}! ⚓` : `${getWeapon(ev.weaponId).name} restocked ⚓`);
           playPickupWeapon();
+        } else if (ev.kind === PICKUP_KINDS.CHEST) {
+          spawnExplosion(particles, run.boat.x, run.boat.y, 18, Math.random);
+          offerTreasure();
         } else if (ev.kind === PICKUP_KINDS.REPAIR) {
           updateHullBar();
           spawnDamageNumber(damageNumbers, run.boat.x, run.boat.y - BOAT_RADIUS - 10, ev.amount, { heal: true });
@@ -1489,6 +1581,8 @@ export function startApp(root) {
       wake.push({ x: run.boat.x - Math.cos(run.boat.heading) * BOAT_RADIUS * 1.2, y: run.boat.y - Math.sin(run.boat.heading) * BOAT_RADIUS * 1.2, heading: run.boat.heading, life, maxLife: life });
     }
     particles = updateParticles(particles, rawDt);
+    for (const a of lightning) a.life -= rawDt;
+    lightning = lightning.filter((a) => a.life > 0);
     damageNumbers = updateDamageNumbers(damageNumbers, rawDt);
     const shakeOffset = updateShake(shake, rawDt);
 
@@ -1513,10 +1607,17 @@ export function startApp(root) {
       (e) => relationTo(run.faction, e.faction),
       run.boat,
     );
+    for (const e of run.enemies) {
+      if (!e.isBoss || e.health <= 0) continue;
+      if (e.warded) drawWard(ctx, e, run.enemies.filter((s) => s.seal && s.health > 0), now / 1000);
+      else if (e.enraged) drawEnrage(ctx, e, now / 1000);
+    }
     drawEnemyProjectiles(ctx, run.enemyProjectiles, now / 1000);
     if (aimTarget && aimTarget.health > 0 && sailing && !run.over) drawTargetReticle(ctx, aimTarget, now / 1000, isFiring);
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color, now / 1000);
     if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS, now / 1000);
+    if (run.outcome !== 'sunk') drawSpirits(ctx, spiritPositions(run), run.spiritAngle || 0, now / 1000);
+    drawLightning(ctx, lightning);
     drawParticles(ctx, particles);
     drawDamageNumbers(ctx, damageNumbers);
     ctx.restore();

@@ -21,11 +21,12 @@ import { BIOME_IDS } from '../data/biomes.mjs';
 import { generateMazeGraph, farthestCell, buildOrganicReefGrid, cellCenterTile } from './maze.mjs';
 import { createBoat } from './boat.mjs';
 import { createWeaponState } from './combat.mjs';
-import { spawnReefEnemies } from './enemies.mjs';
-import { getEnemy } from '../data/enemies.mjs';
+import { spawnReefEnemies, createEnemy, updateWards } from './enemies.mjs';
+import { treasureSpots } from './treasure.mjs';
+import { getEnemy, ENEMY_IDS } from '../data/enemies.mjs';
 import { stagePool, bossForStage, stageScaling } from '../data/stages.mjs';
 import { CACHE_WEAPON_IDS } from '../data/pickups.mjs';
-import { spawnReefPickups } from './pickups.mjs';
+import { spawnReefPickups, makeChest } from './pickups.mjs';
 import { SHIP_HULLS, HULL_IDS, tuningForHull, CHARMS, CHARM_IDS } from '../data/meta.mjs';
 
 // A run with no meta-progression applied yet (a first-ever run, or Salvage
@@ -42,6 +43,10 @@ export const BASELINE_LOADOUT = Object.freeze({
   extraMaxHull: 0,
   charms: { steadyHands: false, lastGasp: false, firstHaul: false },
 });
+
+// An elite guards each level's first treasure chest: tougher, harder
+// hitting, richer.
+export const ELITE = Object.freeze({ health: 2.8, damage: 1.25, salvage: 3 });
 
 export const TILE_SIZE = 16; // px per tile at 1x zoom
 export const BOAT_RADIUS = 11; // px, collision + draw radius
@@ -62,12 +67,12 @@ const WALL = 3;
 const REEF_TUNING = [
   // Short rounds: level 1 is a small reef you can clear in a minute or so;
   // level 5 is the big one, with the boss guarding its exit.
-  { cols: 5, rows: 5, enemyCount: 4, repairs: 1 },
-  { cols: 6, rows: 6, enemyCount: 6, repairs: 1 },
-  { cols: 7, rows: 7, enemyCount: 8, repairs: 2 },
-  { cols: 8, rows: 8, enemyCount: 10, repairs: 2 },
+  { cols: 5, rows: 5, enemyCount: 4, repairs: 1, chests: 1 },
+  { cols: 6, rows: 6, enemyCount: 6, repairs: 1, chests: 2 },
+  { cols: 7, rows: 7, enemyCount: 8, repairs: 2, chests: 2 },
+  { cols: 8, rows: 8, enemyCount: 10, repairs: 2, chests: 3 },
   // Level 5 is the boss lair (engine/lair.mjs): a round atoll, not a maze.
-  { cols: 9, rows: 9, enemyCount: 11, boss: true, layout: 'lair', repairs: 3 },
+  { cols: 9, rows: 9, enemyCount: 13, boss: true, layout: 'lair', repairs: 3 },
 ]
 
 export const TIER_COUNT = REEF_TUNING.length;
@@ -107,6 +112,7 @@ function buildLairWorld(rng) {
     lair: {
       centre: { x: lair.centreTile.tx * TILE_SIZE, y: lair.centreTile.ty * TILE_SIZE },
       pitRadius: lair.pitRadiusTiles * TILE_SIZE,
+      seals: lair.seals.map((t) => ({ x: t.tx * TILE_SIZE, y: t.ty * TILE_SIZE, ring: t.ring })),
     },
     grid: lair.grid,
     coast,
@@ -223,6 +229,13 @@ function enterReef(run, reefIndex) {
       }
     }
     run.enemies.push(...bosses);
+    // Warding seals, one per ring: the boss can't be hurt until all fall.
+    for (const st of world.lair?.seals || []) {
+      const seal = createEnemy(ENEMY_IDS.WARDING_SEAL, st.x, st.y, rng, { scale });
+      seal.seal = true;
+      run.enemies.push(seal);
+    }
+    updateWards(run.enemies);
   }
   // A weapon turns up in the level that first needs it: caches here are
   // for the weapons this level's enemies (and boss) are countered by.
@@ -239,6 +252,25 @@ function enterReef(run, reefIndex) {
     repairs: tuning.repairs ?? 1,
     avoid: world.lair ? { x: world.lair.centre.x, y: world.lair.centre.y, r: world.lair.pitRadius } : null,
   });
+  // Treasure in the dead ends (engine/treasure.mjs): armament chests, one
+  // of them guarded by an elite. The lair has its seals instead.
+  if (world.maze && tuning.chests) {
+    const spots = treasureSpots(world.maze, run.grid, run.tileSize, tuning.chests, rng);
+    // The elite guards the chest farthest from the start, so a level still
+    // opens quiet (nothing awake within reach of the spawn).
+    const far = spots.reduce((b, sp) => (!b || Math.hypot(sp.x - world.spawnWorld.x, sp.y - world.spawnWorld.y) > Math.hypot(b.x - world.spawnWorld.x, b.y - world.spawnWorld.y) ? sp : b), null);
+    spots.forEach((sp) => {
+      run.pickups.push(makeChest(sp.x, sp.y));
+      if (sp === far && pool.length && Math.hypot(sp.x - world.spawnWorld.x, sp.y - world.spawnWorld.y) > 280) {
+        const eliteId = pool[Math.floor(rng() * pool.length)];
+        const e = createEnemy(eliteId, sp.x + (rng() - 0.5) * 30, sp.y + (rng() - 0.5) * 30, rng,
+          { scale: { health: scale.health * ELITE.health, damage: scale.damage * ELITE.damage } });
+        e.elite = true;
+        e.salvageDrop = Math.round(e.salvageDrop * ELITE.salvage);
+        run.enemies.push(e);
+      }
+    });
+  }
   run.reefSalvage = 0;
   snapshotLevelStart(run);
 }
@@ -250,6 +282,7 @@ export function snapshotLevelStart(run) {
     heldWeapons: new Set(run.weapons.heldWeapons),
     ammo: { ...run.weapons.ammo },
     activeWeaponId: run.weapons.activeWeaponId,
+    armaments: { ...(run.armaments || {}) },
   };
 }
 
@@ -264,6 +297,8 @@ export function retryLevel(run) {
   run.weapons.heldWeapons = new Set(snap.heldWeapons);
   run.weapons.ammo = { ...snap.ammo };
   run.weapons.activeWeaponId = snap.activeWeaponId;
+  run.armaments = { ...(snap.armaments || {}) };
+  run.armTimers = {};
   run.weapons.projectiles = [];
   run.weapons.cooldownRemaining = 0;
   run.enemyProjectiles = [];
