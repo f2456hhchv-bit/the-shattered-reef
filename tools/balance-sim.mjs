@@ -42,6 +42,7 @@ import { updateEnemyGuns, stepEnemyProjectiles } from '../src/engine/enemyGuns.m
 import { fireShipBlast, updateEnemies, stepSummons, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor } from '../src/engine/enemies.mjs';
 import { collectPickups } from '../src/engine/pickups.mjs';
 import { grantArmament, rollArmamentChoices, stepArmaments, chainLightning } from '../src/engine/armaments.mjs';
+import { stepWeather, weatherModifiers } from '../src/engine/weather.mjs';
 import { isOpenWithClearance } from '../src/engine/maze.mjs';
 import { getWeapon, WEAPON_IDS } from '../src/data/weapons.mjs';
 import { PICKUP_KINDS } from '../src/data/pickups.mjs';
@@ -436,6 +437,19 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     trackEnemyMotion(run.enemies, DT);
     const simWorld = { grid: run.grid, tileSize: run.tileSize, coast: run.coast };
     const armEvents = process.env.NO_ARMAMENTS ? [] : stepArmaments(run, DT, simWorld).events;
+    // Weather pushes, hides and hurts the bot the same as a player.
+    let weatherEvents = [];
+    if (!process.env.NO_WEATHER) {
+      run.boat.sightMult = weatherModifiers(run.weather).sight;
+      const wx = stepWeather(run, DT);
+      for (const h of wx.boatHits) {
+        stats.damageBySource.weather = (stats.damageBySource.weather || 0) + h.damage;
+        stats.weatherBy = stats.weatherBy || {}; stats.weatherBy[h.kind] = (stats.weatherBy[h.kind] || 0) + h.damage;
+      }
+      if (wx.started) stats.weatherEvents = (stats.weatherEvents || 0) + 1;
+      if (wx.salvage) addSalvage(run, wx.salvage);
+      weatherEvents = wx.enemyHits;
+    }
     updateEnemyGuns(run.enemies, run.boat, DT, simWorld, run.enemyProjectiles);
     for (const h of stepEnemyProjectiles(run.enemyProjectiles, run.boat, BOAT_RADIUS, DT, simWorld, incomingMultiplierFor(run.faction)).hits) {
       stats.damageBySource.gunfire = (stats.damageBySource.gunfire || 0) + h.damage;
@@ -446,7 +460,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
       factionMultiplierFor(run.faction), craftedMultiplierFor(run.craftedDamageMultipliers)
     );
     const chainEvents = chainLightning(run, hitEvents).events;
-    const allEvents = [...hitEvents, ...armEvents, ...chainEvents];
+    const allEvents = [...hitEvents, ...armEvents, ...chainEvents, ...weatherEvents];
     for (let k = 0; k < allEvents.length; k++) {
       const ev = allEvents[k];
       if (ev.killed && ev.enemy.defId === 'fire_ship' && !ev.enemy.detonated) allEvents.push(...fireShipBlast(ev.enemy, run.enemies));
@@ -549,6 +563,9 @@ function summarize(results) {
   console.log(`Boss encounter rate: ${(bossEncounters / n * 100).toFixed(1)}% | defeat rate (of encounters): ${bossEncounters ? (bossDefeats / bossEncounters * 100).toFixed(1) : 'n/a'}%`);
   console.log(`Avg wall-impact damage taken per run: ${(totalWallDmg / n).toFixed(1)} | avg enemy-contact damage: ${(totalContactDmg / n).toFixed(1)}`);
   const sum = (k) => results.reduce((a, r) => a + (r[k] || 0), 0);
+  console.log(`Weather: ${(sum('weatherEvents') / n).toFixed(1)} events per voyage, ${(results.reduce((a, r) => a + (r.damageBySource.weather || 0), 0) / n).toFixed(1)} hull lost to it`);
+  const wb = {}; for (const r of results) for (const [k, v] of Object.entries(r.weatherBy || {})) wb[k] = (wb[k] || 0) + v;
+  console.log('Weather hull loss by kind (total):', Object.fromEntries(Object.entries(wb).map(([k, v]) => [k, Math.round(v)])));
   console.log(`Per voyage: chests ${(sum('chestsOpened') / n).toFixed(2)} | elites sunk ${(sum('elitesSunk') / n).toFixed(2)} | seals sunk ${(sum('sealsSunk') / n).toFixed(2)}`);
   console.log('Weapon-cache find rate:', Object.fromEntries(Object.entries(weaponFoundCount).map(([k, v]) => [k, (v / n * 100).toFixed(0) + '%'])));
 }

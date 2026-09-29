@@ -502,7 +502,8 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
 
   const def = getEnemy(enemy.defId);
   const dist = Math.hypot(boat.x - enemy.x, boat.y - enemy.y);
-  const radius = def.aggroRadius ?? AGGRO.radius;
+  // Rain, fog and snow (engine/weather.mjs) cut how far enemies can see.
+  const radius = (def.aggroRadius ?? AGGRO.radius) * (boat.sightMult ?? 1);
   if (enemy.health < enemy.lastHealth) enemy.aggro = true; // shot at: always wakes
   // Boss enrage: below half hull (only reachable once its seals are down).
   if (def.isBoss && !enemy.enraged && enemy.health < enemy.maxHealth * BOSS_ENRAGE.at) {

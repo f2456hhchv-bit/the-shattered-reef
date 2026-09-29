@@ -13,6 +13,8 @@ import { UPGRADE_BY_ID } from './data/upgrades.mjs';
 import { ARMAMENT_BY_ID, ARMAMENT_MAX_LEVEL } from './data/armaments.mjs';
 import { armamentLevel, grantArmament, rollArmamentChoices, stepArmaments, spiritPositions, chainLightning } from './engine/armaments.mjs';
 import { drawSpirits, drawLightning, drawWard, drawEnrage } from './engine/armamentArt.mjs';
+import { stepWeather, startWeather, weatherModifiers } from './engine/weather.mjs';
+import { drawWeatherWorld, drawWeatherAbove, drawWeatherScreen, drawBolt } from './engine/weatherArt.mjs';
 import { BASE_BUILDINGS } from './data/base.mjs';
 import { buildBaseWorld, computeBaseView, boatOrbitPoint } from './engine/base.mjs';
 import { drawBaseBuildings, drawGulls, BUILDING_SCALE } from './engine/baseRenderer.mjs';
@@ -67,7 +69,7 @@ import {
 import {
   unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact,
   playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playLockedWeapon,
-  playBossPhaseChange, playBossDefeated, playEnemyFire, playTreasure, playWardClink, playZap,
+  playBossPhaseChange, playBossDefeated, playEnemyFire, playTreasure, playWardClink, playZap, playThunder, playWeatherWarning,
 } from './audio/audio.mjs';
 import { WEAPON_IDS } from './data/weapons.mjs';
 
@@ -100,6 +102,7 @@ export function startApp(root) {
     <div id="stat-row">
       <span id="reef-indicator">Level 1/5</span>
       <span id="salvage-counter">⚓ Salvage: 0</span>
+      <span id="weather-chip" hidden></span>
     </div>
     <div id="upgrade-strip"></div>
   `;
@@ -431,6 +434,8 @@ export function startApp(root) {
   let particles = createParticlePool();
   let damageNumbers = createDamageNumberPool();
   let lightning = []; // St Elmo's Fire arcs (armamentArt.drawLightning)
+  let bolts = []; // weather lightning strikes, drawn briefly
+  let announcedWeather = null;
   const shake = createShake();
   const hitStop = createHitStop();
 
@@ -720,6 +725,39 @@ export function startApp(root) {
       playKill();
     }
     return enemy.salvageDrop;
+  }
+
+  // Weather events: announce, and feed hits through the usual feedback.
+  function handleWeather(wx) {
+    const chip = document.getElementById('weather-chip');
+    const act = run.weather && run.weather.active;
+    if (act && act !== announcedWeather) {
+      const d = act.def;
+      showToast(`${d.icon} ${d.msg}`, { ms: 2600 });
+      playWeatherWarning();
+      chip.textContent = `${d.icon} ${d.name}`; chip.hidden = false;
+    }
+    if (!act) chip.hidden = true;
+    announcedWeather = act || null;
+    let hullHit = 0;
+    for (const h of wx.boatHits) {
+      hullHit += h.damage;
+      spawnDamageNumber(damageNumbers, run.boat.x + 26, run.boat.y - BOAT_RADIUS - 8, h.damage, { incoming: true });
+    }
+    if (hullHit > 0) { updateHullBar(); flashHit(); addShake(shake, Math.min(0.6, 0.2 + hullHit / 30)); playWallImpact(Math.min(1, hullHit / 15)); }
+    let salvage = wx.salvage;
+    for (const ev of wx.enemyHits) salvage += processHitEvent(ev, { burn: true });
+    if (salvage > 0) { addSalvage(run, salvage); updateSalvageCounter(); if (wx.salvage) playPickupSalvage(); }
+    for (const s of wx.strikes) {
+      bolts.push({ x: s.x, y: s.y, life: 0.25 });
+      spawnExplosion(particles, s.x, s.y, 20, Math.random);
+      playThunder(); addShake(shake, 0.35);
+    }
+    for (const im of wx.impacts) {
+      spawnSplash(particles, im.x, im.y, Math.random, 14);
+      spawnExplosion(particles, im.x, im.y, im.r * 0.7, Math.random);
+      playExplosion(); addShake(shake, 0.2);
+    }
   }
 
   // A regular kill sometimes leaves a repair kit floating where it sank.
@@ -1255,6 +1293,7 @@ export function startApp(root) {
       id: e.id, defId: e.defId, aggro: e.aggro, x: e.x, y: e.y, health: e.health, invulnerable: e.invulnerable,
       isBoss: e.isBoss, phaseIndex: e.phaseIndex, diveState: e.diveState, sharkState: e.sharkState, submergedState: e.submergedState, gunWindup: e.gunWindup,
     })),
+    weather: run.weather && run.weather.active ? { id: run.weather.active.id, time: run.weather.time, total: run.weather.active.total, floes: run.weather.floes.length, spouts: run.weather.spouts.length, strikes: run.weather.strikes.length, drops: run.weather.drops.length, whirl: !!run.weather.whirl } : null, sightMult: run.boat.sightMult,
     upgrades: { ...(run.upgrades || {}) }, armaments: { ...(run.armaments || {}) }, lightningArcs: lightning.length,
     seals: run.enemies.filter((e) => e.seal && e.health > 0).length,
     boss: (() => { const b = run.enemies.find((e) => e.isBoss); return b ? { id: b.id, health: b.health, maxHealth: b.maxHealth, warded: !!b.warded, enraged: !!b.enraged } : null; })(),
@@ -1282,6 +1321,8 @@ export function startApp(root) {
   // Testing-only: teleports the boat, since a headless test driving the
   // touch joystick can't reliably pathfind a maze it has no map of. Not
   // reachable from any in-game UI.
+  // Testing-only: start a weather event now (e.g. 'thunderstorm').
+  window.__shatteredReefWeather = (id) => startWeather(run, id);
   window.__shatteredReefGrantArmament = (id) => { const lv = grantArmament(run, id); renderUpgradeStrip(); return lv; };
   window.__shatteredReefWarp = (x, y) => { run.boat.x = x; run.boat.y = y; run.boat.vx = 0; run.boat.vy = 0; };
   // Testing-only: sets hull directly, since reliably sinking the boat by
@@ -1338,10 +1379,14 @@ export function startApp(root) {
 
     if (sailing && !run.over) {
       const jam = run.boat.turnJamRemaining > 0;
-      const tuning = jam ? { ...run.tuning, turnRate: run.tuning.turnRate * 0.5 } : run.tuning;
+      const wmods = weatherModifiers(run.weather);
+      run.boat.sightMult = wmods.sight;
+      const turnMult = (jam ? 0.5 : 1) * wmods.turn;
+      const tuning = turnMult !== 1 ? { ...run.tuning, turnRate: run.tuning.turnRate * turnMult } : run.tuning;
 
       const vec = joystick.getVector();
       stepBoat(run.boat, vec, dt, tuning);
+      handleWeather(stepWeather(run, dt));
       const impactSpeed = resolveCoastCollision(run.boat, BOAT_RADIUS, run.coast);
       const damage = applyWallImpactDamage(run.boat, impactSpeed);
       if (damage > 0) {
@@ -1604,6 +1649,8 @@ export function startApp(root) {
       wake.push({ x: run.boat.x - Math.cos(run.boat.heading) * BOAT_RADIUS * 1.2, y: run.boat.y - Math.sin(run.boat.heading) * BOAT_RADIUS * 1.2, heading: run.boat.heading, life, maxLife: life });
     }
     particles = updateParticles(particles, rawDt);
+    for (const b of bolts) b.life -= rawDt;
+    bolts = bolts.filter((b) => b.life > 0);
     for (const a of lightning) a.life -= rawDt;
     lightning = lightning.filter((a) => a.life > 0);
     damageNumbers = updateDamageNumbers(damageNumbers, rawDt);
@@ -1620,6 +1667,7 @@ export function startApp(root) {
     terrainRenderer.draw(ctx, view.visible, now / 1000, { forceVisible: terrainFresh, maxNewChunks: 0 });
     terrainFresh = false;
     if (run.lair) drawLairCurrents(ctx, run.lair.centre, run.lair.pitRadius, now / 1000);
+    drawWeatherWorld(ctx, run.weather, now / 1000);
     drawWake(ctx, wake);
     if (isExitOpen(run)) drawExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
     else drawSealedExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
@@ -1641,9 +1689,13 @@ export function startApp(root) {
     if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS, now / 1000);
     if (run.outcome !== 'sunk') drawSpirits(ctx, spiritPositions(run), run.spiritAngle || 0, now / 1000);
     drawLightning(ctx, lightning);
+    drawWeatherAbove(ctx, run.weather, now / 1000);
+    for (const b of bolts) drawBolt(ctx, b.x, b.y, b.life / 0.25);
     drawParticles(ctx, particles);
     drawDamageNumbers(ctx, damageNumbers);
     ctx.restore();
+    // Rain, snow, fog, darkness: over the world, under the HUD.
+    if (sailing || run.over) drawWeatherScreen(ctx, run.weather, weatherModifiers(run.weather), now / 1000, vw, vh, { x: run.boat.x + view.translateX, y: run.boat.y + view.translateY });
 
     // Stream the rest of the reef's terrain in the background, one chunk a
     // frame, so scrolling never reveals an unrendered chunk.

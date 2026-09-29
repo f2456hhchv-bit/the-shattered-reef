@@ -165,6 +165,18 @@ const WEAPON_FIRE_TONE = {
   arm_broadside: { freq: 130, type: 'square', duration: 0.16, gain: 0.14, glideTo: 80 },
 };
 
+// Thunder: a crack, then a long low roll.
+export function playThunder() {
+  noiseBurst({ duration: 0.12, gain: 0.3, filterFreq: 2500 });
+  noiseBurst({ duration: 1.1, gain: 0.22, filterFreq: 260 });
+}
+
+// A weather event rolling in.
+export function playWeatherWarning() {
+  tone(220, { duration: 0.5, type: 'sine', gain: 0.08, glideTo: 180 });
+  tone(330, { duration: 0.5, type: 'sine', gain: 0.05, glideTo: 270, delay: 0.12 });
+}
+
 // Opening a treasure chest: a bright rising arpeggio.
 export function playTreasure() {
   [523, 659, 784, 1047].forEach((f, i) => tone(f, { duration: 0.16, type: 'triangle', gain: 0.1, delay: i * 0.07 }));

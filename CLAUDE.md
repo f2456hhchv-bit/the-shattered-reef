@@ -1858,6 +1858,55 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - **Next up:** random weather and hazard events per biome (the owner's
   next request).
 
+- **Phase:** weather (project owner, 2026-09-29: "Weather effects at
+  random… different weather varieties for different biomes.. rock falls,
+  whirlpools, sideways winds… think of every weather effect").
+- **Just shipped** (`data/weather.mjs`, `engine/weather.mjs`,
+  `engine/weatherArt.mjs`):
+  - Timing: one event at a time, drawn from the level's biome table.
+    Nothing happens in the first 16-28s of a level, then there are 22-40s
+    quiet spells between events; the sky resets on every level and retry.
+    Each event gets a toast, a warning sound and a HUD chip.
+  - 13 kinds:
+    - **Gale:** a steady push; you drift downwind.
+    - **Rain Squall:** enemy sight cut to 60%; rain streaks.
+    - **Thunderstorm:** darker screen; lightning marks a spot for 1.3s,
+      then strikes the boat and any enemies inside it.
+    - **Fog Bank:** you see a clear pocket around your ship, enemy sight is
+      halved, and fog drifts across.
+    - **Whirlpool:** pulls in and around, and the eye grinds your hull.
+      Full sail always escapes (tested).
+    - **Rogue Wave:** chevrons warn for 2.2s, then a crest sweeps the map,
+      carries everything along and hits once.
+    - **Waterspouts:** wander, pull you in, and hit and spin your rudder.
+    - **Rockfall** (cliffs) and **Icefall** (glaciers): a growing shadow
+      and ring, then a falling rock. They only land in the band near shore
+      (tested).
+    - **Blizzard:** snow and whiteout, enemy sight 55%, and an iced rudder
+      (65% turn).
+    - **Ice Floes** and **Wreckage Drift:** solid drifting bodies that
+      bounce off the shore; ramming one hurts, and you can't pass through.
+    - **Ghost Lights:** sail through them for Salvage.
+  - Biome tables: Tropical is squall/gale/spouts/whirlpool/storm/wave;
+    Cliff & Cove is rockfall/gale/fog/wave/storm; Glacial is blizzard/
+    floes/icefall/fog/gale; Shipwreck is fog/storm/whirlpool/wreckage/
+    ghost lights/wave.
+  - Everything that hurts you also hurts and pushes enemies. Kills go
+    through the normal feedback and Salvage path. Enemy sight is scaled by
+    `boat.sightMult` (read in `updateEnemy`).
+  - Debug: `__shatteredReefWeather(id)`; the debug snapshot shows the
+    active weather.
+  - Balance: the bot doesn't dodge the marks, so the first cut of
+    lightning (50% aimed at you, 16 damage) sank it far more often (11/16
+    on stage 1). Lightning is now 30% aimed, 12 damage, and strikes every
+    1.4-2.4s: 3/16 sunk, back in line with before weather. The sim reports
+    weather hull loss by kind.
+  - 354/354 tests (new `tests/weather.test.mjs`, 11 tests). All 13 events
+    were screenshotted live with no console errors; the depth and shop
+    playtests still pass.
+- **Next up:** the owner to play-judge the new content, the weather
+  frequency and lightning. Rock/ice falls don't leave debris yet.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2490,6 +2539,11 @@ Starting fresh below for the new game.)*
   Salvage) rather than adding a chest. An extra chest would need an
   extra dead end, which would make the level layout depend on your
   charms (and break the voyage card's preview).
+
+- 2026-09-29: Weather is one event at a time with quiet spells, and every
+  hazard is telegraphed and hits enemies too. Stacked or unmarked hazards
+  would read as random damage; one readable event at a time turns weather
+  into something to play around and even use.
 
 ## Known open questions (do not silently resolve — ask)
 

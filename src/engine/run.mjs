@@ -24,6 +24,7 @@ import { createWeaponState } from './combat.mjs';
 import { spawnReefEnemies, createEnemy, updateWards } from './enemies.mjs';
 import { treasureSpots } from './treasure.mjs';
 import { grantArmament } from './armaments.mjs';
+import { createWeather } from './weather.mjs';
 import { getEnemy, ENEMY_IDS } from '../data/enemies.mjs';
 import { stagePool, bossForStage, stageScaling } from '../data/stages.mjs';
 import { CACHE_WEAPON_IDS } from '../data/pickups.mjs';
@@ -275,6 +276,8 @@ function enterReef(run, reefIndex) {
     });
   }
   run.reefSalvage = 0;
+  // Weather (engine/weather.mjs): a fresh sky for every level and retry.
+  run.weather = createWeather(level.biomeId || BIOME_IDS.TROPICAL);
   snapshotLevelStart(run);
 }
 

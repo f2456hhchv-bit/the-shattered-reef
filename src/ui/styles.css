@@ -137,7 +137,7 @@ html, body {
   pointer-events: none;
 }
 
-#salvage-counter, #reef-indicator {
+#salvage-counter, #reef-indicator, #weather-chip {
   pointer-events: none;
   background: rgba(6, 36, 53, .75);
   color: #e8b54b;
@@ -572,7 +572,7 @@ body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
   #hull-bar { width: 110px; flex-shrink: 0; }
   #upgrade-strip { flex-wrap: nowrap; flex-shrink: 0; }
   #stat-row { flex-shrink: 0; }
-  #salvage-counter, #reef-indicator { padding: 4px 10px; font-size: 11px; }
+  #salvage-counter, #reef-indicator, #weather-chip { padding: 4px 10px; font-size: 11px; }
 
   #weapon-bar {
     width: auto;
@@ -826,3 +826,7 @@ body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
 .up-card.arm .up-lv { color: #ffd978; }
 .up-kind { display: block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
 #upgrade-strip span.arm { border-color: rgba(127, 216, 232, .6); background: rgba(8, 44, 60, .85); }
+
+/* Weather (2026-09-29): the active event's chip in the HUD. */
+#weather-chip { color: #cfe8ff; border-color: rgba(160, 200, 255, .45) !important; }
+#weather-chip[hidden] { display: none; }
