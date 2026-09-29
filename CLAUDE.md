@@ -2088,6 +2088,42 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   abyss), camouflage range (95) and burn/poison rates are first-pass. No
   new music per biome yet (voyage and lair themes play everywhere).
 
+- **Phase:** music for every biome (project owner: "Make the music now").
+- **Just shipped** (`data/music.mjs`, `audio/music.mjs`):
+  - 18 new synthesised themes: a sea theme and a boss-lair theme for each
+    of the nine non-tropical biomes. Tropical keeps the original shanty
+    and Kraken lair theme. `musicFor(biomeId, inLair)` picks the track;
+    main.mjs calls it every frame, and the existing crossfade handles
+    level changes.
+
+    | Biome | Sea theme | Lead / pad / drums |
+    |---|---|---|
+    | Cliff & Cove | E-dorian jig | whistle, bodhrán |
+    | Glacial | B-minor waltz | bells, choir, ice drips |
+    | Shipwreck | A-harmonic-minor lament | glass harmonica, choir |
+    | Volcanic | E-phrygian power chords | brass, drone, taiko |
+    | Caverns | D-minor, heavy echo | organ, drone, water drips |
+    | Mangrove | E blues shuffle in 12/8 | harmonica, washboard |
+    | Abyss | D-lydian ambient | bells, choir, heartbeat |
+    | Bone Sands | D hijaz | oud pluck, drone, darbuka maqsum |
+    | Crystal | E lydian | glass lead, arpeggiated bells |
+
+    Each lair theme is a faster, darker loop in its biome's key.
+  - Synth additions:
+    - lead voices bell, glass, brass, reed, pluck, organ
+    - pads choir, drone, arp
+    - drums tom, tak, drip; P (power) chords
+    - per-track `volume` and `echo`
+    - bass is kept at C2 or above so phone speakers can play it (the
+      old lair's bass sat near 27Hz)
+  - `scheduleTrack()` renders any track into an OfflineAudioContext.
+    Loudness was matched from those renders: sea themes about 0.045-0.06
+    RMS, lairs about 0.075.
+  - Tests: every biome has two unique themes, each lair theme is faster
+    than its sea theme, and voices, drums and chords are all valid.
+    Verified live that the track switches per stage and in the lair.
+- **Next up:** listen on the phone and flag any theme that grates.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in

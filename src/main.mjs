@@ -8,6 +8,7 @@
 import { viewH, installViewportFix } from './ui/viewport.mjs';
 import { chooseAutoFire, trackEnemyMotion } from './engine/aim.mjs';
 import { playMusic, currentMusic } from './audio/music.mjs';
+import { musicFor } from './data/music.mjs';
 import { rollUpgradeChoices, applyUpgrade, upgradeLevel } from './engine/upgrades.mjs';
 import { UPGRADE_BY_ID } from './data/upgrades.mjs';
 import { ARMAMENT_BY_ID, ARMAMENT_MAX_LEVEL } from './data/armaments.mjs';
@@ -1484,7 +1485,7 @@ export function startApp(root) {
 
       updateAim();
       updateCounterHint();
-      playMusic(run.lair ? 'lair' : 'voyage');
+      playMusic(musicFor(run.level?.biomeId, !!run.lair));
       isFiring = aimHeading != null;
       if (isFiring) {
         const chosen = run.weapons.activeWeaponId;
