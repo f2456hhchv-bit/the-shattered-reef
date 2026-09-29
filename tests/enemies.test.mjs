@@ -146,6 +146,7 @@ test('spawnReefEnemies places at most one boss even in a mixed pool with several
 
 test('SWARM archetype closes distance on the boat when far away', () => {
   const enemy = createEnemy(ENEMY_IDS.REEF_SKIMMER, 0, 0);
+  enemy.aggro = true; // past aggro range it would idle (random drift made this test flaky)
   const boat = createBoat(300, 0, 0);
   const grid = openGrid();
   const startDist = Math.hypot(boat.x - enemy.x, boat.y - enemy.y);

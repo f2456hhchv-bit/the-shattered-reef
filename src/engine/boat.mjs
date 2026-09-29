@@ -157,7 +157,8 @@ export function resolveCoastCollision(body, radius, coast) {
 // feedback (a flash, a sound) at all.
 export function applyWallImpactDamage(boat, impactSpeed) {
   if (impactSpeed <= WALL_IMPACT_DAMAGE_THRESHOLD) return 0;
-  const damage = (impactSpeed - WALL_IMPACT_DAMAGE_THRESHOLD) * WALL_IMPACT_DAMAGE_PER_SPEED;
+  // Sea Legs (charm) sets boat.wallDamageTaken below 1.
+  const damage = (impactSpeed - WALL_IMPACT_DAMAGE_THRESHOLD) * WALL_IMPACT_DAMAGE_PER_SPEED * (boat.wallDamageTaken ?? 1);
   boat.health = Math.max(0, boat.health - damage);
   return damage;
 }

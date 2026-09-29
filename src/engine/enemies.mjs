@@ -364,6 +364,18 @@ function updateTank(enemy, boat, dt) {
   steerToward(enemy, boat.x, boat.y, dt);
 }
 
+// RAMMER (Fire Ship): on first sighting it lights its sails (the tell),
+// then drives straight at you. Slower than any hull, so it can be outrun.
+function updateRammer(enemy, boat, dt, def) {
+  if (!enemy.kindled) {
+    enemy.kindleTimer = (enemy.kindleTimer ?? def.kindleSeconds ?? 0.9) - dt;
+    steerToward(enemy, boat.x, boat.y, dt, 0.25);
+    if (enemy.kindleTimer <= 0) enemy.kindled = true;
+    return;
+  }
+  steerToward(enemy, boat.x, boat.y, dt);
+}
+
 function updateFlanker(enemy, boat, dt) {
   const flankDist = 55;
   const perpX = -Math.sin(boat.heading) * flankDist * enemy.flankSign;
@@ -560,6 +572,7 @@ function moveAggroed(enemy, boat, dt, def) {
     case ARCHETYPES.SHARK: updateShark(enemy, boat, dt, def); break;
     case ARCHETYPES.SERPENT: updateSerpent(enemy, boat, dt, def); break;
     case ARCHETYPES.TOTEM: break;
+    case ARCHETYPES.RAMMER: updateRammer(enemy, boat, dt, def); break;
     default: updateTank(enemy, boat, dt); break;
   }
 }
@@ -579,6 +592,23 @@ export function updateEnemies(enemies, boat, dt, grid, tileSize, coast = null) {
       if (!e.aggro && e.health > 0 && Math.hypot(e.x - w.x, e.y - w.y) <= AGGRO.packAlertRadius) e.aggro = true;
     }
   }
+}
+
+// A fire ship sunk by the player blows up, hurting other enemies nearby
+// (never the boat — that's the reward for sinking it at range). Returns hit
+// events in resolveHits' shape; chains if the blast sinks another one.
+export function fireShipBlast(enemy, enemies) {
+  const def = getEnemy(enemy.defId);
+  if (!def.explodes || enemy._blasted) return [];
+  enemy._blasted = true;
+  const events = [];
+  for (const e of enemies) {
+    if (e === enemy || e.health <= 0 || e.invulnerable || e.warded) continue;
+    if (Math.hypot(e.x - enemy.x, e.y - enemy.y) > def.explodes.radius + e.radius) continue;
+    e.health = Math.max(0, e.health - def.explodes.damage);
+    events.push({ enemy: e, weaponId: 'fire_ship', damage: def.explodes.damage, killed: e.health <= 0 });
+  }
+  return events;
 }
 
 // Lair wards: while any warding seal stands, every boss is `warded` (takes
@@ -612,9 +642,16 @@ export function resolveEnemyContact(enemy, boat, boatRadius, getIncomingMultipli
   const dist = Math.hypot(enemy.x - boat.x, enemy.y - boat.y);
   if (dist > enemy.radius + boatRadius) return 0;
 
-  enemy.contactCooldownRemaining = getEnemy(enemy.defId).contactCooldown;
+  const def = getEnemy(enemy.defId);
+  enemy.contactCooldownRemaining = def.contactCooldown;
   const damage = enemy.contactDamage * getIncomingMultiplier(enemy);
   boat.health = Math.max(0, boat.health - damage);
+  if (def.explodes) {
+    // A fire ship that reaches you goes up with it (no Salvage for that).
+    enemy.health = 0;
+    enemy.detonated = true;
+    enemy.salvageDrop = 0;
+  }
   if (enemy.defId === ENEMY_IDS.RIGGER) {
     boat.turnJamRemaining = Math.max(boat.turnJamRemaining || 0, RIGGER_JAM_SECONDS);
   }

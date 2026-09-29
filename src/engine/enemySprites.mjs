@@ -102,6 +102,60 @@ function drawCutter(ctx, e, color, t, boat) {
   ctx.restore();
 }
 
+// Fire Ship: a tarred hulk stacked with powder kegs. Once kindled its sail
+// is ablaze and it trails fire.
+function drawFireShip(ctx, e, color, t) {
+  const r = e.radius; const L = r * 1.4; const B = r * 0.62;
+  shadow(ctx, L, B * 1.1);
+  ctx.save(); ctx.rotate(facingOf(e));
+  hull(ctx, L, B, '#2e1f14', '#5a3a22', '#120a05');
+  ctx.fillStyle = '#7a4a22';
+  for (const [x, y] of [[L * 0.35, -B * 0.3], [L * 0.35, B * 0.3], [0, 0], [-L * 0.35, -B * 0.3], [-L * 0.35, B * 0.3]]) {
+    ctx.beginPath(); ctx.arc(x, y, 2.3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#3b3f44'; ctx.fillRect(x - 2.3, y - 0.5, 4.6, 1); ctx.fillStyle = '#7a4a22';
+  }
+  const lit = e.kindled ? 1 : Math.max(0, 1 - (e.kindleTimer ?? 1) / 0.9) * (e.aggro ? 1 : 0);
+  // Sail: tattered tar-black, burning once lit.
+  ctx.fillStyle = lit > 0 ? `rgb(${80 + lit * 150}, ${40 + lit * 60}, 20)` : '#2a2420';
+  ctx.beginPath(); ctx.moveTo(r * 0.2, -r * 1.05); ctx.quadraticCurveTo(-r * 0.2, 0, r * 0.2, r * 1.05); ctx.lineTo(-r * 0.25, r * 0.9); ctx.lineTo(-r * 0.4, -r * 0.9); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#3b2616'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(0, -r * 1.1); ctx.lineTo(0, r * 1.1); ctx.stroke();
+  ctx.restore();
+  if (lit > 0) {
+    // Flames licking up off the deck, leaning back from the direction of travel.
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 7; i++) {
+      const ph = (t * 2.2 + i / 7 + e.id * 0.13) % 1;
+      const a = (i / 7) * Math.PI * 2 + e.id;
+      const x = Math.cos(a) * r * 0.5; const y = Math.sin(a) * r * 0.35 - ph * 12;
+      ctx.fillStyle = `rgba(255, ${140 + (1 - ph) * 100}, 40, ${(1 - ph) * 0.8 * lit})`;
+      ctx.beginPath(); ctx.arc(x, y, (3.5 - ph * 2.5) * (0.6 + lit * 0.4), 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+// Mortar Gunboat: a squat, low hull built around one fat mortar.
+function drawMortarBoat(ctx, e, color, t) {
+  const r = e.radius; const L = r * 1.2; const B = r * 0.78;
+  shadow(ctx, L, B * 1.1);
+  ctx.save(); ctx.rotate(facingOf(e));
+  hull(ctx, L, B, '#3d4a2a', '#6f7b4f', '#1c2412', 0.95);
+  ctx.fillStyle = color; ctx.fillRect(-L * 0.75, -B * 0.55, L * 0.35, B * 1.1); // wheelhouse
+  ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(-L * 0.75, -B * 0.55, L * 0.35, 2);
+  ctx.restore();
+  // The mortar points up: seen from above, a ringed muzzle that glows as it
+  // winds up to fire.
+  const g = windupGlow(e);
+  ctx.fillStyle = '#2b2f33'; ctx.beginPath(); ctx.arc(1, 0, r * 0.52, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#6a7076'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(1, 0, r * 0.52, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = g > 0 ? `rgb(${60 + g * 195}, ${40 + g * 120}, 30)` : '#0e0f10';
+  ctx.beginPath(); ctx.arc(1, 0, r * 0.3, 0, Math.PI * 2); ctx.fill();
+  if (g > 0.6) {
+    ctx.fillStyle = `rgba(200, 200, 200, ${(g - 0.6) * 1.5})`;
+    ctx.beginPath(); ctx.arc(1 + Math.sin(t * 20) * 1.5, -4, 3, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
 function drawBrig(ctx, e, color, t, boat, big = false) {
   const r = e.radius; const L = r * 1.5; const B = r * 0.62;
   shadow(ctx, L * 1.02, B * 1.2, 0.34, 3, 4.5);
@@ -239,6 +293,8 @@ export const SPRITES = {
   bloodfin_matriarch: scaled(1.2, (ctx, e, c, t, boat) => drawShark(ctx, e, c, t, boat, true)),
   sea_serpent: scaled(1.3, (ctx, e, c, t) => drawSerpent(ctx, e, c, t)),
   warding_seal: (ctx, e, c, t) => drawSeal(ctx, e, c, t),
+  fire_ship: scaled(1.3, (ctx, e, c, t) => drawFireShip(ctx, e, c, t)),
+  mortar_boat: scaled(1.3, (ctx, e, c, t) => drawMortarBoat(ctx, e, c, t)),
 };
 
 // Telegraphs, drawn under the enemies: an aimed gun's sighting line, a
@@ -278,6 +334,25 @@ export function drawAttackTelegraphs(ctx, enemies, t) {
 
 export function drawEnemyProjectiles(ctx, shots, t) {
   for (const s of shots) {
+    if (s.lob) {
+      // Target ring on the water (tightening as the shell falls), the
+      // shell's shadow sliding along the ground, and the shell high above.
+      const u = Math.min(1, s.t / s.flight);
+      const ring = s.blast * (1.35 - u * 0.35);
+      ctx.strokeStyle = `rgba(255, 70, 50, ${0.45 + u * 0.45})`; ctx.lineWidth = 2;
+      ctx.setLineDash([5, 4]); ctx.lineDashOffset = -t * 20;
+      ctx.beginPath(); ctx.arc(s.tx, s.ty, ring, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = `rgba(255, 60, 40, ${0.1 + u * 0.18})`;
+      ctx.beginPath(); ctx.arc(s.tx, s.ty, s.blast, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(4, 30, 40, 0.3)';
+      ctx.beginPath(); ctx.ellipse(s.x + 2, s.y + 3, 4, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+      const h = Math.sin(u * Math.PI) * 46;
+      ctx.fillStyle = 'rgba(255, 140, 60, 0.35)'; ctx.beginPath(); ctx.arc(s.x, s.y - h, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1c1c1c'; ctx.beginPath(); ctx.arc(s.x, s.y - h, 4.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffcf6a'; ctx.beginPath(); ctx.arc(s.x + 2, s.y - h - 3, 1.3, 0, Math.PI * 2); ctx.fill();
+      continue;
+    }
     const sp = Math.hypot(s.vx, s.vy) || 1;
     const tx = -s.vx / sp; const ty = -s.vy / sp;
     if (s.kind === 'glob') {

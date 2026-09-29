@@ -29,6 +29,13 @@ function leadPoint(enemy, boat, speed) {
   return { x: boat.x + (boat.vx || 0) * t, y: boat.y + (boat.vy || 0) * t };
 }
 
+// A mortar aims at where you'll be when the shell lands, a little short of
+// a full lead so turning or braking dodges it.
+function lobPoint(boat, flight) {
+  const t = flight * 0.75;
+  return { x: boat.x + (boat.vx || 0) * t, y: boat.y + (boat.vy || 0) * t };
+}
+
 function fire(enemy, boat, out) {
   const g = enemy.gun;
   const dmg = g.damage * (enemy.damageScale || 1);
@@ -37,7 +44,14 @@ function fire(enemy, boat, out) {
     radius: g.kind === 'heavy' ? 5 : g.kind === 'glob' ? 4.5 : 3.5,
     damage: dmg, life: g.range / g.speed + 0.25, kind: g.kind, faction: enemy.faction, sourceId: enemy.id,
   });
-  if (g.pattern === 'broadside') {
+  if (g.pattern === 'lob') {
+    // A shell arcs to the marked spot and bursts there after `flight`.
+    out.push({
+      id: nextShotId++, x: enemy.x, y: enemy.y, sx: enemy.x, sy: enemy.y, tx: enemy.gunAimX, ty: enemy.gunAimY,
+      vx: 0, vy: 0, radius: 4, lob: true, t: 0, flight: g.flight, blast: g.blast,
+      damage: dmg, life: g.flight + 0.5, kind: g.kind, faction: enemy.faction, sourceId: enemy.id,
+    });
+  } else if (g.pattern === 'broadside') {
     // Parallel balls off the side facing the boat (both sides for a boss).
     const h = enemy.heading || 0;
     const nx = -Math.sin(h); const ny = Math.cos(h);
@@ -69,6 +83,7 @@ export function updateEnemyGuns(enemies, boat, dt, { grid = null, tileSize = 16,
     if (e.gunWindup > 0) {
       e.gunWindup -= dt;
       if (g.pattern === 'aimed') { const p = leadPoint(e, boat, g.speed); e.gunAimX = p.x; e.gunAimY = p.y; }
+      if (g.pattern === 'lob') { const p = lobPoint(boat, g.flight); e.gunAimX = p.x; e.gunAimY = p.y; }
       if (e.gunWindup <= 0) {
         e.gunWindup = 0;
         fire(e, boat, out);
@@ -83,7 +98,7 @@ export function updateEnemyGuns(enemies, boat, dt, { grid = null, tileSize = 16,
     if (d > g.range || !hasLineOfSight(e, boat, grid, tileSize, coast)) { e.gunTimer = 0.3; continue; }
     e.gunWindup = g.windup;
     e.gunWindupMax = g.windup;
-    const p = leadPoint(e, boat, g.speed); e.gunAimX = p.x; e.gunAimY = p.y;
+    const p = g.pattern === 'lob' ? lobPoint(boat, g.flight) : leadPoint(e, boat, g.speed); e.gunAimX = p.x; e.gunAimY = p.y;
   }
   return fired;
 }
@@ -95,6 +110,21 @@ export function stepEnemyProjectiles(shots, boat, boatRadius, dt, { grid = null,
   const hits = []; const splashes = [];
   for (const s of shots) {
     if (s.spent) continue;
+    if (s.lob) {
+      // In the air: no land or boat checks until it comes down.
+      s.t += dt;
+      const u = Math.min(1, s.t / s.flight);
+      s.x = s.sx + (s.tx - s.sx) * u; s.y = s.sy + (s.ty - s.sy) * u;
+      if (u < 1) continue;
+      s.spent = true;
+      if (Math.hypot(boat.x - s.tx, boat.y - s.ty) <= s.blast + boatRadius) {
+        const damage = s.damage * incomingMultiplier(s);
+        boat.health = Math.max(0, boat.health - damage);
+        hits.push({ shot: s, damage });
+      }
+      splashes.push(s);
+      continue;
+    }
     s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
     if (Math.hypot(s.x - boat.x, s.y - boat.y) <= s.radius + boatRadius) {
       s.spent = true;

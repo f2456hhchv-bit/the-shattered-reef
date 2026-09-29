@@ -77,6 +77,62 @@ export function farthestCell(maze, from) {
   return { ...far, distance: dist[far.r][far.c] };
 }
 
+// Braiding (2026-09-29, project owner: "still some dead ends on the map at
+// times which is frustrating travelling around"). Opens a wall at every
+// dead end, turning it into a loop, except the start, the exit and `keep`
+// dead ends off the start→exit route, which are left as dead ends for the
+// treasure (engine/treasure.mjs). So a dead end always has a chest in it.
+// Mutates and returns the maze; records `exitCell` and `keptDeadEnds`.
+export function braidMaze(maze, rng, keep = 0) {
+  const { cols, rows, cells, start } = maze;
+  const exit = farthestCell(maze, start);
+  const sides = (c) => DIRS.reduce((n, d) => n + (c[d.dir] ? 1 : 0), 0);
+  // The route from start to exit (unique before braiding).
+  const key = (r, c) => r * cols + c;
+  const prev = new Map([[key(start.r, start.c), -1]]);
+  const q = [start];
+  while (q.length) {
+    const cur = q.shift();
+    for (const d of DIRS) {
+      if (!cells[cur.r][cur.c][d.dir]) continue;
+      const nr = cur.r + d.dr; const nc = cur.c + d.dc;
+      if (prev.has(key(nr, nc))) continue;
+      prev.set(key(nr, nc), key(cur.r, cur.c)); q.push({ r: nr, c: nc });
+    }
+  }
+  const route = new Set();
+  for (let k = key(exit.r, exit.c); k !== -1 && k !== undefined; k = prev.get(k)) route.add(k);
+  const deadEnds = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (sides(cells[r][c]) === 1) deadEnds.push({ r, c, roll: rng() });
+  deadEnds.sort((a, b) => a.roll - b.roll);
+  const kept = [];
+  for (const d of deadEnds) {
+    if (kept.length >= keep) break;
+    if (!route.has(key(d.r, d.c))) kept.push({ r: d.r, c: d.c });
+  }
+  const protectedCell = (r, c) => (r === start.r && c === start.c) || (r === exit.r && c === exit.c) || kept.some((k) => k.r === r && k.c === c);
+  for (const d of deadEnds) {
+    const cell = cells[d.r][d.c];
+    if (protectedCell(d.r, d.c) || sides(cell) !== 1) continue;
+    const options = [];
+    for (const dir of DIRS) {
+      const nr = d.r + dir.dr; const nc = d.c + dir.dc;
+      if (cell[dir.dir] || nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+      // Never open into a kept treasure dead end (it would stop being one).
+      if (kept.some((k) => k.r === nr && k.c === nc)) continue;
+      options.push({ ...dir, nr, nc, pref: sides(cells[nr][nc]) === 1 ? 0 : 1, roll: rng() });
+    }
+    if (!options.length) continue;
+    options.sort((a, b) => a.pref - b.pref || a.roll - b.roll);
+    const o = options[0];
+    cell[o.dir] = true;
+    cells[o.nr][o.nc][o.opp] = true;
+  }
+  maze.exitCell = { r: exit.r, c: exit.c };
+  maze.keptDeadEnds = kept;
+  return maze;
+}
+
 // Converts the graph maze into a solid tile grid. `room` is the open
 // interior width/height of each cell in tiles; `wall` is the thickness of
 // rock between adjacent cells (and the border). 0 = water, 1 = rock.

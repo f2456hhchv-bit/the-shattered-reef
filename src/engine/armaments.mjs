@@ -37,7 +37,7 @@ function shoot(run, weaponId, x, y, heading, damage, extra = {}) {
     vx: Math.cos(heading) * w.projectileSpeed, vy: Math.sin(heading) * w.projectileSpeed,
     radius: w.projectileRadius, traveled: 0, maxRange: w.range,
     fuseRemaining: w.kind === 'lobbed' ? w.fuseSeconds : null,
-    pierceLeft: w.pierce || 0, hitIds: null, spent: false, damage, ...extra,
+    pierceLeft: w.pierce || 0, hitIds: null, spent: false, damage: damage * (run.armamentDamage ?? 1), ...extra,
   });
 }
 
@@ -127,8 +127,9 @@ export function stepArmaments(run, dt, world, { rng = Math.random, t = 0 } = {})
             if ((e._spiritCd || 0) > 0) continue;
             if (Math.hypot(e.x - p.x, e.y - p.y) > e.radius + 7) continue;
             e._spiritCd = 0.45;
-            const killed = applyDamageToEnemy(e, a.damage[i]);
-            events.push({ enemy: e, weaponId: 'sea_spirit', damage: a.damage[i], killed });
+            const dmg = a.damage[i] * (run.armamentDamage ?? 1);
+            const killed = applyDamageToEnemy(e, dmg);
+            events.push({ enemy: e, weaponId: 'sea_spirit', damage: dmg, killed });
           }
         }
         for (const e of run.enemies) if (e._spiritCd > 0) e._spiritCd -= dt;

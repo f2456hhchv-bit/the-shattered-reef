@@ -21,6 +21,8 @@ export const ENEMY_IDS = Object.freeze({
   PIRATE_FLAGSHIP: 'pirate_flagship', // boss, stage 1
   BLOODFIN_MATRIARCH: 'bloodfin_matriarch', // boss, stage 2
   WARDING_SEAL: 'warding_seal', // lair: shields the boss until destroyed
+  FIRE_SHIP: 'fire_ship', // rams you and blows up
+  MORTAR_BOAT: 'mortar_boat', // lobs shells at where you'll be
 });
 
 // Movement/attack archetypes — engine/enemies.mjs switches on this string.
@@ -35,6 +37,7 @@ export const ARCHETYPES = Object.freeze({
   SHARK: 'shark', // circles, telegraphs, charges in a straight line
   SERPENT: 'serpent', // dives, resurfaces beside you, spits
   TOTEM: 'totem', // never moves; shoots whatever comes in range
+  RAMMER: 'rammer', // lights its sails, then drives straight at you
 });
 
 // Enemy guns (engine/enemyGuns.mjs). Every shot has a wind-up the player
@@ -50,6 +53,9 @@ export const GUNS = Object.freeze({
   serpent: { pattern: 'aimed', count: 3, spread: 0.32, speed: 135, damage: 7, range: 170, windup: 0.5, cooldown: [0.1, 0.1], kind: 'glob', onlyWhenSurfaced: true, oncePerSurface: true },
   flagshipBroadside: { pattern: 'broadside', count: 5, spread: 11, speed: 145, damage: 9, range: 200, windup: 0.9, cooldown: [2.4, 3.0], kind: 'ball', bothSides: true },
   seal: { pattern: 'aimed', count: 3, spread: 0.34, speed: 125, damage: 7, range: 210, windup: 0.8, cooldown: [2.4, 3.2], kind: 'glob' },
+  // A mortar shell: lobbed at where you're heading, lands after `flight`
+  // seconds with a blast `blast` px wide. The landing spot is marked.
+  mortar: { pattern: 'lob', count: 1, spread: 0, speed: 1, flight: 1.35, blast: 28, damage: 13, range: 240, windup: 0.6, cooldown: [3.0, 4.0], kind: 'shell' },
   flagshipChase: { pattern: 'aimed', count: 3, spread: 0.28, speed: 160, damage: 8, range: 220, windup: 0.6, cooldown: [1.8, 2.4], kind: 'ball' },
 });
 
@@ -280,6 +286,46 @@ export const ENEMIES = {
         summon: { defId: ENEMY_IDS.GULLSWARM_HARPY, count: 2, everySeconds: 5, max: 4 } },
     ],
   },
+};
+
+// 2026-09-29 (project owner: "not enough enemies per stage"): two new
+// ships that ask for different reactions.
+// Fire Ship: a hulk packed with powder. It lights its sails, then drives
+// straight at you and blows up on contact. Sink it at range — and when it
+// goes up, it burns whatever pirates are sailing beside it.
+ENEMIES[ENEMY_IDS.FIRE_SHIP] = {
+  id: ENEMY_IDS.FIRE_SHIP,
+  name: 'Fire Ship',
+  archetype: ARCHETYPES.RAMMER,
+  counter: WEAPON_IDS.CANNONBALLS,
+  faction: FACTION_IDS.REAVERS,
+  maxHealth: 26,
+  radius: 11,
+  speed: 92, // slower than every hull: you can always outrun it
+  kindleSeconds: 0.9, // the tell: its sails catch before it charges
+  contactDamage: 24, // the explosion
+  contactCooldown: 1,
+  explodes: { radius: 60, damage: 30 }, // sunk by you: hurts enemies nearby
+  salvageDrop: [3, 6],
+  color: '#d9772b',
+};
+// Mortar Gunboat: hangs back and lobs shells at where you'll be. The
+// landing spot is marked on the water — keep moving.
+ENEMIES[ENEMY_IDS.MORTAR_BOAT] = {
+  id: ENEMY_IDS.MORTAR_BOAT,
+  name: 'Mortar Gunboat',
+  archetype: ARCHETYPES.SKIRMISHER,
+  counter: WEAPON_IDS.CANNONBALLS,
+  faction: FACTION_IDS.IRON_ACCORD,
+  maxHealth: 40,
+  radius: 11,
+  speed: 55,
+  preferredRange: 175,
+  contactDamage: 6,
+  contactCooldown: 1,
+  gun: GUNS.mortar,
+  salvageDrop: [5, 8],
+  color: '#5b6b3a',
 };
 
 // The lair's warding seals (2026-09-29, project owner: "Boss too easy").

@@ -29,7 +29,7 @@ function sim(enemy, boat, seconds, grid = open(), shots = []) {
 test('stage 1 is ships only and every one of them is countered by Cannonballs', () => {
   for (const pool of STAGES[0].pools) for (const id of pool) {
     const d = getEnemy(id);
-    assert.ok(d.gun, `${d.name} should shoot back`);
+    assert.ok(d.gun || d.explodes, `${d.name} should shoot back (or ram, the fire ship)`);
     assert.equal(d.counter, 'cannonballs');
   }
   assert.equal(bossForStage(1), ENEMY_IDS.PIRATE_FLAGSHIP);
@@ -179,3 +179,49 @@ for (const bossId of [ENEMY_IDS.PIRATE_FLAGSHIP, ENEMY_IDS.BLOODFIN_MATRIARCH]) 
     assert.ok(boss.health <= 0, `${getEnemy(bossId).name} survived ${t.toFixed(0)}s at ${boss.health.toFixed(0)} hp`);
   });
 }
+
+test('fire ship: lights up, then rams; reaching you blows it up, sunk by you it burns its neighbours', async () => {
+  const { createEnemy, updateEnemies, resolveEnemyContactEvents, fireShipBlast } = await import('../src/engine/enemies.mjs');
+  const { createBoat } = await import('../src/engine/boat.mjs');
+  const W = 60; const grid = { width: W, height: W, tiles: Array.from({ length: W }, () => Array(W).fill(0)) };
+  const boat = createBoat(400, 400, 0);
+  const f = createEnemy(ENEMY_IDS.FIRE_SHIP, 520, 400); f.aggro = true;
+  updateEnemies([f], boat, 0.3, grid, 16);
+  assert.ok(!f.kindled, 'kindles before charging');
+  const d0 = Math.hypot(f.x - boat.x, f.y - boat.y);
+  for (let i = 0; i < 60 * 3; i++) updateEnemies([f], boat, 1 / 60, grid, 16);
+  assert.ok(f.kindled);
+  assert.ok(Math.hypot(f.x - boat.x, f.y - boat.y) < d0 - 60, 'charges at the boat');
+  f.x = boat.x + 12; f.y = boat.y;
+  const hp = boat.health;
+  const ev = resolveEnemyContactEvents([f], boat, 11);
+  assert.equal(ev.length, 1);
+  assert.ok(boat.health <= hp - 20 && f.health === 0 && f.detonated && f.salvageDrop === 0);
+  // Sunk at range: its blast damages nearby enemies, never the boat.
+  const g = createEnemy(ENEMY_IDS.FIRE_SHIP, 700, 700); const c = createEnemy(ENEMY_IDS.PIRATE_CUTTER, 740, 700);
+  const far = createEnemy(ENEMY_IDS.PIRATE_CUTTER, 900, 700);
+  g.health = 0;
+  const blast = fireShipBlast(g, [g, c, far]);
+  assert.equal(blast.length, 1);
+  assert.ok(c.health < c.maxHealth && far.health === far.maxHealth);
+  assert.deepEqual(fireShipBlast(g, [g, c, far]), [], 'only blows once');
+});
+
+test('mortar gunboat: its shell lands on the marked spot, hits only if you stay there', async () => {
+  const { createEnemy } = await import('../src/engine/enemies.mjs');
+  const { updateEnemyGuns, stepEnemyProjectiles } = await import('../src/engine/enemyGuns.mjs');
+  const { createBoat } = await import('../src/engine/boat.mjs');
+  const W = 60; const grid = { width: W, height: W, tiles: Array.from({ length: W }, () => Array(W).fill(0)) };
+  for (const stay of [true, false]) {
+    const boat = createBoat(400, 400, 0);
+    const m = createEnemy(ENEMY_IDS.MORTAR_BOAT, 560, 400); m.aggro = true; m.gunTimer = 0;
+    const shots = []; let hits = 0;
+    for (let i = 0; i < 60 * 3 && !shots.some((s) => s.lob) ; i++) updateEnemyGuns([m], boat, 1 / 60, { grid, tileSize: 16 }, shots);
+    const shell = shots.find((s) => s.lob);
+    assert.ok(shell, 'fires a shell');
+    assert.ok(Math.hypot(shell.tx - boat.x, shell.ty - boat.y) < 5, 'aims at a still boat');
+    if (!stay) { boat.x += 120; }
+    for (let i = 0; i < 60 * 2; i++) hits += stepEnemyProjectiles(shots, boat, 11, 1 / 60, { grid, tileSize: 16 }).hits.length;
+    assert.equal(hits, stay ? 1 : 0);
+  }
+});

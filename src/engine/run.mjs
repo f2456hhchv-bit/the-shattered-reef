@@ -18,11 +18,12 @@ import { buildCoastField } from './terrain.mjs';
 import { buildLairGrid } from './lair.mjs';
 import { mixSeed, encodeLevelCode } from './levels.mjs';
 import { BIOME_IDS } from '../data/biomes.mjs';
-import { generateMazeGraph, farthestCell, buildOrganicReefGrid, cellCenterTile } from './maze.mjs';
+import { generateMazeGraph, farthestCell, buildOrganicReefGrid, cellCenterTile, braidMaze } from './maze.mjs';
 import { createBoat } from './boat.mjs';
 import { createWeaponState } from './combat.mjs';
 import { spawnReefEnemies, createEnemy, updateWards } from './enemies.mjs';
 import { treasureSpots } from './treasure.mjs';
+import { grantArmament } from './armaments.mjs';
 import { getEnemy, ENEMY_IDS } from '../data/enemies.mjs';
 import { stagePool, bossForStage, stageScaling } from '../data/stages.mjs';
 import { CACHE_WEAPON_IDS } from '../data/pickups.mjs';
@@ -67,12 +68,12 @@ const WALL = 3;
 const REEF_TUNING = [
   // Short rounds: level 1 is a small reef you can clear in a minute or so;
   // level 5 is the big one, with the boss guarding its exit.
-  { cols: 5, rows: 5, enemyCount: 4, repairs: 1, chests: 1 },
-  { cols: 6, rows: 6, enemyCount: 6, repairs: 1, chests: 2 },
-  { cols: 7, rows: 7, enemyCount: 8, repairs: 2, chests: 2 },
-  { cols: 8, rows: 8, enemyCount: 10, repairs: 2, chests: 3 },
+  { cols: 5, rows: 5, enemyCount: 7, repairs: 1, chests: 1 },
+  { cols: 6, rows: 6, enemyCount: 10, repairs: 2, chests: 2 },
+  { cols: 7, rows: 7, enemyCount: 13, repairs: 2, chests: 2 },
+  { cols: 8, rows: 8, enemyCount: 16, repairs: 3, chests: 3 },
   // Level 5 is the boss lair (engine/lair.mjs): a round atoll, not a maze.
-  { cols: 9, rows: 9, enemyCount: 13, boss: true, layout: 'lair', repairs: 3 },
+  { cols: 9, rows: 9, enemyCount: 16, boss: true, layout: 'lair', repairs: 3 },
 ]
 
 export const TIER_COUNT = REEF_TUNING.length;
@@ -129,12 +130,14 @@ function buildReefWorld(rng, tier) {
   const tuning = tuningFor(tier);
   if (tuning.layout === 'lair') return buildLairWorld(rng);
   const maze = generateMazeGraph(tuning.cols, tuning.rows, rng);
+  // No pointless dead ends: loops everywhere except where treasure waits.
+  braidMaze(maze, rng, tuning.chests || 0);
   const grid = buildOrganicReefGrid(maze, rng, { room: ROOM, wall: WALL });
   // The smooth coastline (engine/terrain.mjs) is what the boat collides
   // with and what the art draws, so it belongs to the world, not the view.
   const coastSeed = Math.floor(rng() * 2 ** 31);
   const coast = buildCoastField(grid, TILE_SIZE, coastSeed);
-  const exitCell = farthestCell(maze, maze.start);
+  const exitCell = maze.exitCell || farthestCell(maze, maze.start);
   const startTile = cellCenterTile(maze.start, grid);
   const exitTile = cellCenterTile(exitCell, grid);
   return {
@@ -373,6 +376,20 @@ export function createRun(seed, loadout = BASELINE_LOADOUT, { levels = {}, stage
   if (perks.ramDamage) run.ramDamage = (run.ramDamage || 0) + perks.ramDamage;
   if (perks.contactDamageTaken) run.contactDamageTaken = (run.contactDamageTaken ?? 1) * perks.contactDamageTaken;
   if (perks.extraCannonballs) run.weapons.mods.extraShots.cannonballs = (run.weapons.mods.extraShots.cannonballs || 0) + perks.extraCannonballs;
+  // Shop unlocks beyond the original three tracks (2026-09-29).
+  const fx = loadout.charmEffects || {};
+  run.salvageMult = fx.salvageMult ?? 1;
+  run.boat.wallDamageTaken = fx.wallDamageTaken ?? 1;
+  run.boat.repairMult = fx.repairMult ?? 1;
+  run.chestChoices = fx.chestChoices ?? 3;
+  run.chestSalvage = fx.chestSalvage ?? 0;
+  run.levelClearHeal = fx.levelClearHeal ?? 0;
+  run.extraCardChoices = fx.extraCardChoices ?? 0;
+  run.armamentDamage = loadout.armamentDamageMult ?? 1;
+  if (loadout.speedMult && loadout.speedMult !== 1) {
+    run.tuning = { ...run.tuning, maxSpeed: run.tuning.maxSpeed * loadout.speedMult, acceleration: run.tuning.acceleration * loadout.speedMult };
+  }
+  for (const id of loadout.startingArmaments || []) grantArmament(run, id);
   if (loadout.charms.steadyHands) {
     run.weapons.ammoRegenPerSecond = CHARMS[CHARM_IDS.STEADY_HANDS].ammoRegenPerSecond;
   }
@@ -388,9 +405,9 @@ export function totalSalvage(run) {
 // until the current reef's exit is reached. Applies the First Haul charm's
 // bonus while still on the first reef, if owned.
 export function addSalvage(run, amount) {
-  const boosted = (run.charms.firstHaul && run.reefIndex === 0)
+  const boosted = ((run.charms.firstHaul && run.reefIndex === 0)
     ? amount * CHARMS[CHARM_IDS.FIRST_HAUL].firstReefSalvageMultiplier
-    : amount;
+    : amount) * (run.salvageMult ?? 1);
   run.reefSalvage += boosted;
 }
 
@@ -420,6 +437,8 @@ export function checkReachedExit(run) {
     run.outcome = 'victory';
     return 'victory';
   }
+  // Second Wind (charm): clearing a level patches some hull.
+  if (run.levelClearHeal) run.boat.health = Math.min(run.boat.maxHull, run.boat.health + run.boat.maxHull * run.levelClearHeal);
   enterReef(run, run.reefIndex + 1);
   return 'advanced';
 }

@@ -134,3 +134,38 @@ test('organic reef: actually reshapes the rooms, keeping open water close to the
 test('organic reef: deterministic for a seed', () => {
   assert.deepEqual(organic(7).grid.tiles, organic(7).grid.tiles);
 });
+
+// Braiding (2026-09-29): the only dead ends left are the start, the exit
+// and the ones kept for treasure.
+test('braidMaze: every other dead end becomes a loop, and the maze stays connected', async () => {
+  const { braidMaze } = await import('../src/engine/maze.mjs');
+  const DIRS = ['N', 'S', 'E', 'W'];
+  for (let seed = 1; seed <= 120; seed++) {
+    const size = 5 + (seed % 5);
+    const keep = seed % 4;
+    const maze = braidMaze(generateMazeGraph(size, size, makeSeededRng(seed)), makeSeededRng(seed + 999), keep);
+    const dead = [];
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
+      if (DIRS.filter((d) => maze.cells[r][c][d]).length === 1) dead.push(`${r},${c}`);
+    }
+    const allowed = new Set([`${maze.start.r},${maze.start.c}`, `${maze.exitCell.r},${maze.exitCell.c}`, ...maze.keptDeadEnds.map((k) => `${k.r},${k.c}`)]);
+    for (const d of dead) assert.ok(allowed.has(d), `seed ${seed}: stray dead end at ${d}`);
+    for (const k of maze.keptDeadEnds) assert.ok(dead.includes(`${k.r},${k.c}`), `seed ${seed}: kept dead end was opened`);
+    assert.ok(maze.keptDeadEnds.length <= keep);
+    // Every cell still reachable (passages are symmetric).
+    const far = farthestCell(maze, maze.start);
+    assert.ok(far.distance > 0);
+    let seen = 0; const vis = new Set(['0,0']); const q = [[0, 0]];
+    const step = { N: [-1, 0], S: [1, 0], E: [0, 1], W: [0, -1] };
+    while (q.length) {
+      const [r, c] = q.shift(); seen++;
+      for (const d of DIRS) {
+        if (!maze.cells[r][c][d]) continue;
+        const nr = r + step[d][0]; const nc = c + step[d][1]; const k = `${nr},${nc}`;
+        assert.ok(nr >= 0 && nc >= 0 && nr < size && nc < size);
+        if (!vis.has(k)) { vis.add(k); q.push([nr, nc]); }
+      }
+    }
+    assert.equal(seen, size * size);
+  }
+});

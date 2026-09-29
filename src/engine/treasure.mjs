@@ -36,7 +36,7 @@ function pathCells(maze, from, to) {
 // Dead ends off the start→exit route, the most out-of-the-way first
 // (farthest from the route by BFS distance from start, as a proxy).
 export function treasureSpots(maze, grid, tileSize, count, rng = Math.random) {
-  const exit = farthestCell(maze, maze.start);
+  const exit = maze.exitCell || farthestCell(maze, maze.start);
   const onPath = pathCells(maze, maze.start, exit);
   const spots = [];
   for (let r = 0; r < maze.rows; r++) {

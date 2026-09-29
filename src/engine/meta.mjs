@@ -9,7 +9,7 @@
 import {
   HULL_IDS, getHull,
   CARGO_TIER_LIST, cargoLoadoutFor,
-  CHARM_LIST, CHARM_IDS,
+  CHARM_LIST, CHARM_IDS, charmEffectsFor,
   PLAYABLE_FACTION_LIST, getPlayableFaction,
   WORKSHOP_UPGRADE_LIST, getWorkshopUpgrade, workshopBonusesFor,
 } from '../data/meta.mjs';
@@ -178,16 +178,20 @@ export function resolveLoadout(meta) {
   // "unaligned" (factionId null) again.
   const faction = meta.selectedFaction ? getPlayableFaction(meta.selectedFaction) : null;
   const hull = getHull(faction ? faction.hullId : meta.selectedHull);
-  const { extraHeldWeapons, startingAmmoMultiplier } = cargoLoadoutFor(meta.ownedCargoTiers);
+  const { extraHeldWeapons, startingAmmoMultiplier, startingArmaments } = cargoLoadoutFor(meta.ownedCargoTiers);
   if (faction && !extraHeldWeapons.includes(faction.extraHeldWeapon)) {
     extraHeldWeapons.push(faction.extraHeldWeapon);
   }
   const grantedCharm = faction ? faction.grantsCharm : null;
-  const { damageMultipliers, extraMaxHull } = workshopBonusesFor(meta.ownedWorkshopUpgrades);
+  const { damageMultipliers, extraMaxHull, armamentDamageMult, speedMult } = workshopBonusesFor(meta.ownedWorkshopUpgrades);
   return {
     hull,
     extraHeldWeapons,
     startingAmmoMultiplier,
+    startingArmaments,
+    armamentDamageMult,
+    speedMult,
+    charmEffects: charmEffectsFor([...meta.ownedCharms, ...(grantedCharm ? [grantedCharm] : [])]),
     faction: meta.selectedFaction, // for the combat-triangle multiplier (data/factions.mjs)
     craftedDamageMultipliers: damageMultipliers, // Workshop upgrades — data/meta.mjs
     extraMaxHull, // flat bonus on top of the selected hull's own maxHull

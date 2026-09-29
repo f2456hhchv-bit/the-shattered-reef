@@ -162,6 +162,14 @@ export const CARGO_TIER_IDS = Object.freeze({
   FORWARD_MAGAZINE: 'forward_magazine',
   CHAIN_LOCKER: 'chain_locker',
   DEEP_STORES: 'deep_stores',
+  GRAPE_RACKS: 'grape_racks',
+  PITCH_HOLD: 'pitch_hold',
+  // Armament fittings (2026-09-29): start every run with an armament.
+  SWIVEL_MOUNT: 'swivel_mount',
+  HARPOON_RACK: 'harpoon_rack',
+  KEG_HOLD: 'keg_hold',
+  MORTAR_BED: 'mortar_bed',
+  SPIRIT_LANTERN: 'spirit_lantern',
 });
 
 export const CARGO_TIERS = {
@@ -189,6 +197,57 @@ export const CARGO_TIERS = {
     extraHeldWeapon: WEAPON_IDS.DEPTH_CHARGES,
     startingAmmoMultiplier: 1,
   },
+  [CARGO_TIER_IDS.GRAPE_RACKS]: {
+    id: CARGO_TIER_IDS.GRAPE_RACKS,
+    name: 'Grape Racks',
+    description: 'Canisters of Grapeshot stowed by the guns — start every run with it loaded.',
+    cost: 90,
+    extraHeldWeapon: WEAPON_IDS.GRAPESHOT,
+    startingAmmoMultiplier: 1,
+  },
+  [CARGO_TIER_IDS.PITCH_HOLD]: {
+    id: CARGO_TIER_IDS.PITCH_HOLD,
+    name: 'Pitch Hold',
+    description: 'A fire-proofed hold of pitch barrels — start every run with Flame Barrels loaded.',
+    cost: 160,
+    extraHeldWeapon: WEAPON_IDS.FLAME_BARRELS,
+    startingAmmoMultiplier: 1,
+  },
+  [CARGO_TIER_IDS.SWIVEL_MOUNT]: {
+    id: CARGO_TIER_IDS.SWIVEL_MOUNT,
+    name: 'Swivel Mount',
+    description: 'Bolt a Swivel Gun to the rail — start every run with it (a Treasure armament).',
+    cost: 150,
+    extraHeldWeapon: null, startingAmmoMultiplier: 1, startArmament: 'swivel_gun',
+  },
+  [CARGO_TIER_IDS.HARPOON_RACK]: {
+    id: CARGO_TIER_IDS.HARPOON_RACK,
+    name: 'Harpoon Rack',
+    description: 'A whaler\'s launcher on the bow — start every run with the Harpoon Launcher.',
+    cost: 200,
+    extraHeldWeapon: null, startingAmmoMultiplier: 1, startArmament: 'harpoon',
+  },
+  [CARGO_TIER_IDS.KEG_HOLD]: {
+    id: CARGO_TIER_IDS.KEG_HOLD,
+    name: 'Keg Hold',
+    description: 'A stern chute of powder kegs — start every run dropping Powder Kegs.',
+    cost: 200,
+    extraHeldWeapon: null, startingAmmoMultiplier: 1, startArmament: 'powder_kegs',
+  },
+  [CARGO_TIER_IDS.MORTAR_BED]: {
+    id: CARGO_TIER_IDS.MORTAR_BED,
+    name: 'Mortar Bed',
+    description: 'A reinforced deck for a Deck Mortar — start every run with it.',
+    cost: 260,
+    extraHeldWeapon: null, startingAmmoMultiplier: 1, startArmament: 'mortar',
+  },
+  [CARGO_TIER_IDS.SPIRIT_LANTERN]: {
+    id: CARGO_TIER_IDS.SPIRIT_LANTERN,
+    name: 'Spirit Lantern',
+    description: 'A bound Sea Spirit rides with you — start every run with one circling the ship.',
+    cost: 320,
+    extraHeldWeapon: null, startingAmmoMultiplier: 1, startArmament: 'sea_spirit',
+  },
 };
 
 export const CARGO_TIER_LIST = Object.values(CARGO_TIERS);
@@ -204,14 +263,16 @@ export function getCargoTier(id) {
 // start (Cannonballs excluded — it has no ammo to multiply).
 export function cargoLoadoutFor(ownedTierIds) {
   const extraHeldWeapons = [];
+  const startingArmaments = [];
   let startingAmmoMultiplier = 1;
   for (const tierId of ownedTierIds) {
     const tier = CARGO_TIERS[tierId];
     if (!tier) continue;
     if (tier.extraHeldWeapon) extraHeldWeapons.push(tier.extraHeldWeapon);
+    if (tier.startArmament) startingArmaments.push(tier.startArmament);
     startingAmmoMultiplier *= tier.startingAmmoMultiplier;
   }
-  return { extraHeldWeapons, startingAmmoMultiplier };
+  return { extraHeldWeapons, startingAmmoMultiplier, startingArmaments };
 }
 
 // --- Captain's Charms -----------------------------------------------
@@ -222,6 +283,12 @@ export const CHARM_IDS = Object.freeze({
   STEADY_HANDS: 'steady_hands',
   LAST_GASP: 'last_gasp',
   FIRST_HAUL: 'first_haul',
+  SALVAGERS_LUCK: 'salvagers_luck',
+  SEA_LEGS: 'sea_legs',
+  MENDERS_KNOT: 'menders_knot',
+  TREASURE_HUNTER: 'treasure_hunter',
+  SECOND_WIND: 'second_wind',
+  LUCKY_DRAW: 'lucky_draw',
 });
 
 export const CHARMS = {
@@ -245,7 +312,65 @@ export const CHARMS = {
     cost: 80,
     firstReefSalvageMultiplier: 1.5,
   },
+  // 2026-09-29: more charms (project owner: "not enough upgrades in all the
+  // shops"). Each is one run field in `effects`, read by run.mjs/main.mjs.
+  [CHARM_IDS.SALVAGERS_LUCK]: {
+    id: CHARM_IDS.SALVAGERS_LUCK,
+    name: "Salvager's Luck",
+    description: 'All Salvage you pick up or earn is worth 25% more.',
+    cost: 220,
+    effects: { salvageMult: 1.25 },
+  },
+  [CHARM_IDS.SEA_LEGS]: {
+    id: CHARM_IDS.SEA_LEGS,
+    name: 'Sea Legs',
+    description: 'Scraping the rocks costs 60% less hull.',
+    cost: 110,
+    effects: { wallDamageTaken: 0.4 },
+  },
+  [CHARM_IDS.MENDERS_KNOT]: {
+    id: CHARM_IDS.MENDERS_KNOT,
+    name: "Mender's Knot",
+    description: 'Repair kits patch twice as much hull.',
+    cost: 140,
+    effects: { repairMult: 2 },
+  },
+  [CHARM_IDS.TREASURE_HUNTER]: {
+    id: CHARM_IDS.TREASURE_HUNTER,
+    name: 'Treasure Hunter',
+    description: 'Every chest offers 4 armaments instead of 3, plus 20 Salvage.',
+    cost: 240,
+    effects: { chestChoices: 4, chestSalvage: 20 },
+  },
+  [CHARM_IDS.SECOND_WIND]: {
+    id: CHARM_IDS.SECOND_WIND,
+    name: 'Second Wind',
+    description: 'Clearing a level patches 25% of your hull.',
+    cost: 260,
+    effects: { levelClearHeal: 0.25 },
+  },
+  [CHARM_IDS.LUCKY_DRAW]: {
+    id: CHARM_IDS.LUCKY_DRAW,
+    name: 'Lucky Draw',
+    description: 'One more upgrade card to choose from after every level.',
+    cost: 300,
+    effects: { extraCardChoices: 1 },
+  },
 };
+
+// Combines the `effects` of every owned (or faction-granted) charm.
+export function charmEffectsFor(charmIds) {
+  const out = {};
+  for (const id of charmIds) {
+    const e = CHARMS[id]?.effects;
+    if (!e) continue;
+    for (const [k, v] of Object.entries(e)) {
+      if (k.endsWith('Mult') || k.endsWith('Taken')) out[k] = (out[k] ?? 1) * v;
+      else out[k] = Math.max(out[k] ?? 0, v);
+    }
+  }
+  return out;
+}
 
 export const CHARM_LIST = Object.values(CHARMS);
 
@@ -341,6 +466,12 @@ export const WORKSHOP_UPGRADE_IDS = Object.freeze({
   REINFORCED_BARRELS: 'reinforced_barrels',
   SHARPENED_GRAPESHOT: 'sharpened_grapeshot',
   REINFORCED_RIBS: 'reinforced_ribs',
+  HONED_CHAIN: 'honed_chain',
+  DEEP_FUSES: 'deep_fuses',
+  HOT_PITCH: 'hot_pitch',
+  KRAKEN_HIDE: 'kraken_hide',
+  ARMAMENT_FORGE: 'armament_forge',
+  MASTER_RIGGING: 'master_rigging',
 });
 
 export const WORKSHOP_UPGRADES = {
@@ -370,6 +501,36 @@ export const WORKSHOP_UPGRADES = {
     krakenScaleCost: 2,
     extraMaxHull: 15,
   },
+  [WORKSHOP_UPGRADE_IDS.HONED_CHAIN]: {
+    id: WORKSHOP_UPGRADE_IDS.HONED_CHAIN, name: 'Honed Chain',
+    description: 'Scale-edged links — +25% Chain Shot damage, permanently.',
+    salvageCost: 150, krakenScaleCost: 1, weaponId: WEAPON_IDS.CHAIN_SHOT, damageMultiplier: 1.25,
+  },
+  [WORKSHOP_UPGRADE_IDS.DEEP_FUSES]: {
+    id: WORKSHOP_UPGRADE_IDS.DEEP_FUSES, name: 'Deep Fuses',
+    description: 'Kraken-ink powder — +25% Depth Charge damage, permanently.',
+    salvageCost: 170, krakenScaleCost: 1, weaponId: WEAPON_IDS.DEPTH_CHARGES, damageMultiplier: 1.25,
+  },
+  [WORKSHOP_UPGRADE_IDS.HOT_PITCH]: {
+    id: WORKSHOP_UPGRADE_IDS.HOT_PITCH, name: 'Hot Pitch',
+    description: 'A fiercer brew — +25% Flame Barrels damage and burn, permanently.',
+    salvageCost: 170, krakenScaleCost: 1, weaponId: WEAPON_IDS.FLAME_BARRELS, damageMultiplier: 1.25,
+  },
+  [WORKSHOP_UPGRADE_IDS.KRAKEN_HIDE]: {
+    id: WORKSHOP_UPGRADE_IDS.KRAKEN_HIDE, name: 'Kraken Hide',
+    description: 'A second skin of scales over the hull — +20 max hull on every hull, permanently.',
+    salvageCost: 260, krakenScaleCost: 3, extraMaxHull: 20,
+  },
+  [WORKSHOP_UPGRADE_IDS.ARMAMENT_FORGE]: {
+    id: WORKSHOP_UPGRADE_IDS.ARMAMENT_FORGE, name: 'Armament Forge',
+    description: 'Re-bore every treasure gun — armaments deal +25% damage, permanently.',
+    salvageCost: 220, krakenScaleCost: 2, armamentDamageMult: 1.25,
+  },
+  [WORKSHOP_UPGRADE_IDS.MASTER_RIGGING]: {
+    id: WORKSHOP_UPGRADE_IDS.MASTER_RIGGING, name: 'Master Rigging',
+    description: 'Kraken-sinew lines — every hull is 8% faster, permanently.',
+    salvageCost: 200, krakenScaleCost: 2, speedMult: 1.08,
+  },
 };
 
 export const WORKSHOP_UPGRADE_LIST = Object.values(WORKSHOP_UPGRADES);
@@ -386,7 +547,7 @@ export function getWorkshopUpgrade(id) {
 // weapon) and a flat extra-max-hull total.
 export function workshopBonusesFor(ownedUpgradeIds) {
   const damageMultipliers = {};
-  let extraMaxHull = 0;
+  let extraMaxHull = 0; let armamentDamageMult = 1; let speedMult = 1;
   for (const upgradeId of ownedUpgradeIds) {
     const upgrade = WORKSHOP_UPGRADES[upgradeId];
     if (!upgrade) continue;
@@ -394,6 +555,8 @@ export function workshopBonusesFor(ownedUpgradeIds) {
       damageMultipliers[upgrade.weaponId] = (damageMultipliers[upgrade.weaponId] || 1) * upgrade.damageMultiplier;
     }
     if (upgrade.extraMaxHull) extraMaxHull += upgrade.extraMaxHull;
+    if (upgrade.armamentDamageMult) armamentDamageMult *= upgrade.armamentDamageMult;
+    if (upgrade.speedMult) speedMult *= upgrade.speedMult;
   }
-  return { damageMultipliers, extraMaxHull };
+  return { damageMultipliers, extraMaxHull, armamentDamageMult, speedMult };
 }

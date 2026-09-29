@@ -103,7 +103,7 @@ export function collectPickups(pickups, boat, boatRadius, weaponState) {
       events.push({ kind: pickup.kind, weaponId: pickup.weaponId, amount: pickup.amount, freshUnlock });
     } else if (pickup.kind === PICKUP_KINDS.REPAIR) {
       const before = boat.health;
-      boat.health = Math.min(boat.maxHull, boat.health + boat.maxHull * pickup.amount);
+      boat.health = Math.min(boat.maxHull, boat.health + boat.maxHull * pickup.amount * (boat.repairMult ?? 1));
       events.push({ kind: pickup.kind, amount: boat.health - before });
     } else {
       events.push({ kind: pickup.kind, amount: pickup.amount });

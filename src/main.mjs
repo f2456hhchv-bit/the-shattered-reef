@@ -37,7 +37,7 @@ import {
   craftedMultiplierFor,
 } from './engine/combat.mjs';
 import {
-  createEnemy, updateEnemies, stepSummons, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor,
+  createEnemy, updateEnemies, stepSummons, fireShipBlast, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor,
 } from './engine/enemies.mjs';
 import { collectPickups, makeRepairKit } from './engine/pickups.mjs';
 import { PICKUP_KINDS, PICKUP_TUNING } from './data/pickups.mjs';
@@ -457,7 +457,7 @@ export function startApp(root) {
   }
 
   function updateSalvageCounter() {
-    document.getElementById('salvage-counter').textContent = `⚓ Salvage: ${totalSalvage(run)}`;
+    document.getElementById('salvage-counter').textContent = `⚓ Salvage: ${Math.floor(totalSalvage(run))}`;
   }
 
   function updateReefIndicator() {
@@ -606,16 +606,21 @@ export function startApp(root) {
   }
   // After a level: two upgrade cards and one armament.
   function offerUpgrades(title, sub = '') {
-    const ups = rollUpgradeChoices(run).slice(0, 2).map((id) => ({ kind: 'upgrade', id }));
+    const ups = rollUpgradeChoices(run, Math.random, 3 + (run.extraCardChoices || 0)).slice(0, 2 + (run.extraCardChoices || 0)).map((id) => ({ kind: 'upgrade', id }));
     const arms = rollArmamentChoices(run, Math.random, 1).map((id) => ({ kind: 'armament', id }));
     const choices = [...ups, ...arms];
-    if (choices.length < 3) choices.push(...rollUpgradeChoices(run).slice(2, 2 + 3 - choices.length).map((id) => ({ kind: 'upgrade', id })));
+    const want = 3 + (run.extraCardChoices || 0);
+    if (choices.length < want) {
+      const have = new Set(choices.map((c) => c.id));
+      choices.push(...rollUpgradeChoices(run, Math.random, want + 2).filter((id) => !have.has(id)).slice(0, want - choices.length).map((id) => ({ kind: 'upgrade', id })));
+    }
     offerChoices(title, `${sub ? `${sub}. ` : ''}Choose one for the rest of this stage.`, choices);
   }
   // A treasure chest: pick one of three armaments.
   function offerTreasure() {
-    const choices = rollArmamentChoices(run, Math.random, 3).map((id) => ({ kind: 'armament', id }));
+    const choices = rollArmamentChoices(run, Math.random, run.chestChoices || 3).map((id) => ({ kind: 'armament', id }));
     playTreasure();
+    if (run.chestSalvage) { addSalvage(run, run.chestSalvage); updateSalvageCounter(); }
     if (!offerChoices('Treasure! 💰', 'Choose an armament. It fires on its own, alongside your guns.', choices)) {
       addSalvage(run, 25); updateSalvageCounter(); showToast('Treasure: +25 Salvage ⚓');
     }
@@ -703,6 +708,14 @@ export function startApp(root) {
       }
       maybeDropRepair(enemy);
       addShake(shake, 0.35);
+      // A sunk fire ship goes up and burns whatever is beside it.
+      if (getEnemy(enemy.defId).explodes && !enemy.detonated) {
+        spawnExplosion(particles, enemy.x, enemy.y, getEnemy(enemy.defId).explodes.radius, Math.random);
+        playExplosion(); addShake(shake, 0.4);
+        let extra = 0;
+        for (const bev of fireShipBlast(enemy, run.enemies)) extra += processHitEvent(bev, { burn: true });
+        if (extra) { addSalvage(run, extra); updateSalvageCounter(); }
+      }
       if (!burn) triggerHitStop(hitStop, 0.05);
       playKill();
     }
@@ -1388,7 +1401,10 @@ export function startApp(root) {
       const volleys = updateEnemyGuns(run.enemies, run.boat, dt, world, run.enemyProjectiles);
       if (volleys > 0) { playEnemyFire(); run.volleysAtYou = (run.volleysAtYou || 0) + volleys; }
       const shotResult = stepEnemyProjectiles(run.enemyProjectiles, run.boat, BOAT_RADIUS, dt, world, incomingMultiplierFor(run.faction));
-      for (const sp of shotResult.splashes) spawnSplash(particles, sp.x, sp.y, Math.random, 5);
+      for (const sp of shotResult.splashes) {
+        if (sp.lob) { spawnExplosion(particles, sp.tx, sp.ty, sp.blast, Math.random); spawnSplash(particles, sp.tx, sp.ty, Math.random, 10); playExplosion(); addShake(shake, 0.15); }
+        else spawnSplash(particles, sp.x, sp.y, Math.random, 5);
+      }
       if (shotResult.hits.length) {
         for (const h of shotResult.hits) {
           const m = incomingTriangleMultiplier(h.shot.faction, run.faction);
@@ -1482,6 +1498,11 @@ export function startApp(root) {
       let contactDamage = 0;
       for (const ev of contactEvents) {
         contactDamage += ev.damage;
+        if (ev.enemy.detonated) {
+          spawnExplosion(particles, ev.enemy.x, ev.enemy.y, 40, Math.random);
+          playExplosion(); addShake(shake, 0.6);
+          showToast('A fire ship rammed you! Sink them at range 🔥');
+        }
         const m = incomingTriangleMultiplier(ev.enemy.faction, run.faction);
         // Offset left of the boat: an enemy touching the boat spawns its own
         // (outgoing) numbers at nearly the same point, and the two used to

@@ -1822,6 +1822,42 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   - the new intro ship and chart islands
   - how armaments, the seals and the tougher bosses play
 
+- **Phase:** content pass (project owner, 2026-09-29: "Plays quite well.
+  Probs not enough enemies per stage and not enough upgrades in all the
+  shops. Also still some dead ends on the map at times which is
+  frustrating travelling around").
+- **Just shipped:**
+  - **No pointless dead ends** (`braidMaze` in `engine/maze.mjs`): after
+    generating the maze, every dead end is opened into a loop except the
+    start, the exit and the ones kept for treasure (one per chest). So any
+    dead end you sail into has a chest in it. `maze.exitCell` is recorded
+    so treasure and exit agree. Tested over 120 mazes.
+  - **More enemies:** per-level counts went 4/6/8/10/13 → 7/10/13/16/16
+    (lair), with repair kits 1/2/2/3/3.
+  - **Two new ships** (stage 1 onward; both sunk by Cannonballs):
+    - **Fire Ship** (archetype `RAMMER`): lights its sails (the tell),
+      then drives straight at you and explodes on contact (24 damage, no
+      Salvage). Sunk at range, it blows up and burns nearby enemies
+      (`fireShipBlast`, which chains).
+    - **Mortar Gunboat:** hangs back and lobs shells (gun pattern `lob`)
+      at where you'll be. A red target ring marks the landing spot; keep
+      moving.
+  - **Fuller shops** (`data/meta.mjs`):
+    - Armory 3→10: Grape Racks, Pitch Hold, and five armament fittings
+      that start every run with an armament (Swivel, Harpoon, Kegs,
+      Mortar, Sea Spirit).
+    - Charm Shrine 3→9: Salvager's Luck, Sea Legs, Mender's Knot,
+      Treasure Hunter, Second Wind, Lucky Draw (combined by
+      `charmEffectsFor`).
+    - Workshop 3→9: Honed Chain, Deep Fuses, Hot Pitch, Kraken Hide,
+      Armament Forge, Master Rigging.
+    All of them reach the run (tested with every item owned).
+  - Fixed: the HUD Salvage counter showed decimals; a flaky swarm test.
+  - 343/343 tests, 3 consecutive runs. Shop and new-enemy playtest passed
+    with no console errors.
+- **Next up:** random weather and hazard events per biome (the owner's
+  next request).
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2445,6 +2481,15 @@ Starting fresh below for the new game.)*
 - 2026-09-29: Chart islands reuse the reef terrain renderer rather than
   separate flat vector art, so the chart and the levels share one art
   style and a new biome's island comes for free.
+
+- 2026-09-29: Dead ends are removed by braiding the maze graph (loops),
+  not by eroding rock, so the maze graph, exit placement and the bot's
+  pathing all still agree with the map. The only dead ends kept are the
+  ones holding treasure, so a dead end is always worth the trip.
+- 2026-09-29: Treasure Hunter improves the chests (4 choices, +20
+  Salvage) rather than adding a chest. An extra chest would need an
+  extra dead end, which would make the level layout depend on your
+  charms (and break the voyage card's preview).
 
 ## Known open questions (do not silently resolve — ask)
 

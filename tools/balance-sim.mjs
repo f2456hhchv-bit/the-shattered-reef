@@ -39,7 +39,7 @@ import {
 } from '../src/engine/combat.mjs';
 import { rollUpgradeChoices, applyUpgrade } from '../src/engine/upgrades.mjs';
 import { updateEnemyGuns, stepEnemyProjectiles } from '../src/engine/enemyGuns.mjs';
-import { updateEnemies, stepSummons, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor } from '../src/engine/enemies.mjs';
+import { fireShipBlast, updateEnemies, stepSummons, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor } from '../src/engine/enemies.mjs';
 import { collectPickups } from '../src/engine/pickups.mjs';
 import { grantArmament, rollArmamentChoices, stepArmaments, chainLightning } from '../src/engine/armaments.mjs';
 import { isOpenWithClearance } from '../src/engine/maze.mjs';
@@ -446,7 +446,12 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
       factionMultiplierFor(run.faction), craftedMultiplierFor(run.craftedDamageMultipliers)
     );
     const chainEvents = chainLightning(run, hitEvents).events;
-    for (const ev of [...hitEvents, ...armEvents, ...chainEvents]) {
+    const allEvents = [...hitEvents, ...armEvents, ...chainEvents];
+    for (let k = 0; k < allEvents.length; k++) {
+      const ev = allEvents[k];
+      if (ev.killed && ev.enemy.defId === 'fire_ship' && !ev.enemy.detonated) allEvents.push(...fireShipBlast(ev.enemy, run.enemies));
+    }
+    for (const ev of allEvents) {
       if (ev.killed) {
         if (ev.enemy.elite) stats.elitesSunk = (stats.elitesSunk || 0) + 1;
         if (ev.enemy.seal) stats.sealsSunk = (stats.sealsSunk || 0) + 1;

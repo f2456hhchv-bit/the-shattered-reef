@@ -49,7 +49,7 @@ test('tuningForHull: the Longboat is tankier and slower, the Skiff is faster and
 
 test('cargoLoadoutFor combines owned tiers additively', () => {
   const none = cargoLoadoutFor([]);
-  assert.deepEqual(none, { extraHeldWeapons: [], startingAmmoMultiplier: 1 });
+  assert.deepEqual(none, { extraHeldWeapons: [], startingAmmoMultiplier: 1, startingArmaments: [] });
 
   const some = cargoLoadoutFor([CARGO_TIER_IDS.CHAIN_LOCKER, CARGO_TIER_IDS.FORWARD_MAGAZINE]);
   assert.deepEqual(some.extraHeldWeapons, ['chain_shot']);
@@ -466,4 +466,52 @@ test('stages: a corrupt highestStageUnlocked loads as 1', () => {
   const store = new Map([['shatteredReef.meta.v1', JSON.stringify({ highestStageUnlocked: 'lots' })]]);
   const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
   assert.equal(loadMeta(storage).highestStageUnlocked, 1);
+});
+
+// 2026-09-29: fuller shops. Every new item must reach a real run.
+test('shops: every shop has at least 8 items, all with distinct ids and real effects', async () => {
+  const M = await import('../src/data/meta.mjs');
+  assert.ok(M.CARGO_TIER_LIST.length >= 10);
+  assert.ok(M.CHARM_LIST.length >= 9);
+  assert.ok(M.WORKSHOP_UPGRADE_LIST.length >= 9);
+  for (const list of [M.CARGO_TIER_LIST, M.CHARM_LIST, M.WORKSHOP_UPGRADE_LIST]) {
+    assert.equal(new Set(list.map((x) => x.id)).size, list.length);
+  }
+});
+
+test('shops: new Armory, Charm and Workshop items all reach the run', async () => {
+  const M = await import('../src/data/meta.mjs');
+  const { createDefaultMeta, resolveLoadout } = await import('../src/engine/meta.mjs');
+  const { createRun, addSalvage } = await import('../src/engine/run.mjs');
+  const meta = createDefaultMeta();
+  meta.ownedCargoTiers = M.CARGO_TIER_LIST.map((t) => t.id);
+  meta.ownedCharms = M.CHARM_LIST.map((c) => c.id);
+  meta.ownedWorkshopUpgrades = M.WORKSHOP_UPGRADE_LIST.map((u) => u.id);
+  const base = createRun(7);
+  const run = createRun(7, resolveLoadout(meta));
+  for (const id of ['swivel_gun', 'harpoon', 'powder_kegs', 'mortar', 'sea_spirit']) assert.equal(run.armaments[id], 1, id);
+  for (const w of ['chain_shot', 'depth_charges', 'grapeshot', 'flame_barrels']) assert.ok(run.weapons.heldWeapons.has(w), w);
+  assert.equal(run.boat.maxHull, base.boat.maxHull + 35);
+  assert.ok(run.tuning.maxSpeed > base.tuning.maxSpeed * 1.07);
+  assert.equal(run.armamentDamage, 1.25);
+  assert.equal(run.chestChoices, 4); assert.equal(run.chestSalvage, 20);
+  assert.equal(run.extraCardChoices, 1); assert.equal(run.levelClearHeal, 0.25);
+  assert.equal(run.boat.wallDamageTaken, 0.4); assert.equal(run.boat.repairMult, 2);
+  // Salvager's Luck (First Haul also applies on level 1).
+  run.reefSalvage = 0; addSalvage(run, 100);
+  assert.equal(Math.round(run.reefSalvage), Math.round(100 * 1.5 * 1.25));
+  // Retry keeps the starting armaments (they're in the level-start snapshot).
+  assert.equal(run.levelStart.armaments.harpoon, 1);
+});
+
+test('shops: Sea Legs cuts wall damage; Second Wind heals on level clear', async () => {
+  const { createBoat, applyWallImpactDamage } = await import('../src/engine/boat.mjs');
+  const a = createBoat(0, 0, 0); const b = createBoat(0, 0, 0); b.wallDamageTaken = 0.4;
+  const da = applyWallImpactDamage(a, 200); const db = applyWallImpactDamage(b, 200);
+  assert.ok(Math.abs(db - da * 0.4) < 1e-9);
+  const { createRun, checkReachedExit } = await import('../src/engine/run.mjs');
+  const run = createRun(3); run.levelClearHeal = 0.25; run.boat.health = 10;
+  run.boat.x = run.exitWorld.x; run.boat.y = run.exitWorld.y;
+  assert.equal(checkReachedExit(run), 'advanced');
+  assert.equal(run.boat.health, 10 + run.boat.maxHull * 0.25);
 });
