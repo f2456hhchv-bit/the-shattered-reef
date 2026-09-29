@@ -60,12 +60,12 @@ const WALL = 3;
 const REEF_TUNING = [
   // Short rounds: level 1 is a small reef you can clear in a minute or so;
   // level 5 is the big one, with the boss guarding its exit.
-  { cols: 5, rows: 5, enemyCount: 4 },
-  { cols: 6, rows: 6, enemyCount: 6 },
-  { cols: 7, rows: 7, enemyCount: 8 },
-  { cols: 8, rows: 8, enemyCount: 10 },
+  { cols: 5, rows: 5, enemyCount: 4, repairs: 1 },
+  { cols: 6, rows: 6, enemyCount: 6, repairs: 1 },
+  { cols: 7, rows: 7, enemyCount: 8, repairs: 2 },
+  { cols: 8, rows: 8, enemyCount: 10, repairs: 2 },
   // Level 5 is the boss lair (engine/lair.mjs): a round atoll, not a maze.
-  { cols: 9, rows: 9, enemyCount: 11, boss: true, layout: 'lair' },
+  { cols: 9, rows: 9, enemyCount: 11, boss: true, layout: 'lair', repairs: 3 },
 ]
 
 export const TIER_COUNT = REEF_TUNING.length;
@@ -151,9 +151,18 @@ export function buildLevelWorld(level) {
 // boat repositioned to the new spawn with velocity/turn-jam cleared (but
 // hull and weapons untouched — those persist across the whole voyage) and
 // this reef's at-risk Salvage tally reset to 0.
+// Which level a reef plays. Every attempt at a level gets a fresh layout
+// (2026-09-29, project owner: replaying the same maps after a loss was
+// tedious); a shared level code still pins one exact reef.
+export function levelForAttempt(runSeed, reefIndex, attempt, biomeId = BIOME_IDS.TROPICAL) {
+  if (attempt === 0) return levelForReef(runSeed, reefIndex, biomeId);
+  return { biomeId, tier: Math.min(reefIndex + 1, TIER_COUNT), seed: mixSeed(mixSeed(runSeed, reefIndex), attempt) };
+}
+
 function enterReef(run, reefIndex) {
-  const level = run.levelOverrides[reefIndex]
-    ?? (run.stage ? stageLevel(run.stage, reefIndex) : levelForReef(run.seed, reefIndex));
+  const attempt = run.attempts[reefIndex] || 0;
+  const override = attempt === 0 ? run.levelOverrides[reefIndex] : null;
+  const level = override ?? levelForAttempt(run.seed, reefIndex, attempt, run.stage ? biomeForStage(run.stage) : BIOME_IDS.TROPICAL);
   // One rng per reef, from that reef's own seed — the whole reef (layout,
   // coast, enemies, pickups) is a pure function of its level.
   const rng = makeSeededRng(level.seed);
@@ -203,8 +212,38 @@ function enterReef(run, reefIndex) {
     }
     run.enemies.push(...bosses);
   }
-  run.pickups = spawnReefPickups(run.grid, run.tileSize, world.spawnWorld, rng);
+  run.pickups = spawnReefPickups(run.grid, run.tileSize, world.spawnWorld, rng, {
+    repairs: tuning.repairs ?? 1,
+    avoid: world.lair ? { x: world.lair.centre.x, y: world.lair.centre.y, r: world.lair.pitRadius } : null,
+  });
   run.reefSalvage = 0;
+  // What a retry of this level restores: the kit you arrived with.
+  run.levelStart = {
+    heldWeapons: new Set(run.weapons.heldWeapons),
+    ammo: { ...run.weapons.ammo },
+    activeWeaponId: run.weapons.activeWeaponId,
+  };
+}
+
+// After sinking (checkSunk === true): try the same level again with a new
+// layout, a repaired hull and the weapons/ammo you entered it with. Salvage
+// already banked is kept; what was at risk in this level went down.
+export function retryLevel(run) {
+  if (!run.over || run.outcome !== 'sunk') return false;
+  run.attempts[run.reefIndex] = (run.attempts[run.reefIndex] || 0) + 1;
+  run.retries += 1;
+  const snap = run.levelStart;
+  run.weapons.heldWeapons = new Set(snap.heldWeapons);
+  run.weapons.ammo = { ...snap.ammo };
+  run.weapons.activeWeaponId = snap.activeWeaponId;
+  run.weapons.projectiles = [];
+  run.weapons.cooldownRemaining = 0;
+  run.enemyProjectiles = [];
+  run.boat.health = run.boat.maxHull;
+  run.over = false;
+  run.outcome = null;
+  enterReef(run, run.reefIndex);
+  return true;
 }
 
 // `loadout` is a resolved meta-progression loadout (see BASELINE_LOADOUT's
@@ -224,6 +263,9 @@ export function createRun(seed, loadout = BASELINE_LOADOUT, { levels = {}, stage
     stage,
     levelOverrides: levels,
     levelCodes: [], // the code of every reef this run has entered, in order
+    attempts: [], // per level: how many times it has been retried
+    retries: 0,
+    enemyProjectiles: [],
     reefIndex: 0,
     reefCount: REEF_COUNT,
     tuning: tuningForHull(loadout.hull),
@@ -306,9 +348,9 @@ export function checkReachedExit(run) {
 }
 
 // Checked every frame after collision/damage is applied. A sunk boat ends
-// the whole voyage immediately (permadeath) — whatever Salvage was still
-// at risk in the current reef (run.reefSalvage) is lost; only
-// run.bankedSalvage survives into the run summary. Returns:
+// the voyage unless the player retries the level (retryLevel) — whatever
+// Salvage was still at risk in the current reef (run.reefSalvage) is lost
+// either way; only run.bankedSalvage survives. Returns:
 //   false      — hull is above 0, nothing happened
 //   true       — the boat sank; the whole voyage is over
 //   'revived'  — the boat would have sunk, but the Last Gasp charm (owned,

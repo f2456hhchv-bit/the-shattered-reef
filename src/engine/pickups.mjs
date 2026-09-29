@@ -11,7 +11,7 @@ function randRange(rng, [min, max]) {
   return Math.round(min + rng() * (max - min));
 }
 
-function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid) {
+function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid, zone = null) {
   for (let attempt = 0; attempt < 200; attempt++) {
     const tx = Math.floor(rng() * grid.width);
     const ty = Math.floor(rng() * grid.height);
@@ -19,6 +19,7 @@ function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid) {
     const x = (tx + 0.5) * tileSize;
     const y = (ty + 0.5) * tileSize;
     if (Math.hypot(x - avoid.x, y - avoid.y) < minDistFromAvoid) continue;
+    if (zone && Math.hypot(x - zone.x, y - zone.y) < zone.r) continue;
     return { x, y };
   }
   return null;
@@ -28,7 +29,7 @@ function findOpenSpawnTile(grid, tileSize, rng, avoid, minDistFromAvoid) {
 // player find the full kit) plus a handful of Salvage pickups, all on
 // open water away from the boat's spawn point — mirrors
 // enemies.mjs's spawnReefEnemies placement logic.
-export function spawnReefPickups(grid, tileSize, boatSpawn, rng = Math.random) {
+export function spawnReefPickups(grid, tileSize, boatSpawn, rng = Math.random, { repairs = 1, avoid = null } = {}) {
   const pickups = [];
   const minDist = tileSize * 2;
 
@@ -57,7 +58,20 @@ export function spawnReefPickups(grid, tileSize, boatSpawn, rng = Math.random) {
     });
   }
 
+  // Repair kits: spread out, and never right at the spawn (they're for
+  // later in the level, once you've taken some hits).
+  for (let i = 0; i < repairs; i++) {
+    const spot = findOpenSpawnTile(grid, tileSize, rng, boatSpawn, tileSize * 10, avoid)
+      || findOpenSpawnTile(grid, tileSize, rng, boatSpawn, minDist, avoid);
+    if (!spot) continue;
+    pickups.push(makeRepairKit(spot.x, spot.y));
+  }
+
   return pickups;
+}
+
+export function makeRepairKit(x, y) {
+  return { id: nextPickupId++, kind: PICKUP_KINDS.REPAIR, amount: PICKUP_TUNING.repairFraction, x, y, collected: false };
 }
 
 // Checks every uncollected pickup against the boat's position and applies
@@ -71,16 +85,22 @@ export function collectPickups(pickups, boat, boatRadius, weaponState) {
   const events = [];
   for (const pickup of pickups) {
     if (pickup.collected) continue;
-    const radius = pickup.kind === PICKUP_KINDS.WEAPON_CACHE
-      ? PICKUP_TUNING.weaponCacheRadius
-      : PICKUP_TUNING.salvageRadius;
+    const radius = pickup.kind === PICKUP_KINDS.WEAPON_CACHE ? PICKUP_TUNING.weaponCacheRadius
+      : pickup.kind === PICKUP_KINDS.REPAIR ? PICKUP_TUNING.repairRadius
+        : PICKUP_TUNING.salvageRadius;
     const dist = Math.hypot(pickup.x - boat.x, pickup.y - boat.y);
     if (dist > radius + boatRadius) continue;
+    // A repair kit stays afloat for later if the hull is already whole.
+    if (pickup.kind === PICKUP_KINDS.REPAIR && boat.health >= boat.maxHull) continue;
 
     pickup.collected = true;
     if (pickup.kind === PICKUP_KINDS.WEAPON_CACHE) {
       const freshUnlock = collectWeaponCache(weaponState, pickup.weaponId, pickup.amount);
       events.push({ kind: pickup.kind, weaponId: pickup.weaponId, amount: pickup.amount, freshUnlock });
+    } else if (pickup.kind === PICKUP_KINDS.REPAIR) {
+      const before = boat.health;
+      boat.health = Math.min(boat.maxHull, boat.health + boat.maxHull * pickup.amount);
+      events.push({ kind: pickup.kind, amount: boat.health - before });
     } else {
       events.push({ kind: pickup.kind, amount: pickup.amount });
     }

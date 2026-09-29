@@ -16,8 +16,8 @@ import { buildTerrain } from './engine/terrain.mjs';
 import { createTerrainRenderer } from './engine/terrainRenderer.mjs';
 import { getBiome, BIOME_IDS } from './data/biomes.mjs';
 import {
-  createRun, checkReachedExit, checkSunk, addSalvage, totalSalvage, BOAT_RADIUS,
-  TIER_COUNT, LEVELS_PER_STAGE, biomeForStage, isExitOpen, stageLevel, buildLevelWorld,
+  createRun, checkReachedExit, checkSunk, retryLevel, addSalvage, totalSalvage, BOAT_RADIUS,
+  TIER_COUNT, LEVELS_PER_STAGE, biomeForStage, isExitOpen, levelForReef, buildLevelWorld,
 } from './engine/run.mjs';
 import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
@@ -33,8 +33,8 @@ import {
 import {
   createEnemy, updateEnemies, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor,
 } from './engine/enemies.mjs';
-import { collectPickups } from './engine/pickups.mjs';
-import { PICKUP_KINDS } from './data/pickups.mjs';
+import { collectPickups, makeRepairKit } from './engine/pickups.mjs';
+import { PICKUP_KINDS, PICKUP_TUNING } from './data/pickups.mjs';
 import { WEAPON_LIST, getWeapon } from './data/weapons.mjs';
 import { getEnemy } from './data/enemies.mjs';
 import {
@@ -86,9 +86,13 @@ export function startApp(root) {
       <span id="reef-indicator">Level 1/5</span>
       <span id="salvage-counter">⚓ Salvage: 0</span>
     </div>
-    <div id="weapon-bar"></div>
   `;
   root.appendChild(hud);
+  // Weapons sit at the bottom, in thumb reach (2026-09-29): firing is
+  // automatic now, so the right thumb's only job is picking the weapon.
+  const weaponDock = document.createElement('div');
+  weaponDock.id = 'weapon-bar';
+  root.appendChild(weaponDock);
 
   // A top-level sibling (not nested inside #hud) so its own z-index isn't
   // capped by #hud's stacking context — it needs to stay clickable above
@@ -125,13 +129,15 @@ export function startApp(root) {
     <div id="run-summary-card">
       <h1 id="run-summary-title"></h1>
       <div id="run-summary-body"></div>
-      <button type="button" id="run-summary-btn">Return to Hub ⚓</button>
+      <button type="button" id="run-summary-retry" hidden>↻ Retry this level</button>
+      <button type="button" id="run-summary-btn">Return to Harbour ⚓</button>
     </div>
   `;
   root.appendChild(summaryOverlay);
   const summaryTitle = summaryOverlay.querySelector('#run-summary-title');
   const summaryBody = summaryOverlay.querySelector('#run-summary-body');
   const summaryBtn = summaryOverlay.querySelector('#run-summary-btn');
+  const summaryRetryBtn = summaryOverlay.querySelector('#run-summary-retry');
 
   // The base (2026-09-28): the app's home screen between runs. A painted
   // harbour (engine/base.mjs + baseRenderer.mjs, drawn on the game canvas
@@ -267,11 +273,6 @@ export function startApp(root) {
     delete basePanel.dataset.open;
   }
 
-  const fireButton = document.createElement('button');
-  fireButton.id = 'fire-button';
-  fireButton.type = 'button';
-  fireButton.textContent = '🔥';
-  root.appendChild(fireButton);
 
   const hitFlash = document.createElement('div');
   hitFlash.id = 'hit-flash';
@@ -376,21 +377,18 @@ export function startApp(root) {
     const weaponBar = document.getElementById('weapon-bar');
     const top = Math.max(0, Math.round(hud.getBoundingClientRect().bottom + margin));
     if (landscapeMql && landscapeMql.matches) {
-      const leftEdge = Math.min(weaponBar.getBoundingClientRect().left, fireButton.getBoundingClientRect().left);
+      const leftEdge = weaponBar.getBoundingClientRect().left;
       hudInsets.top = top;
       hudInsets.right = Math.max(0, Math.round(vw - leftEdge + margin));
       hudInsets.bottom = 0;
       hudInsets.left = 0;
       return;
     }
-    const bottom = Math.max(0, Math.round(vh - fireButton.getBoundingClientRect().top + margin));
+    const bottom = Math.max(0, Math.round(vh - weaponBar.getBoundingClientRect().top + margin));
     hudInsets.top = top;
     hudInsets.right = 0;
     hudInsets.left = 0;
-    // In a short viewport, reserving both bands would leave a sliver of
-    // playfield — drop the fire-button band first (it only covers one
-    // corner anyway), keeping the top band that covers the boat.
-    hudInsets.bottom = (top + bottom) > vh * 0.5 ? 0 : bottom;
+    hudInsets.bottom = bottom;
   }
   measureHudInsets();
   window.addEventListener('resize', measureHudInsets);
@@ -398,7 +396,6 @@ export function startApp(root) {
   if (typeof ResizeObserver !== 'undefined') {
     const ro = new ResizeObserver(measureHudInsets);
     ro.observe(hud);
-    ro.observe(fireButton);
     ro.observe(document.getElementById('weapon-bar'));
   }
   camera.x = run.boat.x;
@@ -491,21 +488,10 @@ export function startApp(root) {
   // (pointerup/pointercancel) stops firing; pointerleave is deliberately
   // not used here, since it fires for any pointer that crosses the
   // button's bounds, not just the one holding it down.
+  // Auto-fire (2026-09-29, project owner): the ship fires by itself at
+  // whatever the aim-assist can hit, so steering is the only thing the
+  // left thumb has to do. `isFiring` is true while a target is locked.
   let isFiring = false;
-  let firingPointerId = null;
-  fireButton.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    isFiring = true;
-    firingPointerId = e.pointerId;
-  });
-  function stopFiring(e) {
-    if (e.pointerId !== firingPointerId) return;
-    e.stopPropagation();
-    isFiring = false;
-    firingPointerId = null;
-  }
-  fireButton.addEventListener('pointerup', stopFiring);
-  fireButton.addEventListener('pointercancel', stopFiring);
 
   // Aim-assist (engine/aim.mjs): leads moving targets along their
   // measured arc, only picks shots it can land (in range, clear water),
@@ -541,6 +527,11 @@ export function startApp(root) {
     if (suggestedWeapon) weaponButtons[suggestedWeapon].classList.remove('suggest');
     if (want) weaponButtons[want].classList.add('suggest');
     suggestedWeapon = want;
+  }
+
+  // A regular kill sometimes leaves a repair kit floating where it sank.
+  function maybeDropRepair(enemy) {
+    if (Math.random() < PICKUP_TUNING.repairDropChance) run.pickups.push(makeRepairKit(enemy.x, enemy.y));
   }
 
   let flashTimer = null;
@@ -757,11 +748,18 @@ export function startApp(root) {
   // Voyage card preview: a small chart of the stage's first level, drawn
   // straight from its coastline field (fixed seeds, so it's the real reef).
   const previewCache = new Map();
+  // The next voyage's seed is rolled when the harbour opens, so the chart
+  // on the voyage card is the real first reef you're about to sail.
+  let nextRunSeed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+  function rollNextRunSeed() {
+    nextRunSeed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+    previewCache.clear();
+  }
   function renderVoyagePreview(stage) {
     const g = voyageMap.getContext('2d');
     let img = previewCache.get(stage);
     if (!img) {
-      const level = stageLevel(stage, 0);
+      const level = levelForReef(nextRunSeed, 0, biomeForStage(stage));
       const world = buildLevelWorld(level);
       const W = voyageMap.width; const H = voyageMap.height;
       img = g.createImageData(W, H);
@@ -902,6 +900,7 @@ export function startApp(root) {
     sailing = false;
     closePanel();
     selectedStage = meta.highestStageUnlocked;
+    rollNextRunSeed();
     renderHub();
     hubOverlay.classList.add('show');
     document.body.classList.add('in-hub');
@@ -915,7 +914,7 @@ export function startApp(root) {
     // the voyage is generated as normal. An invalid code is ignored.
     const sharedLevel = decodeLevelCode(new URLSearchParams(window.location.search).get('level'), TIER_COUNT);
     run = createRun(
-      (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) & 0xffffffff, resolveLoadout(meta),
+      nextRunSeed, resolveLoadout(meta),
       { stage: selectedStage, ...(sharedLevel ? { levels: { 0: sharedLevel } } : {}) },
     );
     camera.x = run.boat.x;
@@ -948,34 +947,61 @@ export function startApp(root) {
     playMusic(null);
     const heldNiche = Array.from(run.weapons.heldWeapons).filter((id) => id !== 'cannonballs');
     const victory = run.outcome === 'victory';
-    summaryTitle.textContent = victory ? `Stage ${run.stage} cleared! ⚓` : `Sunk on ${stageLevelText()} ⚓`;
+    summaryTitle.textContent = victory ? `Stage ${run.stage} cleared! ⚓` : `Sunk on ${stageLevelText()}`;
+    summaryRetryBtn.hidden = victory;
+    summaryBtn.textContent = victory ? 'Return to Harbour ⚓' : 'Give up · keep banked Salvage';
+    summaryBtn.classList.toggle('secondary', !victory);
     const reefsCleared = victory ? run.reefCount : run.reefIndex;
-    summaryBody.innerHTML = `
-      <p>Levels cleared: ${reefsCleared} / ${run.reefCount}</p>
+    summaryBody.innerHTML = victory ? `
+      <p>Levels cleared: ${reefsCleared} / ${run.reefCount}${run.retries ? ` · retries: ${run.retries}` : ''}</p>
       ${newlyUnlocked ? `<p><strong>Stage ${meta.highestStageUnlocked} unlocked!</strong></p>` : ''}
-      ${!victory ? '<p>The stage restarts from Level 1 next time.</p>' : ''}
-      <p>Salvage banked this voyage: ${run.bankedSalvage}</p>
-      ${run.reefSalvage > 0 ? `<p class="lost">Salvage lost with the ship: ${run.reefSalvage}</p>` : ''}
+      <p>Salvage banked this voyage: ${Math.round(run.bankedSalvage)}</p>
       <p>Weapons found: ${heldNiche.length ? heldNiche.map((id) => getWeapon(id).name).join(', ') : 'None'}</p>
       ${run.bossDefeated ? '<p>The Kraken\'s Anchor defeated — 1 Kraken Scale earned 🦑</p>' : ''}
-      <p>Salvage in the Hub: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}</p>
+      <p>Salvage in the Harbour: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}</p>
       <p class="level-codes">Level codes: ${run.levelCodes.map((c) => `<code>${c}</code>`).join(' ')}</p>
+    ` : `
+      <p>Retry Level ${run.reefIndex + 1} on a new reef, with your hull repaired and the weapons you arrived with. Levels already cleared stay cleared.</p>
+      ${run.reefSalvage > 0 ? `<p class="lost">Salvage lost with the ship: ${Math.round(run.reefSalvage)}</p>` : ''}
+      <p>Salvage banked so far: ${Math.round(run.bankedSalvage)}</p>
     `;
     summaryOverlay.classList.add('show');
   }
-  // Every ending banks this voyage's Salvage/stats into the persistent
-  // meta state before the summary is shown, so "Salvage in the Hub" above
-  // is already correct the moment the screen appears.
+  // A victory banks the voyage into the persistent meta state at once. A
+  // sinking waits: the player may retry the level, and the voyage is only
+  // recorded when they give up (so nothing is counted twice).
   function endRun() {
-    if (run.outcome === 'victory') playVictory(); else playSunk();
-    const unlockedBefore = meta.highestStageUnlocked;
-    recordRunResult(meta, run);
-    saveMeta(window.localStorage, meta);
-    showRunSummary(meta.highestStageUnlocked > unlockedBefore);
+    if (run.outcome === 'victory') {
+      playVictory();
+      const unlockedBefore = meta.highestStageUnlocked;
+      recordRunResult(meta, run);
+      saveMeta(window.localStorage, meta);
+      showRunSummary(meta.highestStageUnlocked > unlockedBefore);
+    } else {
+      playSunk();
+      showRunSummary(false);
+    }
   }
   summaryBtn.addEventListener('click', () => {
+    if (run.outcome === 'sunk') {
+      recordRunResult(meta, run);
+      saveMeta(window.localStorage, meta);
+    }
     summaryOverlay.classList.remove('show');
     openHub();
+  });
+  summaryRetryBtn.addEventListener('click', () => {
+    if (!retryLevel(run)) return;
+    summaryOverlay.classList.remove('show');
+    camera.x = run.boat.x; camera.y = run.boat.y;
+    particles = createParticlePool();
+    damageNumbers = createDamageNumberPool();
+    shake.trauma = 0; hitStop.remaining = 0;
+    aimTarget = null; aimHeading = null;
+    setStatus(levelStartStatus());
+    showToast(`Level ${run.reefIndex + 1} — a new reef. Hull repaired ⚓`);
+    updateHullBar(); updateSalvageCounter(); updateReefIndicator(); updateWeaponBar();
+    sailing = true;
   });
 
   // A tiny debug hook for headless/automated testing — not user-facing,
@@ -1095,6 +1121,7 @@ export function startApp(root) {
       updateAim();
       updateCounterHint();
       playMusic(run.lair ? 'lair' : 'voyage');
+      isFiring = aimHeading != null;
       if (isFiring) {
         const fired = tryFire(run.weapons, run.boat.x, run.boat.y, computeFireHeading());
         if (fired) { updateWeaponBar(); playFire(run.weapons.activeWeaponId); }
@@ -1167,6 +1194,7 @@ export function startApp(root) {
             run.bossDefeated = true; // engine/meta.mjs's recordRunResult awards a Kraken Scale
           } else {
             spawnKillBurst(particles, ev.enemy.x, ev.enemy.y, weaponColor, Math.random);
+            maybeDropRepair(ev.enemy);
             addShake(shake, 0.35);
             triggerHitStop(hitStop, 0.05);
             playKill();
@@ -1195,6 +1223,7 @@ export function startApp(root) {
               run.bossDefeated = true;
             } else {
               spawnKillBurst(particles, enemy.x, enemy.y, PALETTE.burn, Math.random);
+              maybeDropRepair(enemy);
               addShake(shake, 0.3);
               playKill();
             }
@@ -1236,6 +1265,12 @@ export function startApp(root) {
           updateWeaponBar();
           showToast(ev.freshUnlock ? `New weapon: ${getWeapon(ev.weaponId).name}! ⚓` : `${getWeapon(ev.weaponId).name} restocked ⚓`);
           playPickupWeapon();
+        } else if (ev.kind === PICKUP_KINDS.REPAIR) {
+          updateHullBar();
+          spawnDamageNumber(damageNumbers, run.boat.x, run.boat.y - BOAT_RADIUS - 10, ev.amount, { heal: true });
+          spawnSplash(particles, run.boat.x, run.boat.y, Math.random, 10);
+          showToast('Hull repaired ⚓');
+          playRevive();
         } else if (ev.kind === PICKUP_KINDS.SALVAGE) {
           addSalvage(run, ev.amount);
           updateSalvageCounter();

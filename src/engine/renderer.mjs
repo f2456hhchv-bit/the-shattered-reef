@@ -492,6 +492,24 @@ export function drawPickup(ctx, pickup, label, t) {
   ctx.translate(0, bob);
   ctx.rotate(tilt);
 
+  if (pickup.kind === 'repair') {
+    // A life ring with a green cross: reads as "help" at a glance, and
+    // green is the one colour nothing hostile uses.
+    const R = 8.5;
+    ctx.lineWidth = 4.5;
+    for (let i = 0; i < 4; i++) {
+      ctx.strokeStyle = i % 2 ? '#f4efe6' : '#f06a2a';
+      ctx.beginPath(); ctx.arc(0, 0, R - 2.2, i * Math.PI / 2, (i + 1) * Math.PI / 2); ctx.stroke();
+    }
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(60, 30, 10, 0.6)';
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
+    const pulse = 0.75 + 0.25 * Math.sin(t * 5 + pickup.id);
+    ctx.fillStyle = '#2fbf4f';
+    ctx.fillRect(-1.6 * pulse - 0.4, -4 * pulse, 3.2 * pulse + 0.8, 8 * pulse);
+    ctx.fillRect(-4 * pulse, -1.6 * pulse - 0.4, 8 * pulse, 3.2 * pulse + 0.8);
+    ctx.restore();
+    return;
+  }
   if (pickup.kind === 'weapon_cache') {
     const S = 8;
     ctx.fillStyle = '#8c5a2b'; ctx.fillRect(-S, -S, S * 2, S * 2);

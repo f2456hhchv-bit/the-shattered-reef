@@ -150,21 +150,24 @@ html, body {
 }
 
 #weapon-bar {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  margin: 0 auto;
   pointer-events: auto;
   display: flex;
   gap: 6px;
-  margin-top: 2px;
-  /* Equal-width buttons inset from the screen edges (and any notch /
-     rounded corner): at 390px the content-sized buttons ran flush to both
-     edges, where curved screens clip them. */
   box-sizing: border-box;
   width: 100%;
-  max-width: 460px;
+  max-width: 480px;
   padding: 0 max(8px, env(safe-area-inset-left)) 0 max(8px, env(safe-area-inset-right));
+  z-index: 5;
 }
 #weapon-bar .weapon-btn {
   flex: 1 1 0;
   min-width: 0;
+  min-height: 56px;
+  justify-content: center;
 }
 .weapon-btn {
   display: flex;
@@ -253,25 +256,6 @@ html, body {
 }
 .hub-matchup .m-who { color: #b3bdc8; }
 
-#fire-button {
-  position: absolute;
-  right: max(18px, env(safe-area-inset-right));
-  bottom: max(28px, env(safe-area-inset-bottom));
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  background: rgba(217, 98, 47, .55);
-  border: 2px solid rgba(255, 255, 255, .35);
-  font-size: 30px;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-  z-index: 5;
-}
-#fire-button:active {
-  background: rgba(217, 98, 47, .85);
-}
-
 #run-summary {
   position: absolute;
   inset: 0;
@@ -324,6 +308,20 @@ html, body {
 #run-summary-btn:active {
   background: rgba(232, 181, 75, .5);
 }
+#run-summary-btn.secondary {
+  margin-top: 10px; background: transparent; border-color: rgba(233, 221, 196, .3);
+  font-size: 13px; font-weight: 600; opacity: .85; min-height: 44px;
+}
+#run-summary-retry {
+  display: block; width: 100%; margin-top: 16px; min-height: 52px;
+  border-radius: 14px; border: 2px solid #fff0b0;
+  background: linear-gradient(180deg, #ffd35c 0%, #f0a92c 55%, #d88a1c 100%);
+  color: #3a2208; font-size: 17px; font-weight: 900; letter-spacing: .04em;
+  box-shadow: 0 4px 0 #8f5510, 0 6px 16px rgba(0, 0, 0, .4);
+  touch-action: manipulation;
+}
+#run-summary-retry[hidden] { display: none; }
+#run-summary-retry:active { transform: translateY(3px); box-shadow: 0 1px 0 #8f5510; }
 
 /* ------------------------------------------------------------------------
    The harbour base (2026-09-28). The canvas draws the island scene; this
@@ -343,7 +341,7 @@ html, body {
 #captains-hub.show > * { pointer-events: auto; }
 #base-scene-hit { position: absolute; inset: 0; }
 /* The harbour replaces the voyage screen: hide the in-run HUD under it. */
-body.in-hub #hud, body.in-hub #weapon-bar, body.in-hub #fire-button,
+body.in-hub #hud, body.in-hub #weapon-bar,
 body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
 
 #base-topbar {
@@ -539,10 +537,9 @@ body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
    LANDSCAPE_QUERY in main.mjs, which reserves the matching camera inset.
    Portrait stacked the whole HUD in a 133px top band — over a third of a
    375px-tall landscape screen. Here: one compact top row, and the weapon
-   bar becomes a 2-column grid directly above the fire button (the
-   right-thumb zone), so the playfield keeps nearly its full height. A
-   single column of 44px targets doesn't fit above the fire button on a
-   360px-tall phone, and targets don't shrink below 44px to make it.
+   bar becomes a 2-column grid in the bottom-right corner (the right-thumb
+   zone), so the playfield keeps nearly its full height. Firing is
+   automatic (2026-09-29), so there's no fire button to share the corner.
    ------------------------------------------------------------------------ */
 @media (orientation: landscape) and (max-height: 540px) {
   #hud {
@@ -572,7 +569,8 @@ body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
     padding: 0;
     position: fixed;
     right: max(12px, env(safe-area-inset-right));
-    bottom: calc(max(20px, env(safe-area-inset-bottom)) + 76px + 10px);
+    left: auto;
+    bottom: max(12px, env(safe-area-inset-bottom));
     display: grid;
     grid-template-columns: repeat(2, 60px);
     gap: 6px;
@@ -581,19 +579,13 @@ body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
   /* Same left-to-right order as portrait (muscle memory carries over); the
      odd fifth button sits in the right column, nearest the thumb. */
   #weapon-bar .weapon-btn:nth-child(5) { grid-column: 2; }
-  .weapon-btn {
+  #weapon-bar .weapon-btn {
     min-width: 0;
-    min-height: 44px;
+    min-height: 48px;
     padding: 4px 4px;
     font-size: 9.5px;
     line-height: 1.15;
     justify-content: center;
-  }
-  #fire-button {
-    right: max(12px, env(safe-area-inset-right));
-    bottom: max(20px, env(safe-area-inset-bottom));
-    /* Centre under the 2-column weapon grid (126px wide) */
-    margin-right: 25px;
   }
 
   #voyage-card {

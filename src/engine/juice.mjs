@@ -122,6 +122,7 @@ export function spawnDamageNumber(pool, x, y, amount, options = {}) {
     // damage dealt. With it, triangle is 'danger' (your predator hit you,
     // amplified) | 'resist' (your prey hit you, softened) | null.
     incoming: !!options.incoming,
+    heal: !!options.heal, // hull repaired (green "+N")
   });
 }
 
@@ -201,6 +202,7 @@ export const DAMAGE_NUMBER_COLORS = Object.freeze({
   hurt: '#ff6b5b',
   hurtDanger: '#ff5c4e', // was #ff4d40; lifted to clear 3:1 on the tropical deep water (2026-09-28)
   hurtResist: '#ff9d8f',
+  heal: '#7dff8a',
   outline: '#07131c',
 });
 
@@ -211,7 +213,10 @@ export function damageNumberStyle(d) {
   const pop = amplified ? 1 + 0.4 * Math.max(0, 1 - age / 0.18) : 1;
   let size;
   const parts = [];
-  if (d.incoming) {
+  if (d.heal) {
+    size = 16;
+    parts.push({ text: `+${d.amount}`, color: C.heal });
+  } else if (d.incoming) {
     size = d.triangle === 'danger' ? 17 : 14;
     const color = d.triangle === 'danger' ? C.hurtDanger : d.triangle === 'resist' ? C.hurtResist : C.hurt;
     parts.push({ text: `-${d.amount}`, color });

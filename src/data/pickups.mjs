@@ -11,6 +11,7 @@ import { WEAPON_IDS, getWeapon } from './weapons.mjs';
 export const PICKUP_KINDS = Object.freeze({
   WEAPON_CACHE: 'weapon_cache',
   SALVAGE: 'salvage',
+  REPAIR: 'repair', // 2026-09-29: patches the hull
 });
 
 // The niche weapons a reef guarantees one cache of each — Cannonballs
@@ -25,6 +26,9 @@ export const PICKUP_TUNING = Object.freeze({
   salvageRadius: 7,
   salvagePickupRange: [3, 6], // Salvage granted per pickup
   salvageCountPerReef: 6,
+  repairRadius: 10,
+  repairFraction: 0.35, // of max hull, per kit
+  repairDropChance: 0.12, // a regular enemy kill leaves a kit behind
 });
 
 export function weaponCacheAmount(weaponId) {
