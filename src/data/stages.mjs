@@ -100,6 +100,6 @@ const NAME_SECOND = ['Isles', 'Atoll', 'Reach', 'Sound', 'Rock', 'Shoals', 'Stra
 export function stageName(stage) {
   const s = Math.max(1, stage || 1);
   if (s <= STAGES.length) return STAGES[s - 1].island;
-  let h = (s * 2654435761) >>> 0; h ^= h >>> 13;
+  let h = (s * 2654435761) >>> 0; h = (h ^ (h >>> 13)) >>> 0;
   return `${NAME_FIRST[h % NAME_FIRST.length]} ${NAME_SECOND[(h >>> 8) % NAME_SECOND.length]}`;
 }

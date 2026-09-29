@@ -53,6 +53,7 @@ export function createWorldMap(root, deps) {
   const sheet = el.querySelector('.wm-sheet');
   let points = [];
   let sheetStage = null;
+  let paintToken = 0;
 
   function stageCount(meta) {
     return Math.max(meta.highestStageUnlocked + 3, 8);
@@ -96,6 +97,7 @@ export function createWorldMap(root, deps) {
     const cleared = unlocked - 1;
     el.querySelector('.wm-title small').textContent = cleared ? `${cleared} island group${cleared > 1 ? 's' : ''} conquered` : 'Your voyage begins at the Corsair Keys';
     const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const jobs = [];
     nodes.replaceChildren(...points.map((p, i) => {
       const stage = i + 1;
       const locked = stage > unlocked;
@@ -110,10 +112,22 @@ export function createWorldMap(root, deps) {
       b.querySelector('b').textContent = stageName(stage);
       const c = b.querySelector('canvas').getContext('2d');
       c.scale(dpr, dpr);
-      drawIsland(c, ISLAND_W, ISLAND_H, biomeForStage(stage), stage, { locked });
+      // Islands are painted by the terrain renderer (~20ms each on a
+      // desktop), so they're drawn one per frame, nearest the ship first.
+      jobs.push({ stage, run: () => drawIsland(c, ISLAND_W, ISLAND_H, biomeForStage(stage), stage, { locked }) });
       b.addEventListener('click', () => openSheet(stage));
       return b;
     }));
+    jobs.sort((a, b) => Math.abs(a.stage - unlocked) - Math.abs(b.stage - unlocked));
+    const token = ++paintToken;
+    const step = () => {
+      if (token !== paintToken) return;
+      const job = jobs.shift();
+      if (!job) return;
+      job.run();
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
     // Your ship waits at the furthest island you can sail to.
     const cur = points[Math.min(unlocked, points.length) - 1];
     // Moored beside the island, on the open-water side.
@@ -132,8 +146,10 @@ export function createWorldMap(root, deps) {
     const locked = stage > meta.highestStageUnlocked;
     sheetStage = stage;
     const cv = el.querySelector('.wm-sheet-island');
+    const sd = Math.min(3, window.devicePixelRatio || 1);
+    cv.width = 300 * sd; cv.height = 224 * sd;
     const c = cv.getContext('2d'); c.clearRect(0, 0, cv.width, cv.height);
-    c.save(); c.scale(2, 2); drawIsland(c, 150, 112, biomeForStage(stage), stage, { locked }); c.restore();
+    c.save(); c.scale(2 * sd, 2 * sd); drawIsland(c, 150, 112, biomeForStage(stage), stage, { locked }); c.restore();
     el.querySelector('.wm-sheet-kicker').textContent = `Stage ${stage} · ${biomeName(stage)} · ${levelsPerStage} levels`;
     el.querySelector('.wm-sheet-name').textContent = stageName(stage);
     el.querySelector('.wm-sheet-blurb').textContent = stageInfo(stage).blurb + (stage > 4 ? ' Tougher crews than before.' : '');

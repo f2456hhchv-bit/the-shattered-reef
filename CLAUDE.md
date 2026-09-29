@@ -1788,6 +1788,40 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - **Next up:** the project owner flagged the intro ship and the chart
   islands as plain; that art pass is next.
 
+- **Phase:** art pass on the front end (project owner, 2026-09-29, from
+  phone screenshots: "opening sequence ship looks a bit poor art style...
+  not too keen on the islands art too. Bit plain").
+- **Just shipped:**
+  - **Intro galleon redrawn** (`ui/intro.mjs`): raised stern castle and
+    forecastle, planked hull with black wales and gilt rails, open red-lidded
+    gunports, lit stern windows and lantern, and a figurehead. Three masts
+    with yards, billowing sails with seams and a sunlit rim, two jibs and a
+    spanker, shrouds and stays, pennants, bow spray, and a faint rippled
+    reflection. The scene also gained shaded clouds and a hazy far range
+    behind the spires.
+  - **Chart islands repainted** (`engine/islandArt.mjs`): each island is now
+    rendered by the reef terrain renderer itself, in its stage's biome
+    (shallows, surf, beach, jungle, relief, palms/rocks). A landmark sits on
+    its highest ground: a pirate fort (Tropical), the lighthouse (Cliff &
+    Cove, `drawLighthouse` now exported from `baseRenderer.mjs`), ice spires
+    with a trapped mast (Glacial), and a split wreck (Shipwreck). Water fades
+    out with depth, so there's no box edge. Portraits are cached, about
+    20ms each on desktop, and painted one per frame nearest the ship first;
+    the sheet portrait is now DPR-aware.
+  - **Fixed:** generated stage names past 4 could read "undefined Rock" (a
+    signed-shift bug in `stageName`).
+  - **Probable fix, unverified on device:** the dark band along the bottom
+    of every screen on the owner's iPhone. On iOS home-screen apps with a
+    black-translucent status bar, `innerHeight` comes up short, so the new
+    `ui/viewport.mjs` (`viewH`, `--app-h`) sizes to the screen in standalone
+    mode only.
+  - 337/337 tests. Intro, chart and depth playtests ran with no console
+    errors.
+- **Next up:** the owner to check on the phone:
+  - the bottom band, on the home-screen app
+  - the new intro ship and chart islands
+  - how armaments, the seals and the tougher bosses play
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2407,6 +2441,10 @@ Starting fresh below for the new game.)*
 - 2026-09-29: A boss is gated by seals spread across the lair's rings,
   not by more boss HP alone. That makes exploring the lair the point of
   level 5, which is what the owner said was missing.
+
+- 2026-09-29: Chart islands reuse the reef terrain renderer rather than
+  separate flat vector art, so the chart and the levels share one art
+  style and a new biome's island comes for free.
 
 ## Known open questions (do not silently resolve — ask)
 

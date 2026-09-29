@@ -5,6 +5,7 @@
 // Ship Hulls / Cargo Loadouts / Captain's Charms before "Set Sail" starts
 // an actual voyage with that loadout resolved into it.
 
+import { viewH, installViewportFix } from './ui/viewport.mjs';
 import { chooseAutoFire, trackEnemyMotion } from './engine/aim.mjs';
 import { playMusic, currentMusic } from './audio/music.mjs';
 import { rollUpgradeChoices, applyUpgrade, upgradeLevel } from './engine/upgrades.mjs';
@@ -81,6 +82,7 @@ const WEAPON_SHORT_LABEL = {
 };
 
 export function startApp(root) {
+  installViewportFix();
   root.innerHTML = '';
   const canvas = document.createElement('canvas');
   canvas.id = 'game-canvas';
@@ -395,7 +397,7 @@ export function startApp(root) {
   function measureHudInsets() {
     const margin = 8;
     const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const vh = viewH();
     const weaponBar = document.getElementById('weapon-bar');
     const top = Math.max(0, Math.round(hud.getBoundingClientRect().bottom + margin));
     if (landscapeMql && landscapeMql.matches) {
@@ -435,9 +437,9 @@ export function startApp(root) {
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.round(window.innerWidth * dpr);
-    canvas.height = Math.round(window.innerHeight * dpr);
+    canvas.height = Math.round(viewH() * dpr);
     canvas.style.width = `${window.innerWidth}px`;
-    canvas.style.height = `${window.innerHeight}px`;
+    canvas.style.height = `${viewH()}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   window.addEventListener('resize', resize);
@@ -1021,7 +1023,7 @@ export function startApp(root) {
   // The screen region the harbour can use: below the top bar, and above
   // (portrait) or left of (landscape) the voyage card.
   function baseFreeInsets() {
-    const vw = window.innerWidth; const vh = window.innerHeight;
+    const vw = window.innerWidth; const vh = viewH();
     const top = baseTopbar.getBoundingClientRect().bottom + 4;
     const vc = voyageCard.getBoundingClientRect();
     const sideCard = vc.left > vw * 0.35 && vc.top < vh * 0.5;
@@ -1032,7 +1034,7 @@ export function startApp(root) {
   function layoutBase() {
     if (!hubOverlay.classList.contains('show')) return;
     const b = ensureBase();
-    b.view = computeBaseView(window.innerWidth, window.innerHeight, baseFreeInsets());
+    b.view = computeBaseView(window.innerWidth, viewH(), baseFreeInsets());
     // Small map: one-line labels so they don't bury the buildings.
     baseChips.classList.toggle('compact', b.view.scale < 0.62);
     for (const bd of b.world.buildings) {
@@ -1047,7 +1049,7 @@ export function startApp(root) {
     if (!b.view) layoutBase();
     const t = now / 1000; const v = b.view;
     ctx.fillStyle = biome.outside;
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+    ctx.fillRect(0, 0, window.innerWidth, viewH());
     ctx.save();
     ctx.translate(v.tx, v.ty); ctx.scale(v.scale, v.scale);
     b.renderer.draw(ctx, v.visible, t, { forceVisible: b.fresh, maxNewChunks: 0 });
@@ -1587,7 +1589,7 @@ export function startApp(root) {
     const shakeOffset = updateShake(shake, rawDt);
 
     const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const vh = viewH();
     ctx.fillStyle = runBiome.outside;
     ctx.fillRect(0, 0, vw, vh);
     ctx.save();

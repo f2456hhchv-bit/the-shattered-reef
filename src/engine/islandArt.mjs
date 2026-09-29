@@ -1,133 +1,219 @@
-// Small island portraits for the voyage chart (2026-09-29): one per stage,
-// in that stage's biome, in the same painted style as the reefs. Pure
-// canvas drawing, seeded by the stage so an island always looks the same.
+// Island portraits for the voyage chart (2026-09-29; redone the same day
+// after the project owner found the first flat-vector version "a bit
+// plain"). Each island is now painted by the same terrain renderer as the
+// reefs themselves (engine/terrain.mjs + terrainRenderer.mjs: depth-graded
+// shallows, surf, beach, jungle, relief lighting, palms and rocks), in its
+// stage's biome, with a landmark on top in the harbour buildings' style.
+// Seeded by the stage, so an island always looks the same. Portraits are
+// cached per stage and resolution; the first draw of each costs a few ms.
 
 import { makeSeededRng } from './rng.mjs';
+import { makeValueNoise, fbm } from './maze.mjs';
+import { buildCoastField, buildTerrain, sampleField } from './terrain.mjs';
+import { createTerrainRenderer } from './terrainRenderer.mjs';
+import { getBiome } from '../data/biomes.mjs';
+import { shadow, box, barrel, drawLighthouse } from './baseRenderer.mjs';
 
-function blob(ctx, cx, cy, rx, ry, rng, wobble = 0.22, n = 18) {
-  const pts = [];
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    const k = 1 + (rng() - 0.5) * wobble * 2;
-    pts.push([cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k]);
-  }
-  ctx.beginPath();
-  for (let i = 0; i < n; i++) {
-    const p = pts[i]; const q = pts[(i + 1) % n];
-    const mx = (p[0] + q[0]) / 2; const my = (p[1] + q[1]) / 2;
-    if (i === 0) ctx.moveTo(mx, my); else ctx.quadraticCurveTo(p[0], p[1], mx, my);
-  }
-  const p = pts[0]; const q = pts[1];
-  ctx.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
-  ctx.closePath();
-}
+const TILE = 8;
+const GW = 38; const GH = 28;
+const PW = GW * TILE; const PH = GH * TILE; // portrait world size (304×224)
+const TAU = Math.PI * 2;
 
-function palm(ctx, x, y, s, frond = '#2f8a34', light = '#58b04a') {
-  ctx.strokeStyle = '#7a5a33'; ctx.lineWidth = s * 0.22; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + s * 0.3, y - s * 0.6, x + s * 0.15, y - s * 1.1); ctx.stroke();
-  const tx = x + s * 0.15; const ty = y - s * 1.1;
-  for (const [c, off] of [[frond, 0], [light, 0.4]]) {
-    ctx.fillStyle = c;
-    for (let k = 0; k < 5; k++) {
-      const a = (k / 5) * Math.PI * 2 + off;
-      ctx.beginPath(); ctx.ellipse(tx + Math.cos(a) * s * 0.35, ty + Math.sin(a) * s * 0.2, s * 0.42, s * 0.14, a, 0, Math.PI * 2); ctx.fill();
-    }
-  }
-}
-
-function pine(ctx, x, y, s) {
-  ctx.fillStyle = '#24503c';
-  for (let k = 0; k < 3; k++) {
-    const w = s * (0.55 - k * 0.13); const yy = y - k * s * 0.35;
-    ctx.beginPath(); ctx.moveTo(x - w, yy); ctx.lineTo(x, yy - s * 0.55); ctx.lineTo(x + w, yy); ctx.closePath(); ctx.fill();
-  }
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.beginPath(); ctx.moveTo(x - s * 0.12, y - s * 0.95); ctx.lineTo(x, y - s * 1.25); ctx.lineTo(x + s * 0.12, y - s * 0.95); ctx.fill();
-}
-
-function peak(ctx, x, y, w, h, rock = '#7d8a94', snow = '#f4f8fb') {
-  ctx.fillStyle = rock;
-  ctx.beginPath(); ctx.moveTo(x - w, y); ctx.lineTo(x - w * 0.1, y - h); ctx.lineTo(x + w, y); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = 'rgba(0,0,0,0.18)';
-  ctx.beginPath(); ctx.moveTo(x - w * 0.1, y - h); ctx.lineTo(x + w, y); ctx.lineTo(x + w * 0.2, y); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = snow;
-  ctx.beginPath(); ctx.moveTo(x - w * 0.42, y - h * 0.6); ctx.lineTo(x - w * 0.1, y - h); ctx.lineTo(x + w * 0.32, y - h * 0.6);
-  ctx.lineTo(x + w * 0.1, y - h * 0.68); ctx.lineTo(x - w * 0.12, y - h * 0.55); ctx.closePath(); ctx.fill();
-}
-
-const LOOKS = {
-  tropical: { shallow: '#7fe3cf', sand: '#ead69c', land: '#3f7f33', landLight: '#58a043', rim: '#2f6a2a' },
-  cliff_cove: { shallow: '#8fe0d8', sand: '#cdbd97', land: '#6d8f4a', landLight: '#8fae5e', rim: '#5f5c57' },
-  glacial: { shallow: '#bff1f4', sand: '#c9d6dc', land: '#e6eef2', landLight: '#ffffff', rim: '#9fb3bd' },
-  shipwreck: { shallow: '#8ad0c0', sand: '#a8966f', land: '#5a6038', landLight: '#6f7446', rim: '#403d39' },
+// Island shape per biome: radii (tiles), how much the coast wanders, and
+// whether it has a cove bitten out and an islet off the shore.
+const SHAPES = {
+  tropical: { rx: 12, ry: 8, wob: 0.45, cove: 0.36, islets: 2 },
+  cliff_cove: { rx: 13, ry: 8.5, wob: 0.35, cove: 0.42, islets: 1 },
+  glacial: { rx: 13.5, ry: 8.5, wob: 0.55, cove: 0.3, islets: 3 },
+  shipwreck: { rx: 12, ry: 7.5, wob: 0.6, cove: 0.45, islets: 2 },
 };
 
-// Draws the island for `stage` in `biomeId` centred in a w×h canvas.
-// `locked` greys it into the fog.
-export function drawIsland(ctx, w, h, biomeId, stage, { locked = false, t = 0 } = {}) {
-  const L = LOOKS[biomeId] || LOOKS.tropical;
-  const rng = makeSeededRng(0x15a0 + stage * 977);
-  const cx = w / 2; const cy = h * 0.56; const rx = w * 0.36; const ry = h * 0.3;
-  ctx.save();
-  // Shallows halo and surf ring.
-  ctx.fillStyle = L.shallow; ctx.globalAlpha = 0.55;
-  blob(ctx, cx, cy, rx * 1.28, ry * 1.32, makeSeededRng(stage + 5)); ctx.fill();
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = 'rgba(4, 30, 40, 0.25)';
-  blob(ctx, cx + 3, cy + 5, rx, ry, makeSeededRng(stage + 9)); ctx.fill();
-  ctx.fillStyle = L.sand;
-  blob(ctx, cx, cy, rx, ry, makeSeededRng(stage + 9)); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.6; ctx.stroke();
-  ctx.fillStyle = L.land;
-  blob(ctx, cx, cy - 2, rx * 0.8, ry * 0.74, makeSeededRng(stage + 13), 0.28); ctx.fill();
-  ctx.fillStyle = L.landLight; ctx.globalAlpha = 0.6;
-  blob(ctx, cx - rx * 0.2, cy - ry * 0.25, rx * 0.4, ry * 0.3, makeSeededRng(stage + 17), 0.3); ctx.fill();
-  ctx.globalAlpha = 1;
-
-  if (biomeId === 'glacial') {
-    peak(ctx, cx - rx * 0.1, cy + ry * 0.1, rx * 0.45, ry * 1.4);
-    peak(ctx, cx + rx * 0.35, cy + ry * 0.2, rx * 0.3, ry * 0.95);
-    for (let i = 0; i < 5; i++) pine(ctx, cx - rx * 0.6 + rng() * rx * 1.2, cy + ry * (0.25 + rng() * 0.3), 7 + rng() * 3);
-    ctx.fillStyle = '#ffffff';
-    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.ellipse(cx + (rng() - 0.5) * rx * 2.6, cy + ry * (0.9 + rng() * 0.3), 4 + rng() * 4, 2 + rng() * 2, 0, 0, Math.PI * 2); ctx.fill(); }
-  } else if (biomeId === 'cliff_cove') {
-    // Grey cliffs with a lighthouse on the headland.
-    ctx.fillStyle = '#a19b90';
-    blob(ctx, cx + rx * 0.25, cy - ry * 0.05, rx * 0.45, ry * 0.5, makeSeededRng(stage + 21), 0.35); ctx.fill();
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    blob(ctx, cx + rx * 0.32, cy + ry * 0.06, rx * 0.35, ry * 0.35, makeSeededRng(stage + 22), 0.35); ctx.fill();
-    const lx = cx + rx * 0.3; const ly = cy - ry * 0.3;
-    ctx.fillStyle = '#f4efe6'; ctx.fillRect(lx - 3, ly - 16, 6, 16);
-    ctx.fillStyle = '#c0392b'; ctx.fillRect(lx - 3, ly - 11, 6, 3); ctx.fillRect(lx - 3, ly - 5, 6, 3);
-    ctx.fillStyle = '#ffe28a'; ctx.beginPath(); ctx.arc(lx, ly - 18, 3 + Math.sin(t * 3) * 0.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255, 226, 138, 0.25)'; ctx.beginPath(); ctx.arc(lx, ly - 18, 8, 0, Math.PI * 2); ctx.fill();
-    for (let i = 0; i < 4; i++) { ctx.fillStyle = '#4f7a3a'; ctx.beginPath(); ctx.arc(cx - rx * 0.5 + rng() * rx * 0.5, cy + (rng() - 0.3) * ry * 0.6, 4 + rng() * 3, 0, Math.PI * 2); ctx.fill(); }
-  } else if (biomeId === 'shipwreck') {
-    // A broken hull on the beach and masts jutting from the shallows.
-    ctx.save(); ctx.translate(cx - rx * 0.1, cy + ry * 0.35); ctx.rotate(-0.35);
-    ctx.fillStyle = '#5a3d22'; ctx.beginPath(); ctx.ellipse(0, 0, 16, 6, 0, 0, Math.PI); ctx.fill();
-    ctx.strokeStyle = '#3a2614'; ctx.lineWidth = 1.2;
-    for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(k * 5, 0); ctx.lineTo(k * 5 + 1, -7); ctx.stroke(); }
-    ctx.restore();
-    ctx.strokeStyle = '#4a3420'; ctx.lineWidth = 2; ctx.lineCap = 'round';
-    for (const [dx, dy, a] of [[rx * 0.95, ry * 0.7, -0.4], [-rx * 1.0, ry * 0.2, 0.3]]) {
-      ctx.beginPath(); ctx.moveTo(cx + dx, cy + dy); ctx.lineTo(cx + dx + Math.sin(a) * 14, cy + dy - 14); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(cx + dx + Math.sin(a) * 9 - 5, cy + dy - 9); ctx.lineTo(cx + dx + Math.sin(a) * 9 + 5, cy + dy - 9); ctx.stroke();
+function islandGrid(biomeId, stage) {
+  const sh = SHAPES[biomeId] || SHAPES.tropical;
+  const rng = makeSeededRng(0x1517 + stage * 7919);
+  const noise = makeValueNoise(Math.floor(rng() * 2 ** 31));
+  const cx = GW / 2; const cy = GH / 2 + 0.5;
+  const coveA = rng() * TAU;
+  const cove = { x: cx + Math.cos(coveA) * sh.rx * 0.85, y: cy + Math.sin(coveA) * sh.ry * 0.85, r: sh.cove * sh.ry };
+  const islets = Array.from({ length: sh.islets }, (_, i) => {
+    const a = coveA + Math.PI * (0.55 + i * 0.5) + (rng() - 0.5) * 0.5;
+    return { x: cx + Math.cos(a) * sh.rx * 1.3, y: cy + Math.sin(a) * sh.ry * 1.32, r: 1.3 + rng() * 0.9 };
+  });
+  const tiles = Array.from({ length: GH }, () => Array(GW).fill(0));
+  for (let y = 0; y < GH; y++) {
+    for (let x = 0; x < GW; x++) {
+      const px = x + 0.5; const py = y + 0.5;
+      const dx = (px - cx) / sh.rx; const dy = (py - cy) / sh.ry;
+      const a = Math.atan2(dy, dx);
+      const wob = (fbm(noise, Math.cos(a) * 1.4 + 3, Math.sin(a) * 1.4 + 7, 3) - 0.5) * sh.wob;
+      let land = Math.hypot(dx, dy) < 1 + wob;
+      if (land && Math.hypot(px - cove.x, py - cove.y) < cove.r) land = false;
+      if (!land) for (const s of islets) if (Math.hypot(px - s.x, py - s.y) < s.r) land = true;
+      if (x < 2 || y < 2 || x >= GW - 2 || y >= GH - 2) land = false;
+      tiles[y][x] = land ? 1 : 0;
     }
-    for (let i = 0; i < 3; i++) palm(ctx, cx - rx * 0.4 + rng() * rx * 0.8, cy - ry * 0.1 + rng() * ry * 0.3, 9, '#5d6e34', '#7a8a45');
-    ctx.fillStyle = '#e9e2cf';
-    ctx.beginPath(); ctx.arc(cx + rx * 0.35, cy - ry * 0.1, 3.2, 0, Math.PI * 2); ctx.fill(); // a skull
-    ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(cx + rx * 0.35 - 1.1, cy - ry * 0.15, 0.8, 0, Math.PI * 2); ctx.arc(cx + rx * 0.35 + 1.1, cy - ry * 0.15, 0.8, 0, Math.PI * 2); ctx.fill();
-  } else {
-    // Tropical: palms, a little jetty.
-    for (let i = 0; i < 5; i++) palm(ctx, cx - rx * 0.55 + rng() * rx * 1.1, cy - ry * 0.2 + rng() * ry * 0.5, 9 + rng() * 3);
-    ctx.fillStyle = '#8c5a2b'; ctx.fillRect(cx + rx * 0.7, cy + ry * 0.25, 16, 3);
-    ctx.fillStyle = '#e0766a'; ctx.beginPath(); ctx.arc(cx - rx * 1.1, cy + ry * 0.8, 2.5, 0, Math.PI * 2); ctx.fill();
   }
+  return { grid: { width: GW, height: GH, tiles }, seed: Math.floor(rng() * 2 ** 31), coveA };
+}
 
+// The most inland point: where the landmark goes.
+function heartOf(coast) {
+  let best = -Infinity; let bi = 0;
+  for (let i = 0; i < coast.data.length; i++) if (coast.data[i] > best) { best = coast.data[i]; bi = i; }
+  const cell = PW / coast.w;
+  return { x: ((bi % coast.w) + 0.5) * cell, y: (Math.floor(bi / coast.w) + 0.5) * cell, depth: best };
+}
+
+// --- Landmarks (drawn around a ground point, harbour-building style) ---
+
+function flag(ctx, x, y, h, cloth, emblem) {
+  ctx.strokeStyle = '#3b2211'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - h); ctx.stroke();
+  ctx.fillStyle = cloth;
+  ctx.beginPath(); ctx.moveTo(x, y - h); ctx.quadraticCurveTo(x + 8, y - h - 2, x + 16, y - h + 1);
+  ctx.lineTo(x + 15, y - h + 10); ctx.quadraticCurveTo(x + 8, y - h + 8, x, y - h + 10); ctx.closePath(); ctx.fill();
+  if (emblem) {
+    ctx.fillStyle = emblem;
+    ctx.beginPath(); ctx.arc(x + 8, y - h + 4.5, 2.2, 0, TAU); ctx.fill();
+    ctx.fillRect(x + 6.8, y - h + 6, 2.4, 1.6);
+  }
+}
+
+function pirateFort(ctx, x, y) {
+  shadow(ctx, x, y + 2, 30, 12);
+  // Palisade ring of sharpened stakes.
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * TAU;
+    const sx = x + Math.cos(a) * 26; const sy = y + Math.sin(a) * 11;
+    const front = Math.sin(a) > -0.2;
+    ctx.fillStyle = front ? '#8a5a2b' : '#6b4320';
+    ctx.fillRect(sx - 1.6, sy - 9, 3.2, 9);
+    ctx.beginPath(); ctx.moveTo(sx - 1.6, sy - 9); ctx.lineTo(sx, sy - 12); ctx.lineTo(sx + 1.6, sy - 9); ctx.fill();
+  }
+  box(ctx, x - 6, y + 2, 26, 15, 11, '#b08450', '#7a5a33', '#6f4a2a', '#4f341d');
+  ctx.fillStyle = '#2a170a'; ctx.fillRect(x - 10, y - 8, 7, 10);
+  barrel(ctx, x + 14, y + 3, 0.7); barrel(ctx, x + 19, y + 5, 0.6);
+  // Watchtower + black flag.
+  ctx.fillStyle = '#6b4320'; ctx.fillRect(x + 12, y - 26, 2.4, 26); ctx.fillRect(x + 20, y - 26, 2.4, 26);
+  ctx.fillStyle = '#8a5a2b'; ctx.fillRect(x + 10, y - 30, 14, 5);
+  flag(ctx, x + 17, y - 30, 20, '#1b1b22', '#f4efe6');
+}
+
+function iceSpires(ctx, x, y) {
+  shadow(ctx, x + 4, y + 2, 30, 10);
+  const spire = (sx, h, w) => {
+    ctx.fillStyle = '#bfe3f2';
+    ctx.beginPath(); ctx.moveTo(sx - w, y); ctx.lineTo(sx - w * 0.2, y - h); ctx.lineTo(sx + w, y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.moveTo(sx - w, y); ctx.lineTo(sx - w * 0.2, y - h); ctx.lineTo(sx - w * 0.1, y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(40, 110, 160, 0.35)';
+    ctx.beginPath(); ctx.moveTo(sx - w * 0.2, y - h); ctx.lineTo(sx + w, y); ctx.lineTo(sx + w * 0.3, y); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(sx - w * 0.2, y - h); ctx.lineTo(sx - w * 0.15, y - h * 0.4); ctx.stroke();
+  };
+  spire(x - 14, 30, 9); spire(x + 16, 24, 8); spire(x + 1, 46, 11);
+  // A frozen-in mast with a torn sail: someone didn't make it out.
+  ctx.strokeStyle = '#5a4a3a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x + 30, y + 6); ctx.lineTo(x + 34, y - 26); ctx.stroke();
+  ctx.fillStyle = 'rgba(235, 228, 210, 0.9)';
+  ctx.beginPath(); ctx.moveTo(x + 33, y - 22); ctx.lineTo(x + 43, y - 19); ctx.lineTo(x + 39, y - 11); ctx.lineTo(x + 33, y - 13); ctx.closePath(); ctx.fill();
+  // Snow cabin with a lit window and smoke.
+  box(ctx, x - 30, y + 8, 16, 9, 7, '#7a5a3a', '#4f3a26', '#f4f8fb', '#cfdde6');
+  ctx.fillStyle = '#ffd98a'; ctx.fillRect(x - 32, y + 1, 3, 3);
+  ctx.fillStyle = 'rgba(230, 236, 240, 0.7)';
+  for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(x - 25 + k * 2, y - 12 - k * 5, 2 + k, 0, TAU); ctx.fill(); }
+}
+
+function wreck(ctx, x, y) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(-0.5);
+  shadow(ctx, 0, 3, 34, 10);
+  // Hull on its side, split open with the ribs showing.
+  ctx.fillStyle = '#5a3d22';
+  ctx.beginPath(); ctx.moveTo(-34, 0); ctx.quadraticCurveTo(-30, -14, 0, -15); ctx.quadraticCurveTo(28, -14, 36, -2);
+  ctx.quadraticCurveTo(20, 8, -4, 8); ctx.quadraticCurveTo(-26, 8, -34, 0); ctx.fill();
+  ctx.fillStyle = '#7a5530';
+  ctx.beginPath(); ctx.moveTo(-30, -2); ctx.quadraticCurveTo(-26, -11, 0, -12); ctx.quadraticCurveTo(12, -12, 16, -9); ctx.lineTo(10, 3); ctx.quadraticCurveTo(-14, 5, -30, -2); ctx.fill();
+  ctx.fillStyle = '#2a1a0c';
+  ctx.beginPath(); ctx.moveTo(14, -10); ctx.quadraticCurveTo(26, -10, 32, -2); ctx.quadraticCurveTo(22, 5, 10, 4); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#a07a4a'; ctx.lineWidth = 1.6;
+  for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(14 + k * 5, 4 - k); ctx.quadraticCurveTo(17 + k * 5, -6, 14 + k * 5, -13 + k); ctx.stroke(); }
+  // Gunports
+  ctx.fillStyle = '#1a0f07';
+  for (let k = 0; k < 4; k++) ctx.fillRect(-24 + k * 8, -6, 3.5, 3);
+  // Broken mast and a tattered sail.
+  ctx.strokeStyle = '#4a3420'; ctx.lineWidth = 2.4;
+  ctx.beginPath(); ctx.moveTo(-6, -12); ctx.lineTo(-2, -40); ctx.stroke();
+  ctx.fillStyle = 'rgba(225, 214, 186, 0.92)';
+  ctx.beginPath(); ctx.moveTo(-3, -36); ctx.lineTo(10, -33); ctx.lineTo(7, -26); ctx.lineTo(9, -21); ctx.lineTo(-2, -22); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  // A skull-and-bones marker on the sand.
+  ctx.fillStyle = '#e9e2cf';
+  ctx.beginPath(); ctx.arc(x - 30, y + 16, 3.2, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(x - 31.1, y + 15.4, 0.8, 0, TAU); ctx.arc(x - 28.9, y + 15.4, 0.8, 0, TAU); ctx.fill();
+}
+
+function landmark(ctx, biomeId, p, t) {
+  if (biomeId === 'cliff_cove') {
+    ctx.save(); ctx.translate(p.x, p.y + 6); ctx.scale(0.72, 0.72); drawLighthouse(ctx, { x: 0, y: 0 }, t); ctx.restore();
+  } else if (biomeId === 'glacial') iceSpires(ctx, p.x, p.y + 6);
+  else if (biomeId === 'shipwreck') wreck(ctx, p.x, p.y + 4);
+  else pirateFort(ctx, p.x, p.y + 4);
+}
+
+const cache = new Map();
+function portrait(biomeId, stage, res) {
+  const key = `${biomeId}|${stage}|${res}`;
+  if (cache.has(key)) return cache.get(key);
+  const biome = getBiome(biomeId);
+  const { grid, seed } = islandGrid(biomeId, stage);
+  const coast = buildCoastField(grid, TILE, seed);
+  const terrain = buildTerrain(grid, TILE, seed, biome, coast);
+  const renderer = createTerrainRenderer(terrain, biome, { res });
+  const cv = document.createElement('canvas');
+  cv.width = Math.round(PW * res); cv.height = Math.round(PH * res);
+  const g = cv.getContext('2d');
+  g.scale(res, res);
+  renderer.draw(g, { left: 0, top: 0, right: PW, bottom: PH }, 0, { forceVisible: true });
+  // Keep only the island and its ring of shallows: water fades out with
+  // depth, so the portrait's edge follows the coast instead of a box.
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  const img = g.getImageData(0, 0, cv.width, cv.height);
+  const px = img.data;
+  for (let y = 0; y < cv.height; y++) {
+    for (let x = 0; x < cv.width; x++) {
+      const wx = (x + 0.5) / res; const wy = (y + 0.5) / res;
+      const d = -sampleField(coast, wx, wy);
+      // Distance to the portrait's own edge: fade out before reaching it.
+      const edge = Math.min(wx, wy, PW - wx, PH - wy);
+      let k = Math.min(1, Math.max(0, 1 - (d - 10) / 22), Math.max(0, (edge - 2) / 16));
+      if (k >= 1) continue;
+      k = k * k * (3 - 2 * k);
+      px[(y * cv.width + x) * 4 + 3] *= k;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  // The landmark sits on the island's heart, drawn over everything.
+  g.scale(res, res);
+  landmark(g, biomeId, heartOf(coast), 0);
+  cache.set(key, cv);
+  return cv;
+}
+
+// Draws the island for `stage` in `biomeId` into a w×h box. `locked`
+// sinks it into the fog.
+export function drawIsland(ctx, w, h, biomeId, stage, { locked = false } = {}) {
+  const tr = ctx.getTransform();
+  const devicePerWorld = (Math.hypot(tr.a, tr.b) * w) / PW;
+  const res = Math.min(3, Math.max(0.5, Math.ceil(devicePerWorld * 2) / 2));
+  const cv = portrait(biomeId, stage, res);
+  ctx.save();
+  // Fit the portrait's height to the box (it's slightly wider, by design).
+  const s = Math.min(w / PW, h / PH);
+  const dw = PW * s; const dh = PH * s;
+  ctx.drawImage(cv, (w - dw) / 2, (h - dh) / 2, dw, dh);
   if (locked) {
     ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = 'rgba(40, 60, 75, 0.62)';
+    ctx.fillStyle = 'rgba(34, 52, 68, 0.66)';
     ctx.fillRect(0, 0, w, h);
     ctx.globalCompositeOperation = 'source-over';
   }

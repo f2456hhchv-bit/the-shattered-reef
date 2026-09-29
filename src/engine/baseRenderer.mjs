@@ -12,12 +12,12 @@ import { FACTIONS } from '../data/factions.mjs';
 
 const TAU = Math.PI * 2;
 
-function shadow(ctx, x, y, rx, ry) {
+export function shadow(ctx, x, y, rx, ry) {
   ctx.fillStyle = 'rgba(10, 30, 20, 0.30)';
   ctx.beginPath(); ctx.ellipse(x + rx * 0.25, y + ry * 0.35, rx, ry, 0, 0, TAU); ctx.fill();
 }
 
-function box(ctx, x, y, w, h, roofH, wall, wallDark, roof, roofDark) {
+export function box(ctx, x, y, w, h, roofH, wall, wallDark, roof, roofDark) {
   // Front wall (x centred, y = ground line)
   ctx.fillStyle = wall; ctx.fillRect(x - w / 2, y - h, w, h);
   ctx.fillStyle = wallDark; ctx.fillRect(x - w / 2, y - 3, w, 3);
@@ -34,7 +34,7 @@ function box(ctx, x, y, w, h, roofH, wall, wallDark, roof, roofDark) {
   ctx.beginPath(); ctx.moveTo(x - w / 2 + 4, y - h - roofH); ctx.lineTo(x + w / 2 - 4, y - h - roofH); ctx.stroke();
 }
 
-function barrel(ctx, x, y, s = 1) {
+export function barrel(ctx, x, y, s = 1) {
   ctx.fillStyle = '#7a4a22'; ctx.beginPath(); ctx.ellipse(x, y, 5 * s, 6 * s, 0, 0, TAU); ctx.fill();
   ctx.fillStyle = '#a8703a'; ctx.beginPath(); ctx.ellipse(x - 0.5, y - 1, 4 * s, 4.5 * s, 0, 0, TAU); ctx.fill();
   ctx.strokeStyle = '#3b3f44'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x, y, 5 * s, 6 * s, 0, 0, TAU); ctx.stroke();
@@ -75,7 +75,7 @@ function drawShipyard(ctx, b, t) {
   for (let k = 0; k < 3; k++) ctx.fillRect(x - 44, y + 8 - k * 4, 18, 3);
 }
 
-function drawLighthouse(ctx, b, t) {
+export function drawLighthouse(ctx, b, t) {
   const { x, y } = b;
   shadow(ctx, x, y + 2, 20, 9);
   // Rocky base

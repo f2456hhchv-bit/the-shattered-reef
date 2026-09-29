@@ -3,6 +3,8 @@
 // deep, the title lands, and a wave washes over into the harbour.
 // Everything is drawn in code, in the game's palette. Tap to skip.
 
+import { viewH } from './viewport.mjs';
+
 const DURATION = 7.2; // seconds before it moves on by itself (once loaded)
 
 function lerp(a, b, t) { return a + (b - a) * t; }
@@ -13,60 +15,218 @@ function easeOutBack(t) { t = clamp01(t); const c = 1.7; return 1 + (c + 1) * (t
 function seeded(n) { let s = n; return () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; }
 
 // Side-on galleon, bow to the right. (x, y) is the waterline centre.
+// Redone 2026-09-29 (project owner: the first one looked "a bit poor"):
+// a raised stern castle and forecastle, planked and gilded hull with open
+// gunports and lit stern windows, three masts with yards, billowing sails
+// shaded against the rising sun, jibs and a spanker, shrouds and stays,
+// and a reflection in the water below.
+const SUN_SIDE = 1; // the sun is ahead-right of the ship: lit edges face +x
+
+function hullPath(ctx) {
+  ctx.beginPath();
+  ctx.moveTo(-86, -46); // stern castle top
+  ctx.lineTo(-52, -46);
+  ctx.lineTo(-50, -34); // step down to the quarterdeck
+  ctx.quadraticCurveTo(-10, -26, 44, -28); // the waist, low amidships
+  ctx.lineTo(48, -36); // forecastle
+  ctx.quadraticCurveTo(70, -37, 82, -42); // rising to the bow
+  ctx.quadraticCurveTo(90, -24, 92, 2); // cutwater
+  ctx.quadraticCurveTo(40, 8, -10, 8);
+  ctx.quadraticCurveTo(-60, 8, -78, 2);
+  ctx.quadraticCurveTo(-82, -20, -86, -46); // raked transom
+  ctx.closePath();
+}
+
+function sail(ctx, cx, top, w, h, belly, t, k) {
+  // A square sail on its yard, bellied forward by the wind.
+  const flutter = Math.sin(t * 2.2 + k) * 1.2;
+  const l = cx - w / 2; const r = cx + w / 2; const bot = top + h;
+  const g = ctx.createLinearGradient(l, 0, r, 0);
+  g.addColorStop(0, '#c7b08a'); g.addColorStop(0.45, '#f1e2c2'); g.addColorStop(0.8, '#fff6de'); g.addColorStop(1, '#ffe7b0');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(l, top);
+  ctx.quadraticCurveTo(cx, top - 2, r, top);
+  ctx.bezierCurveTo(r + belly + flutter, top + h * 0.3, r + belly * 0.8 + flutter, top + h * 0.75, r - 1, bot);
+  ctx.quadraticCurveTo(cx + belly * 0.5, bot + 5 + flutter, l + 1, bot);
+  ctx.bezierCurveTo(l + belly * 0.6, top + h * 0.7, l + belly * 0.5, top + h * 0.3, l, top);
+  ctx.fill();
+  // Belly shadow and a sunlit rim.
+  const bs = ctx.createRadialGradient(cx - w * 0.18, top + h * 0.6, 1, cx - w * 0.18, top + h * 0.6, w * 0.45);
+  bs.addColorStop(0, 'rgba(120, 88, 50, 0.22)'); bs.addColorStop(1, 'rgba(120, 88, 50, 0)');
+  ctx.fillStyle = bs; ctx.fillRect(l, top, w, h + 4);
+  ctx.strokeStyle = 'rgba(255, 214, 140, 0.9)'; ctx.lineWidth = 1.1;
+  ctx.beginPath(); ctx.moveTo(r, top); ctx.bezierCurveTo(r + belly + flutter, top + h * 0.3, r + belly * 0.8 + flutter, top + h * 0.75, r - 1, bot); ctx.stroke();
+  // Seams and reef bands.
+  ctx.strokeStyle = 'rgba(110, 80, 45, 0.28)'; ctx.lineWidth = 0.6;
+  for (let i = 1; i < 5; i++) {
+    const sx = l + (w * i) / 5;
+    ctx.beginPath(); ctx.moveTo(sx, top + 1); ctx.quadraticCurveTo(sx + belly * 0.45, top + h * 0.5, sx + belly * 0.2, bot + 2); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(l + 2, top + h * 0.22); ctx.quadraticCurveTo(cx + belly * 0.4, top + h * 0.26, r + belly * 0.4, top + h * 0.22); ctx.stroke();
+  // The yard.
+  ctx.strokeStyle = '#3b2211'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(l - 4, top); ctx.quadraticCurveTo(cx, top - 2, r + 4, top); ctx.stroke();
+}
+
+function drawGalleonShape(ctx, t) {
+  // --- Masts, back to front so the fore rigging overlaps ---
+  const masts = [
+    { x: -44, h: 138, sails: [[62, 30], [52, 26], [40, 20]] },
+    { x: 4, h: 176, sails: [[82, 38], [70, 32], [56, 26], [40, 18]] },
+    { x: 50, h: 150, sails: [[70, 34], [60, 28], [46, 22]] },
+  ];
+  const deckY = (x) => (x < -50 ? -46 : x > 48 ? -36 : -30);
+  // Stays and shrouds behind the sails.
+  ctx.strokeStyle = 'rgba(40, 25, 12, 0.55)'; ctx.lineWidth = 0.8;
+  for (const m of masts) {
+    const top = deckY(m.x) - m.h;
+    for (const dx of [-26, -16, -8]) { ctx.beginPath(); ctx.moveTo(m.x, top + 18); ctx.lineTo(m.x + dx, deckY(m.x) + 2); ctx.stroke(); }
+  }
+  ctx.beginPath();
+  ctx.moveTo(136, -70); ctx.lineTo(masts[2].x, deckY(50) - masts[2].h + 6);
+  ctx.lineTo(masts[1].x, deckY(4) - masts[1].h + 6); ctx.lineTo(masts[0].x, deckY(-44) - masts[0].h + 6);
+  ctx.lineTo(-92, -52); ctx.stroke();
+  // Spanker (fore-and-aft sail on the mizzen).
+  {
+    const mx = -44; const top = deckY(mx) - 96;
+    const g = ctx.createLinearGradient(-90, 0, mx, 0);
+    g.addColorStop(0, '#d9c49e'); g.addColorStop(1, '#fff1d0');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(mx - 2, top); ctx.lineTo(-96, top + 22); ctx.quadraticCurveTo(-80, top + 50, -92, deckY(mx) - 18); ctx.lineTo(mx - 2, deckY(mx) - 14); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#3b2211'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(mx, top); ctx.lineTo(-98, top + 22); ctx.moveTo(mx, deckY(mx) - 14); ctx.lineTo(-100, deckY(mx) - 18); ctx.stroke();
+  }
+  for (const [mi, m] of masts.entries()) {
+    const base = deckY(m.x); const top = base - m.h;
+    // Mast with a lit edge.
+    ctx.strokeStyle = '#3b2211'; ctx.lineWidth = 3.4;
+    ctx.beginPath(); ctx.moveTo(m.x, base); ctx.lineTo(m.x, top); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255, 200, 120, 0.5)'; ctx.lineWidth = 0.9;
+    ctx.beginPath(); ctx.moveTo(m.x + 1.2, base); ctx.lineTo(m.x + 1, top); ctx.stroke();
+    // Sails from the course up.
+    let y = base - 10;
+    m.sails.forEach(([w, h], k) => {
+      y -= h + 4;
+      sail(ctx, m.x, y, w, h, 7 - k, t, mi * 3 + k);
+    });
+    // Tops and a crow's nest on the main.
+    ctx.fillStyle = '#4a2c14';
+    ctx.fillRect(m.x - 8, base - m.sails[0][1] - 18, 16, 3);
+    if (mi === 1) { ctx.fillStyle = '#5a3616'; ctx.fillRect(m.x - 6, top + 24, 12, 7); ctx.fillStyle = '#7a4a24'; ctx.fillRect(m.x - 6, top + 24, 12, 2); }
+    // Long pennant from the truck.
+    const wv = (k) => Math.sin(t * 7 + k + mi) * 2.5;
+    ctx.fillStyle = mi === 1 ? '#b8322a' : '#c9402f';
+    ctx.beginPath(); ctx.moveTo(m.x, top);
+    const len = mi === 1 ? 44 : 28;
+    ctx.quadraticCurveTo(m.x - len * 0.5, top + 1 + wv(0), m.x - len, top + 2 + wv(1));
+    ctx.lineTo(m.x - len * 0.55, top + 5 + wv(2)); ctx.quadraticCurveTo(m.x - len * 0.3, top + 6 + wv(0), m.x, top + 7); ctx.fill();
+    ctx.fillStyle = '#e8b83a'; ctx.fillRect(m.x - 5, top + 2, 3, 3);
+  }
+  // Jibs from the foremast to the bowsprit.
+  for (const [k, [fy, bx, by]] of [[-104, 132, -66], [-80, 112, -54]].entries()) {
+    const g = ctx.createLinearGradient(50, 0, bx, 0);
+    g.addColorStop(0, '#e6d3ae'); g.addColorStop(1, '#fff5dc');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(52, fy); ctx.quadraticCurveTo(bx - 8 + Math.sin(t * 2 + k) * 2, (fy + by) / 2 + 6, bx, by);
+    ctx.lineTo(56, -40 - k * 6); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 214, 140, 0.8)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(52, fy); ctx.quadraticCurveTo(bx - 8, (fy + by) / 2 + 6, bx, by); ctx.stroke();
+  }
+  // Bowsprit + jib-boom.
+  ctx.strokeStyle = '#3b2211'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(80, -40); ctx.lineTo(140, -70); ctx.stroke();
+
+  // --- Hull ---
+  const hg = ctx.createLinearGradient(0, -46, 0, 8);
+  hg.addColorStop(0, '#8d5a2e'); hg.addColorStop(0.45, '#6a3f1f'); hg.addColorStop(1, '#2e1a0b');
+  ctx.fillStyle = hg; hullPath(ctx); ctx.fill();
+  ctx.save(); hullPath(ctx); ctx.clip();
+  // Planking following the sheer.
+  ctx.strokeStyle = 'rgba(30, 16, 6, 0.45)'; ctx.lineWidth = 0.7;
+  for (let i = 0; i < 9; i++) {
+    const o = -24 + i * 4;
+    ctx.beginPath(); ctx.moveTo(-90, o - 6); ctx.quadraticCurveTo(0, o + 2, 96, o - 12); ctx.stroke();
+  }
+  // Black wales and gilded rails.
+  ctx.fillStyle = '#1e140c';
+  ctx.beginPath(); ctx.moveTo(-90, -14); ctx.quadraticCurveTo(0, -4, 96, -22); ctx.lineTo(96, -18); ctx.quadraticCurveTo(0, 0, -90, -10); ctx.fill();
+  ctx.strokeStyle = '#e0ad48'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(-90, -28); ctx.quadraticCurveTo(0, -18, 96, -34); ctx.stroke();
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-90, -8); ctx.quadraticCurveTo(0, 2, 96, -16); ctx.stroke();
+  // Gunports: open, red-lidded, with a cannon muzzle in each.
+  for (let i = 0; i < 8; i++) {
+    const gx = -52 + i * 15; const gy = -20 + Math.pow((gx - 8) / 90, 2) * 6 - (gx > 40 ? (gx - 40) * 0.06 : 0);
+    ctx.fillStyle = '#9a2a1e'; ctx.fillRect(gx - 0.5, gy - 7.5, 7, 3); // raised lid
+    ctx.fillStyle = '#140b05'; ctx.fillRect(gx, gy - 4, 6, 5);
+    ctx.fillStyle = '#3a3d42'; ctx.beginPath(); ctx.arc(gx + 3, gy - 1.5, 1.5, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+  // Stern castle windows, glowing, and gilt carving.
+  for (let i = 0; i < 3; i++) {
+    ctx.fillStyle = `rgba(255, 214, 120, ${0.75 + Math.sin(t * 5 + i) * 0.15})`;
+    ctx.fillRect(-80 + i * 8, -40, 5, 6);
+  }
+  ctx.strokeStyle = '#e0ad48'; ctx.lineWidth = 1;
+  ctx.strokeRect(-82, -42, 26, 10);
+  // Stern lantern.
+  const lg = ctx.createRadialGradient(-88, -54, 0, -88, -54, 10);
+  lg.addColorStop(0, `rgba(255, 220, 130, ${0.8 + Math.sin(t * 6) * 0.15})`); lg.addColorStop(1, 'rgba(255, 220, 130, 0)');
+  ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(-88, -54, 10, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ffe28a'; ctx.fillRect(-90, -57, 4, 5);
+  // Figurehead.
+  ctx.fillStyle = '#e0ad48';
+  ctx.beginPath(); ctx.moveTo(84, -40); ctx.quadraticCurveTo(96, -44, 98, -36); ctx.quadraticCurveTo(92, -34, 86, -30); ctx.fill();
+  // Rails: a crisp dark outline and a sunlit top edge.
+  ctx.strokeStyle = '#1e1008'; ctx.lineWidth = 1.4; hullPath(ctx); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255, 200, 120, 0.7)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-50, -34); ctx.quadraticCurveTo(-10, -26, 44, -28); ctx.moveTo(48, -36); ctx.quadraticCurveTo(70, -37, 82, -42); ctx.stroke();
+  void SUN_SIDE;
+}
+
 function drawGalleon(ctx, x, y, s, t) {
+  const roll = Math.sin(t * 1.4) * 0.03;
+  // Reflection: the ship upside down, squashed and broken by the swell.
+  ctx.save();
+  ctx.translate(x, y + 4 * s);
+  ctx.beginPath(); ctx.rect(-140 * s, 0, 300 * s, 95 * s); ctx.clip();
+  ctx.globalAlpha = 0.13;
+  ctx.scale(s, -s * 0.62); ctx.rotate(-roll);
+  drawGalleonShape(ctx, t);
+  ctx.restore();
+  // Ripples across the reflection.
+  ctx.save();
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 9; i++) {
+    const yy = y + (8 + i * 9) * s;
+    // Each ripple is short and fades at its ends, so there's no hard box.
+    const half = (70 + ((i * 37) % 50)) * (1 - i * 0.06); const off = ((i * 53) % 60) - 20;
+    const rg = ctx.createLinearGradient(x + (off - half) * s, 0, x + (off + half) * s, 0);
+    rg.addColorStop(0, 'rgba(12, 80, 110, 0)'); rg.addColorStop(0.5, 'rgba(12, 80, 110, 0.5)'); rg.addColorStop(1, 'rgba(12, 80, 110, 0)');
+    ctx.strokeStyle = rg;
+    ctx.beginPath();
+    for (let xx = off - half; xx <= off + half; xx += 10) {
+      const py = yy + Math.sin(xx * 0.08 + t * 3 + i) * 1.4;
+      xx === off - half ? ctx.moveTo(x + xx * s, py) : ctx.lineTo(x + xx * s, py);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+  // The ship.
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(Math.sin(t * 1.4) * 0.035);
+  ctx.rotate(roll);
   ctx.scale(s, s);
-  // Hull
-  const hg = ctx.createLinearGradient(0, -18, 0, 12);
-  hg.addColorStop(0, '#7a4a24'); hg.addColorStop(1, '#3b2211');
-  ctx.fillStyle = hg;
-  ctx.beginPath();
-  ctx.moveTo(-70, -22); ctx.lineTo(-58, -22); ctx.lineTo(-54, -14); ctx.lineTo(52, -14);
-  ctx.quadraticCurveTo(70, -16, 84, -26); ctx.lineTo(78, -8);
-  ctx.quadraticCurveTo(60, 12, 0, 12); ctx.quadraticCurveTo(-52, 12, -66, 0); ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = '#26160b'; ctx.lineWidth = 1.5; ctx.stroke();
-  // Gold trim and gunports
-  ctx.strokeStyle = '#d9a441'; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.moveTo(-60, -6); ctx.quadraticCurveTo(0, 0, 76, -12); ctx.stroke();
-  ctx.fillStyle = '#1a0f07';
-  for (let i = 0; i < 6; i++) ctx.fillRect(-40 + i * 16, -3 + Math.abs(i - 2.5) * 0.4, 5, 4);
-  // Stern lantern
-  ctx.fillStyle = `rgba(255, 210, 110, ${0.7 + Math.sin(t * 6) * 0.2})`;
-  ctx.beginPath(); ctx.arc(-66, -26, 2.5, 0, Math.PI * 2); ctx.fill();
-  // Bowsprit
-  ctx.strokeStyle = '#3b2211'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(80, -22); ctx.lineTo(112, -36); ctx.stroke();
-  // Masts + sails, lit gold from the sunrise on their left edges.
-  const masts = [[-34, 78], [8, 96], [48, 74]];
-  for (const [mx, mh] of masts) {
-    ctx.strokeStyle = '#3b2211'; ctx.lineWidth = 2.4;
-    ctx.beginPath(); ctx.moveTo(mx, -14); ctx.lineTo(mx, -14 - mh); ctx.stroke();
-    for (let k = 0; k < 3; k++) {
-      const top = -14 - mh + 8 + k * (mh / 3.2); const hgt = mh / 3.6; const wdt = 26 - k * -3;
-      const billow = 5 + Math.sin(t * 2 + k + mx) * 1.5;
-      const sg = ctx.createLinearGradient(mx - wdt, 0, mx + wdt, 0);
-      sg.addColorStop(0, '#fff3d6'); sg.addColorStop(0.5, '#f1e2c0'); sg.addColorStop(1, '#bfae8e');
-      ctx.fillStyle = sg;
-      ctx.beginPath();
-      ctx.moveTo(mx - wdt, top);
-      ctx.lineTo(mx + wdt, top);
-      ctx.quadraticCurveTo(mx + wdt + billow, top + hgt / 2, mx + wdt - 2, top + hgt);
-      ctx.lineTo(mx - wdt + 2, top + hgt);
-      ctx.quadraticCurveTo(mx - wdt + billow, top + hgt / 2, mx - wdt, top);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(90, 60, 30, 0.5)'; ctx.lineWidth = 0.8; ctx.stroke();
-    }
-    // Flag
-    const fx = mx; const fy = -14 - mh;
-    ctx.fillStyle = '#c0392b';
-    ctx.beginPath(); ctx.moveTo(fx, fy); ctx.quadraticCurveTo(fx - 10, fy + 2 + Math.sin(t * 8 + mx) * 2, fx - 20, fy + 1); ctx.lineTo(fx - 20, fy + 7); ctx.quadraticCurveTo(fx - 10, fy + 8 + Math.sin(t * 8 + mx) * 2, fx, fy + 6); ctx.fill();
+  drawGalleonShape(ctx, t);
+  // Bow spray and a foam line along the waterline.
+  ctx.fillStyle = 'rgba(240, 252, 255, 0.85)';
+  for (let i = 0; i < 7; i++) {
+    const ph = (t * 1.6 + i / 7) % 1;
+    ctx.beginPath(); ctx.arc(92 + ph * 14 + i, 0 - Math.sin(ph * Math.PI) * 10, 1.6 * (1 - ph) + 0.6, 0, Math.PI * 2); ctx.fill();
   }
-  // Rigging
-  ctx.strokeStyle = 'rgba(40, 25, 12, 0.6)'; ctx.lineWidth = 0.7;
-  ctx.beginPath(); ctx.moveTo(112, -36); ctx.lineTo(48, -88); ctx.lineTo(8, -110); ctx.lineTo(-34, -92); ctx.lineTo(-66, -24); ctx.stroke();
+  ctx.fillStyle = 'rgba(235, 250, 255, 0.55)';
+  ctx.beginPath(); ctx.ellipse(10, 4, 90, 3.2, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
 
@@ -110,7 +270,7 @@ export function createIntro(root, { prepare, onDone, onFirstTap }) {
   let w = 0; let h = 0; let dpr = 1;
   function resize() {
     dpr = Math.min(2, window.devicePixelRatio || 1);
-    w = window.innerWidth; h = window.innerHeight;
+    w = window.innerWidth; h = viewH();
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
     cv.style.width = `${w}px`; cv.style.height = `${h}px`;
   }
@@ -166,13 +326,36 @@ export function createIntro(root, { prepare, onDone, onFirstTap }) {
     // Clouds, lit from below
     for (const c of clouds) {
       const cx = ((c.x + T * c.v) % 1.3 - 0.15) * w; const cy = c.y * h; const s = c.s * Math.min(w, h) * 0.09;
-      ctx.fillStyle = `rgba(${lerp(60, 255, dawn)}, ${lerp(50, 200, dawn)}, ${lerp(90, 170, dawn)}, 0.55)`;
-      for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(cx + (k - 1.5) * s * 0.7, cy + Math.sin(k * 2) * s * 0.15, s * 0.6, s * 0.28, 0, 0, Math.PI * 2); ctx.fill(); }
+      // Lit from below by the rising sun: warm underside, cooler crown.
+      const cg = ctx.createLinearGradient(0, cy - s * 0.45, 0, cy + s * 0.3);
+      cg.addColorStop(0, `rgba(${lerp(40, 150, dawn)}, ${lerp(40, 110, dawn)}, ${lerp(80, 150, dawn)}, 0.75)`);
+      cg.addColorStop(1, `rgba(${lerp(70, 255, dawn)}, ${lerp(50, 196, dawn)}, ${lerp(90, 150, dawn)}, 0.85)`);
+      ctx.fillStyle = cg;
+      ctx.beginPath();
+      for (let k = 0; k < 5; k++) {
+        const kx = cx + (k - 2) * s * 0.55; const ky = cy - Math.sin((k / 4) * Math.PI) * s * 0.28;
+        ctx.moveTo(kx + s * 0.5, ky); ctx.ellipse(kx, ky, s * 0.5, s * 0.34, 0, 0, Math.PI * 2);
+      }
+      ctx.fill();
     }
     // Far reef silhouettes: jagged "shattered" spires and palm islets
-    ctx.fillStyle = `rgb(${lerp(20, 70, dawn)}, ${lerp(20, 40, dawn)}, ${lerp(50, 80, dawn)})`;
+    // A hazy far range first, then the shattered spires.
+    ctx.fillStyle = `rgba(${lerp(40, 190, dawn)}, ${lerp(40, 110, dawn)}, ${lerp(80, 130, dawn)}, 0.55)`;
+    ctx.beginPath(); ctx.moveTo(0, horizon);
+    for (let x = 0; x <= w; x += w / 24) ctx.lineTo(x, horizon - h * 0.02 - Math.abs(Math.sin(x * 0.013 + 1.3)) * h * 0.045);
+    ctx.lineTo(w, horizon); ctx.fill();
+    const mg = ctx.createLinearGradient(0, horizon - h * 0.14, 0, horizon);
+    mg.addColorStop(0, `rgb(${lerp(20, 88, dawn)}, ${lerp(20, 48, dawn)}, ${lerp(50, 92, dawn)})`);
+    mg.addColorStop(1, `rgb(${lerp(14, 52, dawn)}, ${lerp(14, 30, dawn)}, ${lerp(36, 66, dawn)})`);
+    ctx.fillStyle = mg;
     const spire = (x, bw, bh) => { ctx.beginPath(); ctx.moveTo(x - bw, horizon); ctx.lineTo(x - bw * 0.3, horizon - bh); ctx.lineTo(x - bw * 0.05, horizon - bh * 0.7); ctx.lineTo(x + bw * 0.25, horizon - bh * 1.1); ctx.lineTo(x + bw, horizon); ctx.fill(); };
     spire(w * 0.12, w * 0.07, h * 0.1); spire(w * 0.2, w * 0.05, h * 0.06); spire(w * 0.86, w * 0.08, h * 0.13); spire(w * 0.95, w * 0.05, h * 0.07);
+    // Sunlit rims on the faces toward the sun.
+    ctx.strokeStyle = `rgba(255, 190, 120, ${0.55 * dawn})`; ctx.lineWidth = 1.5;
+    for (const [x0, bw, bh] of [[w * 0.12, w * 0.07, h * 0.1], [w * 0.86, w * 0.08, h * 0.13]]) {
+      ctx.beginPath(); ctx.moveTo(x0 + bw * 0.25, horizon - bh * 1.1); ctx.lineTo(x0 + bw, horizon); ctx.stroke();
+    }
+    ctx.fillStyle = mg;
     ctx.beginPath(); ctx.ellipse(w * 0.45, horizon, w * 0.09, h * 0.022, 0, Math.PI, 0); ctx.fill();
     for (const px of [0.42, 0.47]) {
       ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 2;
@@ -215,15 +398,13 @@ export function createIntro(root, { prepare, onDone, onFirstTap }) {
       for (let k = 0; k < 6; k++) { ctx.beginPath(); ctx.ellipse(tx + (k - 2.5) * 9, ty + Math.sin(T * 8 + k) * 1.5, 7, 2.5, 0, 0, Math.PI * 2); ctx.fill(); }
     }
     // --- The galleon sails in ---
-    const shipScale = Math.min(w / 520, h / 620) * 1.1 + 0.2;
+    const shipScale = Math.min(w / 560, h / 640) * 1.05 + 0.18;
     const shipX = lerp(-w * 0.35, w * 0.4, ease(T / 4.4)) + Math.max(0, T - 4.4) * 8;
     const shipY = horizon + h * 0.14 + Math.sin(T * 1.6) * 3;
     // Wake
     ctx.fillStyle = 'rgba(235, 252, 255, 0.35)';
     for (let k = 0; k < 8; k++) { ctx.beginPath(); ctx.ellipse(shipX - k * 26 * shipScale - 60 * shipScale, shipY + 8 * shipScale, (16 + k * 4) * shipScale, 3 * shipScale, 0, 0, Math.PI * 2); ctx.fill(); }
     drawGalleon(ctx, shipX, shipY, shipScale, T);
-    ctx.fillStyle = 'rgba(10, 60, 90, 0.35)';
-    ctx.fillRect(0, shipY + 10 * shipScale, w, 3);
     // Gulls
     for (const g of gulls) {
       const gx = ((g.x + T * g.v) % 1.3) * w; const gy = g.y * h + Math.sin(T * 2 + g.ph) * 6;
