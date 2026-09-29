@@ -1128,3 +1128,14 @@ body.in-td #hud, body.in-td #weapon-bar, body.in-td #pause-button, body.in-td #t
   #vc-defend span { font-size: 13px; }
   #vc-defend small { font-size: 9px; }
 }
+
+/* Voyage card de-squish (2026-09-29): stage name and boss on one line each,
+   and New Voyage + Defend share the bottom row evenly when a voyage is saved. */
+#stage-label { min-width: 0; }
+#stage-label span { display: block; }
+#stage-label em, #stage-label i { display: block; font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#stage-label i { font-size: .92em; opacity: .85; color: #ffb0a8; }
+#hub-stage-picker button { min-width: 40px; }
+#hub-continue { margin-top: 8px; }
+.vc-actions #hub-set-sail.secondary { flex: 1; min-height: 48px; font-size: 15px; }
+.vc-actions #hub-set-sail.secondary + #vc-defend { flex: 1; }

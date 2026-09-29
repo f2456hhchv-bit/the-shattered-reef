@@ -1134,7 +1134,10 @@ export function startApp(root) {
     selectedStage = Math.min(Math.max(1, selectedStage), meta.highestStageUnlocked);
     stageLabel.querySelector('strong').textContent = `Stage ${selectedStage}`;
     const cleared = selectedStage < meta.highestStageUnlocked;
-    stageLabel.querySelector('span').textContent = `${stageName(selectedStage)} · boss: ${getEnemy(bossForStage(selectedStage)).name}${cleared ? ' · Cleared ✓' : ''}`;
+    // Two short single lines, not one long wrapping one (it wrapped to three on phones).
+    stageLabel.querySelector('span').innerHTML = `<em></em><i></i>`;
+    stageLabel.querySelector('em').textContent = `${stageName(selectedStage)}${cleared ? ' ✓' : ''}`;
+    stageLabel.querySelector('i').textContent = `☠ ${getEnemy(bossForStage(selectedStage)).name}`;
     stagePrevBtn.disabled = selectedStage <= 1;
     stageNextBtn.disabled = selectedStage >= meta.highestStageUnlocked;
     renderVoyagePreview(selectedStage);

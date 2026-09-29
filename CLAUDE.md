@@ -2260,7 +2260,13 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   costs, the boss HP multiplier (×4.6) and the 20s wave gap. There's no
   TD-specific music yet; each map uses its biome's sea and lair themes.
 
-## Decisions log
+- **Phase:** voyage card tidy (project owner, phone screenshot: "looking
+  squished"). The stage line wrapped to three lines between the arrows;
+  now the stage name and "☠ boss" sit on one line each, with ellipsis.
+  With a saved voyage, New Voyage and Defend share the bottom row evenly.
+  Known: on a 375×553 screen the harbour labels still overlap once the
+  Continue button shows (the card is taller there).
+
 
 *(Entries from the archived card-game project's own decisions log live in
 that project's history — see `archive/card-game-vertical-slice/` and this
