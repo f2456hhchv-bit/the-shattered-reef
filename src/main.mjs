@@ -9,6 +9,7 @@ import { viewH, installViewportFix } from './ui/viewport.mjs';
 import { chooseAutoFire, trackEnemyMotion } from './engine/aim.mjs';
 import { playMusic, currentMusic } from './audio/music.mjs';
 import { musicFor } from './data/music.mjs';
+import { saveVoyage, loadVoyage, peekVoyage, clearVoyage } from './engine/save.mjs';
 import { rollUpgradeChoices, applyUpgrade, upgradeLevel } from './engine/upgrades.mjs';
 import { UPGRADE_BY_ID } from './data/upgrades.mjs';
 import { ARMAMENT_BY_ID, ARMAMENT_MAX_LEVEL } from './data/armaments.mjs';
@@ -146,6 +147,60 @@ export function startApp(root) {
   // Every early gesture retries the unlock: iOS can need more than one.
   for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, unlockAudio, { capture: true, passive: true });
 
+  // No text selection, copy/paste callouts or magnifier on long presses
+  // (2026-09-29 playtest: "copy and paste/select comes up on touch"). Only
+  // things marked .selectable (the level codes) can be selected.
+  const allowSelect = (t) => !!(t && t.closest && t.closest('.selectable'));
+  document.addEventListener('selectstart', (e) => { if (!allowSelect(e.target)) e.preventDefault(); });
+  document.addEventListener('contextmenu', (e) => { if (!allowSelect(e.target)) e.preventDefault(); });
+  for (const g of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(g, (e) => e.preventDefault());
+  document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
+
+  // Pause (2026-09-29): a button in the corner during play, a menu while
+  // paused, and "save & return to harbour" to pick the voyage up later.
+  const pauseButton = document.createElement('button');
+  pauseButton.id = 'pause-button';
+  pauseButton.type = 'button';
+  pauseButton.setAttribute('aria-label', 'Pause');
+  pauseButton.textContent = '❚❚';
+  root.appendChild(pauseButton);
+  const pauseMenu = document.createElement('div');
+  pauseMenu.id = 'pause-menu';
+  pauseMenu.hidden = true;
+  pauseMenu.innerHTML = `
+    <div class="pm-card" role="dialog" aria-modal="true" aria-labelledby="pm-title">
+      <h1 id="pm-title">Paused</h1>
+      <p id="pm-where"></p>
+      <div id="pm-kit"></div>
+      <button type="button" id="pm-resume" class="pm-primary">▶ Resume</button>
+      <button type="button" id="pm-sound" class="pm-btn"></button>
+      <button type="button" id="pm-harbour" class="pm-btn">⚓ Save &amp; return to harbour</button>
+      <p class="pm-note">Your voyage is saved. Continue it from the harbour any time.</p>
+      <button type="button" id="pm-abandon" class="pm-btn pm-danger">Abandon voyage</button>
+    </div>`;
+  root.appendChild(pauseMenu);
+  const countdownEl = document.createElement('div');
+  countdownEl.id = 'resume-countdown';
+  countdownEl.hidden = true;
+  root.appendChild(countdownEl);
+  // A small in-game confirm (the browser's own is ugly and blocks audio).
+  const confirmEl = document.createElement('div');
+  confirmEl.id = 'confirm-dialog';
+  confirmEl.hidden = true;
+  confirmEl.innerHTML = `<div class="cd-card" role="alertdialog" aria-modal="true"><p id="cd-text"></p><div class="cd-row"><button type="button" id="cd-cancel" class="pm-btn">Cancel</button><button type="button" id="cd-ok" class="pm-primary"></button></div></div>`;
+  root.appendChild(confirmEl);
+  function askConfirm(text, okLabel) {
+    return new Promise((resolve) => {
+      confirmEl.querySelector('#cd-text').textContent = text;
+      confirmEl.querySelector('#cd-ok').textContent = okLabel;
+      confirmEl.hidden = false;
+      const done = (v) => { confirmEl.hidden = true; ok.removeEventListener('click', yes); cancel.removeEventListener('click', no); resolve(v); };
+      const ok = confirmEl.querySelector('#cd-ok'); const cancel = confirmEl.querySelector('#cd-cancel');
+      const yes = () => done(true); const no = () => done(false);
+      ok.addEventListener('click', yes); cancel.addEventListener('click', no);
+    });
+  }
+
   const upgradeOverlay = document.createElement('div');
   upgradeOverlay.id = 'upgrade-pick';
   upgradeOverlay.hidden = true;
@@ -205,6 +260,7 @@ export function startApp(root) {
           </div>
         </div>
       </div>
+      <button type="button" id="hub-continue" hidden>▶ Continue voyage<small></small></button>
       <button type="button" id="hub-set-sail">▶ Set Sail</button>
     </div>
     <div id="base-panel" hidden>
@@ -253,6 +309,7 @@ export function startApp(root) {
   const hubWorkshop = hubOverlay.querySelector('#hub-workshop');
   const hubLog = hubOverlay.querySelector('#hub-log');
   const hubSetSailBtn = hubOverlay.querySelector('#hub-set-sail');
+  const continueBtn = hubOverlay.querySelector('#hub-continue');
   const stagePrevBtn = hubOverlay.querySelector('#stage-prev');
   const stageNextBtn = hubOverlay.querySelector('#stage-next');
   const stageLabel = hubOverlay.querySelector('#stage-label');
@@ -368,6 +425,19 @@ export function startApp(root) {
   const meta = loadMeta(window.localStorage);
   let run = createRun(Date.now() & 0xffffffff, resolveLoadout(meta));
   let sailing = false;
+  // Pause and save (2026-09-29). `voyageActive`: a voyage is under way (or
+  // sunk and waiting on retry / give up) and should be saved. `paused`
+  // freezes the simulation; `resumeIn` is the short "3, 2, 1" before play
+  // picks up again, so a resume never drops you straight into a hit.
+  let voyageActive = false;
+  let paused = false;
+  let resumeIn = 0;
+  let pendingChoice = null;
+  let autosaveTimer = 0;
+  function saveCurrentVoyage() {
+    if (!voyageActive) return;
+    saveVoyage(window.localStorage, run, { pendingChoice });
+  }
   const camera = createCamera();
 
   // Screen bands covered by HUD, fed to the camera so it frames the boat in
@@ -591,6 +661,8 @@ export function startApp(root) {
   function offerChoices(title, sub, choices) {
     if (!choices.length) { if (sub) showToast(`${title} ${sub}`); return false; }
     sailing = false;
+    pendingChoice = { title, sub, choices };
+    saveCurrentVoyage();
     upgradeOverlay.querySelector('#up-title').textContent = title;
     upgradeOverlay.querySelector('.up-sub').textContent = sub;
     const cards = upgradeOverlay.querySelector('#up-cards');
@@ -610,6 +682,8 @@ export function startApp(root) {
         if (c.kind === 'armament') grantArmament(run, c.id); else applyUpgrade(run, c.id);
         snapshotLevelStart(run);
         upgradeOverlay.hidden = true;
+        pendingChoice = null;
+        saveCurrentVoyage();
         playPickupWeapon();
         showToast(`${v.icon} ${v.name}${c.kind === 'armament' && armamentLevel(run, c.id) > 1 ? ` Lv ${armamentLevel(run, c.id)}` : ''}!`);
         updateHullBar(); updateWeaponBar(); renderUpgradeStrip();
@@ -739,8 +813,9 @@ export function startApp(root) {
   }
 
   // Weather events: announce, and feed hits through the usual feedback.
+  let weatherChipEl = null;
   function handleWeather(wx) {
-    const chip = document.getElementById('weather-chip');
+    const chip = weatherChipEl || (weatherChipEl = document.getElementById('weather-chip'));
     const act = run.weather && run.weather.active;
     if (act && act !== announcedWeather) {
       const d = act.def;
@@ -748,7 +823,9 @@ export function startApp(root) {
       playWeatherWarning();
       chip.textContent = `${d.icon} ${d.name}`; chip.hidden = false;
     }
-    if (!act) chip.hidden = true;
+    // Only touch the DOM on a change: writing `hidden` every frame forced a
+    // style recalculation every frame (2026-09-29 "jumpy" playtest).
+    if (!act && !chip.hidden) chip.hidden = true;
     announcedWeather = act || null;
     let hullHit = 0;
     for (const h of wx.boatHits) {
@@ -1184,6 +1261,8 @@ export function startApp(root) {
     selectedStage = meta.highestStageUnlocked;
     rollNextRunSeed();
     renderHub();
+    renderContinue();
+    paused = false; pauseMenu.hidden = true; countdownEl.hidden = true;
     hubOverlay.classList.add('show');
     document.body.classList.add('in-hub');
     playMusic('harbour');
@@ -1216,9 +1295,115 @@ export function startApp(root) {
     updateReefIndicator();
     updateWeaponBar();
     renderUpgradeStrip(); upgradeOverlay.hidden = true;
+    pendingChoice = null; paused = false; resumeIn = 0; pauseMenu.hidden = true;
+    voyageActive = true;
+    saveCurrentVoyage();
     sailing = true;
   }
-  hubSetSailBtn.addEventListener('click', startRun);
+  // Setting sail with a voyage still saved: that voyage is abandoned (its
+  // banked Salvage is kept, as if you'd given up), after asking.
+  hubSetSailBtn.addEventListener('click', async () => {
+    const saved = peekVoyage(window.localStorage);
+    if (saved) {
+      if (!await askConfirm(`Abandon your voyage in progress (Stage ${saved.stage || 1} – Level ${saved.reefIndex + 1})? Salvage you've banked is kept.`, 'Abandon & set sail')) return;
+      abandonSavedVoyage();
+    }
+    startRun();
+  });
+  function abandonSavedVoyage() {
+    const got = loadVoyage(window.localStorage);
+    if (got) { recordRunResult(meta, got.run); saveMeta(window.localStorage, meta); }
+    clearVoyage(window.localStorage);
+  }
+  // Continue a saved voyage exactly where it was left.
+  function continueVoyage() {
+    const got = loadVoyage(window.localStorage);
+    if (!got) { clearVoyage(window.localStorage); renderContinue(); return; }
+    run = got.run;
+    camera.x = run.boat.x; camera.y = run.boat.y;
+    particles = createParticlePool();
+    damageNumbers = createDamageNumberPool();
+    shake.trauma = 0; hitStop.remaining = 0;
+    aimTarget = null; aimHeading = null;
+    hubOverlay.classList.remove('show');
+    document.body.classList.remove('in-hub');
+    if (worldMap.isOpen()) worldMap.close(false);
+    setStatus(levelStartStatus());
+    updateHullBar(); updateSalvageCounter(); updateReefIndicator(); updateWeaponBar();
+    renderUpgradeStrip(); upgradeOverlay.hidden = true;
+    voyageActive = true; paused = false; pauseMenu.hidden = true;
+    pendingChoice = null;
+    if (run.over) { sailing = false; showRunSummary(false); return; }
+    sailing = true;
+    if (got.pendingChoice && got.pendingChoice.choices?.length) {
+      offerChoices(got.pendingChoice.title, got.pendingChoice.sub, got.pendingChoice.choices);
+    } else {
+      startCountdown();
+    }
+    showToast(`Welcome back — ${stageLevelText()}`);
+  }
+  function renderContinue() {
+    const saved = peekVoyage(window.localStorage);
+    continueBtn.hidden = !saved;
+    hubSetSailBtn.classList.toggle('secondary', !!saved);
+    hubSetSailBtn.textContent = saved ? 'New voyage' : '▶ Set Sail';
+    if (saved) continueBtn.querySelector('small').textContent = `Stage ${saved.stage || 1} · Level ${saved.reefIndex + 1}/${saved.reefCount || 5}${saved.over ? ' · sunk' : ''}`;
+  }
+  continueBtn.addEventListener('click', continueVoyage);
+
+  function pauseGame() {
+    if (!sailing || run.over || paused || !upgradeOverlay.hidden) return;
+    paused = true; resumeIn = 0; countdownEl.hidden = true;
+    joystick.reset?.();
+    pauseMenu.querySelector('#pm-where').textContent = stageLevelText();
+    const kit = pauseMenu.querySelector('#pm-kit');
+    const items = [
+      ...Object.entries(run.armaments || {}).map(([id, n]) => `${ARMAMENT_BY_ID[id].icon} ${ARMAMENT_BY_ID[id].name}${n > 1 ? ` Lv ${n}` : ''}`),
+      ...Object.entries(run.upgrades || {}).map(([id, n]) => `${UPGRADE_BY_ID[id].icon} ${UPGRADE_BY_ID[id].name}${n > 1 ? ` ×${n}` : ''}`),
+    ];
+    kit.replaceChildren(...items.map((t) => { const s = document.createElement('span'); s.textContent = t; return s; }));
+    kit.hidden = !items.length;
+    refreshPauseSound();
+    pauseMenu.hidden = false;
+    saveCurrentVoyage();
+  }
+  function refreshPauseSound() {
+    pauseMenu.querySelector('#pm-sound').textContent = isMuted() ? '🔇 Sound: off' : '🔊 Sound: on';
+  }
+  function startCountdown() {
+    resumeIn = 1.5;
+    countdownEl.hidden = false;
+  }
+  function resumeGame() {
+    if (!paused) return;
+    paused = false;
+    pauseMenu.hidden = true;
+    startCountdown();
+  }
+  pauseButton.addEventListener('click', (e) => { e.stopPropagation(); pauseGame(); });
+  pauseMenu.querySelector('#pm-resume').addEventListener('click', resumeGame);
+  pauseMenu.querySelector('#pm-sound').addEventListener('click', () => {
+    setMuted(!isMuted());
+    window.localStorage.setItem(MUTE_STORAGE_KEY, isMuted() ? '1' : '0');
+    refreshMuteButton(); refreshPauseSound();
+  });
+  pauseMenu.querySelector('#pm-harbour').addEventListener('click', () => {
+    saveCurrentVoyage();
+    voyageActive = false; paused = false; pauseMenu.hidden = true;
+    openHub();
+    showToast('Voyage saved — Continue it from the harbour ⚓');
+  });
+  pauseMenu.querySelector('#pm-abandon').addEventListener('click', async () => {
+    if (!await askConfirm('Abandon this voyage? Salvage you have banked is kept; anything not yet banked is lost.', 'Abandon voyage')) return;
+    recordRunResult(meta, run); saveMeta(window.localStorage, meta);
+    clearVoyage(window.localStorage);
+    voyageActive = false; paused = false; pauseMenu.hidden = true;
+    openHub();
+  });
+  // Leaving the app (home button, a call, switching apps) pauses and saves.
+  const onHide = () => { if (document.visibilityState === 'hidden') { if (sailing && !run.over && upgradeOverlay.hidden) pauseGame(); saveCurrentVoyage(); } };
+  document.addEventListener('visibilitychange', onHide);
+  window.addEventListener('pagehide', () => { if (sailing && !run.over && upgradeOverlay.hidden) pauseGame(); saveCurrentVoyage(); });
   // Testing only (never reachable from the UI): sail straight into any
   // stage's level, skipping the unlock and the earlier levels.
   window.__shatteredReefSailStage = (stage, level = 0) => {
@@ -1252,7 +1437,7 @@ export function startApp(root) {
       <p>Weapons found: ${heldNiche.length ? heldNiche.map((id) => getWeapon(id).name).join(', ') : 'None'}</p>
       ${run.bossDefeated ? `<p>${bossName(run)} sunk — 1 Kraken Scale earned 🦑</p>` : ''}
       <p>Salvage in the Harbour: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}</p>
-      <p class="level-codes">Level codes: ${run.levelCodes.map((c) => `<code>${c}</code>`).join(' ')}</p>
+      <p class="level-codes selectable">Level codes: ${run.levelCodes.map((c) => `<code>${c}</code>`).join(' ')}</p>
     ` : `
       <p>Retry Level ${run.reefIndex + 1} on a new reef, with your hull repaired and the weapons you arrived with. Levels already cleared stay cleared.</p>
       ${run.reefSalvage > 0 ? `<p class="lost">Salvage lost with the ship: ${Math.round(run.reefSalvage)}</p>` : ''}
@@ -1269,9 +1454,11 @@ export function startApp(root) {
       const unlockedBefore = meta.highestStageUnlocked;
       recordRunResult(meta, run);
       saveMeta(window.localStorage, meta);
+      clearVoyage(window.localStorage); voyageActive = false;
       showRunSummary(meta.highestStageUnlocked > unlockedBefore);
     } else {
       playSunk();
+      saveCurrentVoyage(); // sunk: come back to the same retry / give-up choice
       showRunSummary(false);
     }
   }
@@ -1280,6 +1467,7 @@ export function startApp(root) {
       recordRunResult(meta, run);
       saveMeta(window.localStorage, meta);
     }
+    clearVoyage(window.localStorage); voyageActive = false;
     summaryOverlay.classList.remove('show');
     openHub();
   });
@@ -1296,6 +1484,8 @@ export function startApp(root) {
     updateHullBar(); updateSalvageCounter(); updateReefIndicator(); updateWeaponBar();
     renderUpgradeStrip(); upgradeOverlay.hidden = true;
     sailing = true;
+    saveCurrentVoyage();
+    startCountdown();
   });
 
   // A tiny debug hook for headless/automated testing — not user-facing,
@@ -1447,9 +1637,19 @@ export function startApp(root) {
     // simulation, never the Hub/summary screens or the juice systems
     // themselves — a brief freeze on a big hit should still let its own
     // particles/shake play out smoothly rather than freezing with them.
-    const dt = (sailing && !run.over) ? applyHitStop(hitStop, rawDt) : rawDt;
+    if (resumeIn > 0 && !paused) {
+      resumeIn -= rawDt;
+      countdownEl.textContent = resumeIn > 1 ? '3' : resumeIn > 0.5 ? '2' : '1';
+      if (resumeIn <= 0) countdownEl.hidden = true;
+    }
+    const live = sailing && !run.over && !paused && resumeIn <= 0;
+    const showPause = sailing && !run.over;
+    if (pauseButton.hidden === showPause) pauseButton.hidden = !showPause;
+    const dt = live ? applyHitStop(hitStop, rawDt) : rawDt;
 
-    if (sailing && !run.over) {
+    if (live) {
+      autosaveTimer += rawDt;
+      if (autosaveTimer > 6) { autosaveTimer = 0; saveCurrentVoyage(); }
       const wmods = weatherModifiers(run.weather);
       run.boat.sightMult = wmods.sight;
       const tuning = statusTuning(run.tuning, run.boat, wmods.turn);
@@ -1706,6 +1906,7 @@ export function startApp(root) {
           updateSalvageCounter();
           updateWeaponBar();
           playReefCleared();
+          saveCurrentVoyage();
           offerUpgrades(`Level ${run.reefIndex} cleared!`, `+${Math.round(bankedThisReef)} Salvage banked${boss ? ` · next: ${getEnemy(boss.defId).name}'s lair` : ''}`);
         }
       }
@@ -1783,7 +1984,11 @@ export function startApp(root) {
 
     // Stream the rest of the reef's terrain in the background, one chunk a
     // frame, so scrolling never reveals an unrendered chunk.
-    terrainRenderer.prewarm(camera.x, camera.y, 3);
+    // Adaptive: only spend what's left of this frame's budget, so a busy
+    // frame never also pays for terrain (it streamed at a fixed 3ms before,
+    // which tipped heavy frames over 16ms on phones).
+    const spent = performance.now() - now;
+    terrainRenderer.prewarm(camera.x, camera.y, Math.max(0, Math.min(3, 11 - spent)));
 
     requestAnimationFrame(frame);
   }

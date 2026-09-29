@@ -2124,6 +2124,58 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     Verified live that the track switches per stage and in the lair.
 - **Next up:** listen on the phone and flag any theme that grates.
 
+- **Phase:** pause, save/resume, touch and smoothness fixes (project owner
+  playtest on iPhone: "copy and paste/select comes up on touch… play feels
+  a bit jumpy… no pause button… no menu when paused… no exit level… finish
+  where you left off").
+- **Just shipped:**
+  - **No text selection or callouts:** `user-select: none` and
+    `-webkit-touch-callout: none` everywhere. `selectstart`,
+    `contextmenu`, iOS `gesture*` and double-tap are blocked. Only
+    `.selectable` (the level codes) can be selected.
+  - **Pause:** a 44px ❚❚ button top-right while sailing. The menu has
+    Resume (with a 3-2-1 countdown so you never resume into a hit),
+    Sound on/off, "Save & return to harbour" and "Abandon voyage" (with a
+    confirm). Leaving the app (`visibilitychange`/`pagehide`) pauses and
+    saves.
+  - **Save & resume** (`engine/save.mjs`):
+    - The whole run is saved mid-level: boat position, hull and statuses,
+      every enemy's position/health/phase, pickups, kit, upgrades,
+      armaments and at-risk Salvage. The layout and coast are rebuilt
+      from the level seed; shots in flight and the current weather are
+      dropped.
+    - Saves happen every 6s, on pause, on level clear, when a choice
+      opens (a pending card choice is re-offered on resume) and on
+      sinking (you come back to retry / give up).
+    - The harbour shows "▶ Continue voyage · Stage N · Level M", and
+      Set Sail becomes "New voyage", which asks before abandoning.
+      Abandoning records the voyage (banked Salvage kept).
+    - Save format v1 (`shatteredReef.voyage.v1`); `ensureEnemyIdsAbove`
+      stops restored enemy ids clashing with new summons.
+    - `tests/save.test.mjs` round-trips a mid-level run.
+  - **Smoothness** (profiled with CPU throttling and a trace):
+    - The weather chip's `hidden` was written every frame, forcing a
+      style recalc every frame. It now changes only on events, and the
+      pause button likewise.
+    - `unlockAudio` redid the whole iOS unlock (buffer source plus a music
+      tick) on every touch, all game long. It now stops once the context
+      is running.
+    - The AnalyserNode (a test hook) ran constantly; it's now created only
+      when asked for.
+    - Terrain chunk streaming spent a fixed 3ms per frame in 24-row
+      bands, which could overshoot on a phone. It now uses whatever is
+      left of an 11ms frame budget (0-3ms), in 10-row bands.
+  - The HUD status line is kept clear of the mute and pause buttons.
+  - 394/394 tests. Playtest, 10/10 checks:
+    - pause freezes the game, and Resume counts down
+    - save → harbour → **page reload** → Continue restores the exact
+      position, hull, level and enemy count
+    - backgrounding the tab pauses
+    - text selection is off
+- **Next up:** check the jumpiness on the phone. If it persists, the next
+  suspects are GC from per-frame allocations (particles, gradients) and
+  the music scheduler.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2774,6 +2826,11 @@ Starting fresh below for the new game.)*
 - 2026-09-29: Stages carry their own biome and scaling in data, and past
   the table they cycle. A generated "stage 11 in a random biome" would
   have needed rosters for biomes that have none.
+
+- 2026-09-29: Saving is mid-level and exact (not "restart the level"),
+  because the owner asked to "finish where you left off". The world is
+  rebuilt from the level seed rather than stored, which keeps a save
+  small (a few KB).
 
 ## Known open questions (do not silently resolve — ask)
 

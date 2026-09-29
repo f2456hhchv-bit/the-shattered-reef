@@ -198,6 +198,7 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
     // several frames). Returns true once every chunk is rendered.
     prewarm(cx, cy, budgetMs = 3) {
       const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      if (budgetMs <= 0) return false;
       const deadline = now() + budgetMs;
       while (now() < deadline) {
         if (!job || chunks[job.cj * cols + job.ci]) {
@@ -205,7 +206,7 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
           if (k < 0) { job = null; return true; }
           job = startChunk(k % cols, (k / cols) | 0);
         }
-        shadeRows(job, Math.min(job.H, job.row + 24));
+        shadeRows(job, Math.min(job.H, job.row + 10));
         if (job.row >= job.H) { chunks[job.cj * cols + job.ci] = finishChunk(job); job = null; }
       }
       return false;

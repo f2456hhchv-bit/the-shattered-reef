@@ -27,7 +27,6 @@ function getCtx() {
   if (!AudioContextClass) return null; // no WebAudio support — every cue below no-ops
   ctx = new AudioContextClass();
   master = ctx.createGain(); master.gain.value = masterMuted ? 0 : 1; master.connect(ctx.destination);
-  analyser = ctx.createAnalyser(); analyser.fftSize = 2048; master.connect(analyser);
   sfxBus = ctx.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
   musicBus = ctx.createGain(); musicBus.gain.value = 0.55; musicBus.connect(master);
   return ctx;
@@ -35,6 +34,9 @@ function getCtx() {
 
 // Testing/diagnostics: current output level (RMS and peak, 0..1).
 export function audioLevel() {
+  // The analyser is only created when asked for (tests): running one all
+  // the time cost the audio thread for nothing.
+  if (ctx && !analyser) { analyser = ctx.createAnalyser(); analyser.fftSize = 2048; master.connect(analyser); }
   if (!analyser) return { state: ctx ? ctx.state : 'none', rms: 0, peak: 0 };
   const buf = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(buf);
   let sum = 0, peak = 0; for (const v of buf) { sum += v * v; peak = Math.max(peak, Math.abs(v)); }
@@ -68,14 +70,19 @@ function enablePlaybackSession() {
 // needs a second gesture, and a context suspended in the background has
 // to be resumed again on return.
 export function unlockAudio() {
+  // Already running: nothing to do. (It used to redo the whole unlock on
+  // every touch, all game long — a small hitch on each joystick release.)
+  if (ctx && ctx.state === 'running' && unlockedOnce) return;
   const c = getCtx();
   if (!c) return;
+  if (c.state === 'running') unlockedOnce = true;
   enablePlaybackSession();
   if (c.state !== 'running') { const p = c.resume(); if (p && p.catch) p.catch(() => {}); }
   // A one-sample silent buffer: the documented way to fully unlock iOS.
   try { const b = c.createBuffer(1, 1, 22050); const src = c.createBufferSource(); src.buffer = b; src.connect(c.destination); src.start(0); } catch { /* ignore */ }
   onUnlockCallbacks.forEach((fn) => fn());
 }
+let unlockedOnce = false;
 const onUnlockCallbacks = [];
 export function onAudioUnlock(fn) { onUnlockCallbacks.push(fn); }
 

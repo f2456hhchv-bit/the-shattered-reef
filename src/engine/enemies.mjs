@@ -799,3 +799,9 @@ export function stepSummons(enemies, dt, rng = Math.random) {
   }
   return spawned;
 }
+
+// After restoring a saved voyage (engine/save.mjs): new enemies (boss
+// summons) must never reuse a restored enemy's id.
+export function ensureEnemyIdsAbove(maxId) {
+  if (nextEnemyId <= maxId) nextEnemyId = maxId + 1;
+}
