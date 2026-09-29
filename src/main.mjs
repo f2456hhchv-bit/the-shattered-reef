@@ -5,8 +5,10 @@
 // Ship Hulls / Cargo Loadouts / Captain's Charms before "Set Sail" starts
 // an actual voyage with that loadout resolved into it.
 
-import { computeAim, trackEnemyMotion } from './engine/aim.mjs';
+import { chooseAutoFire, trackEnemyMotion } from './engine/aim.mjs';
 import { playMusic, currentMusic } from './audio/music.mjs';
+import { rollUpgradeChoices, applyUpgrade, upgradeLevel } from './engine/upgrades.mjs';
+import { UPGRADE_BY_ID } from './data/upgrades.mjs';
 import { BASE_BUILDINGS } from './data/base.mjs';
 import { buildBaseWorld, computeBaseView, boatOrbitPoint } from './engine/base.mjs';
 import { drawBaseBuildings, drawGulls, BUILDING_SCALE } from './engine/baseRenderer.mjs';
@@ -16,7 +18,7 @@ import { buildTerrain } from './engine/terrain.mjs';
 import { createTerrainRenderer } from './engine/terrainRenderer.mjs';
 import { getBiome, BIOME_IDS } from './data/biomes.mjs';
 import {
-  createRun, checkReachedExit, checkSunk, retryLevel, addSalvage, totalSalvage, BOAT_RADIUS,
+  createRun, checkReachedExit, checkSunk, retryLevel, snapshotLevelStart, addSalvage, totalSalvage, BOAT_RADIUS,
   TIER_COUNT, LEVELS_PER_STAGE, biomeForStage, isExitOpen, levelForReef, buildLevelWorld,
 } from './engine/run.mjs';
 import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from './engine/boat.mjs';
@@ -27,7 +29,7 @@ import {
 } from './engine/renderer.mjs';
 import { createJoystick } from './input/joystick.mjs';
 import {
-  tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, ammoFor, isHeld,
+  tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, ammoFor, isHeld, applyDamageToEnemy, effectiveWeapon, ammoMaxFor,
   craftedMultiplierFor,
 } from './engine/combat.mjs';
 import {
@@ -51,7 +53,7 @@ import {
   purchaseWorkshopUpgrade, canAffordWorkshopUpgrade,
 } from './engine/meta.mjs';
 import {
-  createParticlePool, spawnHitSpark, spawnKillBurst, spawnExplosion, spawnSplash, updateParticles,
+  createParticlePool, spawnHitSpark, spawnMuzzleFlash, spawnKillBurst, spawnExplosion, spawnSplash, updateParticles,
   createDamageNumberPool, spawnDamageNumber, updateDamageNumbers,
   createShake, addShake, updateShake,
   createHitStop, triggerHitStop, applyHitStop,
@@ -64,6 +66,10 @@ import {
 import { WEAPON_IDS } from './data/weapons.mjs';
 
 const MUTE_STORAGE_KEY = 'shatteredReef.muted.v1';
+
+const WEAPON_ICONS = {
+  cannonballs: '⚫', chain_shot: '⛓️', grapeshot: '💥', depth_charges: '💣', flame_barrels: '🔥',
+};
 
 const WEAPON_SHORT_LABEL = {
   chain_shot: 'CS', grapeshot: 'GS', depth_charges: 'DC', flame_barrels: 'FB', cannonballs: 'CB',
@@ -88,6 +94,7 @@ export function startApp(root) {
       <span id="reef-indicator">Level 1/5</span>
       <span id="salvage-counter">⚓ Salvage: 0</span>
     </div>
+    <div id="upgrade-strip"></div>
   `;
   root.appendChild(hud);
   // Weapons sit at the bottom, in thumb reach (2026-09-29): firing is
@@ -124,6 +131,12 @@ export function startApp(root) {
   // good a gesture as any, so this listens once and gets out of the way.
   // Every early gesture retries the unlock: iOS can need more than one.
   for (const ev of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(ev, unlockAudio, { capture: true, passive: true });
+
+  const upgradeOverlay = document.createElement('div');
+  upgradeOverlay.id = 'upgrade-pick';
+  upgradeOverlay.hidden = true;
+  upgradeOverlay.innerHTML = `<div class="up-wrap"><h2 id="up-title"></h2><p class="up-sub">Choose one upgrade. It lasts for the rest of this stage.</p><div id="up-cards"></div></div>`;
+  root.appendChild(upgradeOverlay);
 
   const summaryOverlay = document.createElement('div');
   summaryOverlay.id = 'run-summary';
@@ -452,7 +465,7 @@ export function startApp(root) {
     btn.type = 'button';
     btn.className = 'weapon-btn';
     btn.dataset.weaponId = weapon.id;
-    btn.innerHTML = `<span class="weapon-name">${weapon.name}</span><span class="weapon-ammo"></span>`;
+    btn.innerHTML = `<span class="weapon-icon">${WEAPON_ICONS[weapon.id] || ''}</span><span class="weapon-name">${weapon.name}</span><span class="weapon-ammo"></span>`;
     btn.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       if (!isHeld(run.weapons, weapon.id)) { playLockedWeapon(); return; } // locked — found via a weapon cache pickup
@@ -473,12 +486,15 @@ export function startApp(root) {
       const held = isHeld(run.weapons, weapon.id);
       btn.classList.toggle('active', held && run.weapons.activeWeaponId === weapon.id);
       btn.classList.toggle('locked', !held);
+      // Only weapons you actually carry take space in the dock; it grows as
+      // you find them (and the first find is announced).
+      btn.hidden = !held;
       const ammoEl = btn.querySelector('.weapon-ammo');
       if (!held) {
         ammoEl.textContent = '🔒';
       } else {
         const ammo = ammoFor(run.weapons, weapon.id);
-        ammoEl.textContent = Number.isFinite(ammo) ? ammo : '∞';
+        ammoEl.textContent = Number.isFinite(ammo) ? `${ammo}/${ammoMaxFor(run.weapons, weapon.id)}` : '∞';
       }
     }
   }
@@ -500,14 +516,18 @@ export function startApp(root) {
   // prefers what the active weapon counters, and sticks to one target.
   let aimTarget = null;
   let aimHeading = null;
+  let fireWeaponId = WEAPON_IDS.CANNONBALLS;
+  // Auto-fire with a specialist loaded (2026-09-29): the special weapon is
+  // spent only on the enemies it counters; anything else in range gets
+  // Cannonballs, so picking Depth Charges never wastes them on a cutter.
   function updateAim() {
-    const weapon = getWeapon(run.weapons.activeWeaponId);
-    const aim = computeAim(run.enemies, run.boat, weapon, {
-      grid: run.grid, tileSize: run.tileSize, coast: run.coast,
-      counterOf: currentCounter, previousTarget: aimTarget,
+    const aim = chooseAutoFire(run.enemies, run.boat, run.weapons.activeWeaponId, {
+      effectiveWeapon: (id) => effectiveWeapon(run.weapons, id), ammoOf: (id) => ammoFor(run.weapons, id),
+      grid: run.grid, tileSize: run.tileSize, coast: run.coast, counterOf: currentCounter, previousTarget: aimTarget,
     });
     aimTarget = aim ? aim.target : null;
     aimHeading = aim ? aim.heading : null;
+    fireWeaponId = aim ? aim.weaponId : WEAPON_IDS.CANNONBALLS;
   }
   function computeFireHeading() {
     return aimHeading ?? run.boat.heading;
@@ -524,11 +544,93 @@ export function startApp(root) {
       if (d < best) { best = d; nearest = e; }
     }
     let want = nearest ? currentCounter(nearest) : null;
-    if (want && (!isHeld(run.weapons, want) || ammoFor(run.weapons, want) <= 0 || run.weapons.activeWeaponId === want)) want = null;
+    // Cannonballs never needs a hint: auto-fire already falls back to it.
+    if (want && (want === WEAPON_IDS.CANNONBALLS || !isHeld(run.weapons, want) || ammoFor(run.weapons, want) <= 0 || run.weapons.activeWeaponId === want)) want = null;
     if (want === suggestedWeapon) return;
     if (suggestedWeapon) weaponButtons[suggestedWeapon].classList.remove('suggest');
     if (want) weaponButtons[want].classList.add('suggest');
     suggestedWeapon = want;
+  }
+
+  // Upgrade cards: offered after each cleared level; the voyage waits.
+  function offerUpgrades(title, sub = '') {
+    const choices = rollUpgradeChoices(run);
+    if (!choices.length) { if (sub) showToast(`${title} ${sub}`); return; }
+    sailing = false;
+    upgradeOverlay.querySelector('#up-title').textContent = title;
+    upgradeOverlay.querySelector('.up-sub').textContent = `${sub ? `${sub}. ` : ''}Choose one upgrade for the rest of this stage.`;
+    const cards = upgradeOverlay.querySelector('#up-cards');
+    cards.replaceChildren(...choices.map((id) => {
+      const u = UPGRADE_BY_ID[id];
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'up-card'; b.dataset.upgrade = id;
+      const lv = upgradeLevel(run, id);
+      b.innerHTML = `<span class="up-icon"></span><span class="up-text"><b></b><span></span></span><span class="up-lv"></span>`;
+      b.querySelector('.up-icon').textContent = u.icon;
+      b.querySelector('b').textContent = u.name;
+      b.querySelector('.up-text span').textContent = u.desc;
+      b.querySelector('.up-lv').textContent = u.max > 1 ? `${lv + 1}/${u.max}` : '';
+      b.addEventListener('click', () => {
+        if (upgradeOverlay.hidden) return;
+        applyUpgrade(run, id);
+        snapshotLevelStart(run);
+        upgradeOverlay.hidden = true;
+        playPickupWeapon();
+        showToast(`${u.icon} ${u.name}!`);
+        updateHullBar(); updateWeaponBar(); renderUpgradeStrip();
+        sailing = true;
+      });
+      return b;
+    }));
+    upgradeOverlay.hidden = false;
+  }
+  function renderUpgradeStrip() {
+    const strip = document.getElementById('upgrade-strip');
+    strip.replaceChildren(...Object.entries(run.upgrades || {}).map(([id, n]) => {
+      const el = document.createElement('span');
+      el.textContent = `${UPGRADE_BY_ID[id].icon}${n > 1 ? `×${n}` : ''}`;
+      el.title = UPGRADE_BY_ID[id].name;
+      return el;
+    }));
+  }
+
+  let hullRegenUiTimer = 0;
+  // One place for everything a hit does: damage number, sparks, kill
+  // feedback, boss death, drops. Returns the Salvage it earned.
+  function processHitEvent(ev, { burn = false, ram = false } = {}) {
+    const enemy = ev.enemy;
+    const color = burn ? PALETTE.burn : getWeapon(ev.weaponId).color;
+    // Post-slice combat-triangle feedback: the raw multiplier (not the
+    // damage, which has it baked in) says whether this hit was favoured.
+    const triangleMult = ram ? 1 : triangleMultiplier(run.faction, enemy.faction);
+    spawnDamageNumber(damageNumbers, enemy.x, enemy.y - enemy.radius - 4, ev.damage, {
+      jitterX: (Math.random() - 0.5) * 10,
+      crit: !burn && !ram && currentCounter(enemy) === ev.weaponId,
+      triangle: triangleMult > 1 ? 'advantage' : triangleMult < 1 ? 'disadvantage' : null,
+    });
+    if (!ev.killed) {
+      if (!burn) {
+        spawnHitSpark(particles, enemy.x, enemy.y, color, Math.random);
+        addShake(shake, ram ? 0.3 : 0.12);
+        playHit();
+      }
+      return 0;
+    }
+    if (enemy.isBoss) {
+      spawnExplosion(particles, enemy.x, enemy.y, 50, Math.random);
+      addShake(shake, 1);
+      triggerHitStop(hitStop, 0.15);
+      playBossDefeated();
+      showToast(run.lair ? `${bossName(run)} is sunk — the whirlpool opens! Sail into it ⚓` : `${bossName(run)} is sunk! ⚓`);
+      run.bossDefeated = true; // engine/meta.mjs's recordRunResult awards a Kraken Scale
+    } else {
+      spawnKillBurst(particles, enemy.x, enemy.y, color, Math.random);
+      maybeDropRepair(enemy);
+      addShake(shake, 0.35);
+      if (!burn) triggerHitStop(hitStop, 0.05);
+      playKill();
+    }
+    return enemy.salvageDrop;
   }
 
   // A regular kill sometimes leaves a repair kit floating where it sank.
@@ -938,6 +1040,7 @@ export function startApp(root) {
     updateSalvageCounter();
     updateReefIndicator();
     updateWeaponBar();
+    renderUpgradeStrip(); upgradeOverlay.hidden = true;
     sailing = true;
   }
   hubSetSailBtn.addEventListener('click', startRun);
@@ -1007,6 +1110,7 @@ export function startApp(root) {
     setStatus(levelStartStatus());
     showToast(`Level ${run.reefIndex + 1} — a new reef. Hull repaired ⚓`);
     updateHullBar(); updateSalvageCounter(); updateReefIndicator(); updateWeaponBar();
+    renderUpgradeStrip(); upgradeOverlay.hidden = true;
     sailing = true;
   });
 
@@ -1129,8 +1233,16 @@ export function startApp(root) {
       playMusic(run.lair ? 'lair' : 'voyage');
       isFiring = aimHeading != null;
       if (isFiring) {
+        const chosen = run.weapons.activeWeaponId;
+        run.weapons.activeWeaponId = fireWeaponId;
         const fired = tryFire(run.weapons, run.boat.x, run.boat.y, computeFireHeading());
-        if (fired) { updateWeaponBar(); playFire(run.weapons.activeWeaponId); }
+        run.weapons.activeWeaponId = chosen;
+        if (fired) {
+          if (fireWeaponId !== WEAPON_IDS.CANNONBALLS) updateWeaponBar();
+          playFire(fireWeaponId);
+          const bx = run.boat.x + Math.cos(aimHeading) * BOAT_RADIUS; const by = run.boat.y + Math.sin(aimHeading) * BOAT_RADIUS;
+          spawnMuzzleFlash(particles, bx, by, aimHeading, getWeapon(fireWeaponId).color, Math.random);
+        }
       }
       stepCombat(run.weapons, dt, run.grid, run.tileSize, run.enemies);
       if (stepAmmoRegen(run.weapons, dt)) updateWeaponBar();
@@ -1196,66 +1308,27 @@ export function startApp(root) {
         factionMultiplierFor(run.faction), craftedMultiplierFor(run.craftedDamageMultipliers)
       );
       cleanupProjectiles(run.weapons);
-      for (const ev of hitEvents) {
-        const weaponColor = getWeapon(ev.weaponId).color;
-        // Post-slice combat-triangle feedback: the raw multiplier (not
-        // ev.damage, which already has it baked in) tells us whether this
-        // specific hit was triangle-advantaged/-disadvantaged, so the
-        // damage number can say so distinctly from a plain on-counter crit.
-        const triangleMult = triangleMultiplier(run.faction, ev.enemy.faction);
-        spawnDamageNumber(damageNumbers, ev.enemy.x, ev.enemy.y - ev.enemy.radius - 4, ev.damage, {
-          jitterX: (Math.random() - 0.5) * 10,
-          crit: currentCounter(ev.enemy) === ev.weaponId,
-          triangle: triangleMult > 1 ? 'advantage' : triangleMult < 1 ? 'disadvantage' : null,
-        });
-        if (ev.killed) {
-          if (ev.enemy.isBoss) {
-            // A 220 HP boss with its own phase mechanic earns a bigger
-            // "you actually won that" moment than a regular kill.
-            spawnExplosion(particles, ev.enemy.x, ev.enemy.y, 50, Math.random);
-            addShake(shake, 1);
-            triggerHitStop(hitStop, 0.15);
-            playBossDefeated();
-            showToast(run.lair ? `${bossName(run)} is sunk — the whirlpool opens! Sail into it ⚓` : `${bossName(run)} is sunk! ⚓`);
-            run.bossDefeated = true; // engine/meta.mjs's recordRunResult awards a Kraken Scale
-          } else {
-            spawnKillBurst(particles, ev.enemy.x, ev.enemy.y, weaponColor, Math.random);
-            maybeDropRepair(ev.enemy);
-            addShake(shake, 0.35);
-            triggerHitStop(hitStop, 0.05);
-            playKill();
-          }
-          salvageGained += ev.enemy.salvageDrop;
-        } else {
-          spawnHitSpark(particles, ev.enemy.x, ev.enemy.y, weaponColor, Math.random);
-          addShake(shake, 0.12);
-          playHit();
-        }
-      }
+      for (const ev of hitEvents) salvageGained += processHitEvent(ev);
       for (const enemy of run.enemies) {
         const burnEvent = stepBurn(enemy, dt);
-        if (burnEvent) {
-          const triangleMult = triangleMultiplier(run.faction, enemy.faction);
-          spawnDamageNumber(damageNumbers, enemy.x, enemy.y - enemy.radius - 4, burnEvent.damage, {
-            triangle: triangleMult > 1 ? 'advantage' : triangleMult < 1 ? 'disadvantage' : null,
-          });
-          if (burnEvent.killed) {
-            if (enemy.isBoss) {
-              spawnExplosion(particles, enemy.x, enemy.y, 50, Math.random);
-              addShake(shake, 1);
-              triggerHitStop(hitStop, 0.15);
-              playBossDefeated();
-              showToast(run.lair ? `${bossName(run)} is sunk — the whirlpool opens! Sail into it ⚓` : `${bossName(run)} is sunk! ⚓`);
-              run.bossDefeated = true;
-            } else {
-              spawnKillBurst(particles, enemy.x, enemy.y, PALETTE.burn, Math.random);
-              maybeDropRepair(enemy);
-              addShake(shake, 0.3);
-              playKill();
-            }
-            salvageGained += burnEvent.enemy.salvageDrop;
-          }
+        if (burnEvent) salvageGained += processHitEvent(burnEvent, { burn: true });
+      }
+      // Iron Ram (upgrade): touching an enemy hurts it.
+      if (run.ramDamage) {
+        for (const e of run.enemies) {
+          if (e.health <= 0 || e.invulnerable || (e.ramCooldown || 0) > 0) continue;
+          if (Math.hypot(e.x - run.boat.x, e.y - run.boat.y) > e.radius + BOAT_RADIUS + 2) continue;
+          e.ramCooldown = 0.8;
+          const killed = applyDamageToEnemy(e, run.ramDamage);
+          salvageGained += processHitEvent({ enemy: e, weaponId: 'cannonballs', damage: run.ramDamage, killed }, { ram: true });
         }
+        for (const e of run.enemies) if (e.ramCooldown > 0) e.ramCooldown -= dt;
+      }
+      // Bilge Pumps (upgrade): slow hull repair.
+      if (run.hullRegenPerSecond && run.boat.health < run.boat.maxHull) {
+        run.boat.health = Math.min(run.boat.maxHull, run.boat.health + run.hullRegenPerSecond * dt);
+        hullRegenUiTimer -= dt;
+        if (hullRegenUiTimer <= 0) { hullRegenUiTimer = 0.5; updateHullBar(); }
       }
       if (salvageGained > 0) {
         addSalvage(run, salvageGained);
@@ -1265,7 +1338,8 @@ export function startApp(root) {
       // The triangle applies to damage you TAKE too (engine/enemies.mjs
       // incomingMultiplierFor). Each hit floats a number over the boat, so
       // "your predator hits harder" is visible, not just a faster hull bar.
-      const contactEvents = resolveEnemyContactEvents(run.enemies, run.boat, BOAT_RADIUS, incomingMultiplierFor(run.faction));
+      const contactMult = incomingMultiplierFor(run.faction);
+      const contactEvents = resolveEnemyContactEvents(run.enemies, run.boat, BOAT_RADIUS, (e) => contactMult(e) * (run.contactDamageTaken ?? 1));
       let contactDamage = 0;
       for (const ev of contactEvents) {
         contactDamage += ev.damage;
@@ -1285,7 +1359,7 @@ export function startApp(root) {
         playWallImpact(Math.min(1, contactDamage / 10));
       }
 
-      const pickupEvents = collectPickups(run.pickups, run.boat, BOAT_RADIUS, run.weapons);
+      const pickupEvents = collectPickups(run.pickups, run.boat, BOAT_RADIUS * (run.pickupReach || 1), run.weapons);
       for (const ev of pickupEvents) {
         if (ev.kind === PICKUP_KINDS.WEAPON_CACHE) {
           updateWeaponBar();
@@ -1338,16 +1412,12 @@ export function startApp(root) {
           // reef-cleared message rather than a second toast that would
           // just overwrite this one a moment later.
           const boss = run.enemies.find((e) => e.isBoss);
-          if (boss) {
-            boss._lastAnnouncedPhase = boss.phaseIndex; // don't fire a false "swap" on first sight
-            showToast(`Level ${run.reefIndex} cleared! +${Math.round(bankedThisReef)} Salvage ⚓ — ${getEnemy(boss.defId).name} waits in its lair`);
-          } else {
-            showToast(`Level ${run.reefIndex} cleared! +${bankedThisReef} Salvage banked ⚓`);
-          }
+          if (boss) boss._lastAnnouncedPhase = boss.phaseIndex; // don't fire a false "swap" on first sight
           updateReefIndicator();
           updateSalvageCounter();
           updateWeaponBar();
           playReefCleared();
+          offerUpgrades(`Level ${run.reefIndex} cleared!`, `+${Math.round(bankedThisReef)} Salvage banked${boss ? ` · next: ${getEnemy(boss.defId).name}'s lair` : ''}`);
         }
       }
     }
@@ -1397,7 +1467,7 @@ export function startApp(root) {
     );
     drawEnemyProjectiles(ctx, run.enemyProjectiles, now / 1000);
     if (aimTarget && aimTarget.health > 0 && sailing && !run.over) drawTargetReticle(ctx, aimTarget, now / 1000, isFiring);
-    drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color);
+    drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color, now / 1000);
     if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS, now / 1000);
     drawParticles(ctx, particles);
     drawDamageNumbers(ctx, damageNumbers);

@@ -36,8 +36,47 @@ export function createWeaponState(extraHeldWeapons = [], startingAmmoMultiplier 
     cooldownRemaining: 0,
     projectiles: [],
     ammoRegenPerSecond: 0, // set by the Steady Hands charm, see stepAmmoRegen
+    baseRegenPerSecond: 0, // every special weapon's own slow trickle (run.mjs sets it)
     ammoRegenAccum: {},
+    mods: createWeaponMods(),
   };
+}
+
+// In-run weapon modifiers (2026-09-29): what the upgrade cards change
+// (data/upgrades.mjs). Neutral by default, so a state without upgrades
+// fires exactly the base weapon data.
+export function createWeaponMods() {
+  return {
+    damage: {}, // weaponId -> multiplier
+    extraShots: {}, // weaponId -> extra projectiles per shot
+    pierce: {}, // weaponId -> extra enemies each projectile passes through
+    cooldown: 1, // all weapons
+    range: 1, // all weapons
+    blast: 1, // Depth Charge blast radius
+    burn: 1, // Flame Barrel burn duration
+    ammoMax: 1, // special weapons' capacity
+  };
+}
+
+// The weapon as it fires right now: base data with this run's upgrades.
+export function effectiveWeapon(state, weaponId) {
+  const w = getWeapon(weaponId);
+  const m = state.mods || createWeaponMods();
+  return {
+    ...w,
+    damage: w.damage * (m.damage[weaponId] || 1),
+    cooldown: w.cooldown * m.cooldown,
+    range: w.range * m.range,
+    pelletCount: w.pelletCount + (m.extraShots[weaponId] || 0),
+    pierce: (w.pierce || 0) + (m.pierce[weaponId] || 0),
+    blastRadius: (w.blastRadius || DEPTH_CHARGE_BLAST_RADIUS) * m.blast,
+    burnDurationSeconds: (w.burnDurationSeconds || 0) * m.burn,
+    ammoMax: Number.isFinite(w.ammoMax) ? Math.round(w.ammoMax * m.ammoMax) : Infinity,
+  };
+}
+
+export function ammoMaxFor(state, weaponId) {
+  return effectiveWeapon(state, weaponId).ammoMax;
 }
 
 // Steady Hands charm support: slowly regenerates ammo for every held,
@@ -49,13 +88,14 @@ export function createWeaponState(extraHeldWeapons = [], startingAmmoMultiplier 
 // invisible (the weapon bar only redrew on fire/pickup), making the charm
 // look broken on a phone (found in a live playtest, 2026-09-28).
 export function stepAmmoRegen(state, dt) {
-  if (state.ammoRegenPerSecond <= 0) return false;
+  const rate = state.ammoRegenPerSecond + (state.baseRegenPerSecond || 0);
+  if (rate <= 0) return false;
   let changed = false;
   for (const weaponId of state.heldWeapons) {
-    const weapon = getWeapon(weaponId);
+    const weapon = { ammoMax: ammoMaxFor(state, weaponId) };
     if (!Number.isFinite(weapon.ammoMax)) continue;
     if (state.ammo[weaponId] >= weapon.ammoMax) continue;
-    const accum = (state.ammoRegenAccum[weaponId] || 0) + state.ammoRegenPerSecond * dt;
+    const accum = (state.ammoRegenAccum[weaponId] || 0) + rate * dt;
     // The tiny epsilon guards against float drift landing just under a
     // whole number (e.g. 0.4 + 0.6 evaluating to 0.999999999999994) and
     // silently dropping a tick that should have fired this frame.
@@ -91,11 +131,11 @@ export function setActiveWeapon(state, weaponId) {
 // (a refill). Returns true if this was a fresh unlock (for UI feedback:
 // "New weapon!" vs. a plain ammo-pickup toast).
 export function collectWeaponCache(state, weaponId, amount) {
-  const weapon = getWeapon(weaponId);
-  if (!Number.isFinite(weapon.ammoMax)) return false; // Cannonballs needs no cache
+  const max = ammoMaxFor(state, weaponId);
+  if (!Number.isFinite(max)) return false; // Cannonballs needs no cache
   const freshUnlock = !isHeld(state, weaponId);
   state.heldWeapons.add(weaponId);
-  state.ammo[weaponId] = Math.min(weapon.ammoMax, (state.ammo[weaponId] || 0) + amount);
+  state.ammo[weaponId] = Math.min(max, (state.ammo[weaponId] || 0) + amount);
   return freshUnlock;
 }
 
@@ -125,12 +165,13 @@ export function canFire(state) {
 // defaults to Math.random so callers can pass a seeded rng in tests.
 export function tryFire(state, x, y, heading, rng = Math.random) {
   if (!canFire(state)) return false;
-  const weapon = getWeapon(state.activeWeaponId);
+  const weapon = effectiveWeapon(state, state.activeWeaponId);
+  const extra = weapon.pelletCount - getWeapon(weapon.id).pelletCount;
 
   for (let i = 0; i < weapon.pelletCount; i++) {
-    const spreadOffset = weapon.spreadRad === 0
-      ? 0
-      : (rng() - 0.5) * weapon.spreadRad;
+    let spreadOffset = weapon.spreadRad === 0 ? 0 : (rng() - 0.5) * weapon.spreadRad;
+    // Extra balls from a no-spread weapon (Twin Cannons) fan out evenly.
+    if (weapon.spreadRad === 0 && extra > 0) spreadOffset = (i - (weapon.pelletCount - 1) / 2) * 0.13;
     const angle = heading + spreadOffset;
     state.projectiles.push({
       id: nextProjectileId++,
@@ -142,6 +183,8 @@ export function tryFire(state, x, y, heading, rng = Math.random) {
       traveled: 0,
       maxRange: weapon.range,
       fuseRemaining: weapon.kind === 'lobbed' ? weapon.fuseSeconds : null,
+      pierceLeft: weapon.pierce,
+      hitIds: null,
       spent: false, // set true once it has dealt its damage / detonated
     });
   }
@@ -228,7 +271,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
 
   for (const p of state.projectiles) {
     if (p.spent && p.weaponId !== WEAPON_IDS.DEPTH_CHARGES) continue; // already resolved elsewhere
-    const weapon = getWeapon(p.weaponId);
+    const weapon = effectiveWeapon(state, p.weaponId);
 
     if (weapon.kind === 'lobbed' && p.fuseRemaining != null && p.fuseRemaining > 0 && !p.spent) {
       continue; // still travelling — only resolves on impact/fuse-out below
@@ -241,7 +284,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
       for (const enemy of enemies) {
         if (enemy.health <= 0 || enemy.invulnerable) continue;
         const dist = Math.hypot(enemy.x - p.x, enemy.y - p.y);
-        if (dist <= DEPTH_CHARGE_BLAST_RADIUS + enemy.radius) {
+        if (dist <= weapon.blastRadius + enemy.radius) {
           const dmg = damageAgainst(weapon, getEnemyCounter(enemy)) * getFactionMultiplier(enemy) * getWeaponMultiplier(weapon.id);
           const killed = applyDamageToEnemy(enemy, dmg);
           events.push({ enemy, weaponId: weapon.id, damage: dmg, killed });
@@ -254,6 +297,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
 
     for (const enemy of enemies) {
       if (enemy.health <= 0 || enemy.invulnerable) continue;
+      if (p.hitIds && p.hitIds.has(enemy.id)) continue; // a piercing shot hits each enemy once
       const dist = Math.hypot(enemy.x - p.x, enemy.y - p.y);
       if (dist <= p.radius + enemy.radius) {
         // Combines the triangle and crafting multipliers into one factor —
@@ -263,7 +307,12 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
         const dmg = damageAgainst(weapon, getEnemyCounter(enemy)) * extraMult;
         const killed = applyDamageToEnemy(enemy, dmg);
         events.push({ enemy, weaponId: weapon.id, damage: dmg, killed });
-        p.spent = true;
+        if (p.pierceLeft > 0) {
+          p.pierceLeft -= 1;
+          (p.hitIds ||= new Set()).add(enemy.id);
+        } else {
+          p.spent = true;
+        }
 
         if (weapon.id === WEAPON_IDS.FLAME_BARRELS) {
           enemy.burn = {
@@ -279,7 +328,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
             tickDamage: damageAgainst(weapon, getEnemyCounter(enemy)) * extraMult,
           };
         }
-        break; // one enemy per non-AoE projectile
+        if (p.spent) break; // one enemy per non-piercing projectile
       }
     }
   }

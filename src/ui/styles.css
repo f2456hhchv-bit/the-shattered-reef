@@ -163,12 +163,19 @@ html, body {
   padding: 0 max(8px, env(safe-area-inset-left)) 0 max(8px, env(safe-area-inset-right));
   z-index: 5;
 }
+#weapon-bar { justify-content: center; }
 #weapon-bar .weapon-btn {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 56px;
+  max-width: 108px;
+  min-height: 58px;
   justify-content: center;
+  background: rgba(6, 30, 44, .88);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .35);
 }
+.weapon-btn[hidden] { display: none; }
+.weapon-btn .weapon-icon { font-size: 16px; line-height: 1; }
+#weapon-bar .weapon-btn.active { background: linear-gradient(180deg, #ffd35c, #e0a030); color: #241c0c; box-shadow: 0 0 0 2px #fff0b0, 0 3px 10px rgba(0, 0, 0, .35); }
 .weapon-btn {
   display: flex;
   flex-direction: column;
@@ -185,8 +192,8 @@ html, body {
   touch-action: manipulation;
 }
 .weapon-btn.active {
-  background: rgba(232, 181, 75, .3);
-  border-color: #e8b54b;
+  background: linear-gradient(180deg, #ffd35c, #e0a030);
+  border-color: #fff0b0;
   color: #241c0c;
 }
 .weapon-btn .weapon-ammo {
@@ -642,3 +649,45 @@ body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
   #hub-set-sail { min-height: 46px; margin-top: 8px; font-size: 17px; }
 }
 
+
+/* Upgrade cards (2026-09-29): pick one after each level. */
+#upgrade-pick {
+  position: absolute; inset: 0; z-index: 55;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(3, 18, 28, .72);
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+}
+#upgrade-pick[hidden] { display: none; }
+.up-wrap { width: min(420px, 100%); text-align: center; color: #f3e7c9; }
+.up-wrap h2 { margin: 0; font-size: 20px; color: #ffd978; }
+.up-sub { margin: 4px 0 12px; font-size: 12.5px; opacity: .85; }
+#up-cards { display: flex; flex-direction: column; gap: 10px; }
+.up-card {
+  display: flex; align-items: center; gap: 12px; text-align: left;
+  min-height: 72px; padding: 10px 14px; margin: 0;
+  border-radius: 16px; border: 2px solid #c99a45;
+  background: linear-gradient(180deg, rgba(58, 36, 18, .97), rgba(30, 19, 10, .97));
+  box-shadow: 0 5px 16px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 220, 150, .25);
+  color: #f6e6c2; touch-action: manipulation;
+  animation: up-in .35s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+.up-card:nth-child(2) { animation-delay: .07s; }
+.up-card:nth-child(3) { animation-delay: .14s; }
+.up-card:active { transform: scale(.97); border-color: #ffd35c; }
+@keyframes up-in { from { opacity: 0; transform: translateY(18px) scale(.94); } to { opacity: 1; transform: none; } }
+.up-icon { font-size: 30px; width: 44px; text-align: center; flex-shrink: 0; }
+.up-text { flex: 1; min-width: 0; }
+.up-text b { display: block; font-size: 16px; color: #ffd978; }
+.up-text span { font-size: 12.5px; opacity: .9; }
+.up-lv { font-size: 11px; font-weight: 700; color: #9fd0e8; flex-shrink: 0; }
+@media (orientation: landscape) and (max-height: 540px) {
+  .up-wrap { width: min(760px, 100%); }
+  #up-cards { flex-direction: row; }
+  .up-card { flex: 1; flex-direction: column; text-align: center; min-height: 150px; justify-content: center; }
+  .up-text b { font-size: 15px; }
+}
+#upgrade-strip { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; pointer-events: none; }
+#upgrade-strip span {
+  font-size: 11px; padding: 1px 6px; border-radius: 999px;
+  background: rgba(6, 36, 53, .75); border: 1px solid rgba(232, 181, 75, .3); color: #f3e7c9;
+}

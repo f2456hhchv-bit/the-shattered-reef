@@ -113,3 +113,18 @@ export function computeAim(enemies, boat, weapon, {
   }
   return best;
 }
+
+// Auto-fire (2026-09-29): which weapon to fire, at whom. A special weapon
+// is spent only on the enemies it counters; anything else in range gets
+// Cannonballs (always loaded, unlimited). `weapons` is combat.mjs's state;
+// `effectiveWeapon(id)` gives the upgraded stats; `ammoOf(id)` the ammo.
+export function chooseAutoFire(enemies, boat, active, { effectiveWeapon, ammoOf, counterOf = (e) => e.counter, ...opts }) {
+  const CANNON = 'cannonballs';
+  if (active !== CANNON && ammoOf(active) > 0) {
+    const prey = enemies.filter((e) => counterOf(e) === active);
+    const aim = computeAim(prey, boat, effectiveWeapon(active), { counterOf, ...opts });
+    if (aim) return { weaponId: active, ...aim };
+  }
+  const aim = computeAim(enemies, boat, effectiveWeapon(CANNON), { counterOf, ...opts });
+  return aim ? { weaponId: CANNON, ...aim } : null;
+}

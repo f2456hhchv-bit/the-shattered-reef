@@ -237,7 +237,12 @@ function enterReef(run, reefIndex) {
     avoid: world.lair ? { x: world.lair.centre.x, y: world.lair.centre.y, r: world.lair.pitRadius } : null,
   });
   run.reefSalvage = 0;
-  // What a retry of this level restores: the kit you arrived with.
+  snapshotLevelStart(run);
+}
+
+// What a retry of this level restores: the kit you arrived with (taken
+// again after an upgrade card that changes it, e.g. Deep Magazines).
+export function snapshotLevelStart(run) {
   run.levelStart = {
     heldWeapons: new Set(run.weapons.heldWeapons),
     ammo: { ...run.weapons.ammo },
@@ -316,6 +321,10 @@ export function createRun(seed, loadout = BASELINE_LOADOUT, { levels = {}, stage
     over: false,
     outcome: null, // 'victory' | 'sunk', once over
   };
+  // Every special weapon trickles back slowly on its own (2026-09-29), so
+  // auto-fire can never leave you with a counter weapon stuck at zero.
+  run.weapons.baseRegenPerSecond = 0.2;
+  run.upgrades = {};
   if (loadout.charms.steadyHands) {
     run.weapons.ammoRegenPerSecond = CHARMS[CHARM_IDS.STEADY_HANDS].ammoRegenPerSecond;
   }

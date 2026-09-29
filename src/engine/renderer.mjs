@@ -461,17 +461,64 @@ export function drawEnemies(ctx, enemies, colorFor, t, nameFor = null, badgeFor 
   }
 }
 
-export function drawProjectile(ctx, projectile, color) {
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
-  ctx.fill();
+// Your shots (2026-09-29 armaments pass): each weapon looks like what it
+// is, so you can see what you're firing without reading the weapon bar.
+export function drawProjectile(ctx, p, color, t = 0) {
+  const sp = Math.hypot(p.vx, p.vy) || 1;
+  const ux = p.vx / sp; const uy = p.vy / sp;
+  switch (p.weaponId) {
+    case 'chain_shot': {
+      // Two balls on a chain, spinning.
+      const a = t * 18 + p.id; const r = 5;
+      const cx = Math.cos(a) * r; const cy = Math.sin(a) * r;
+      ctx.strokeStyle = '#c9ced4'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(p.x - cx, p.y - cy); ctx.lineTo(p.x + cx, p.y + cy); ctx.stroke();
+      ctx.fillStyle = '#5b6068';
+      for (const k of [-1, 1]) { ctx.beginPath(); ctx.arc(p.x + cx * k, p.y + cy * k, 2.4, 0, Math.PI * 2); ctx.fill(); }
+      return;
+    }
+    case 'grapeshot':
+      ctx.strokeStyle = 'rgba(255, 230, 170, 0.55)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(p.x - ux * 7, p.y - uy * 7); ctx.lineTo(p.x, p.y); ctx.stroke();
+      ctx.fillStyle = '#e8e2d0';
+      ctx.beginPath(); ctx.arc(p.x, p.y, 1.8, 0, Math.PI * 2); ctx.fill();
+      return;
+    case 'depth_charges': {
+      // A barrel lobbed in an arc: the shadow stays on the water.
+      const total = 0.9; const f = p.fuseRemaining != null ? 1 - Math.max(0, p.fuseRemaining) / total : 1;
+      const h = Math.sin(Math.min(1, f) * Math.PI) * 10;
+      ctx.fillStyle = 'rgba(4, 30, 40, 0.35)';
+      ctx.beginPath(); ctx.ellipse(p.x + 2, p.y + 3, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.translate(p.x, p.y - h); ctx.rotate(t * 6 + p.id);
+      ctx.fillStyle = '#3d5a4a'; ctx.fillRect(-4.5, -3.2, 9, 6.4);
+      ctx.fillStyle = '#c9a54a'; ctx.fillRect(-4.5, -1.2, 9, 0.9); ctx.fillRect(-4.5, 0.6, 9, 0.9);
+      ctx.restore();
+      return;
+    }
+    case 'flame_barrels':
+      for (let k = 3; k >= 1; k--) {
+        ctx.fillStyle = `rgba(255, ${120 + k * 30}, 40, ${0.18 * (4 - k)})`;
+        ctx.beginPath(); ctx.arc(p.x - ux * k * 5 + Math.sin(t * 30 + k) * 1.2, p.y - uy * k * 5, 4 + k, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#ffd35c'; ctx.beginPath(); ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff3c0'; ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2); ctx.fill();
+      return;
+    default: {
+      // Cannonball: iron with a smoke trail.
+      ctx.fillStyle = 'rgba(200, 200, 190, 0.35)';
+      for (let k = 1; k <= 3; k++) { ctx.beginPath(); ctx.arc(p.x - ux * k * 5, p.y - uy * k * 5, 2.8 - k * 0.5, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = '#23262a';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+      ctx.beginPath(); ctx.arc(p.x - 1, p.y - 1, 1, 0, Math.PI * 2); ctx.fill();
+    }
+  }
 }
 
-export function drawProjectiles(ctx, projectiles, colorFor) {
+export function drawProjectiles(ctx, projectiles, colorFor, t = 0) {
   for (const p of projectiles) {
     if (p.spent) continue;
-    drawProjectile(ctx, p, colorFor(p));
+    drawProjectile(ctx, p, colorFor(p), t);
   }
 }
 

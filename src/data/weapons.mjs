@@ -23,12 +23,12 @@ export const WEAPONS = {
     id: WEAPON_IDS.CANNONBALLS,
     name: 'Cannonballs',
     kind: 'projectile',
-    damage: 12,
+    damage: 14,
     offCounterFraction: 0.55, // weak all-purpose default, never useless
-    cooldown: 0.45, // seconds between shots
-    projectileSpeed: 260,
-    projectileRadius: 3,
-    range: 260,
+    cooldown: 0.5, // seconds between shots
+    projectileSpeed: 330,
+    projectileRadius: 3.5,
+    range: 240,
     spreadRad: 0,
     pelletCount: 1,
     ammoMax: Infinity,
@@ -38,15 +38,16 @@ export const WEAPONS = {
     id: WEAPON_IDS.CHAIN_SHOT,
     name: 'Chain Shot',
     kind: 'projectile',
-    damage: 9,
+    damage: 12,
     offCounterFraction: 0.12,
-    cooldown: 0.6,
-    projectileSpeed: 220,
-    projectileRadius: 3,
-    range: 160,
-    spreadRad: Math.PI / 6, // wide horizontal-feeling spread
-    pelletCount: 3,
+    cooldown: 0.55,
+    projectileSpeed: 280,
+    projectileRadius: 5,
+    range: 210,
+    spreadRad: 0.3, // wide horizontal-feeling spread
+    pelletCount: 2,
     ammoMax: 24,
+    pierce: 1, // bolas scythe through a flock: each hits two
     color: '#8a8a95',
   },
   [WEAPON_IDS.GRAPESHOT]: {
@@ -55,12 +56,12 @@ export const WEAPONS = {
     kind: 'projectile',
     damage: 6,
     offCounterFraction: 0.12,
-    cooldown: 0.2, // fast, close-range burst
-    projectileSpeed: 300,
+    cooldown: 0.35, // fast, close-range burst
+    projectileSpeed: 360,
     projectileRadius: 2,
-    range: 110,
+    range: 125,
     spreadRad: Math.PI / 5,
-    pelletCount: 5,
+    pelletCount: 6,
     ammoMax: 40,
     color: '#c9c9c9',
   },
@@ -71,7 +72,7 @@ export const WEAPONS = {
     damage: 26,
     offCounterFraction: 0.1,
     cooldown: 1.1,
-    projectileSpeed: 90, // slow arc-lob
+    projectileSpeed: 110, // slow arc-lob
     projectileRadius: 5,
     range: 150,
     spreadRad: 0,
@@ -96,9 +97,9 @@ export const WEAPONS = {
     damage: 5, // per tick while burning
     offCounterFraction: 0.15,
     cooldown: 0.8,
-    projectileSpeed: 140,
+    projectileSpeed: 180,
     projectileRadius: 6,
-    range: 90,
+    range: 130,
     spreadRad: Math.PI / 10,
     pelletCount: 1,
     burnDurationSeconds: 2.2,

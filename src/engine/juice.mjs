@@ -230,3 +230,18 @@ export function damageNumberStyle(d) {
   }
   return { parts, size: size * pop, outline: C.outline, outlineWidth: 3.5 };
 }
+
+// A cannon's bark: a short cone of hot sparks and a puff of smoke out of
+// the muzzle, along the firing direction.
+export function spawnMuzzleFlash(pool, x, y, angle, color, rng = Math.random) {
+  for (let i = 0; i < 6; i++) {
+    const a = angle + (rng() - 0.5) * 0.7;
+    const sp = 60 + rng() * 90;
+    pool.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.12 + rng() * 0.08, maxLife: 0.2, size: 1.2 + rng() * 1.3, color: i < 3 ? '#ffd27a' : '#ff8a3d', drag: 6 });
+  }
+  for (let i = 0; i < 3; i++) {
+    const a = angle + (rng() - 0.5) * 0.9;
+    const sp = 20 + rng() * 30;
+    pool.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.35 + rng() * 0.2, maxLife: 0.55, size: 2.4 + rng() * 1.6, color: 'rgba(210,210,200,0.55)', drag: 3 });
+  }
+}

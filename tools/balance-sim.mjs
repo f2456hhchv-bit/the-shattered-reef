@@ -28,15 +28,16 @@
 //
 // Usage: node tools/balance-sim.mjs [runCount] [seedOffset]
 
-import { computeAim, trackEnemyMotion } from '../src/engine/aim.mjs';
+import { chooseAutoFire, trackEnemyMotion } from '../src/engine/aim.mjs';
 import {
   createRun, checkReachedExit, checkSunk, addSalvage, BASELINE_LOADOUT, REEF_COUNT,
 } from '../src/engine/run.mjs';
 import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from '../src/engine/boat.mjs';
 import {
   tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, isHeld, ammoFor,
-  craftedMultiplierFor,
+  craftedMultiplierFor, effectiveWeapon,
 } from '../src/engine/combat.mjs';
+import { rollUpgradeChoices, applyUpgrade } from '../src/engine/upgrades.mjs';
 import { updateEnemyGuns, stepEnemyProjectiles } from '../src/engine/enemyGuns.mjs';
 import { updateEnemies, stepSummons, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor } from '../src/engine/enemies.mjs';
 import { collectPickups } from '../src/engine/pickups.mjs';
@@ -339,12 +340,17 @@ function routeVector(run, bot) {
   return { x: dx / dist, y: dy / dist };
 }
 
-function computeFireHeading(run) {
-  const aim = computeAim(run.enemies, run.boat, getWeapon(run.weapons.activeWeaponId), {
+function autoFire(run) {
+  const aim = chooseAutoFire(run.enemies, run.boat, run.weapons.activeWeaponId, {
+    effectiveWeapon: (id) => effectiveWeapon(run.weapons, id), ammoOf: (id) => ammoFor(run.weapons, id),
     grid: run.grid, tileSize: run.tileSize, coast: run.coast, counterOf: currentCounter, previousTarget: run._aimTarget,
   });
   run._aimTarget = aim ? aim.target : null;
-  return aim ? aim.heading : run.boat.heading;
+  if (!aim) return;
+  const chosen = run.weapons.activeWeaponId;
+  run.weapons.activeWeaponId = aim.weaponId;
+  tryFire(run.weapons, run.boat.x, run.boat.y, aim.heading);
+  run.weapons.activeWeaponId = chosen;
 }
 
 // Switches to the nearest threatening enemy's counter weapon if it's
@@ -394,6 +400,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
       lastReefIndex = run.reefIndex;
       stats.reefsReached++;
       bot.blacklist.clear(); // last reef's pickup ids / enemy objects are gone
+      if (!process.env.NO_UPGRADES) { const pick = rollUpgradeChoices(run)[0]; if (pick) applyUpgrade(run, pick); }
     }
     reefTimer += DT;
     if (reefTimer > REEF_TIMEOUT_SECONDS) { stats.timeoutReef = run.reefIndex; break; }
@@ -409,8 +416,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     const wallDmg = applyWallImpactDamage(run.boat, impact);
     if (wallDmg > 0) stats.damageBySource.wall += wallDmg;
 
-    const heading = computeFireHeading(run);
-    tryFire(run.weapons, run.boat.x, run.boat.y, heading);
+    autoFire(run);
     stepCombat(run.weapons, DT, run.grid, run.tileSize, run.enemies);
     stepAmmoRegen(run.weapons, DT);
     updateEnemies(run.enemies, run.boat, DT, run.grid, run.tileSize, run.coast);
