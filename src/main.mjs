@@ -77,6 +77,8 @@ import {
   playBossPhaseChange, playBossDefeated, playEnemyFire, playTreasure, playWardClink, playZap, playThunder, playWeatherWarning, playStrikeMark,
 } from './audio/audio.mjs';
 import { WEAPON_IDS } from './data/weapons.mjs';
+import { createDefenceMode } from './td/tdMode.mjs';
+import { renderTowerYard, towerYardBuyable } from './ui/towerYard.mjs';
 
 const MUTE_STORAGE_KEY = 'shatteredReef.muted.v1';
 
@@ -261,7 +263,10 @@ export function startApp(root) {
         </div>
       </div>
       <button type="button" id="hub-continue" hidden>▶ Continue voyage<small></small></button>
-      <button type="button" id="hub-set-sail">▶ Set Sail</button>
+      <div class="vc-actions">
+        <button type="button" id="hub-set-sail">▶ Set Sail</button>
+        <button type="button" id="vc-defend"><span>🏰 Defend</span><small>the Reef</small></button>
+      </div>
     </div>
     <div id="base-panel" hidden>
       <div id="base-panel-card" role="dialog" aria-modal="true" aria-labelledby="base-panel-title">
@@ -292,6 +297,10 @@ export function startApp(root) {
           <section class="hub-section" data-panel="workshop">
             <p class="hub-section-note">Craft permanent upgrades with Salvage + Kraken Scales — earn a Scale by sinking a stage boss.</p>
             <div id="hub-workshop" class="hub-list"></div>
+          </section>
+          <section class="hub-section" data-panel="towers">
+            <p class="hub-section-note">Towers for Reef Defence. Cannon Battery and Grapeshot Nest are yours from the start; specialisations are built on a level-3 tower.</p>
+            <div id="hub-towers" class="hub-list"></div>
           </section>
           <section class="hub-section" data-panel="log">
             <div id="hub-log" class="log-grid"></div>
@@ -328,6 +337,7 @@ export function startApp(root) {
     factions: ['Faction Hall', 'Sail under a flag — and its rivalries'],
     workshop: ['Workshop', 'Craft upgrades from Kraken Scales'],
     log: ["Captain's Log", 'Your record at sea'],
+    towers: ['Tower Yard', 'Reef Defence — towers, specialisations and reef works'],
   };
   const chipEls = new Map();
   for (const b of BASE_BUILDINGS) {
@@ -1006,6 +1016,8 @@ export function startApp(root) {
       hubFactions.appendChild(row);
     }
 
+    renderTowerYard(hubOverlay.querySelector('#hub-towers'), meta, () => { saveMeta(window.localStorage, meta); renderHub(); });
+
     hubWorkshop.innerHTML = '';
     for (const upgrade of WORKSHOP_UPGRADE_LIST) {
       const owned = meta.ownedWorkshopUpgrades.includes(upgrade.id);
@@ -1037,6 +1049,7 @@ export function startApp(root) {
       factions: PLAYABLE_FACTION_LIST.some((f) => !meta.ownedFactions.includes(f.id) && canAfford(meta, f.cost)),
       workshop: WORKSHOP_UPGRADE_LIST.some((u) => !meta.ownedWorkshopUpgrades.includes(u.id) && canAffordWorkshopUpgrade(meta, u)),
       log: false,
+      towers: towerYardBuyable(meta),
     };
     for (const [, chip] of chipEls) chip.querySelector('.bc-badge').hidden = !buyable[chip.dataset.panel];
   }
@@ -1224,6 +1237,22 @@ export function startApp(root) {
     drawBoat, boatRadius: BOAT_RADIUS, getBoatStyle: () => baseBoatStyle, levelsPerStage: LEVELS_PER_STAGE,
   });
   hubOverlay.querySelector('#open-chart').addEventListener('click', () => worldMap.open());
+  // Reef Defence (2026-09-29): the second game mode. Its chart opens over
+  // the harbour; a defence takes over the canvas until you come back.
+  const defence = createDefenceMode(root, {
+    canvas, ctx,
+    getMeta: () => meta,
+    persistMeta: () => saveMeta(window.localStorage, meta),
+    askConfirm,
+    onEnter: () => { sailing = false; hubOverlay.classList.remove('show'); document.body.classList.remove('in-hub'); if (worldMap.isOpen()) worldMap.close(false); },
+    onExit: () => openHub(),
+    onMuteChange: () => { window.localStorage.setItem(MUTE_STORAGE_KEY, isMuted() ? '1' : '0'); refreshMuteButton(); },
+  });
+  hubOverlay.querySelector('#vc-defend').addEventListener('click', () => defence.openChart());
+  window.__shatteredReefTd = {
+    debug: () => defence.debug(), start: (id) => defence.start(id), openChart: () => defence.openChart(),
+    setGold: (g) => defence.debugSetGold(g), state: () => defence.debugState(),
+  };
   // Swipe left anywhere on the harbour (not in a panel or the voyage card)
   // slides the chart in. Listening on the whole overlay means a swipe that
   // starts on a building label still counts.
@@ -1633,6 +1662,8 @@ export function startApp(root) {
   function frame(now) {
     const rawDt = Math.min(0.05, (now - lastTime) / 1000); // clamp so a tab-switch stall can't fling the boat
     lastTime = now;
+    // Reef Defence (td/tdMode.mjs) owns the canvas while it's running.
+    if (defence.active) { defence.frame(now, rawDt); requestAnimationFrame(frame); return; }
     // Hit-stop (engine/juice.mjs) only ever freezes active gameplay
     // simulation, never the Hub/summary screens or the juice systems
     // themselves — a brief freeze on a big hit should still let its own

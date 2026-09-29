@@ -37,13 +37,14 @@ test('base: the lagoon opens to the sea through channels (not a closed pond)', (
 });
 
 test('base: every building has a real Hub panel, and ids are unique', () => {
-  const panels = new Set(['hulls', 'cargo', 'charms', 'factions', 'workshop', 'log']);
+  const panels = new Set(['hulls', 'cargo', 'charms', 'factions', 'workshop', 'log', 'towers']);
   const ids = new Set();
   for (const b of BASE_BUILDINGS) {
     assert.ok(panels.has(b.panel), `${b.id} opens unknown panel ${b.panel}`);
     assert.ok(!ids.has(b.id)); ids.add(b.id);
   }
-  assert.deepEqual(new Set(BASE_BUILDINGS.map((b) => b.panel)), panels, 'every panel is reachable from a building');
+  // The Captain's Log is opened from the captain chip (main.mjs), every other panel from a building.
+  assert.deepEqual(new Set([...BASE_BUILDINGS.map((b) => b.panel), 'log']), panels, 'every panel is reachable');
 });
 
 test('base view: every building and its label chip fit the free region on phones', () => {

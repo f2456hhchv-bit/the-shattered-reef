@@ -13,6 +13,8 @@ import {
   PLAYABLE_FACTION_LIST, getPlayableFaction,
   WORKSHOP_UPGRADE_LIST, getWorkshopUpgrade, workshopBonusesFor,
 } from '../data/meta.mjs';
+import { TOWERS, STARTING_TOWERS, TOWER_UNLOCKS, SPEC_UNLOCKS, SPEC_BY_ID, TD_PERK_BY_ID } from '../data/towers.mjs';
+import { TD_MAPS, TD_MAP_BY_ID, defenceReward } from '../data/tdMaps.mjs';
 
 const STORAGE_KEY = 'shatteredReef.meta.v1';
 
@@ -34,6 +36,13 @@ export function createDefaultMeta() {
     // it (all 5 levels) unlocks the next; cleared stages stay replayable.
     highestStageUnlocked: 1,
     stats: { runsPlayed: 0, bestReefsCleared: 0, deepestReefReached: 0, totalSalvageEarned: 0 },
+    // Reef Defence (2026-09-29): towers, specialisations and perks bought
+    // in the Tower Yard, and the best star rating on each defence map.
+    tdTowers: [...STARTING_TOWERS],
+    tdSpecs: [],
+    tdPerks: [],
+    tdStars: {},
+    tdStats: { played: 0, won: 0, kills: 0 },
   };
 }
 
@@ -71,6 +80,16 @@ export function loadMeta(storage) {
     if (!Number.isFinite(meta.salvage)) meta.salvage = 0;
     if (!Number.isFinite(meta.krakenScales)) meta.krakenScales = 0;
     if (!Number.isInteger(meta.highestStageUnlocked) || meta.highestStageUnlocked < 1) meta.highestStageUnlocked = 1;
+    // Reef Defence: keep only ids that still exist; the starting towers are always yours.
+    const arr = (v) => (Array.isArray(v) ? v : []);
+    meta.tdTowers = [...new Set([...STARTING_TOWERS, ...arr(parsed.tdTowers).filter((id) => TOWERS[id])])];
+    meta.tdSpecs = arr(parsed.tdSpecs).filter((id) => SPEC_BY_ID[id]);
+    meta.tdPerks = arr(parsed.tdPerks).filter((id) => TD_PERK_BY_ID[id]);
+    meta.tdStars = {};
+    if (parsed.tdStars && typeof parsed.tdStars === 'object') {
+      for (const [id, n] of Object.entries(parsed.tdStars)) if (TD_MAP_BY_ID[id] && Number.isInteger(n) && n >= 0 && n <= 3) meta.tdStars[id] = n;
+    }
+    meta.tdStats = { ...defaults.tdStats, ...(parsed.tdStats && typeof parsed.tdStats === 'object' ? parsed.tdStats : {}) };
     return meta;
   } catch {
     return defaults;
@@ -225,4 +244,64 @@ export function recordRunResult(meta, run) {
   if (run.outcome === 'victory' && run.stage && run.stage >= meta.highestStageUnlocked) {
     meta.highestStageUnlocked = run.stage + 1;
   }
+}
+
+// ---- Reef Defence (2026-09-29) ------------------------------------------
+export function purchaseTdTower(meta, towerId) {
+  if (!TOWERS[towerId]) return { ok: false, reason: 'unknown' };
+  if (meta.tdTowers.includes(towerId)) return { ok: false, reason: 'already_owned' };
+  const cost = TOWER_UNLOCKS[towerId];
+  if (!canAfford(meta, cost)) return { ok: false, reason: 'cannot_afford' };
+  meta.salvage -= cost; meta.tdTowers.push(towerId);
+  return { ok: true };
+}
+
+export function purchaseTdSpec(meta, specId) {
+  const spec = SPEC_BY_ID[specId];
+  if (!spec) return { ok: false, reason: 'unknown' };
+  if (meta.tdSpecs.includes(specId)) return { ok: false, reason: 'already_owned' };
+  if (!meta.tdTowers.includes(spec.towerId)) return { ok: false, reason: 'tower_locked' };
+  const cost = SPEC_UNLOCKS[specId];
+  if (!canAfford(meta, cost)) return { ok: false, reason: 'cannot_afford' };
+  meta.salvage -= cost; meta.tdSpecs.push(specId);
+  return { ok: true };
+}
+
+export function canAffordTdPerk(meta, perk) {
+  return meta.salvage >= perk.cost && meta.krakenScales >= (perk.scales || 0);
+}
+
+export function purchaseTdPerk(meta, perkId) {
+  const perk = TD_PERK_BY_ID[perkId];
+  if (!perk) return { ok: false, reason: 'unknown' };
+  if (meta.tdPerks.includes(perkId)) return { ok: false, reason: 'already_owned' };
+  if (!canAffordTdPerk(meta, perk)) return { ok: false, reason: 'cannot_afford' };
+  meta.salvage -= perk.cost; meta.krakenScales -= perk.scales || 0; meta.tdPerks.push(perkId);
+  return { ok: true };
+}
+
+// A defence map opens when the one before it has a star — or when your
+// voyages have already reached that biome's stage, so both modes open
+// the chart.
+export function isDefenceUnlocked(meta, mapIndex) {
+  if (mapIndex <= 0) return true;
+  const prev = TD_MAPS[mapIndex - 1];
+  return (meta.tdStars[prev.id] || 0) >= 1 || meta.highestStageUnlocked > mapIndex;
+}
+
+export function defenceKit(meta) {
+  return { unlockedTowers: [...meta.tdTowers], unlockedSpecs: [...meta.tdSpecs], perks: [...meta.tdPerks] };
+}
+
+// Folds a finished defence into meta: best stars, Salvage for new stars,
+// a Kraken Scale for a first 3-star clear. Returns what was paid.
+export function recordDefenceResult(meta, mapId, stars, kills = 0) {
+  const m = TD_MAP_BY_ID[mapId];
+  const old = meta.tdStars[mapId] || 0;
+  const reward = defenceReward(m.index, old, stars);
+  meta.tdStars[mapId] = Math.max(old, stars);
+  meta.salvage += reward.salvage; meta.krakenScales += reward.scales;
+  meta.stats.totalSalvageEarned += reward.salvage;
+  meta.tdStats.played++; if (stars > 0) meta.tdStats.won++; meta.tdStats.kills += kills;
+  return reward;
 }

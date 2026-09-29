@@ -9,6 +9,7 @@
 // except the few facts passed in `state` (e.g. the selected faction).
 
 import { FACTIONS } from '../data/factions.mjs';
+import { drawTower } from './tdArt.mjs';
 
 const TAU = Math.PI * 2;
 
@@ -75,7 +76,7 @@ function drawShipyard(ctx, b, t) {
   for (let k = 0; k < 3; k++) ctx.fillRect(x - 44, y + 8 - k * 4, 18, 3);
 }
 
-export function drawLighthouse(ctx, b, t) {
+export function drawLighthouse(ctx, b, t, { cottage = true } = {}) {
   const { x, y } = b;
   shadow(ctx, x, y + 2, 20, 9);
   // Rocky base
@@ -101,6 +102,7 @@ export function drawLighthouse(ctx, b, t) {
   ctx.fillStyle = '#8f2f1f';
   ctx.beginPath(); ctx.moveTo(x - 8, y - H - 13); ctx.lineTo(x + 8, y - H - 13); ctx.lineTo(x, y - H - 22); ctx.closePath(); ctx.fill();
   // Keeper's cottage.
+  if (!cottage) return;
   shadow(ctx, x + 26, y + 10, 14, 6);
   box(ctx, x + 26, y + 12, 22, 12, 9, '#e1d3b4', '#a89878', '#3f6f8f', '#2c5068');
 }
@@ -253,8 +255,30 @@ function drawHall(ctx, b, t, state) {
   });
 }
 
+// Tower Yard (Reef Defence, 2026-09-29): the lighthouse island, with a
+// couple of the reef's towers standing guard at its foot, drawn by the
+// same art the defences use.
+function drawTowerYard(ctx, b, t) {
+  const { x, y } = b;
+  // A short stretch of wall behind the towers.
+  ctx.fillStyle = '#8a8478'; ctx.fillRect(x + 12, y + 2, 38, 8);
+  ctx.fillStyle = '#a7a194'; ctx.fillRect(x + 12, y - 1, 38, 4);
+  ctx.fillStyle = '#77736a'; for (let k = 0; k < 5; k++) ctx.fillRect(x + 13 + k * 8, y - 4, 4, 3);
+  drawLighthouse(ctx, { x, y }, t, { cottage: false });
+  const show = [
+    { towerId: 'cannon', x: x + 22, y: y + 14, level: 3, angle: 0.6 + Math.sin(t * 0.6) * 0.5, id: 1 },
+    { towerId: 'flame', x: x + 42, y: y + 8, level: 2, angle: 0, id: 3 },
+    { towerId: 'chain', x: x - 26, y: y + 12, level: 2, angle: 2.6 + Math.sin(t * 0.5) * 0.4, id: 2 },
+  ];
+  for (const T of show) {
+    ctx.save(); ctx.translate(T.x, T.y); ctx.scale(0.7, 0.7); ctx.translate(-T.x, -T.y);
+    drawTower(ctx, { ...T, spec: null, recoil: 0, stunT: 0, slowT: 0, fireT: 0, inkT: 0, poisonT: 0 }, t);
+    ctx.restore();
+  }
+}
+
 const DRAWERS = {
-  shipyard: drawShipyard, lighthouse: drawLighthouse, shrine: drawShrine,
+  shipyard: drawShipyard, lighthouse: drawTowerYard, shrine: drawShrine,
   armory: drawArmory, workshop: drawWorkshop, hall: drawHall,
 };
 

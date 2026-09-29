@@ -287,3 +287,35 @@ export function playEnemyFire() {
   tone(95, { duration: 0.16, type: 'triangle', gain: 0.12, glideTo: 55 });
   noiseBurst({ duration: 0.12, gain: 0.09, filterFreq: 420 });
 }
+
+// ---- Reef Defence (2026-09-29) --------------------------------------------
+// Hammering a tower together: two wooden knocks and a settle.
+export function playBuild() {
+  noiseBurst({ duration: 0.06, gain: 0.14, filterFreq: 1200 });
+  tone(220, { duration: 0.08, type: 'triangle', gain: 0.1, delay: 0.09 });
+  tone(330, { duration: 0.12, type: 'triangle', gain: 0.1, delay: 0.18 });
+}
+// An upgrade: a bright rising pair.
+export function playUpgrade() {
+  tone(440, { duration: 0.1, type: 'triangle', gain: 0.12, glideTo: 660 });
+  tone(660, { duration: 0.16, type: 'triangle', gain: 0.12, glideTo: 990, delay: 0.09 });
+}
+// Coins back from a sold tower.
+export function playSell() {
+  [880, 1175, 988].forEach((f, i) => tone(f, { duration: 0.07, type: 'sine', gain: 0.08, delay: i * 0.05 }));
+}
+// The Heart of the Reef taking a hit: a low, sad bell.
+export function playLeak() {
+  tone(196, { duration: 0.6, type: 'sine', gain: 0.18, glideTo: 150 });
+  tone(294, { duration: 0.45, type: 'triangle', gain: 0.07, glideTo: 220 });
+}
+// A conch horn for each wave.
+export function playWaveHorn(boss = false) {
+  const f = boss ? 110 : 147;
+  tone(f, { duration: 0.9, type: 'sawtooth', gain: 0.07, glideTo: f * 1.02 });
+  tone(f * 1.5, { duration: 0.8, type: 'triangle', gain: 0.06, delay: 0.05 });
+}
+// A menu tap.
+export function playTap() {
+  tone(660, { duration: 0.04, type: 'sine', gain: 0.05 });
+}

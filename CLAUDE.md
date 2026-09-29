@@ -2176,6 +2176,90 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   suspects are GC from per-frame allocations (particles, gradients) and
   the music scheduler.
 
+- **Phase:** Reef Defence, a second game mode (project owner: "you are
+  defending your reef… WITH TOWERS"). AskUserQuestion answers: **classic,
+  towers only** (no ship), **reef channels** (enemies sail in from the sea
+  through channels to the Heart of the Reef; flyers cut over land), and a
+  **shared harbour** (its own chart, one map per biome, star ratings,
+  shared Salvage, a harbour building for towers).
+- **Just shipped:**
+  - **Six towers** (`data/towers.mjs`), one per voyage weapon plus a
+    support tower, so the "read the enemy, answer with the right weapon"
+    rule carries over:
+    - Cannon Battery: all-rounder, hits flyers.
+    - Grapeshot Nest: a short-range blast that hits a whole pack.
+    - Chain Mast: anti-air; slows; pierces.
+    - Depth Charge Post: lobbed splash. The only tower that hits divers,
+      and it can't hit flyers.
+    - Fire Brazier: burn damage over time; can't hit flyers.
+    - Lighthouse: doesn't shoot. It reveals camouflage and ghosts, lights
+      the dark, and boosts nearby towers.
+    A tower deals ×1.35-1.7 to what its weapon counters and ×0.6-0.85 to
+    anything else. Levels 1-3 are bought in the map. Level 4 is one of two
+    specialisations (12 total), e.g. Long Nines/Carronade, Mine Layer/Heavy
+    Charges, Greek Fire/Dragon's Breath, Beacon of Fortune/Blinding Lamp.
+  - **Maps** (`data/tdMaps.mjs`, `engine/tdMap.mjs`): 10 generated reefs,
+    one per biome in stage order, with 1-3 lanes. Channels are Catmull-Rom
+    splines carved into a 28×46 tile grid, sharing the voyage's coast
+    field and terrain renderer. Build spots are picked for coverage (the
+    insides of bends, between lanes). Flyer routes are the channel with
+    its bends smoothed out, so they cut corners but stay reachable. In
+    landscape the whole map is transposed (x ↔ y), so sprites and text are
+    drawn upright, not rotated.
+  - **Waves** (`engine/tdWaves.mjs`) come from the biome's own voyage
+    roster in order and end on its boss. Each wave has an HP budget.
+  - **Engine** (`engine/td.mjs`, pure):
+    - reach and visibility rules, including "towers only see lit enemies"
+      in the dark
+    - enemies with guns rattle towers (stun, chill, fire, ink, poison)
+    - boss phases change the counter tower, summon minions and enrage
+    - sharks surge; fire ships blow up nearby enemies
+    - sirens slow nearby towers
+    - economy: kill gold, a wave bounty, a bonus for calling a wave early,
+      and full refunds before wave 1 (70% after)
+    - stars: 3★ at 90%+ of lives left, 2★ at 50%+
+    - between-wave checkpoints
+  - **UI** (`td/tdMode.mjs`, `engine/tdArt.mjs`):
+    - tap a stone ring for a build ring; options take two taps (the first
+      shows the info card and a range preview)
+    - tap a tower for upgrade, specialise, target mode and sell
+    - tap an enemy to read its traits and what it's weak to
+    - an incoming-wave strip with NEW badges, and a "new enemy" card
+    - entry chevrons and dotted flyer routes before each wave
+    - a boss bar, ×1/×2 speed, and a pause menu (resume, sound, save &
+      harbour, restart)
+    - results with animated stars, rewards and a tip if you lost
+    - a first-map tutorial arrow
+  - **Harbour:** the lighthouse island is now the **Tower Yard**
+    (`ui/towerYard.mjs`), which sells tower unlocks, specialisations and
+    six reef-work perks. The Captain's Log stays on the captain chip. The
+    voyage card has **🏰 Defend the Reef** beside Set Sail, which opens
+    the defence chart (islands, stars, lock state), then a briefing: who's
+    coming, which of your towers answer them, and the star rewards.
+  - **Progression** (`engine/meta.mjs`):
+    - `tdTowers`, `tdSpecs`, `tdPerks`, `tdStars` and `tdStats`, sanitised
+      on load
+    - a map opens when the previous one has a star, **or** when your
+      voyages have reached that stage
+    - each new star pays Salvage; a first 3★ pays a Kraken Scale, which
+      feeds the voyage Workshop
+  - **Checkpoint save** (`shatteredReef.defence.v1`), taken whenever the
+    water is calm. The chart offers "Continue defence".
+  - **Balance sim** (`tools/td-sim.mjs`, kits fresh/towers/full). Its bot
+    reads the next waves and builds counters, anti-air and lighthouses.
+    With every tower unlocked it wins every map; with only the starting
+    towers, maps 1-2 at 3★ and later maps need unlocks, which is the
+    intended progression.
+  - Tests: `tests/td.test.mjs`, 23 tests covering maps, waves, reach and
+    visibility, economy, stars, checkpoints, transpose, the camera, meta
+    and bot wins. 417/417 tests pass.
+  - Playtested at 390×844, 375×553, 844×390 and 667×375 with no console
+    errors: build, upgrade, specialise, waves, boss wave, results, meta
+    rewards, pause and resume, and rotation mid-wave.
+- **Next up:** the owner plays it. First-pass numbers to judge: tower
+  costs, the boss HP multiplier (×4.6) and the 20s wave gap. There's no
+  TD-specific music yet; each map uses its biome's sea and lair themes.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2832,6 +2916,18 @@ Starting fresh below for the new game.)*
   rebuilt from the level seed rather than stored, which keeps a save
   small (a few KB).
 
+- 2026-09-29: Reef Defence reuses the voyage's enemies, biomes, terrain,
+  art, audio and Salvage instead of a separate content set, so each
+  voyage biome is also a defence map and both modes grow together. Towers
+  map to the five weapons, so counters mean the same thing in both modes.
+- 2026-09-29: Landscape transposes the map data (a reflection) rather
+  than rotating the canvas, so towers and text stay upright and lighting
+  stays consistent. Enemies keep their arc length; their lateral offset
+  flips sign.
+- 2026-09-29: The Tower Yard took the lighthouse island instead of
+  becoming a seventh building. Seven labels overlapped on phones; the
+  Captain's Log was already on the captain chip.
+
 ## Known open questions (do not silently resolve — ask)
 
 - See the PRD's "Open Risks & Provisional Decisions" section
@@ -2863,6 +2959,8 @@ Starting fresh below for the new game.)*
   tougher. Judge the overall curve by real play before retuning.
 - **Difficulty after the aim fix.** Players now land most shots, so
   levels are easier. Retune enemy HP/counts after real play, not before.
+- **Reef Defence balance is bot-derived.** Tower costs, boss HP (×4.6)
+  and the wave gap are first-pass; judge by real play.
 - **The enemy matchup pips add clutter to Skimmer packs** (one pip per
   Skimmer, 3-5 per pack). Fine at current densities; revisit with real
   art.

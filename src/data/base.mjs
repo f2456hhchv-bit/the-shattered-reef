@@ -10,7 +10,10 @@
 
 export const BASE_BUILDINGS = Object.freeze([
   { id: 'shipyard', name: 'Shipyard', sub: 'Ship hulls', icon: '⛵', panel: 'hulls', angleDeg: -90 },
-  { id: 'lighthouse', name: "Captain's Log", sub: 'Your record', icon: '📜', panel: 'log', angleDeg: -150 },
+  // Reef Defence (2026-09-29): the lighthouse island is the Tower Yard — a
+  // lighthouse is one of the reef's towers. The Captain's Log it used to
+  // open is on the captain chip at the top of the harbour.
+  { id: 'lighthouse', name: 'Tower Yard', sub: 'Reef defences', icon: '🏰', panel: 'towers', angleDeg: -150 },
   { id: 'shrine', name: 'Charm Shrine', sub: 'Charms', icon: '🔮', panel: 'charms', angleDeg: -30 },
   { id: 'armory', name: 'Armory', sub: 'Cargo & ammo', icon: '💣', panel: 'cargo', angleDeg: 150 },
   { id: 'workshop', name: 'Workshop', sub: 'Crafting', icon: '⚒️', panel: 'workshop', angleDeg: 30 },
