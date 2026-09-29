@@ -41,6 +41,7 @@ import { WEAPON_LIST, getWeapon } from './data/weapons.mjs';
 import { getEnemy } from './data/enemies.mjs';
 import { bossForStage, stageInfo, stageName } from './data/stages.mjs';
 import { createWorldMap } from './ui/worldMap.mjs';
+import { createIntro } from './ui/intro.mjs';
 import { updateEnemyGuns, stepEnemyProjectiles } from './engine/enemyGuns.mjs';
 import {
   SHIP_HULL_LIST, CARGO_TIER_LIST, CHARM_LIST, PLAYABLE_FACTION_LIST, WORKSHOP_UPGRADE_LIST,
@@ -1533,6 +1534,13 @@ export function startApp(root) {
   updateReefIndicator();
   updateWeaponBar();
   openHub();
+  // Opening sequence (ui/intro.mjs): a short painted scene that covers the
+  // harbour's build, then washes over into it. Skipped under automation
+  // (playtest scripts) unless ?intro is in the URL.
+  const params = new URLSearchParams(window.location.search);
+  if (!navigator.webdriver || params.has('intro')) {
+    createIntro(root, { prepare: () => { ensureBase(); layoutBase(); } });
+  }
 }
 
 // Resolves an enemy's draw color from its data definition, cached on the
