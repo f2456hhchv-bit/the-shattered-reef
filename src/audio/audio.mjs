@@ -171,6 +171,11 @@ export function playThunder() {
   noiseBurst({ duration: 1.1, gain: 0.22, filterFreq: 260 });
 }
 
+// A lightning mark appearing: a rising electric hum, 3s before it hits.
+export function playStrikeMark() {
+  tone(90, { duration: 0.6, type: 'sawtooth', gain: 0.035, glideTo: 180 });
+}
+
 // A weather event rolling in.
 export function playWeatherWarning() {
   tone(220, { duration: 0.5, type: 'sine', gain: 0.08, glideTo: 180 });

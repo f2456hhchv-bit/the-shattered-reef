@@ -22,7 +22,7 @@ export const WEATHER = {
   thunderstorm: {
     name: 'Thunderstorm', icon: '⛈️', msg: 'Lightning! Steer clear of the glowing marks',
     duration: [18, 24], wind: 30, sight: 0.8, rain: 0.8, dark: 0.35,
-    strikeEvery: [1.4, 2.4], strikeWarn: 1.3, strikeRadius: 32, strikeDamage: 12, aimed: 0.3,
+    strikeEvery: [1.2, 2.0], strikeWarn: 3.0, strikeRadius: 34, strikeDamage: 16, aimed: 0.45,
   },
   fog: {
     name: 'Fog Bank', icon: '🌫️', msg: 'Fog rolls in — you see less, and so do they',
@@ -34,7 +34,7 @@ export const WEATHER = {
   },
   rogue_wave: {
     name: 'Rogue Wave', icon: '🌊', msg: 'Rogue wave! Brace — it’ll carry you',
-    duration: [9, 9], warn: 2.2, speed: 230, width: 70, push: 300, damage: 6,
+    duration: [9, 9], warn: 3.0, speed: 230, width: 70, push: 300, damage: 6,
   },
   waterspout: {
     name: 'Waterspout', icon: '🌪️', msg: 'Waterspouts loose on the reef — keep clear',
@@ -43,12 +43,12 @@ export const WEATHER = {
   },
   rockfall: {
     name: 'Rockfall', icon: '🪨', msg: 'Rockfall! Keep off the cliffs',
-    duration: [14, 20], every: [0.45, 0.8], warn: 1.1, radius: 24, damage: 18, shoreBand: [4, 34],
+    duration: [14, 20], every: [0.45, 0.8], warn: 2.2, radius: 24, damage: 18, shoreBand: [4, 34],
     rock: ['#8b8a82', '#55575a'],
   },
   icefall: {
     name: 'Icefall', icon: '🧊', msg: 'The ice cliffs are calving — keep off the shore',
-    duration: [14, 20], every: [0.5, 0.9], warn: 1.1, radius: 26, damage: 16, shoreBand: [4, 34],
+    duration: [14, 20], every: [0.5, 0.9], warn: 2.2, radius: 26, damage: 16, shoreBand: [4, 34],
     rock: ['#eaf2f7', '#9fc4d8'],
   },
   blizzard: {
@@ -74,7 +74,7 @@ export const WEATHER = {
 // Relative odds per biome. Every biome has something that pushes you,
 // something that hides you, and something that hits.
 export const BIOME_WEATHER = {
-  tropical: { squall: 3, gale: 2, waterspout: 2, whirlpool: 2, thunderstorm: 2, rogue_wave: 1 },
+  tropical: { squall: 3, gale: 2, waterspout: 2, whirlpool: 2, thunderstorm: 2, fog: 2, rogue_wave: 1 },
   cliff_cove: { rockfall: 3, gale: 3, fog: 2, rogue_wave: 2, thunderstorm: 1 },
   glacial: { blizzard: 3, ice_floes: 3, icefall: 2, fog: 2, gale: 1 },
   shipwreck: { fog: 3, thunderstorm: 3, whirlpool: 2, wreckage: 2, ghost_lights: 2, rogue_wave: 1 },

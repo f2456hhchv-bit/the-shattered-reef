@@ -69,7 +69,7 @@ import {
 import {
   unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact,
   playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playLockedWeapon,
-  playBossPhaseChange, playBossDefeated, playEnemyFire, playTreasure, playWardClink, playZap, playThunder, playWeatherWarning,
+  playBossPhaseChange, playBossDefeated, playEnemyFire, playTreasure, playWardClink, playZap, playThunder, playWeatherWarning, playStrikeMark,
 } from './audio/audio.mjs';
 import { WEAPON_IDS } from './data/weapons.mjs';
 
@@ -536,7 +536,10 @@ export function startApp(root) {
   // spent only on the enemies it counters; anything else in range gets
   // Cannonballs, so picking Depth Charges never wastes them on a cutter.
   function updateAim() {
-    const aim = chooseAutoFire(run.enemies, run.boat, run.weapons.activeWeaponId, {
+    // In fog or a blizzard your gunners can't shoot what they can't see.
+    const view = weatherModifiers(run.weather).view;
+    const seen = view ? run.enemies.filter((e) => Math.hypot(e.x - run.boat.x, e.y - run.boat.y) <= view * 0.8) : run.enemies;
+    const aim = chooseAutoFire(seen, run.boat, run.weapons.activeWeaponId, {
       effectiveWeapon: (id) => effectiveWeapon(run.weapons, id), ammoOf: (id) => ammoFor(run.weapons, id),
       grid: run.grid, tileSize: run.tileSize, coast: run.coast, counterOf: currentCounter, previousTarget: aimTarget,
     });
@@ -748,6 +751,7 @@ export function startApp(root) {
     let salvage = wx.salvage;
     for (const ev of wx.enemyHits) salvage += processHitEvent(ev, { burn: true });
     if (salvage > 0) { addSalvage(run, salvage); updateSalvageCounter(); if (wx.salvage) playPickupSalvage(); }
+    if (wx.marks) playStrikeMark();
     for (const s of wx.strikes) {
       bolts.push({ x: s.x, y: s.y, life: 0.25 });
       spawnExplosion(particles, s.x, s.y, 20, Math.random);

@@ -115,20 +115,38 @@ function drawLight(ctx, l, t) {
   void t;
 }
 
+// A lightning mark: the exact danger circle from the moment it appears,
+// filling like a clock as the strike charges (3s), pulsing faster near
+// the end. Always readable, always avoidable.
 function drawStrikeMark(ctx, s, t) {
-  const u = 1 - s.warn / s.max;
+  const u = Math.min(1, 1 - s.warn / s.max);
+  const pulse = 0.5 + 0.5 * Math.sin(t * (6 + u * 18));
   ctx.save();
-  ctx.strokeStyle = `rgba(190, 220, 255, ${0.4 + u * 0.6})`; ctx.lineWidth = 2;
-  ctx.setLineDash([4, 4]); ctx.lineDashOffset = t * 30;
-  ctx.beginPath(); ctx.arc(s.x, s.y, s.r * (1.4 - u * 0.4), 0, TAU); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = `rgba(160, 200, 255, ${0.12 + u * 0.25})`;
-  ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill();
-  // Crackle as it's about to hit.
-  if (u > 0.6) {
-    ctx.strokeStyle = `rgba(255, 255, 255, ${u})`; ctx.lineWidth = 1.2;
-    for (let i = 0; i < 3; i++) {
-      const a = t * 20 + i * 2.1; ctx.beginPath(); ctx.moveTo(s.x, s.y);
-      ctx.lineTo(s.x + Math.cos(a) * s.r * 0.5, s.y + Math.sin(a) * s.r * 0.5); ctx.lineTo(s.x + Math.cos(a + 0.5) * s.r * 0.9, s.y + Math.sin(a + 0.5) * s.r * 0.9); ctx.stroke();
+  ctx.translate(s.x, s.y);
+  // Danger zone tint.
+  ctx.fillStyle = `rgba(255, 215, 90, ${0.16 + u * 0.16})`;
+  ctx.beginPath(); ctx.arc(0, 0, s.r, 0, TAU); ctx.fill();
+  // Countdown: a wedge sweeping round.
+  ctx.fillStyle = `rgba(255, 240, 170, ${0.3 + u * 0.35})`;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, s.r, -Math.PI / 2, -Math.PI / 2 + u * TAU); ctx.closePath(); ctx.fill();
+  // Hard edge: exactly where it will hit.
+  ctx.lineWidth = 2.5 + u * 1.5;
+  ctx.strokeStyle = `rgba(20, 30, 60, 0.6)`;
+  ctx.beginPath(); ctx.arc(0, 0, s.r + 1.5, 0, TAU); ctx.stroke();
+  ctx.strokeStyle = `rgba(255, ${210 + u * 45}, ${80 + u * 175}, ${0.75 + pulse * 0.25})`;
+  ctx.beginPath(); ctx.arc(0, 0, s.r, 0, TAU); ctx.stroke();
+  // A lightning glyph in the middle.
+  ctx.save(); ctx.scale(1.5, 1.5);
+  ctx.beginPath(); ctx.moveTo(2, -9); ctx.lineTo(-4, 1); ctx.lineTo(0, 1); ctx.lineTo(-2, 9); ctx.lineTo(4, -1); ctx.lineTo(0, -1); ctx.closePath();
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(30, 20, 5, 0.7)'; ctx.stroke();
+  ctx.fillStyle = `rgba(255, 235, 110, ${0.8 + u * 0.2})`; ctx.fill();
+  ctx.restore();
+  // Crackle in the last moments.
+  if (u > 0.75) {
+    ctx.strokeStyle = `rgba(255, 255, 255, ${(u - 0.75) * 4})`; ctx.lineWidth = 1.3;
+    for (let i = 0; i < 4; i++) {
+      const a = t * 24 + i * 1.6; ctx.beginPath(); ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(a) * s.r * 0.5, Math.sin(a) * s.r * 0.5); ctx.lineTo(Math.cos(a + 0.5) * s.r * 0.95, Math.sin(a + 0.5) * s.r * 0.95); ctx.stroke();
     }
   }
   ctx.restore();

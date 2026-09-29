@@ -147,16 +147,16 @@ export function stepWeather(run, dt, rng = Math.random) {
   }
 
   // Lightning strikes and falling rock/ice: a marked spot, then impact.
-  if (ev.next != null && w.time < ev.total - 1.2) {
+  if (ev.next != null && w.time < ev.total - (def.strikeWarn ?? def.warn ?? 1.2)) {
     ev.next -= dt;
     if (ev.next <= 0) {
       if (def.strikeEvery) {
         ev.next = rand(rng, def.strikeEvery);
         const aimed = rng() < (def.aimed ?? 0.3);
         const p = aimed
-          ? { x: run.boat.x + run.boat.vx * def.strikeWarn * 0.7 + (rng() - 0.5) * 40, y: run.boat.y + run.boat.vy * def.strikeWarn * 0.7 + (rng() - 0.5) * 40 }
+          ? { x: run.boat.x + (rng() - 0.5) * 30, y: run.boat.y + (rng() - 0.5) * 30 }
           : waterNear(run, rng, run.boat, [40, 260], 4, 20);
-        if (p) w.strikes.push({ x: p.x, y: p.y, warn: def.strikeWarn, max: def.strikeWarn, r: def.strikeRadius });
+        if (p) { w.strikes.push({ x: p.x, y: p.y, warn: def.strikeWarn, max: def.strikeWarn, r: def.strikeRadius }); res.marks = (res.marks || 0) + 1; }
       } else {
         ev.next = rand(rng, def.every);
         // Near the cliffs, within reach of the boat.

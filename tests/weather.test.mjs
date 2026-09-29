@@ -166,3 +166,30 @@ test('weather: every event can start on real levels of its biome and runs to the
     }
   }
 });
+
+test('weather: lightning gives at least 3 seconds of warning, and a ship starting from rest can always sail clear', () => {
+  assert.ok(WEATHER.thunderstorm.strikeWarn >= 3);
+  for (const dir of [0, Math.PI / 2, Math.PI, -Math.PI / 2, 0.8]) {
+    const run = openRun();
+    assert.ok(startWeather(run, 'thunderstorm', rng()));
+    run.weather.active.next = 99;
+    const r = WEATHER.thunderstorm.strikeRadius;
+    run.weather.strikes.push({ x: run.boat.x, y: run.boat.y, warn: WEATHER.thunderstorm.strikeWarn, max: WEATHER.thunderstorm.strikeWarn, r });
+    let hit = 0;
+    // A player who reacts half a second late, then sails off at full stick.
+    for (let i = 0; i < 30 * 3.2; i++) {
+      const go = i > 15 ? { x: Math.cos(dir), y: Math.sin(dir) } : { x: 0, y: 0 };
+      stepBoat(run.boat, go, 1 / 30); run.boat.x += run.boat.vx / 30; run.boat.y += run.boat.vy / 30;
+      hit += stepWeather(run, 1 / 30).boatHits.length;
+    }
+    assert.equal(hit, 0, `hit while escaping toward ${dir}`);
+  }
+});
+
+test('weather: fog shrinks what you can see — the view pocket is a few hundred px at most', () => {
+  const run = openRun();
+  assert.ok(startWeather(run, 'fog', rng()));
+  run.weather.time = 10;
+  const m = weatherModifiers(run.weather);
+  assert.ok(m.view <= 200 && m.fog === 1);
+});

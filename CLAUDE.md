@@ -1907,6 +1907,29 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - **Next up:** the owner to play-judge the new content, the weather
   frequency and lightning. Rock/ice falls don't leave debris yet.
 
+- **Phase:** weather follow-up (project owner: "Lightning should show
+  where it's going to strike with something like a 3 second delay. It
+  shouldn't feel like a random thing you can't avoid… Fog would be a good
+  one — player can't see as far").
+- **Just shipped:**
+  - **Lightning:**
+    - Each strike is marked 3s ahead with a hard-edged danger circle, a
+      countdown wedge that fills like a clock, a big bolt glyph, faster
+      pulsing near the end and a crackle in the last 0.75s. A rising hum
+      plays when a mark appears (`playStrikeMark`).
+    - Aimed marks sit where you are now, not a predicted spot. Damage
+      is back to 16 (45% aimed), because it's always dodgeable.
+    - A test proves a ship starting from rest, reacting half a second
+      late, clears the mark in every direction.
+  - **Other warnings lengthened:** rockfall/icefall 1.1s → 2.2s, rogue
+    wave 2.2s → 3s.
+  - **Fog:**
+    - Already in (a clear pocket of about 175px around you, enemy sight
+      halved). Now auto-fire can't shoot what the fog hides: aim only
+      considers enemies inside 80% of the view radius.
+    - Fog was added to the Tropical table, so it shows up from stage 1.
+  - 356/356 tests.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
