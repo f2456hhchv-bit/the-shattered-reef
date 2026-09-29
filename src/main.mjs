@@ -1193,12 +1193,19 @@ export function startApp(root) {
     b.view = computeBaseView(window.innerWidth, viewH(), baseFreeInsets());
     // Small map: one-line labels so they don't bury the buildings.
     baseChips.classList.toggle('compact', b.view.scale < 0.62);
+    baseChips.classList.remove('tiny');
     for (const bd of b.world.buildings) {
       const p = b.view.toScreen(bd.x, bd.y + b.world.layout.labelOffset);
       const chip = chipEls.get(bd.id);
       chip.style.left = `${Math.round(p.x)}px`;
       chip.style.top = `${Math.round(p.y)}px`;
     }
+    // Very small harbour (short phones with the Continue button showing):
+    // if any two labels overlap, shrink every label to its icon.
+    const rects = [...chipEls.values()].map((c) => c.getBoundingClientRect());
+    const overlap = rects.some((a, i) => rects.some((r, j) => j > i
+      && a.left < r.right - 2 && r.left < a.right - 2 && a.top < r.bottom - 2 && r.top < a.bottom - 2));
+    baseChips.classList.toggle('tiny', overlap);
   }
   function drawBase(now, dt) {
     const b = ensureBase();

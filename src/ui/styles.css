@@ -1139,3 +1139,15 @@ body.in-td #hud, body.in-td #weapon-bar, body.in-td #pause-button, body.in-td #t
 #hub-continue { margin-top: 8px; }
 .vc-actions #hub-set-sail.secondary { flex: 1; min-height: 48px; font-size: 15px; }
 .vc-actions #hub-set-sail.secondary + #vc-defend { flex: 1; }
+
+/* Icon-only building labels when full labels would overlap (tiny screens). */
+#base-chips.tiny .base-chip { padding: 0; gap: 0; min-width: 44px; min-height: 44px; justify-content: center; border-radius: 14px; }
+#base-chips.tiny .bc-text { display: none; }
+#base-chips.tiny .bc-icon { font-size: 20px; }
+@media (orientation: landscape) and (max-height: 540px) {
+  #hub-continue { font-size: 15px; min-height: 46px; padding: 6px 10px; white-space: nowrap; letter-spacing: .03em; }
+  #hub-continue small { font-size: 11px; }
+  .vc-actions #hub-set-sail.secondary { min-height: 44px; font-size: 13px; }
+  /* With a voyage saved there's one more button: drop the mini-map to fit. */
+  #voyage-card:has(#hub-continue:not([hidden])) #voyage-map { display: none; }
+}
