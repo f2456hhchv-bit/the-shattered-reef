@@ -88,8 +88,11 @@ export function levelForReef(runSeed, reefIndex, biomeId = BIOME_IDS.TROPICAL) {
 // every attempt (learnable, shareable, and the basis for a numbered level
 // catalogue). Stage 1 is Tropical; later stages will take later biomes.
 const STAGE_SEED_BASE = 0x5eed2026;
-export function biomeForStage() {
-  return BIOME_IDS.TROPICAL; // only biome so far
+// Each stage is an island group in its own biome (2026-09-29); the four
+// cycle after stage 4 (data/stages.mjs names each stage).
+const STAGE_BIOMES = [BIOME_IDS.TROPICAL, BIOME_IDS.CLIFF_COVE, BIOME_IDS.GLACIAL, BIOME_IDS.SHIPWRECK];
+export function biomeForStage(stage) {
+  return STAGE_BIOMES[(Math.max(1, stage || 1) - 1) % STAGE_BIOMES.length];
 }
 export function stageLevel(stage, levelIndex) {
   return { biomeId: biomeForStage(stage), tier: levelIndex + 1, seed: mixSeed(STAGE_SEED_BASE + stage, levelIndex) };

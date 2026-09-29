@@ -16,6 +16,7 @@ import { ENEMY_IDS as E } from './enemies.mjs';
 export const STAGES = [
   {
     name: 'Pirate Waters',
+    island: 'The Corsair Keys',
     blurb: 'Pirate cutters and brigs. Cannonballs sink them all.',
     pools: [
       [E.PIRATE_CUTTER],
@@ -28,6 +29,7 @@ export const STAGES = [
   },
   {
     name: 'Shark Shallows',
+    island: 'Sharkstooth Cove',
     blurb: 'Sharks charge, gulls dive. Grapeshot and Chain Shot.',
     pools: [
       [E.PIRATE_CUTTER, E.REEF_SHARK],
@@ -40,6 +42,7 @@ export const STAGES = [
   },
   {
     name: 'The Deep Reach',
+    island: 'Frostfang Fjord',
     blurb: 'Things under the water, and ironclads. Depth Charges and Flame Barrels.',
     pools: [
       [E.SEA_SERPENT, E.PIRATE_CUTTER, E.REEF_SHARK],
@@ -52,6 +55,7 @@ export const STAGES = [
   },
   {
     name: 'The Shattered Reef',
+    island: "The Wreckers' Graveyard",
     blurb: 'Everything at once. Riggers jam your rudder.',
     pools: [
       [E.PIRATE_CUTTER, E.PIRATE_BRIG, E.REEF_SHARK, E.RIGGER],
@@ -85,4 +89,17 @@ export function bossForStage(stage) {
 export function stageScaling(stage) {
   const extra = Math.max(0, (stage || 1) - STAGES.length);
   return { health: 1 + 0.2 * extra, damage: 1 + 0.1 * extra };
+}
+
+// Island names (2026-09-29): every stage on the voyage map is an island
+// group with a name. The first four are hand-named; later ones are
+// generated from the stage number (the same stage always gets the same
+// name), so the chart can run on for as long as there are stages.
+const NAME_FIRST = ['Blackwater', 'Stormcrow', 'Saltbone', 'Mourning', 'Grimtide', 'Emberreach', "Siren's", 'Hollowmoon', "Dead Man's", 'Gallows', 'Brinewood', 'Thunderhead', 'Widow\'s', 'Lanternfall', 'Ravenmoor', 'Coralcrown'];
+const NAME_SECOND = ['Isles', 'Atoll', 'Reach', 'Sound', 'Rock', 'Shoals', 'Straits', 'Keys', 'Skerries', 'Narrows', 'Haven', 'Spit'];
+export function stageName(stage) {
+  const s = Math.max(1, stage || 1);
+  if (s <= STAGES.length) return STAGES[s - 1].island;
+  let h = (s * 2654435761) >>> 0; h ^= h >>> 13;
+  return `${NAME_FIRST[h % NAME_FIRST.length]} ${NAME_SECOND[(h >>> 8) % NAME_SECOND.length]}`;
 }

@@ -39,7 +39,8 @@ import { collectPickups, makeRepairKit } from './engine/pickups.mjs';
 import { PICKUP_KINDS, PICKUP_TUNING } from './data/pickups.mjs';
 import { WEAPON_LIST, getWeapon } from './data/weapons.mjs';
 import { getEnemy } from './data/enemies.mjs';
-import { bossForStage, stageInfo } from './data/stages.mjs';
+import { bossForStage, stageInfo, stageName } from './data/stages.mjs';
+import { createWorldMap } from './ui/worldMap.mjs';
 import { updateEnemyGuns, stepEnemyProjectiles } from './engine/enemyGuns.mjs';
 import {
   SHIP_HULL_LIST, CARGO_TIER_LIST, CHARM_LIST, PLAYABLE_FACTION_LIST, WORKSHOP_UPGRADE_LIST,
@@ -180,7 +181,7 @@ export function startApp(root) {
       <div class="vc-head">
         <canvas id="voyage-map" width="192" height="192" aria-hidden="true"></canvas>
         <div class="vc-info">
-          <div class="vc-kicker">⚓ Next voyage</div>
+          <button type="button" class="vc-chart-btn" id="open-chart">🗺️ Voyage Chart ›</button>
           <div id="hub-stage-picker">
             <button type="button" id="stage-prev" aria-label="Previous stage">◀</button>
             <div id="stage-label"><strong></strong><span></span></div>
@@ -368,14 +369,16 @@ export function startApp(root) {
   let lastView = null; // last frame's camera view — debug hook only
   // Terrain art (2026-09-28): rebuilt whenever the reef's grid changes
   // (new run or next reef). Pure fields + a chunked canvas cache.
-  const biome = getBiome(BIOME_IDS.TROPICAL);
+  const biome = getBiome(BIOME_IDS.TROPICAL); // the harbour's
+  let runBiome = biome; // the current reef's (each stage has its own)
   const wake = []; let wakeTimer = 0;
   let terrainGrid = null; let terrain = null; let terrainRenderer = null; let terrainFresh = false;
   function ensureTerrain() {
     if (terrainGrid === run.grid) return;
     terrainGrid = run.grid;
-    terrain = buildTerrain(run.grid, run.tileSize, run.coastSeed, biome, run.coast);
-    terrainRenderer = createTerrainRenderer(terrain, biome, { res: Math.min(window.devicePixelRatio || 1, 1.5) });
+    runBiome = getBiome(run.level?.biomeId || BIOME_IDS.TROPICAL);
+    terrain = buildTerrain(run.grid, run.tileSize, run.coastSeed, runBiome, run.coast);
+    terrainRenderer = createTerrainRenderer(terrain, runBiome, { res: Math.min(window.devicePixelRatio || 1, 1.5) });
     terrainFresh = true; // first draw renders every visible chunk at once
     wake.length = 0; // the boat just teleported to a new spawn
   }
@@ -916,7 +919,7 @@ export function startApp(root) {
     selectedStage = Math.min(Math.max(1, selectedStage), meta.highestStageUnlocked);
     stageLabel.querySelector('strong').textContent = `Stage ${selectedStage}`;
     const cleared = selectedStage < meta.highestStageUnlocked;
-    stageLabel.querySelector('span').textContent = `${stageInfo(selectedStage).name} · boss: ${getEnemy(bossForStage(selectedStage)).name}${cleared ? ' · Cleared ✓' : ''}`;
+    stageLabel.querySelector('span').textContent = `${stageName(selectedStage)} · boss: ${getEnemy(bossForStage(selectedStage)).name}${cleared ? ' · Cleared ✓' : ''}`;
     stagePrevBtn.disabled = selectedStage <= 1;
     stageNextBtn.disabled = selectedStage >= meta.highestStageUnlocked;
     renderVoyagePreview(selectedStage);
@@ -929,7 +932,7 @@ export function startApp(root) {
     return b ? getEnemy(b.defId).name : getEnemy(bossForStage(r.stage || 1)).name;
   }
   function stageLevelText(r = run) {
-    return r.stage ? `Stage ${r.stage} – Level ${r.reefIndex + 1}/${r.reefCount}` : `Level ${r.reefIndex + 1}/${r.reefCount}`;
+    return r.stage ? `${stageName(r.stage)} – Level ${r.reefIndex + 1}/${r.reefCount}` : `Level ${r.reefIndex + 1}/${r.reefCount}`;
   }
   function levelStartStatus(r = run) {
     if (r.lair) return `${stageLevelText(r)} — sink ${bossName(r)} in its lair ⚓`;
@@ -1004,8 +1007,36 @@ export function startApp(root) {
     ctx.restore();
     b.renderer.prewarm(b.world.centre.x, b.world.centre.y, 3);
   }
+  // The voyage chart (ui/worldMap.mjs): swipe left on the harbour, or the
+  // chart button on the voyage card, slides it in.
+  const worldMap = createWorldMap(root, {
+    getMeta: () => meta,
+    onSail: (stage) => { selectedStage = stage; rollNextRunSeed(); renderStagePicker(); startRun(); },
+    onClose: () => {},
+    stageName, stageInfo, biomeForStage,
+    biomeName: (st) => getBiome(biomeForStage(st)).name,
+    bossName: (st) => getEnemy(bossForStage(st)).name,
+    drawBoat, boatRadius: BOAT_RADIUS, getBoatStyle: () => baseBoatStyle, levelsPerStage: LEVELS_PER_STAGE,
+  });
+  hubOverlay.querySelector('#open-chart').addEventListener('click', () => worldMap.open());
+  // Swipe left anywhere on the harbour (not in a panel or the voyage card)
+  // slides the chart in. Listening on the whole overlay means a swipe that
+  // starts on a building label still counts.
+  let swipeStart = null; let swiped = false;
+  const sceneHit = hubOverlay.querySelector('#base-scene-hit');
+  hubOverlay.addEventListener('pointerdown', (e) => {
+    swiped = false;
+    swipeStart = (!basePanel.hidden || e.target.closest('#voyage-card, #base-panel')) ? null : { x: e.clientX, y: e.clientY };
+  }, true);
+  window.addEventListener('pointerup', (e) => {
+    if (!swipeStart) return;
+    const dx = e.clientX - swipeStart.x; const dy = e.clientY - swipeStart.y;
+    swipeStart = null;
+    if (dx < -60 && Math.abs(dy) < Math.abs(dx) * 0.8 && hubOverlay.classList.contains('show')) { swiped = true; worldMap.open(); }
+  });
   // Tapping a building itself (not just its label) opens its panel.
-  hubOverlay.querySelector('#base-scene-hit').addEventListener('click', (e) => {
+  sceneHit.addEventListener('click', (e) => {
+    if (swiped) { swiped = false; return; }
     if (!base || !base.view) return;
     const wx = (e.clientX - base.view.tx) / base.view.scale;
     const wy = (e.clientY - base.view.ty) / base.view.scale;
@@ -1051,6 +1082,7 @@ export function startApp(root) {
     if (run.faction) showMatchupBriefing(run.faction);
     hubOverlay.classList.remove('show');
     document.body.classList.remove('in-hub');
+    if (worldMap.isOpen()) worldMap.close(false);
     updateHullBar();
     updateSalvageCounter();
     updateReefIndicator();
@@ -1071,14 +1103,14 @@ export function startApp(root) {
     playMusic(null);
     const heldNiche = Array.from(run.weapons.heldWeapons).filter((id) => id !== 'cannonballs');
     const victory = run.outcome === 'victory';
-    summaryTitle.textContent = victory ? `Stage ${run.stage} cleared! ⚓` : `Sunk on ${stageLevelText()}`;
+    summaryTitle.textContent = victory ? `${stageName(run.stage)} conquered! ⚓` : `Sunk at ${stageLevelText()}`;
     summaryRetryBtn.hidden = victory;
     summaryBtn.textContent = victory ? 'Return to Harbour ⚓' : 'Give up · keep banked Salvage';
     summaryBtn.classList.toggle('secondary', !victory);
     const reefsCleared = victory ? run.reefCount : run.reefIndex;
     summaryBody.innerHTML = victory ? `
       <p>Levels cleared: ${reefsCleared} / ${run.reefCount}${run.retries ? ` · retries: ${run.retries}` : ''}</p>
-      ${newlyUnlocked ? `<p><strong>Stage ${meta.highestStageUnlocked} unlocked!</strong></p>` : ''}
+      ${newlyUnlocked ? `<p><strong>New island on your chart: ${stageName(meta.highestStageUnlocked)}!</strong></p>` : ''}
       <p>Salvage banked this voyage: ${Math.round(run.bankedSalvage)}</p>
       <p>Weapons found: ${heldNiche.length ? heldNiche.map((id) => getWeapon(id).name).join(', ') : 'None'}</p>
       ${run.bossDefeated ? `<p>${bossName(run)} sunk — 1 Kraken Scale earned 🦑</p>` : ''}
@@ -1461,7 +1493,7 @@ export function startApp(root) {
 
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    ctx.fillStyle = biome.outside;
+    ctx.fillStyle = runBiome.outside;
     ctx.fillRect(0, 0, vw, vh);
     ctx.save();
     const view = applyCameraTransform(ctx, camera, vw, vh, run.widthPx, run.heightPx, shakeOffset, hudInsets);
