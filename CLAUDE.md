@@ -1930,6 +1930,49 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     - Fog was added to the Tropical table, so it shows up from stage 1.
   - 356/356 tests.
 
+- **Phase:** biome enemies + bosses (project owner chose this after "Ok
+  playing good. What next?").
+- **Just shipped:**
+  - **Stage 3, Frostfang Fjord (glacial):**
+    - Frost Narwhal: a shark-type charger (Grapeshot) whose tusk chills you.
+    - Ice Golem: a slow tank (Flame Barrels) that slams out a ring of 8
+      ice shards, telegraphed by a tightening ring.
+    - Frost Wisp: flies over land (Chain Shot) and shoots frost bolts.
+    - Serpents and Crawlers stay in the mix.
+    - Boss, The Frost Leviathan: dives and breathes a frost fan (Depth
+      Charges), then rears up, slams rings of ice and calls wisps (Flame).
+  - **Stage 4, The Wreckers' Graveyard (shipwreck):**
+    - Ghost Ship (Flame Barrels): fades out, which makes it untouchable,
+      unable to shoot and able to sail through rock. It turns solid again
+      only over open water, then fires a broadside.
+    - Drowned Skiffs: packs of 3-4 (Grapeshot).
+    - Siren (Cannonballs): rooted on a rock. While she can see you, her
+      song pulls your ship in; full sail escapes, and land blocks it.
+    - Riggers, Harpies and Ironclads stay in the mix.
+    - Boss, The Drowned Admiral: a ghost galleon with spectral double
+      broadsides (Flame), then solid with his drowned crew (Grapeshot).
+  - **Chill** (`CHILL`, `statusTuning`, `tickBoatStatus` in boat.mjs):
+    - frost shots and the narwhal slow you (speed ×0.72, turn ×0.6) for
+      about 2s; a toast explains it the first time
+    - the Rigger jam and weather turn now share the same helper, which
+      main.mjs and the balance sim both use
+  - Kraken's Anchor is no longer a stage boss. Stages 5+ rotate all five
+    bosses (`BOSS_ROTATION`).
+  - Sprites drawn in code for all 8, plus frost-shard and spectral-shot
+    art. The serpent sprite now takes a palette.
+  - New `tests/biome-enemies.test.mjs` (8 tests). Both new bosses were
+    added to the pinned-duel boss test. 366/366 tests.
+  - Balance sim (16 voyages each), previous → new roster:
+    - stage 3: sunk 4 → 4
+    - stage 4: sunk 11 → 7
+    Most other runs are bot timeouts, as before.
+  - Live playtest spawned all 8 with no console errors: ghosts fade, the
+    siren sings, and frost chills the boat.
+- **Next up:** play stages 3-4. The siren pull (75), ghost timings and
+  chill length are first-pass numbers. The sim shows thunderstorms
+  costing the bot about 50 hull per stage-4 voyage; the bot doesn't dodge
+  the marks, so check it by hand.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2567,6 +2610,11 @@ Starting fresh below for the new game.)*
   hazard is telegraphed and hits enemies too. Stacked or unmarked hazards
   would read as random damage; one readable event at a time turns weather
   into something to play around and even use.
+
+- 2026-09-29: Each biome's monsters bring one new status or movement
+  trick, not just new stats: frost chill (glacial), phasing through rock
+  and a siren's pull (shipwreck). Every one is telegraphed or escapable,
+  and each still pairs with a counter weapon.
 
 ## Known open questions (do not silently resolve — ask)
 

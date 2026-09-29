@@ -23,6 +23,15 @@ export const ENEMY_IDS = Object.freeze({
   WARDING_SEAL: 'warding_seal', // lair: shields the boss until destroyed
   FIRE_SHIP: 'fire_ship', // rams you and blows up
   MORTAR_BOAT: 'mortar_boat', // lobs shells at where you'll be
+  // Glacial (stage 3) and Shipwreck (stage 4) rosters, 2026-09-29.
+  FROST_NARWHAL: 'frost_narwhal',
+  ICE_GOLEM: 'ice_golem',
+  FROST_WISP: 'frost_wisp',
+  GHOST_SHIP: 'ghost_ship',
+  DROWNED_SKIFF: 'drowned_skiff',
+  SIREN: 'siren',
+  FROST_LEVIATHAN: 'frost_leviathan', // boss, stage 3
+  DROWNED_ADMIRAL: 'drowned_admiral', // boss, stage 4
 });
 
 // Movement/attack archetypes — engine/enemies.mjs switches on this string.
@@ -38,6 +47,8 @@ export const ARCHETYPES = Object.freeze({
   SERPENT: 'serpent', // dives, resurfaces beside you, spits
   TOTEM: 'totem', // never moves; shoots whatever comes in range
   RAMMER: 'rammer', // lights its sails, then drives straight at you
+  GHOST: 'ghost', // fades out of this world (untouchable, sails through rock), then back to fire
+  SIREN: 'siren', // rooted on the water; her song drags your ship toward her
 });
 
 // Enemy guns (engine/enemyGuns.mjs). Every shot has a wind-up the player
@@ -56,6 +67,14 @@ export const GUNS = Object.freeze({
   // A mortar shell: lobbed at where you're heading, lands after `flight`
   // seconds with a blast `blast` px wide. The landing spot is marked.
   mortar: { pattern: 'lob', count: 1, spread: 0, speed: 1, flight: 1.35, blast: 28, damage: 13, range: 240, windup: 0.6, cooldown: [3.0, 4.0], kind: 'shell' },
+  // Frost: every hit chills your ship (stiff rudder, slower) for `chill` s.
+  frostBolt: { pattern: 'aimed', count: 1, spread: 0, speed: 150, damage: 5, range: 190, windup: 0.6, cooldown: [2.2, 3.0], kind: 'frost', chill: 1.8 },
+  icequake: { pattern: 'ring', count: 8, spread: 0, speed: 110, damage: 6, range: 170, windup: 1.0, cooldown: [3.5, 4.5], kind: 'frost', chill: 1.4 },
+  frostBreath: { pattern: 'aimed', count: 5, spread: 0.22, speed: 150, damage: 8, range: 220, windup: 0.7, cooldown: [0.1, 0.1], kind: 'frost', chill: 1.8, onlyWhenSurfaced: true, oncePerSurface: true },
+  leviathanQuake: { pattern: 'ring', count: 12, spread: 0, speed: 120, damage: 7, range: 210, windup: 1.1, cooldown: [2.6, 3.2], kind: 'frost', chill: 1.4 },
+  // Spectral: ghost-ship fire.
+  ghostBroadside: { pattern: 'broadside', count: 3, spread: 12, speed: 140, damage: 8, range: 170, windup: 0.8, cooldown: [2.8, 3.6], kind: 'spectral' },
+  admiralBroadside: { pattern: 'broadside', count: 5, spread: 11, speed: 145, damage: 9, range: 200, windup: 0.9, cooldown: [2.4, 3.0], kind: 'spectral', bothSides: true },
   flagshipChase: { pattern: 'aimed', count: 3, spread: 0.28, speed: 160, damage: 8, range: 220, windup: 0.6, cooldown: [1.8, 2.4], kind: 'ball' },
 });
 
@@ -326,6 +345,79 @@ ENEMIES[ENEMY_IDS.MORTAR_BOAT] = {
   gun: GUNS.mortar,
   salvageDrop: [5, 8],
   color: '#5b6b3a',
+};
+
+// ---- Glacial roster (stage 3, Frostfang Fjord). Ice melts to fire; frost
+// chills your ship. ----
+ENEMIES[ENEMY_IDS.FROST_NARWHAL] = {
+  id: ENEMY_IDS.FROST_NARWHAL, name: 'Frost Narwhal', archetype: ARCHETYPES.SHARK,
+  counter: WEAPON_IDS.GRAPESHOT, faction: FACTION_IDS.REAVERS,
+  maxHealth: 34, radius: 10, speed: 100, chargeSpeed: 265, circleRadius: 100,
+  chargeWindup: 0.7, chargeSeconds: 0.7, chargeEvery: [2.2, 3.2],
+  contactDamage: 12, contactCooldown: 0.9, chillOnHit: 2.2, // its tusk leaves ice on your rudder
+  salvageDrop: [5, 8], color: '#d8ecf5',
+};
+ENEMIES[ENEMY_IDS.ICE_GOLEM] = {
+  id: ENEMY_IDS.ICE_GOLEM, name: 'Ice Golem', archetype: ARCHETYPES.TANK,
+  counter: WEAPON_IDS.FLAME_BARRELS, faction: FACTION_IDS.IRON_ACCORD,
+  maxHealth: 70, radius: 13, speed: 40, contactDamage: 14, contactCooldown: 1.2,
+  gun: GUNS.icequake, // slams the water: a ring of ice shards
+  salvageDrop: [8, 12], color: '#bfe3f2',
+};
+ENEMIES[ENEMY_IDS.FROST_WISP] = {
+  id: ENEMY_IDS.FROST_WISP, name: 'Frost Wisp', archetype: ARCHETYPES.SKIRMISHER, flies: true,
+  counter: WEAPON_IDS.CHAIN_SHOT, faction: FACTION_IDS.WYRDTIDE,
+  maxHealth: 20, radius: 8, speed: 85, preferredRange: 130, contactDamage: 4, contactCooldown: 1,
+  gun: GUNS.frostBolt, salvageDrop: [3, 6], color: '#9fe3ff',
+};
+// ---- Shipwreck roster (stage 4, The Wreckers' Graveyard). ----
+ENEMIES[ENEMY_IDS.GHOST_SHIP] = {
+  id: ENEMY_IDS.GHOST_SHIP, name: 'Ghost Ship', archetype: ARCHETYPES.GHOST,
+  counter: WEAPON_IDS.FLAME_BARRELS, faction: FACTION_IDS.WYRDTIDE,
+  maxHealth: 50, radius: 12, speed: 60, preferredRange: 110,
+  phasedSeconds: [2.2, 3.2], solidSeconds: [3.2, 4.2],
+  contactDamage: 8, contactCooldown: 1, gun: GUNS.ghostBroadside,
+  salvageDrop: [7, 11], color: '#7fffd0',
+};
+ENEMIES[ENEMY_IDS.DROWNED_SKIFF] = {
+  id: ENEMY_IDS.DROWNED_SKIFF, name: 'Drowned Skiff', archetype: ARCHETYPES.SWARM,
+  counter: WEAPON_IDS.GRAPESHOT, faction: FACTION_IDS.REAVERS,
+  maxHealth: 14, radius: 8, speed: 105, packSize: [3, 4],
+  contactDamage: 6, contactCooldown: 0.8, salvageDrop: [2, 4], color: '#6b7b6a',
+};
+ENEMIES[ENEMY_IDS.SIREN] = {
+  id: ENEMY_IDS.SIREN, name: 'Siren', archetype: ARCHETYPES.SIREN,
+  counter: WEAPON_IDS.CANNONBALLS, faction: FACTION_IDS.WYRDTIDE,
+  maxHealth: 45, radius: 11, speed: 0, aggroRadius: 220,
+  lureRadius: 220, lure: 75, // her song pulls your ship in (you can still sail away)
+  contactDamage: 14, contactCooldown: 1, salvageDrop: [8, 12], color: '#e7a0c8',
+};
+// ---- Their bosses. ----
+ENEMIES[ENEMY_IDS.FROST_LEVIATHAN] = {
+  id: ENEMY_IDS.FROST_LEVIATHAN, name: 'The Frost Leviathan', archetype: ARCHETYPES.SERPENT, isBoss: true,
+  maxHealth: 420, radius: 20, speed: 95, surfaceDistance: 115,
+  submergedSeconds: [2.0, 2.8], surfacedSeconds: 2.4,
+  contactDamage: 16, contactCooldown: 1.1, salvageDrop: [45, 65], color: '#a8d8ec',
+  phases: [
+    // Dives, surfaces beside you and breathes a fan of frost.
+    { archetype: ARCHETYPES.SERPENT, counter: WEAPON_IDS.DEPTH_CHARGES, durationSeconds: 14, gun: GUNS.frostBreath },
+    // Rears up and slams the ice: rings of shards, and the wisps come.
+    { archetype: ARCHETYPES.TANK, counter: WEAPON_IDS.FLAME_BARRELS, durationSeconds: 12, gun: GUNS.leviathanQuake,
+      summon: { defId: ENEMY_IDS.FROST_WISP, count: 2, everySeconds: 6, max: 4 } },
+  ],
+};
+ENEMIES[ENEMY_IDS.DROWNED_ADMIRAL] = {
+  id: ENEMY_IDS.DROWNED_ADMIRAL, name: 'The Drowned Admiral', archetype: ARCHETYPES.GHOST, isBoss: true,
+  maxHealth: 420, radius: 20, speed: 50, preferredRange: 115,
+  phasedSeconds: [2.0, 2.8], solidSeconds: [4.0, 5.0],
+  contactDamage: 15, contactCooldown: 1.2, salvageDrop: [45, 65], color: '#6fffc6',
+  phases: [
+    // A ghost galleon: fades out, reappears, looses spectral broadsides.
+    { archetype: ARCHETYPES.GHOST, counter: WEAPON_IDS.FLAME_BARRELS, durationSeconds: 14, gun: GUNS.admiralBroadside },
+    // Solid and furious, calling up his drowned crew.
+    { archetype: ARCHETYPES.BROADSIDER, counter: WEAPON_IDS.GRAPESHOT, durationSeconds: 12, gun: GUNS.flagshipChase,
+      summon: { defId: ENEMY_IDS.DROWNED_SKIFF, count: 3, everySeconds: 6, max: 6 } },
+  ],
 };
 
 // The lair's warding seals (2026-09-29, project owner: "Boss too easy").

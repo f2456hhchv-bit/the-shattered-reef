@@ -27,7 +27,7 @@ import {
   createRun, checkReachedExit, checkSunk, retryLevel, snapshotLevelStart, addSalvage, totalSalvage, BOAT_RADIUS,
   TIER_COUNT, LEVELS_PER_STAGE, biomeForStage, isExitOpen, levelForReef, buildLevelWorld,
 } from './engine/run.mjs';
-import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from './engine/boat.mjs';
+import { stepBoat, resolveCoastCollision, applyWallImpactDamage, statusTuning, tickBoatStatus } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
 import {
   drawExit, drawWake, drawSealedExit, drawLairCurrents, drawBoat, drawEnemies, drawProjectiles, drawPickups,
@@ -1285,7 +1285,7 @@ export function startApp(root) {
   // costs nothing at runtime, and saves having to poke at internals.
   window.__shatteredReefDebug = () => ({
     boatX: run.boat.x, boatY: run.boat.y, heading: run.boat.heading,
-    hull: run.boat.health, maxHull: run.boat.maxHull, cameraX: camera.x, cameraY: camera.y,
+    hull: run.boat.health, chill: run.boat.chillRemaining || 0, maxHull: run.boat.maxHull, cameraX: camera.x, cameraY: camera.y,
     over: run.over, outcome: run.outcome, sailing, hubOpen: hubOverlay.classList.contains('show'),
     stage: run.stage, highestStageUnlocked: meta.highestStageUnlocked, reefIndex: run.reefIndex, reefCount: run.reefCount, levelCode: run.levelCode, levelCodes: run.levelCodes.slice(),
     exitX: run.exitWorld.x, exitY: run.exitWorld.y,
@@ -1295,7 +1295,7 @@ export function startApp(root) {
     projectileCount: run.weapons.projectiles.length,
     enemies: run.enemies.filter((e) => e.health > 0).map((e) => ({
       id: e.id, defId: e.defId, aggro: e.aggro, x: e.x, y: e.y, health: e.health, invulnerable: e.invulnerable,
-      isBoss: e.isBoss, phaseIndex: e.phaseIndex, diveState: e.diveState, sharkState: e.sharkState, submergedState: e.submergedState, gunWindup: e.gunWindup,
+      isBoss: e.isBoss, phaseIndex: e.phaseIndex, diveState: e.diveState, sharkState: e.sharkState, submergedState: e.submergedState, gunWindup: e.gunWindup, phased: !!e.phased, singing: !!e.singing,
     })),
     weather: run.weather && run.weather.active ? { id: run.weather.active.id, time: run.weather.time, total: run.weather.active.total, floes: run.weather.floes.length, spouts: run.weather.spouts.length, strikes: run.weather.strikes.length, drops: run.weather.drops.length, whirl: !!run.weather.whirl } : null, sightMult: run.boat.sightMult,
     upgrades: { ...(run.upgrades || {}) }, armaments: { ...(run.armaments || {}) }, lightningArcs: lightning.length,
@@ -1372,6 +1372,7 @@ export function startApp(root) {
   window.__shatteredReefAddKrakenScales = (amount) => { meta.krakenScales += amount; saveMeta(window.localStorage, meta); if (hubOverlay.classList.contains('show')) renderHub(); };
 
   let lastTime = performance.now();
+  let chillToastShown = false;
   function frame(now) {
     const rawDt = Math.min(0.05, (now - lastTime) / 1000); // clamp so a tab-switch stall can't fling the boat
     lastTime = now;
@@ -1382,11 +1383,9 @@ export function startApp(root) {
     const dt = (sailing && !run.over) ? applyHitStop(hitStop, rawDt) : rawDt;
 
     if (sailing && !run.over) {
-      const jam = run.boat.turnJamRemaining > 0;
       const wmods = weatherModifiers(run.weather);
       run.boat.sightMult = wmods.sight;
-      const turnMult = (jam ? 0.5 : 1) * wmods.turn;
-      const tuning = turnMult !== 1 ? { ...run.tuning, turnRate: run.tuning.turnRate * turnMult } : run.tuning;
+      const tuning = statusTuning(run.tuning, run.boat, wmods.turn);
 
       const vec = joystick.getVector();
       stepBoat(run.boat, vec, dt, tuning);
@@ -1402,8 +1401,10 @@ export function startApp(root) {
         playWallImpact(intensity);
       }
 
-      if (run.boat.turnJamRemaining > 0) {
-        run.boat.turnJamRemaining = Math.max(0, run.boat.turnJamRemaining - dt);
+      tickBoatStatus(run.boat, dt);
+      if (run.boat.chillRemaining > 0 && !chillToastShown) {
+        chillToastShown = true;
+        showToast('❄️ Frozen rudder — you turn and sail slower for a moment');
       }
 
       updateAim();

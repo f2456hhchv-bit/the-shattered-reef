@@ -206,6 +206,7 @@ function enterReef(run, reefIndex) {
   run.boat.vy = 0;
   run.boat.heading = 0;
   run.boat.turnJamRemaining = 0;
+  run.boat.chillRemaining = 0;
 
   // Stage rosters (data/stages.mjs): ships first, monsters later, and
   // stages past the table scale enemy hull/damage up.

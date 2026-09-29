@@ -156,7 +156,7 @@ test('the Black Gale calls in cutters during its chase phase, never more than it
 
 // Each stage boss dies to its counters in a pinned duel (weapon output,
 // not positioning), inside two minutes.
-for (const bossId of [ENEMY_IDS.PIRATE_FLAGSHIP, ENEMY_IDS.BLOODFIN_MATRIARCH]) {
+for (const bossId of [ENEMY_IDS.PIRATE_FLAGSHIP, ENEMY_IDS.BLOODFIN_MATRIARCH, ENEMY_IDS.FROST_LEVIATHAN, ENEMY_IDS.DROWNED_ADMIRAL]) {
   test(`${getEnemy(bossId).name} can be sunk with its counter weapons`, () => {
     const s = createWeaponState();
     for (const w of ['grapeshot', 'chain_shot', 'depth_charges', 'flame_barrels']) collectWeaponCache(s, w, 999);

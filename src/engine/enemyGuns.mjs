@@ -17,7 +17,7 @@ function canShoot(enemy) {
   if (!g || enemy.health <= 0 || !enemy.aggro) return false;
   if (g.onlyWhenSurfaced && enemy.submergedState !== 'surfaced') return false;
   if (g.oncePerSurface && enemy._shotThisSurface) return false;
-  if (enemy.sharkState === 'stunned') return false;
+  if (enemy.sharkState === 'stunned' || enemy.phased) return false;
   return true;
 }
 
@@ -41,8 +41,8 @@ function fire(enemy, boat, out) {
   const dmg = g.damage * (enemy.damageScale || 1);
   const mk = (x, y, ang) => out.push({
     id: nextShotId++, x, y, vx: Math.cos(ang) * g.speed, vy: Math.sin(ang) * g.speed,
-    radius: g.kind === 'heavy' ? 5 : g.kind === 'glob' ? 4.5 : 3.5,
-    damage: dmg, life: g.range / g.speed + 0.25, kind: g.kind, faction: enemy.faction, sourceId: enemy.id,
+    radius: g.kind === 'heavy' ? 5 : g.kind === 'glob' || g.kind === 'frost' ? 4.5 : 3.5,
+    damage: dmg, life: g.range / g.speed + 0.25, kind: g.kind, faction: enemy.faction, sourceId: enemy.id, chill: g.chill || 0,
   });
   if (g.pattern === 'lob') {
     // A shell arcs to the marked spot and bursts there after `flight`.
@@ -130,6 +130,7 @@ export function stepEnemyProjectiles(shots, boat, boatRadius, dt, { grid = null,
       s.spent = true;
       const damage = s.damage * incomingMultiplier(s);
       boat.health = Math.max(0, boat.health - damage);
+      if (s.chill) boat.chillRemaining = Math.max(boat.chillRemaining || 0, s.chill);
       hits.push({ shot: s, damage });
       continue;
     }

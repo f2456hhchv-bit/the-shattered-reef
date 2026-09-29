@@ -143,6 +143,46 @@ function initArchetypeState(enemy, archetype, def, rng = Math.random) {
   if (archetype === ARCHETYPES.FLANKER) {
     enemy.flankSign = rng() < 0.5 ? -1 : 1;
   }
+  enemy.phased = false;
+  if (archetype === ARCHETYPES.GHOST) {
+    enemy.ghostTimer = randRange(rng, def.solidSeconds || [3, 4]);
+    enemy.orbitSign = enemy.orbitSign ?? (rng() < 0.5 ? -1 : 1);
+  }
+}
+
+// GHOST: alternates solid (fires broadsides, can be hit) and phased (faded,
+// untouchable, sails straight through rock toward you). It only turns solid
+// again over open water — never inside an island.
+function stepGhostPhase(enemy, def, dt, coast, grid, tileSize) {
+  enemy.ghostTimer -= dt;
+  if (enemy.ghostTimer > 0) return;
+  if (!enemy.phased) {
+    enemy.phased = true; enemy.invulnerable = true;
+    enemy.ghostTimer = randRange(Math.random, def.phasedSeconds || [2, 3]);
+  } else if (overOpenWater(enemy, coast, grid, tileSize)) {
+    enemy.phased = false; enemy.invulnerable = false;
+    enemy.ghostTimer = randRange(Math.random, def.solidSeconds || [3, 4]);
+    if (enemy.gun) enemy.gunTimer = Math.max(enemy.gunTimer || 0, 0.4);
+  } else {
+    enemy.ghostTimer = 0.25; // still inside rock: stay a ghost a little longer
+  }
+}
+
+function overOpenWater(enemy, coast, grid, tileSize) {
+  if (coast) return sampleField(coast, enemy.x, enemy.y) < -(enemy.radius + 2);
+  if (!grid) return true;
+  const tx = Math.floor(enemy.x / tileSize); const ty = Math.floor(enemy.y / tileSize);
+  return grid.tiles[ty]?.[tx] === 0;
+}
+
+function updateGhost(enemy, boat, dt, def) {
+  if (enemy.phased) steerToward(enemy, boat.x, boat.y, dt, 1.3);
+  else updateBroadsider(enemy, boat, dt, def);
+}
+
+// Does this enemy ignore the shore? (Flyers, wisps, and ghosts while faded.)
+export function passesOverLand(enemy, def = getEnemy(enemy.defId)) {
+  return enemy.archetype === ARCHETYPES.FLYER || !!def.flies || !!enemy.phased;
 }
 
 // Resolves an enemy's *current* counter weapon — a plain field for regular
@@ -515,13 +555,15 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
     enemy.senseTimer -= dt;
     if (enemy.senseTimer <= 0) {
       enemy.senseTimer = AGGRO.senseInterval;
-      if (dist <= radius && (enemy.archetype === ARCHETYPES.FLYER || hasLineOfSight(enemy, boat, grid, tileSize, coast))) enemy.aggro = true;
+      if (dist <= radius && (enemy.archetype === ARCHETYPES.FLYER || def.flies || hasLineOfSight(enemy, boat, grid, tileSize, coast))) enemy.aggro = true;
     }
   } else if (dist > radius * AGGRO.leashMultiplier) {
     enemy.aggro = false; // lost the boat: drift back home
   }
 
-  if (enemy.archetype === ARCHETYPES.TOTEM) {
+  if (enemy.archetype === ARCHETYPES.GHOST && enemy.aggro) stepGhostPhase(enemy, def, dt, coast, grid, tileSize);
+  else if (enemy.phased && !enemy.aggro) stepGhostPhase(enemy, def, dt, coast, grid, tileSize); // settle back to solid
+  if (enemy.archetype === ARCHETYPES.TOTEM || enemy.archetype === ARCHETYPES.SIREN) {
     // Rooted in place: a seal never drifts or chases.
     enemy.x = enemy.home.x; enemy.y = enemy.home.y; enemy.vx = 0; enemy.vy = 0;
   } else if (!enemy.aggro) {
@@ -536,7 +578,7 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
     moveAggroed(enemy, boat, dt, def);
   }
 
-  if (enemy.archetype !== ARCHETYPES.FLYER) {
+  if (!passesOverLand(enemy, def)) {
     const impact = coast ? resolveCoastCollision(enemy, enemy.radius, coast) : resolveTileCollision(enemy, enemy.radius, grid, tileSize);
     // A shark that charges into the shore stuns itself.
     if (enemy.sharkState === 'charging' && impact > 60) {
@@ -574,6 +616,8 @@ function moveAggroed(enemy, boat, dt, def) {
     case ARCHETYPES.SERPENT: updateSerpent(enemy, boat, dt, def); break;
     case ARCHETYPES.TOTEM: break;
     case ARCHETYPES.RAMMER: updateRammer(enemy, boat, dt, def); break;
+    case ARCHETYPES.GHOST: updateGhost(enemy, boat, dt, def); break;
+    case ARCHETYPES.SIREN: break;
     default: updateTank(enemy, boat, dt); break;
   }
 }
@@ -586,12 +630,30 @@ export function updateEnemies(enemies, boat, dt, grid, tileSize, coast = null) {
     if (!was && enemy.aggro) woke.push(enemy);
   }
   updateWards(enemies);
+  applySirenSong(enemies, boat, dt, grid, tileSize, coast);
   // Pack alert: one waking rouses dormant neighbours (a Skimmer pack
   // attacks together rather than trickling in one by one).
   for (const w of woke) {
     for (const e of enemies) {
       if (!e.aggro && e.health > 0 && Math.hypot(e.x - w.x, e.y - w.y) <= AGGRO.packAlertRadius) e.aggro = true;
     }
+  }
+}
+
+// Sirens: while awake and in sight, each one's song pulls the boat toward
+// her (a velocity change per second, weaker than full sail, so you can
+// always steer away — but idle or turning, you drift in).
+export function applySirenSong(enemies, boat, dt, grid, tileSize, coast = null) {
+  for (const e of enemies) {
+    e.singing = false;
+    if (e.archetype !== ARCHETYPES.SIREN || e.health <= 0 || !e.aggro) continue;
+    const def = getEnemy(e.defId);
+    const dx = e.x - boat.x; const dy = e.y - boat.y; const d = Math.hypot(dx, dy);
+    if (d > def.lureRadius || d < e.radius + 14) continue;
+    if (grid && !hasLineOfSight(e, boat, grid, tileSize, coast)) continue;
+    e.singing = true;
+    const f = def.lure * (0.5 + 0.5 * (1 - d / def.lureRadius));
+    boat.vx += (dx / d) * f * dt; boat.vy += (dy / d) * f * dt;
   }
 }
 
@@ -639,7 +701,7 @@ const RIGGER_JAM_SECONDS = 1.1;
 // to damage the PLAYER takes (see incomingMultiplierFor) — defaults to a
 // no-op 1x so every pre-triangle call site keeps working unchanged.
 export function resolveEnemyContact(enemy, boat, boatRadius, getIncomingMultiplier = () => 1) {
-  if (enemy.health <= 0 || enemy.contactCooldownRemaining > 0) return 0;
+  if (enemy.health <= 0 || enemy.contactCooldownRemaining > 0 || enemy.phased) return 0;
   const dist = Math.hypot(enemy.x - boat.x, enemy.y - boat.y);
   if (dist > enemy.radius + boatRadius) return 0;
 
@@ -653,6 +715,7 @@ export function resolveEnemyContact(enemy, boat, boatRadius, getIncomingMultipli
     enemy.detonated = true;
     enemy.salvageDrop = 0;
   }
+  if (def.chillOnHit) boat.chillRemaining = Math.max(boat.chillRemaining || 0, def.chillOnHit);
   if (enemy.defId === ENEMY_IDS.RIGGER) {
     boat.turnJamRemaining = Math.max(boat.turnJamRemaining || 0, RIGGER_JAM_SECONDS);
   }

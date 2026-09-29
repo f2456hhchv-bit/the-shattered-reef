@@ -220,3 +220,21 @@ function deepestOverlap(x, y, radius, grid, tileSize) {
   }
   return best;
 }
+
+// Status effects on the ship (2026-09-29). Chill (frost shots, a narwhal's
+// tusk): stiff rudder and slower sails while it lasts. A Rigger's jam
+// halves the turn rate. Weather multiplies the turn rate on top.
+export const CHILL = { turn: 0.6, speed: 0.72 };
+
+export function statusTuning(tuning, boat, weatherTurn = 1) {
+  const chilled = (boat.chillRemaining || 0) > 0;
+  const turn = (boat.turnJamRemaining > 0 ? 0.5 : 1) * (chilled ? CHILL.turn : 1) * weatherTurn;
+  if (turn === 1 && !chilled) return tuning;
+  const sp = chilled ? CHILL.speed : 1;
+  return { ...tuning, turnRate: tuning.turnRate * turn, maxSpeed: tuning.maxSpeed * sp, acceleration: tuning.acceleration * sp };
+}
+
+export function tickBoatStatus(boat, dt) {
+  if (boat.turnJamRemaining > 0) boat.turnJamRemaining = Math.max(0, boat.turnJamRemaining - dt);
+  if (boat.chillRemaining > 0) boat.chillRemaining = Math.max(0, boat.chillRemaining - dt);
+}

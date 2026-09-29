@@ -32,7 +32,7 @@ import { chooseAutoFire, trackEnemyMotion } from '../src/engine/aim.mjs';
 import {
   createRun, checkReachedExit, checkSunk, addSalvage, BASELINE_LOADOUT, REEF_COUNT,
 } from '../src/engine/run.mjs';
-import { stepBoat, resolveCoastCollision, applyWallImpactDamage } from '../src/engine/boat.mjs';
+import { stepBoat, resolveCoastCollision, applyWallImpactDamage, statusTuning, tickBoatStatus } from '../src/engine/boat.mjs';
 import {
   tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, isHeld, ammoFor,
   craftedMultiplierFor, effectiveWeapon,
@@ -424,7 +424,8 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     replanIfNeeded(run, bot, DT);
     maybeSwitchWeapon(run);
     const input = steerVector(run, bot);
-    stepBoat(run.boat, input, DT, run.tuning);
+    stepBoat(run.boat, input, DT, statusTuning(run.tuning, run.boat));
+    tickBoatStatus(run.boat, DT);
     const impact = resolveCoastCollision(run.boat, BOAT_RADIUS, run.coast);
     const wallDmg = applyWallImpactDamage(run.boat, impact);
     if (wallDmg > 0) stats.damageBySource.wall += wallDmg;

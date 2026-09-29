@@ -101,7 +101,7 @@ export function startWeather(run, id, rng = Math.random) {
 function bodies(run) {
   const out = [{ o: run.boat, r: BOAT_R, boat: true }];
   for (const e of run.enemies) {
-    if (e.health <= 0 || e.archetype === ARCHETYPES.FLYER || e.archetype === ARCHETYPES.TOTEM || e.submergedState === 'submerged') continue;
+    if (e.health <= 0 || e.archetype === ARCHETYPES.FLYER || e.archetype === ARCHETYPES.TOTEM || e.archetype === ARCHETYPES.SIREN || e.phased || e.submergedState === 'submerged') continue;
     out.push({ o: e, r: e.radius, boat: false });
   }
   return out;
