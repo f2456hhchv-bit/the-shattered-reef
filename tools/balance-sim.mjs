@@ -39,7 +39,9 @@ import {
 } from '../src/engine/combat.mjs';
 import { rollUpgradeChoices, applyUpgrade } from '../src/engine/upgrades.mjs';
 import { updateEnemyGuns, stepEnemyProjectiles } from '../src/engine/enemyGuns.mjs';
-import { fireShipBlast, updateEnemies, stepSummons, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor } from '../src/engine/enemies.mjs';
+import { BIOMES } from '../src/data/biomes.mjs';
+import { viewRadius, canSee } from '../src/engine/ambient.mjs';
+import { isRevealed, fireShipBlast, updateEnemies, stepSummons, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor } from '../src/engine/enemies.mjs';
 import { collectPickups } from '../src/engine/pickups.mjs';
 import { grantArmament, rollArmamentChoices, stepArmaments, chainLightning } from '../src/engine/armaments.mjs';
 import { stepWeather, weatherModifiers } from '../src/engine/weather.mjs';
@@ -354,7 +356,12 @@ function routeVector(run, bot) {
 }
 
 function autoFire(run) {
-  const aim = chooseAutoFire(run.enemies, run.boat, run.weapons.activeWeaponId, {
+  // Same limits as the game: fog, the dark, camouflage.
+  const biome = BIOMES[run.level.biomeId];
+  const wv = weatherModifiers(run.weather).view;
+  const view = viewRadius(run, biome, wv != null ? wv * 0.8 / 0.9 : null);
+  const seen = run.enemies.filter((e) => canSee(run, e, view) && isRevealed(e, run.boat));
+  const aim = chooseAutoFire(seen, run.boat, run.weapons.activeWeaponId, {
     effectiveWeapon: (id) => effectiveWeapon(run.weapons, id), ammoOf: (id) => ammoFor(run.weapons, id),
     grid: run.grid, tileSize: run.tileSize, coast: run.coast, counterOf: currentCounter, previousTarget: run._aimTarget,
   });
@@ -425,7 +432,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     maybeSwitchWeapon(run);
     const input = steerVector(run, bot);
     stepBoat(run.boat, input, DT, statusTuning(run.tuning, run.boat));
-    tickBoatStatus(run.boat, DT);
+    { const dot = tickBoatStatus(run.boat, DT); if (dot) stats.damageBySource.status = (stats.damageBySource.status || 0) + dot; }
     const impact = resolveCoastCollision(run.boat, BOAT_RADIUS, run.coast);
     const wallDmg = applyWallImpactDamage(run.boat, impact);
     if (wallDmg > 0) stats.damageBySource.wall += wallDmg;
@@ -436,7 +443,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     updateEnemies(run.enemies, run.boat, DT, run.grid, run.tileSize, run.coast);
     stepSummons(run.enemies, DT);
     trackEnemyMotion(run.enemies, DT);
-    const simWorld = { grid: run.grid, tileSize: run.tileSize, coast: run.coast };
+    const simWorld = { grid: run.grid, tileSize: run.tileSize, coast: run.coast, ricochet: run.ricochet || 0 };
     const armEvents = process.env.NO_ARMAMENTS ? [] : stepArmaments(run, DT, simWorld).events;
     // Weather pushes, hides and hurts the bot the same as a player.
     let weatherEvents = [];
@@ -454,6 +461,9 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
     updateEnemyGuns(run.enemies, run.boat, DT, simWorld, run.enemyProjectiles);
     for (const h of stepEnemyProjectiles(run.enemyProjectiles, run.boat, BOAT_RADIUS, DT, simWorld, incomingMultiplierFor(run.faction)).hits) {
       stats.damageBySource.gunfire = (stats.damageBySource.gunfire || 0) + h.damage;
+      const src = run.enemies.find((e) => e.id === h.shot.sourceId);
+      const key = src ? src.defId : '?';
+      stats.hurtBy = stats.hurtBy || {}; stats.hurtBy[key] = (stats.hurtBy[key] || 0) + h.damage;
     }
 
     const hitEvents = resolveHits(
@@ -487,6 +497,7 @@ function simulateVoyage(seed, loadout = BASELINE_LOADOUT) {
 
     for (const ev of resolveEnemyContactEvents(run.enemies, run.boat, BOAT_RADIUS, incomingMultiplierFor(run.faction))) {
       stats.damageBySource.enemyContact += ev.damage;
+      stats.hurtBy = stats.hurtBy || {}; stats.hurtBy[ev.enemy.defId] = (stats.hurtBy[ev.enemy.defId] || 0) + ev.damage;
       const k = ev.enemy.faction || 'boss';
       stats.contactByFaction[k] = (stats.contactByFaction[k] || 0) + ev.damage;
     }
@@ -564,6 +575,9 @@ function summarize(results) {
   console.log(`Boss encounter rate: ${(bossEncounters / n * 100).toFixed(1)}% | defeat rate (of encounters): ${bossEncounters ? (bossDefeats / bossEncounters * 100).toFixed(1) : 'n/a'}%`);
   console.log(`Avg wall-impact damage taken per run: ${(totalWallDmg / n).toFixed(1)} | avg enemy-contact damage: ${(totalContactDmg / n).toFixed(1)}`);
   const sum = (k) => results.reduce((a, r) => a + (r[k] || 0), 0);
+  { const hb = {}; for (const r of results) for (const [k, v] of Object.entries(r.hurtBy || {})) hb[k] = (hb[k] || 0) + v;
+    const st = results.reduce((a, r) => a + (r.damageBySource.status || 0), 0) / n;
+    console.log('Hull lost to each enemy (per voyage):', Object.fromEntries(Object.entries(hb).map(([k, v]) => [k, +(v / n).toFixed(1)]).sort((a, b) => b[1] - a[1])), '| to burn/poison:', st.toFixed(1)); }
   console.log(`Weather: ${(sum('weatherEvents') / n).toFixed(1)} events per voyage, ${(results.reduce((a, r) => a + (r.damageBySource.weather || 0), 0) / n).toFixed(1)} hull lost to it`);
   const wb = {}; for (const r of results) for (const [k, v] of Object.entries(r.weatherBy || {})) wb[k] = (wb[k] || 0) + v;
   console.log('Weather hull loss by kind (total):', Object.fromEntries(Object.entries(wb).map(([k, v]) => [k, Math.round(v)])));

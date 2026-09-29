@@ -152,7 +152,7 @@ export function createWorldMap(root, deps) {
     c.save(); c.scale(2 * sd, 2 * sd); drawIsland(c, 150, 112, biomeForStage(stage), stage, { locked }); c.restore();
     el.querySelector('.wm-sheet-kicker').textContent = `Stage ${stage} · ${biomeName(stage)} · ${levelsPerStage} levels`;
     el.querySelector('.wm-sheet-name').textContent = stageName(stage);
-    el.querySelector('.wm-sheet-blurb').textContent = stageInfo(stage).blurb + (stage > 4 ? ' Tougher crews than before.' : '');
+    el.querySelector('.wm-sheet-blurb').textContent = stageInfo(stage).blurb + (stage > 10 ? ' A second lap: tougher crews than before.' : '');
     el.querySelector('.wm-sheet-boss').textContent = `☠ Lair: ${bossName(stage)}`;
     const sail = el.querySelector('.wm-sheet-sail');
     sail.disabled = locked;

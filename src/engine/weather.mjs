@@ -6,6 +6,7 @@
 import { WEATHER, BIOME_WEATHER, WEATHER_TIMING } from '../data/weather.mjs';
 import { sampleField } from './terrain.mjs';
 import { ARCHETYPES } from '../data/enemies.mjs';
+import { applyAfflictions } from './boat.mjs';
 
 const TAU = Math.PI * 2;
 const BOAT_R = 11;
@@ -49,28 +50,30 @@ export function startWeather(run, id, rng = Math.random) {
   if (!w || !def) return false;
   const boat = run.boat;
   const ev = { id, def, total: rand(rng, def.duration) };
+  // A variant (data/weather.mjs `kind`) behaves like the event it names.
+  const kind = def.kind || id;
   w.strikes = []; w.drops = []; w.spouts = []; w.floes = []; w.lights = []; w.whirl = null; w.wave = null;
   const a = rng() * TAU;
   w.wind = def.wind ? { x: Math.cos(a) * def.wind, y: Math.sin(a) * def.wind } : { x: 0, y: 0 };
-  if (id === 'whirlpool') {
+  if (kind === 'whirlpool') {
     const p = waterNear(run, rng, boat, [100, 380], 28, 240);
     if (!p) return false;
     w.whirl = { x: p.x, y: p.y, r: def.radius, spin: rng() < 0.5 ? 1 : -1, age: 0 };
-  } else if (id === 'rogue_wave') {
+  } else if (kind === 'rogue_wave') {
     const dir = { x: Math.cos(a), y: Math.sin(a) };
     const proj = (x, y) => x * dir.x + y * dir.y;
     const corners = [proj(0, 0), proj(run.widthPx, 0), proj(0, run.heightPx), proj(run.widthPx, run.heightPx)];
     const s0 = Math.min(...corners) - 60; const s1 = Math.max(...corners) + 60;
     w.wave = { dir, s: s0, end: s1, warn: def.warn, hit: new Set() };
     ev.total = def.warn + (s1 - s0) / def.speed;
-  } else if (id === 'waterspout') {
+  } else if (kind === 'waterspout') {
     const n = Math.round(rand(rng, def.count));
     for (let i = 0; i < n; i++) {
       const p = waterNear(run, rng, boat, [100, 340], def.radius, 200);
       if (p) w.spouts.push({ x: p.x, y: p.y, heading: rng() * TAU, hitCd: 0, id: i });
     }
     if (!w.spouts.length) return false;
-  } else if (id === 'ice_floes' || id === 'wreckage') {
+  } else if (kind === 'ice_floes' || kind === 'wreckage') {
     const n = Math.round(rand(rng, def.count));
     const drift = rng() * TAU;
     for (let i = 0; i < n; i++) {
@@ -82,7 +85,7 @@ export function startWeather(run, id, rng = Math.random) {
       w.floes.push({ x: p.x, y: p.y, vx: Math.cos(da) * sp, vy: Math.sin(da) * sp, r, rot: rng() * TAU, spin: (rng() - 0.5) * 0.4, pts, color: def.colors[i % def.colors.length], age: 0 });
     }
     if (!w.floes.length) return false;
-  } else if (id === 'ghost_lights') {
+  } else if (kind === 'ghost_lights') {
     const n = Math.round(rand(rng, def.count));
     for (let i = 0; i < n; i++) {
       const p = waterNear(run, rng, boat, [90, 360], 14);
@@ -107,10 +110,11 @@ function bodies(run) {
   return out;
 }
 
-function hurt(res, b, damage, kind, x, y) {
+function hurt(res, b, damage, kind, x, y, afflict = null) {
   if (damage <= 0) return;
   if (b.boat) {
     b.o.health = Math.max(0, b.o.health - damage);
+    applyAfflictions(b.o, afflict);
     res.boatHits.push({ damage, kind, x: x ?? b.o.x, y: y ?? b.o.y });
   } else {
     const e = b.o;
@@ -178,7 +182,7 @@ export function stepWeather(run, dt, rng = Math.random) {
       if (s.warn > 0 || s.done) continue;
       s.done = true;
       const dmg = def.strikeDamage ?? def.damage;
-      for (const b of all) if (Math.hypot(b.o.x - s.x, b.o.y - s.y) <= s.r + b.r) hurt(res, b, dmg, ev.id, s.x, s.y);
+      for (const b of all) if (Math.hypot(b.o.x - s.x, b.o.y - s.y) <= s.r + b.r) hurt(res, b, dmg, ev.id, s.x, s.y, def.afflict);
       if (list === w.strikes) { res.strikes.push({ x: s.x, y: s.y }); w.flash = 0.18; }
       else res.impacts.push({ x: s.x, y: s.y, kind: ev.id, r: s.r });
     }
@@ -201,7 +205,7 @@ export function stepWeather(run, dt, rng = Math.random) {
       const ux = dx / d; const uy = dy / d;
       b.o.vx += (ux * f - uy * f * def.swirl * wh.spin) * dt;
       b.o.vy += (uy * f + ux * f * def.swirl * wh.spin) * dt;
-      if (tick && d < def.core && grow > 0.5) hurt(res, b, def.coreDps * 0.5, ev.id);
+      if (tick && d < def.core && grow > 0.5) hurt(res, b, def.coreDps * 0.5, ev.id, undefined, undefined, def.afflict);
     }
   }
 
@@ -235,7 +239,7 @@ export function stepWeather(run, dt, rng = Math.random) {
       const f = def.pull * (1 - d / def.pullRadius);
       b.o.vx += (dx / d) * f * dt; b.o.vy += (dy / d) * f * dt;
       if (d < def.radius + b.r && (b.boat ? sp.hitCd <= 0 : !(b.o._spoutCd > 0))) {
-        hurt(res, b, def.damage, ev.id);
+        hurt(res, b, def.damage, ev.id, undefined, undefined, def.afflict);
         if (b.boat) { sp.hitCd = def.hitEvery; b.o.turnJamRemaining = Math.max(b.o.turnJamRemaining || 0, 0.6); } else b.o._spoutCd = def.hitEvery;
       }
     }

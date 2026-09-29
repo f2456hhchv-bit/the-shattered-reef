@@ -224,17 +224,67 @@ function deepestOverlap(x, y, radius, grid, tileSize) {
 // Status effects on the ship (2026-09-29). Chill (frost shots, a narwhal's
 // tusk): stiff rudder and slower sails while it lasts. A Rigger's jam
 // halves the turn rate. Weather multiplies the turn rate on top.
+// Afflictions (stages 5-10): burn and poison hurt over time, shock stalls
+// your sails for a moment, ink blinds you (engine/ambient.mjs).
 export const CHILL = { turn: 0.6, speed: 0.72 };
+export const SHOCK = { turn: 0.3, speed: 0.45, accel: 0.15 };
+export const AFFLICTIONS = Object.freeze({
+  burn: { dps: 3, label: 'On fire' },
+  poison: { dps: 2, label: 'Poisoned' },
+  shock: { label: 'Shocked' },
+  ink: { label: 'Blinded by ink' },
+  chill: { label: 'Frozen rudder' },
+});
+
+// Puts `kind` on the boat for `seconds` (refreshing, never shortening).
+export function applyAffliction(boat, kind, seconds) {
+  if (!(seconds > 0)) return;
+  if (kind === 'chill') { boat.chillRemaining = Math.max(boat.chillRemaining || 0, seconds); return; }
+  const a = (boat.afflictions ||= {});
+  a[kind] = Math.max(a[kind] || 0, seconds);
+}
+
+export function applyAfflictions(boat, afflict) {
+  if (!afflict) return;
+  for (const [k, v] of Object.entries(afflict)) applyAffliction(boat, k, v);
+}
+
+export function hasAffliction(boat, kind) {
+  if (kind === 'chill') return (boat.chillRemaining || 0) > 0;
+  return (boat.afflictions?.[kind] || 0) > 0;
+}
 
 export function statusTuning(tuning, boat, weatherTurn = 1) {
   const chilled = (boat.chillRemaining || 0) > 0;
-  const turn = (boat.turnJamRemaining > 0 ? 0.5 : 1) * (chilled ? CHILL.turn : 1) * weatherTurn;
-  if (turn === 1 && !chilled) return tuning;
-  const sp = chilled ? CHILL.speed : 1;
-  return { ...tuning, turnRate: tuning.turnRate * turn, maxSpeed: tuning.maxSpeed * sp, acceleration: tuning.acceleration * sp };
+  const shocked = hasAffliction(boat, 'shock');
+  const turn = (boat.turnJamRemaining > 0 ? 0.5 : 1) * (chilled ? CHILL.turn : 1) * (shocked ? SHOCK.turn : 1) * weatherTurn;
+  if (turn === 1 && !chilled && !shocked) return tuning;
+  const sp = (chilled ? CHILL.speed : 1) * (shocked ? SHOCK.speed : 1);
+  const ac = (chilled ? CHILL.speed : 1) * (shocked ? SHOCK.accel : 1);
+  return { ...tuning, turnRate: tuning.turnRate * turn, maxSpeed: tuning.maxSpeed * sp, acceleration: tuning.acceleration * ac };
 }
 
+// Ticks every status down; burn and poison deal their damage here.
+// Returns the hull lost this step (0 if none) for the HUD feedback.
 export function tickBoatStatus(boat, dt) {
   if (boat.turnJamRemaining > 0) boat.turnJamRemaining = Math.max(0, boat.turnJamRemaining - dt);
   if (boat.chillRemaining > 0) boat.chillRemaining = Math.max(0, boat.chillRemaining - dt);
+  let dot = 0;
+  const a = boat.afflictions;
+  if (a) {
+    for (const k of Object.keys(a)) {
+      if (!(a[k] > 0)) continue;
+      const step = Math.min(dt, a[k]);
+      if (AFFLICTIONS[k]?.dps) dot += AFFLICTIONS[k].dps * step;
+      a[k] = Math.max(0, a[k] - dt);
+    }
+  }
+  if (dot > 0) boat.health = Math.max(0, boat.health - dot);
+  return dot;
+}
+
+export function clearAfflictions(boat) {
+  boat.afflictions = {};
+  boat.chillRemaining = 0;
+  boat.turnJamRemaining = 0;
 }

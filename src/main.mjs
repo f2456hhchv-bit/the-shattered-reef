@@ -15,6 +15,9 @@ import { armamentLevel, grantArmament, rollArmamentChoices, stepArmaments, spiri
 import { drawSpirits, drawLightning, drawWard, drawEnrage } from './engine/armamentArt.mjs';
 import { stepWeather, startWeather, weatherModifiers } from './engine/weather.mjs';
 import { drawWeatherWorld, drawWeatherAbove, drawWeatherScreen, drawBolt } from './engine/weatherArt.mjs';
+import { ambientLight, viewRadius, canSee } from './engine/ambient.mjs';
+import { drawDarkness, drawGlows, drawEyes, drawAmbientScreen } from './engine/lightArt.mjs';
+import { glowingDecorations } from './engine/terrainRenderer.mjs';
 import { BASE_BUILDINGS } from './data/base.mjs';
 import { buildBaseWorld, computeBaseView, boatOrbitPoint } from './engine/base.mjs';
 import { drawBaseBuildings, drawGulls, BUILDING_SCALE } from './engine/baseRenderer.mjs';
@@ -27,10 +30,10 @@ import {
   createRun, checkReachedExit, checkSunk, retryLevel, snapshotLevelStart, addSalvage, totalSalvage, BOAT_RADIUS,
   TIER_COUNT, LEVELS_PER_STAGE, biomeForStage, isExitOpen, levelForReef, buildLevelWorld,
 } from './engine/run.mjs';
-import { stepBoat, resolveCoastCollision, applyWallImpactDamage, statusTuning, tickBoatStatus } from './engine/boat.mjs';
+import { stepBoat, resolveCoastCollision, applyWallImpactDamage, statusTuning, tickBoatStatus, hasAffliction } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
 import {
-  drawExit, drawWake, drawSealedExit, drawLairCurrents, drawBoat, drawEnemies, drawProjectiles, drawPickups,
+  drawExit, drawWake, drawSealedExit, drawLairCurrents, drawBoat, drawBoatStatus, drawEnemies, drawEnemyTelegraphs, drawProjectiles, drawPickups,
   drawParticles, drawDamageNumbers, drawTargetReticle, drawEnemyProjectiles, PALETTE,
 } from './engine/renderer.mjs';
 import { createJoystick } from './input/joystick.mjs';
@@ -39,7 +42,7 @@ import {
   craftedMultiplierFor,
 } from './engine/combat.mjs';
 import {
-  createEnemy, updateEnemies, stepSummons, fireShipBlast, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor,
+  createEnemy, updateEnemies, stepSummons, fireShipBlast, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor, isRevealed,
 } from './engine/enemies.mjs';
 import { collectPickups, makeRepairKit } from './engine/pickups.mjs';
 import { PICKUP_KINDS, PICKUP_TUNING } from './data/pickups.mjs';
@@ -381,13 +384,14 @@ export function startApp(root) {
   const biome = getBiome(BIOME_IDS.TROPICAL); // the harbour's
   let runBiome = biome; // the current reef's (each stage has its own)
   const wake = []; let wakeTimer = 0;
-  let terrainGrid = null; let terrain = null; let terrainRenderer = null; let terrainFresh = false;
+  let terrainGrid = null; let terrain = null; let terrainRenderer = null; let terrainFresh = false; let terrainGlows = [];
   function ensureTerrain() {
     if (terrainGrid === run.grid) return;
     terrainGrid = run.grid;
     runBiome = getBiome(run.level?.biomeId || BIOME_IDS.TROPICAL);
     terrain = buildTerrain(run.grid, run.tileSize, run.coastSeed, runBiome, run.coast);
     terrainRenderer = createTerrainRenderer(terrain, runBiome, { res: Math.min(window.devicePixelRatio || 1, 1.5) });
+    terrainGlows = glowingDecorations(terrain, runBiome);
     terrainFresh = true; // first draw renders every visible chunk at once
     wake.length = 0; // the boat just teleported to a new spawn
   }
@@ -537,8 +541,11 @@ export function startApp(root) {
   // Cannonballs, so picking Depth Charges never wastes them on a cutter.
   function updateAim() {
     // In fog or a blizzard your gunners can't shoot what they can't see.
-    const view = weatherModifiers(run.weather).view;
-    const seen = view ? run.enemies.filter((e) => Math.hypot(e.x - run.boat.x, e.y - run.boat.y) <= view * 0.8) : run.enemies;
+    // In the dark (caverns, the abyss, ink) only what your lantern or its
+    // own glow shows; a camouflaged gator not at all until it's revealed.
+    const wv = weatherModifiers(run.weather).view;
+    const view = viewRadius(run, runBiome, wv != null ? wv * 0.8 / 0.9 : null);
+    const seen = run.enemies.filter((e) => canSee(run, e, view) && isRevealed(e, run.boat));
     const aim = chooseAutoFire(seen, run.boat, run.weapons.activeWeaponId, {
       effectiveWeapon: (id) => effectiveWeapon(run.weapons, id), ammoOf: (id) => ammoFor(run.weapons, id),
       grid: run.grid, tileSize: run.tileSize, coast: run.coast, counterOf: currentCounter, previousTarget: aimTarget,
@@ -1211,6 +1218,15 @@ export function startApp(root) {
     sailing = true;
   }
   hubSetSailBtn.addEventListener('click', startRun);
+  // Testing only (never reachable from the UI): sail straight into any
+  // stage's level, skipping the unlock and the earlier levels.
+  window.__shatteredReefSailStage = (stage, level = 0) => {
+    selectedStage = stage; startRun();
+    for (let i = 0; i < level; i++) { run.exitLocked = false; run.boat.x = run.exitWorld.x; run.boat.y = run.exitWorld.y; checkReachedExit(run); }
+    camera.x = run.boat.x; camera.y = run.boat.y;
+    updateReefIndicator(); setStatus(levelStartStatus());
+    return { stage: run.stage, level: run.reefIndex, biome: run.level.biomeId };
+  };
 
   // A voyage ends in exactly two ways: cleared every reef (`victory`) or
   // sank before finishing one (`sunk`). Either way the same summary
@@ -1285,7 +1301,7 @@ export function startApp(root) {
   // costs nothing at runtime, and saves having to poke at internals.
   window.__shatteredReefDebug = () => ({
     boatX: run.boat.x, boatY: run.boat.y, heading: run.boat.heading,
-    hull: run.boat.health, chill: run.boat.chillRemaining || 0, maxHull: run.boat.maxHull, cameraX: camera.x, cameraY: camera.y,
+    hull: run.boat.health, chill: run.boat.chillRemaining || 0, afflictions: { ...(run.boat.afflictions || {}) }, biome: run.level?.biomeId, maxHull: run.boat.maxHull, cameraX: camera.x, cameraY: camera.y,
     over: run.over, outcome: run.outcome, sailing, hubOpen: hubOverlay.classList.contains('show'),
     stage: run.stage, highestStageUnlocked: meta.highestStageUnlocked, reefIndex: run.reefIndex, reefCount: run.reefCount, levelCode: run.levelCode, levelCodes: run.levelCodes.slice(),
     exitX: run.exitWorld.x, exitY: run.exitWorld.y,
@@ -1371,8 +1387,58 @@ export function startApp(root) {
   window.__shatteredReefAddHubSalvage = (amount) => { meta.salvage += amount; saveMeta(window.localStorage, meta); if (hubOverlay.classList.contains('show')) renderHub(); };
   window.__shatteredReefAddKrakenScales = (amount) => { meta.krakenScales += amount; saveMeta(window.localStorage, meta); if (hubOverlay.classList.contains('show')) renderHub(); };
 
+  // Darkness (engine/ambient.mjs, lightArt.mjs): in the caverns and the
+  // abyss (or blinded by ink) the world beyond your lantern goes dark.
+  // Everything that glows cuts its own hole; attacks are redrawn over the
+  // dark so they're always readable; eyes glint just past the light.
+  function drawLighting(visible, t) {
+    const amb = ambientLight(run, runBiome);
+    const enemyGlows = [];
+    for (const e of run.enemies) {
+      if (e.health <= 0) continue;
+      const g = getEnemy(e.defId).glow;
+      if (g && !e.invulnerable) enemyGlows.push({ x: e.x, y: e.y, r: g * 1.6, rgb: hexRgb(e.colorHex || enemyColor(e)), phase: e.id });
+    }
+    if (amb.dark && amb.light != null) {
+      const lights = [{ x: run.boat.x, y: run.boat.y, r: amb.light * 1.15 }];
+      if (!run.over || run.outcome !== 'sunk') lights.push({ x: run.boat.x, y: run.boat.y, r: amb.light * 0.55 });
+      lights.push({ x: run.exitWorld.x, y: run.exitWorld.y, r: 80, k: 0.8 });
+      for (const p of run.pickups) if (!p.collected) lights.push({ x: p.x, y: p.y, r: p.kind === 'chest' ? 60 : 30, k: 0.7 });
+      for (const gl of terrainGlows) lights.push({ x: gl.x, y: gl.y, r: gl.r * 1.4, k: 0.7 });
+      for (const gl of enemyGlows) lights.push({ x: gl.x, y: gl.y, r: gl.r, k: 0.85 });
+      for (const s of run.enemyProjectiles) lights.push({ x: s.x, y: s.y, r: 26, k: 0.6 });
+      for (const p of run.weapons.projectiles) lights.push({ x: p.x, y: p.y, r: 22, k: 0.5 });
+      for (const b of bolts) lights.push({ x: b.x, y: b.y, r: 140, k: 1 });
+      if (run.weather?.active) {
+        for (const st of run.weather.strikes) lights.push({ x: st.x, y: st.y, r: st.r * 1.6, k: 0.7 });
+        for (const l of run.weather.lights) if (!l.taken) lights.push({ x: l.x, y: l.y, r: 60, k: 0.9 });
+      }
+      if (particles.length > 40) lights.push({ x: run.boat.x, y: run.boat.y, r: amb.light * 1.3, k: 0.25 });
+      drawDarkness(ctx, visible, amb, lights, t);
+      drawGlows(ctx, terrainGlows, visible, t);
+      drawGlows(ctx, enemyGlows, visible, t);
+      drawEyes(ctx, run.enemies, run.boat, amb.light, (e) => getEnemy(e.defId).eyes || '#ffcf4a', t);
+      drawEnemyTelegraphs(ctx, run.enemies, t);
+    } else {
+      if (terrainGlows.length) drawGlows(ctx, terrainGlows, visible, t, 0.6);
+      if (enemyGlows.length) drawGlows(ctx, enemyGlows, visible, t, 0.5);
+    }
+  }
+  function hexRgb(hex) {
+    const n = parseInt(String(hex).replace('#', ''), 16) || 0xffffff;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
   let lastTime = performance.now();
-  let chillToastShown = false;
+  const statusToastShown = new Set();
+  let dotAccum = 0; let dotTimer = 0;
+  const STATUS_TOASTS = [
+    ['chill', '❄️ Frozen rudder — you turn and sail slower for a moment'],
+    ['burn', '🔥 On fire — your hull burns for a few seconds'],
+    ['poison', '☠️ Poisoned — slow damage for a while'],
+    ['shock', '⚡ Shocked — your sails stall for a moment'],
+    ['ink', '🦑 Ink! You can barely see for a few seconds'],
+  ];
   function frame(now) {
     const rawDt = Math.min(0.05, (now - lastTime) / 1000); // clamp so a tab-switch stall can't fling the boat
     lastTime = now;
@@ -1401,10 +1467,19 @@ export function startApp(root) {
         playWallImpact(intensity);
       }
 
-      tickBoatStatus(run.boat, dt);
-      if (run.boat.chillRemaining > 0 && !chillToastShown) {
-        chillToastShown = true;
-        showToast('❄️ Frozen rudder — you turn and sail slower for a moment');
+      const dot = tickBoatStatus(run.boat, dt);
+      if (dot > 0) {
+        dotAccum += dot; dotTimer -= dt;
+        if (dotTimer <= 0) {
+          dotTimer = 0.5;
+          spawnDamageNumber(damageNumbers, run.boat.x - 18, run.boat.y - BOAT_RADIUS - 6, dotAccum, { incoming: true });
+          dotAccum = 0;
+          updateHullBar();
+        }
+      }
+      // Explain each status the first time it happens.
+      for (const [kind, msg] of STATUS_TOASTS) {
+        if (!statusToastShown.has(kind) && hasAffliction(run.boat, kind)) { statusToastShown.add(kind); showToast(msg); }
       }
 
       updateAim();
@@ -1447,7 +1522,7 @@ export function startApp(root) {
         }
       }
       // Enemy gunnery: wind-up, fire, and shots in flight.
-      const world = { grid: run.grid, tileSize: run.tileSize, coast: run.coast };
+      const world = { grid: run.grid, tileSize: run.tileSize, coast: run.coast, ricochet: run.ricochet || 0 };
       const volleys = updateEnemyGuns(run.enemies, run.boat, dt, world, run.enemyProjectiles);
       if (volleys > 0) { playEnemyFire(); run.volleysAtYou = (run.volleysAtYou || 0) + volleys; }
       const shotResult = stepEnemyProjectiles(run.enemyProjectiles, run.boat, BOAT_RADIUS, dt, world, incomingMultiplierFor(run.faction));
@@ -1688,10 +1763,12 @@ export function startApp(root) {
       if (e.warded) drawWard(ctx, e, run.enemies.filter((s) => s.seal && s.health > 0), now / 1000);
       else if (e.enraged) drawEnrage(ctx, e, now / 1000);
     }
+    drawLighting(view.visible, now / 1000);
     drawEnemyProjectiles(ctx, run.enemyProjectiles, now / 1000);
     if (aimTarget && aimTarget.health > 0 && sailing && !run.over) drawTargetReticle(ctx, aimTarget, now / 1000, isFiring);
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color, now / 1000);
     if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS, now / 1000);
+    if (run.outcome !== 'sunk') drawBoatStatus(ctx, run.boat, BOAT_RADIUS, now / 1000);
     if (run.outcome !== 'sunk') drawSpirits(ctx, spiritPositions(run), run.spiritAngle || 0, now / 1000);
     drawLightning(ctx, lightning);
     drawWeatherAbove(ctx, run.weather, now / 1000);
@@ -1700,6 +1777,7 @@ export function startApp(root) {
     drawDamageNumbers(ctx, damageNumbers);
     ctx.restore();
     // Rain, snow, fog, darkness: over the world, under the HUD.
+    drawAmbientScreen(ctx, runBiome, now / 1000, vw, vh);
     if (sailing || run.over) drawWeatherScreen(ctx, run.weather, weatherModifiers(run.weather), now / 1000, vw, vh, { x: run.boat.x + view.translateX, y: run.boat.y + view.translateY });
 
     // Stream the rest of the reef's terrain in the background, one chunk a

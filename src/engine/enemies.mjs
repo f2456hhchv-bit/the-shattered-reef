@@ -7,7 +7,7 @@
 
 import { BOSS_ENRAGE, getEnemy, ENEMY_IDS, ARCHETYPES } from '../data/enemies.mjs';
 import { triangleMultiplier, incomingTriangleMultiplier } from '../data/factions.mjs';
-import { resolveTileCollision, resolveCoastCollision } from './boat.mjs';
+import { resolveTileCollision, resolveCoastCollision, applyAfflictions } from './boat.mjs';
 import { sampleField } from './terrain.mjs';
 import { isOpenWithClearance } from './maze.mjs';
 
@@ -101,6 +101,7 @@ export function createEnemy(defId, x, y, rng = Math.random, { scale = null } = {
     idlePhase: rng() * Math.PI * 2,
     senseTimer: rng() * AGGRO.senseInterval,
     lastHealth: 0,
+    frontArmor: def.frontArmor ?? null,
   };
   enemy.lastHealth = enemy.health;
 
@@ -182,7 +183,8 @@ function updateGhost(enemy, boat, dt, def) {
 
 // Does this enemy ignore the shore? (Flyers, wisps, and ghosts while faded.)
 export function passesOverLand(enemy, def = getEnemy(enemy.defId)) {
-  return enemy.archetype === ARCHETYPES.FLYER || !!def.flies || !!enemy.phased;
+  return enemy.archetype === ARCHETYPES.FLYER || !!def.flies || !!enemy.phased
+    || (!!def.burrows && enemy.submergedState === 'submerged');
 }
 
 // Resolves an enemy's *current* counter weapon — a plain field for regular
@@ -281,7 +283,7 @@ export function spawnReefEnemies(spawnPool, grid, tileSize, boatSpawn, exitWorld
     // Keep spawns off the exit tile too, loosely.
     if (Math.hypot(spot.x - exitWorld.x, spot.y - exitWorld.y) < exitClearance) continue;
 
-    if (defId === ENEMY_IDS.REEF_SKIMMER) {
+    if (def.packSize) {
       const packSize = Math.round(randRange(rng, def.packSize));
       for (let i = 0; i < packSize && placed < count; i++) {
         const jitterX = spot.x + (rng() - 0.5) * tileSize * 2;
@@ -450,8 +452,14 @@ function updateBroadsider(enemy, boat, dt, def) {
 function updateShark(enemy, boat, dt, def) {
   enemy.sharkTimer -= dt;
   if (enemy.sharkState === 'circling') {
-    steerOrbit(enemy, boat.x, boat.y, dt, def.circleRadius || 95, enemy.orbitSign, 0.85);
-    if (enemy.sharkTimer <= 0 && Math.hypot(boat.x - enemy.x, boat.y - enemy.y) < (def.circleRadius || 95) * 1.6) {
+    const d = Math.hypot(boat.x - enemy.x, boat.y - enemy.y);
+    if (def.ambush) {
+      // Lurks where it lives and strikes when you come close.
+      steerToward(enemy, enemy.home.x, enemy.home.y, dt, 0.35);
+      if (enemy.sharkTimer > 0.4) enemy.sharkTimer = Math.min(enemy.sharkTimer, 0.4);
+    } else steerOrbit(enemy, boat.x, boat.y, dt, def.circleRadius || 95, enemy.orbitSign, 0.85);
+    const reach = def.ambush ? def.ambushRange : (def.circleRadius || 95) * 1.6;
+    if (enemy.sharkTimer <= 0 && d < reach) {
       enemy.sharkState = 'windup';
       enemy.sharkTimer = def.chargeWindup;
       // Aim a little ahead of the boat, then commit.
@@ -478,6 +486,9 @@ function updateShark(enemy, boat, dt, def) {
     enemy.vx *= Math.exp(-4 * dt); enemy.vy *= Math.exp(-4 * dt);
     enemy.x += enemy.vx * dt; enemy.y += enemy.vy * dt;
     if (enemy.sharkTimer <= 0) { enemy.sharkState = 'recover'; enemy.sharkTimer = 0.5; }
+  } else if (def.ambush) { // recover: slink back to its lair
+    steerToward(enemy, enemy.home.x, enemy.home.y, dt, 0.8);
+    if (enemy.sharkTimer <= 0) { enemy.sharkState = 'circling'; enemy.sharkTimer = randRange(Math.random, def.chargeEvery); }
   } else { // recover: swim off to circling distance
     const ax = enemy.x - boat.x; const ay = enemy.y - boat.y; const d = Math.hypot(ax, ay) || 1;
     steerToward(enemy, boat.x + (ax / d) * (def.circleRadius || 95), boat.y + (ay / d) * (def.circleRadius || 95), dt, 0.9);
@@ -561,6 +572,7 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
     enemy.aggro = false; // lost the boat: drift back home
   }
 
+  if (def.isBoss && enemy.aggro) updateBossPhase(enemy, def, dt);
   if (enemy.archetype === ARCHETYPES.GHOST && enemy.aggro) stepGhostPhase(enemy, def, dt, coast, grid, tileSize);
   else if (enemy.phased && !enemy.aggro) stepGhostPhase(enemy, def, dt, coast, grid, tileSize); // settle back to solid
   if (enemy.archetype === ARCHETYPES.TOTEM || enemy.archetype === ARCHETYPES.SIREN) {
@@ -574,7 +586,9 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
     const far = Math.hypot(tx - enemy.x, ty - enemy.y) > AGGRO.idleRadius * 3;
     steerToward(enemy, tx, ty, dt, far ? 0.6 : AGGRO.idleSpeedScale);
   } else {
-    if (def.isBoss) updateBossPhase(enemy, def, dt);
+    // A burrower can only come up where there's water to come up in.
+    if (def.burrows && enemy.submergedState === 'submerged' && enemy.submergedTimer <= dt
+      && !overOpenWater(enemy, coast, grid, tileSize)) enemy.submergedTimer = 0.25;
     moveAggroed(enemy, boat, dt, def);
   }
 
@@ -689,6 +703,21 @@ export function isHittable(enemy) {
   return enemy.health > 0 && !enemy.invulnerable && !enemy.warded;
 }
 
+// Camouflage (Bayou Gators): hidden until you're within `camo` px, or it's
+// attacking, or it's been hurt. Aim-assist can't lock what it can't see.
+export function isRevealed(enemy, boat) {
+  const def = getEnemy(enemy.defId);
+  if (!def.camo) return true;
+  if (enemy.sharkState && enemy.sharkState !== 'circling') return true;
+  if (enemy.health < enemy.maxHealth) return true;
+  return Math.hypot(enemy.x - boat.x, enemy.y - boat.y) <= def.camo;
+}
+
+// The boss's current phase (null for regular enemies).
+export function currentPhase(enemy) {
+  return enemy.isBoss ? getEnemy(enemy.defId).phases?.[enemy.phaseIndex] ?? null : null;
+}
+
 // Contact damage: an enemy touching the boat hurts it, on its own
 // per-enemy cooldown (not every frame of contact). Riggers additionally
 // jam the boat's turning briefly on a successful hit — their whole
@@ -716,6 +745,7 @@ export function resolveEnemyContact(enemy, boat, boatRadius, getIncomingMultipli
     enemy.salvageDrop = 0;
   }
   if (def.chillOnHit) boat.chillRemaining = Math.max(boat.chillRemaining || 0, def.chillOnHit);
+  if (def.onHit) applyAfflictions(boat, def.onHit);
   if (enemy.defId === ENEMY_IDS.RIGGER) {
     boat.turnJamRemaining = Math.max(boat.turnJamRemaining || 0, RIGGER_JAM_SECONDS);
   }

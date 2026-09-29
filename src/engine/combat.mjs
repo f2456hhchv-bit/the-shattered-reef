@@ -238,8 +238,17 @@ export function stepCombat(state, dt, grid, tileSize, enemies = []) {
       }
     }
     if (p.traveled >= p.maxRange) p.spent = true;
-    // A mortar shell arcs over land; everything else stops at the shore.
-    if (!p.overLand && isSolidAt(grid, p.x, p.y, tileSize)) p.spent = true;
+    // A mortar shell arcs over land; everything else stops at the shore —
+    // or, on crystal shores (`state.ricochet`), glances off once.
+    if (!p.overLand && isSolidAt(grid, p.x, p.y, tileSize)) {
+      if (state.ricochet && (p.bounces || 0) < state.ricochet && p.fuseRemaining == null) {
+        const ox = p.x - stepX; const oy = p.y - stepY;
+        const hx = isSolidAt(grid, p.x, oy, tileSize); const hy = isSolidAt(grid, ox, p.y, tileSize);
+        if (hx || !hy) p.vx = -p.vx;
+        if (hy || !hx) p.vy = -p.vy;
+        p.x = ox; p.y = oy; p.bounces = (p.bounces || 0) + 1;
+      } else p.spent = true;
+    }
   }
 }
 
@@ -255,6 +264,18 @@ export function applyDamageToEnemy(enemy, amount) {
 }
 
 const DEPTH_CHARGE_BLAST_RADIUS = 28;
+
+// Front armour (Mirror Tortoise): a direct hit that comes from ahead of it
+// (within 65° of where it's facing) does only `frontArmor` of its damage.
+// Blasts (Depth Charges, mortars, kegs) aren't affected.
+export function frontArmorFactor(enemy, p) {
+  if (enemy.frontArmor == null) return 1;
+  const sp = Math.hypot(p.vx, p.vy); if (sp < 1) return 1;
+  const fx = Math.cos(enemy.heading || 0); const fy = Math.sin(enemy.heading || 0);
+  // The shot travels toward the enemy; it hit the front if it came from ahead.
+  const into = -(p.vx * fx + p.vy * fy) / sp;
+  return into > Math.cos(65 * Math.PI / 180) ? enemy.frontArmor : 1;
+}
 
 // Checks every live projectile against every enemy and applies damage,
 // respecting each weapon's counter rule (data/weapons.mjs). Returns an
@@ -322,9 +343,10 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
         // they're independent (one keyed by enemy, one by weapon) but both
         // apply multiplicatively on top of the weapon-counter fraction.
         const extraMult = getFactionMultiplier(enemy) * getWeaponMultiplier(weapon.id);
-        const dmg = baseDamage(enemy) * extraMult;
+        const armor = frontArmorFactor(enemy, p);
+        const dmg = baseDamage(enemy) * extraMult * armor;
         const killed = applyDamageToEnemy(enemy, dmg);
-        events.push({ enemy, weaponId: weapon.id, damage: dmg, killed });
+        events.push({ enemy, weaponId: weapon.id, damage: dmg, killed, ...(armor < 1 ? { armored: true } : {}) });
         if (p.pierceLeft > 0) {
           p.pierceLeft -= 1;
           (p.hitIds ||= new Set()).add(enemy.id);

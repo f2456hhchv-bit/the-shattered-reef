@@ -32,6 +32,13 @@ export const ENEMY_IDS = Object.freeze({
   SIREN: 'siren',
   FROST_LEVIATHAN: 'frost_leviathan', // boss, stage 3
   DROWNED_ADMIRAL: 'drowned_admiral', // boss, stage 4
+  // 2026-09-29, stages 5-10 (one biome each).
+  CINDER_BAT: 'cinder_bat', MAGMA_GOLEM: 'magma_golem', OBSIDIAN_GALLEY: 'obsidian_galley', CALDERA_WYRM: 'caldera_wyrm',
+  CAVE_BATS: 'cave_bats', STALKER_EEL: 'stalker_eel', DEEP_TROLL: 'deep_troll', HOLLOW_KING: 'hollow_king',
+  BAYOU_GATOR: 'bayou_gator', BOG_WITCH: 'bog_witch', LEECH_SWARM: 'leech_swarm', MIRE_MOTHER: 'mire_mother',
+  ANGLERFISH: 'anglerfish', JELLY_BLOOM: 'jelly_bloom', INK_SQUID: 'ink_squid', DEEP_MOTHER: 'deep_mother',
+  DUNE_RAIDER: 'dune_raider', BONE_VULTURE: 'bone_vulture', SAND_WYRM: 'sand_wyrm', DUNEMAW: 'dunemaw',
+  PRISM_SPRITE: 'prism_sprite', MIRROR_TORTOISE: 'mirror_tortoise', CRYSTAL_CRAB: 'crystal_crab', PRISM_COLOSSUS: 'prism_colossus',
 });
 
 // Movement/attack archetypes — engine/enemies.mjs switches on this string.
@@ -76,6 +83,26 @@ export const GUNS = Object.freeze({
   ghostBroadside: { pattern: 'broadside', count: 3, spread: 12, speed: 140, damage: 8, range: 170, windup: 0.8, cooldown: [2.8, 3.6], kind: 'spectral' },
   admiralBroadside: { pattern: 'broadside', count: 5, spread: 11, speed: 145, damage: 9, range: 200, windup: 0.9, cooldown: [2.4, 3.0], kind: 'spectral', bothSides: true },
   flagshipChase: { pattern: 'aimed', count: 3, spread: 0.28, speed: 160, damage: 8, range: 220, windup: 0.6, cooldown: [1.8, 2.4], kind: 'ball' },
+  // 2026-09-29, stages 5-10. `afflict` puts a status on your ship when a
+  // shot lands (engine/boat.mjs AFFLICTIONS): burn and poison hurt over
+  // time, shock stalls your sails, ink blinds you.
+  incendiaryBroadside: { pattern: 'broadside', count: 3, spread: 12, speed: 135, damage: 6, range: 175, windup: 0.9, cooldown: [3.0, 3.8], kind: 'fire', afflict: { burn: 1 } },
+  magmaSlam: { pattern: 'ring', count: 10, spread: 0, speed: 105, damage: 6, range: 170, windup: 1.0, cooldown: [3.4, 4.4], kind: 'fire', afflict: { burn: 1.5 } },
+  magmaSpit: { pattern: 'aimed', count: 5, spread: 0.24, speed: 150, damage: 8, range: 220, windup: 0.7, cooldown: [0.1, 0.1], kind: 'fire', afflict: { burn: 2 }, onlyWhenSurfaced: true, oncePerSurface: true },
+  boulderLob: { pattern: 'lob', count: 1, spread: 0, speed: 1, flight: 1.5, blast: 32, damage: 15, range: 230, windup: 0.8, cooldown: [3.2, 4.2], kind: 'boulder' },
+  boulderRing: { pattern: 'ring', count: 12, spread: 0, speed: 115, damage: 7, range: 200, windup: 1.1, cooldown: [2.8, 3.4], kind: 'boulder' },
+  hexBolt: { pattern: 'aimed', count: 3, spread: 0.3, speed: 135, damage: 5, range: 200, windup: 0.7, cooldown: [2.6, 3.4], kind: 'hex', afflict: { poison: 3.5 } },
+  sporeRing: { pattern: 'ring', count: 10, spread: 0, speed: 100, damage: 5, range: 180, windup: 1.0, cooldown: [3.0, 3.8], kind: 'spore', afflict: { poison: 3 } },
+  inkSpray: { pattern: 'aimed', count: 3, spread: 0.22, speed: 135, damage: 4, range: 190, windup: 0.7, cooldown: [3.2, 4.0], kind: 'ink', afflict: { ink: 3 } },
+  inkBreath: { pattern: 'aimed', count: 5, spread: 0.22, speed: 145, damage: 7, range: 220, windup: 0.7, cooldown: [0.1, 0.1], kind: 'ink', afflict: { ink: 2.5 }, onlyWhenSurfaced: true, oncePerSurface: true },
+  shockRing: { pattern: 'ring', count: 12, spread: 0, speed: 110, damage: 6, range: 200, windup: 1.0, cooldown: [2.8, 3.4], kind: 'shock', afflict: { shock: 0.6 } },
+  raiderVolley: { pattern: 'aimed', count: 2, spread: 0.2, speed: 150, damage: 4, range: 195, windup: 0.6, cooldown: [2.8, 3.6], kind: 'ball' },
+  sandSpit: { pattern: 'aimed', count: 3, spread: 0.34, speed: 130, damage: 5, range: 180, windup: 0.5, cooldown: [0.1, 0.1], kind: 'sand', onlyWhenSurfaced: true, oncePerSurface: true },
+  sandBurst: { pattern: 'ring', count: 12, spread: 0, speed: 115, damage: 8, range: 200, windup: 0.6, cooldown: [0.1, 0.1], kind: 'sand', onlyWhenSurfaced: true, oncePerSurface: true },
+  sandVolley: { pattern: 'aimed', count: 5, spread: 0.2, speed: 150, damage: 7, range: 220, windup: 0.7, cooldown: [2.0, 2.6], kind: 'sand' },
+  prismBolt: { pattern: 'aimed', count: 1, spread: 0, speed: 150, damage: 5, range: 200, windup: 0.6, cooldown: [2.6, 3.4], kind: 'prism' },
+  prismSpiral: { pattern: 'ring', count: 6, spread: 0, speed: 120, damage: 6, range: 230, windup: 0.5, cooldown: [0.8, 0.9], kind: 'prism', spin: 0.33 },
+  shardBurst: { pattern: 'ring', count: 10, spread: 0, speed: 125, damage: 7, range: 210, windup: 0.9, cooldown: [2.4, 3.0], kind: 'prism' },
 });
 
 export const ENEMIES = {
@@ -419,6 +446,196 @@ ENEMIES[ENEMY_IDS.DROWNED_ADMIRAL] = {
       summon: { defId: ENEMY_IDS.DROWNED_SKIFF, count: 3, everySeconds: 6, max: 6 } },
   ],
 };
+
+
+// ==== Stages 5-10 (2026-09-29, project owner: "New biomes too... lava/
+// volcanoes, caverns/caves/dark... any more?"). Each biome brings its own
+// trick, always telegraphed or escapable, and every enemy still pairs
+// with one counter weapon:
+//   Volcanic   — burning (fire shots and bites keep hurting for a moment)
+//   Caverns    — darkness (you see the attacks and their eyes, not them)
+//   Mangrove   — camouflage (gators hide until close) and poison
+//   Abyss      — dim light, lures, ink that blinds you, shocks that stall you
+//   Bone Sands — burrowers that travel under the dunes
+//   Crystal    — shots bounce off the crystal shore; armoured fronts
+// `onHit` puts a status on your ship on contact; `glow` makes an enemy
+// visible (and a light) in the dark; `camo` hides it until you're within
+// that many px; `ambush` lurks at home and strikes inside `ambushRange`;
+// `burrows` lets a serpent travel under land; `frontArmor` is the damage
+// fraction taken from the front (flank it, or blast it from below).
+const F = FACTION_IDS; const W = WEAPON_IDS; const A = ARCHETYPES; const E = ENEMY_IDS;
+Object.assign(ENEMIES, {
+  // ---- Volcanic ----
+  [E.CINDER_BAT]: {
+    id: E.CINDER_BAT, name: 'Cinder Bat', archetype: A.FLYER, counter: W.CHAIN_SHOT, faction: F.WYRDTIDE,
+    maxHealth: 22, radius: 8, speed: 140, contactDamage: 8, contactCooldown: 1, diveIntervalSeconds: [1.5, 2.4],
+    onHit: { burn: 1.5 }, glow: 30, salvageDrop: [4, 7], color: '#ff7a2a',
+  },
+  [E.MAGMA_GOLEM]: {
+    id: E.MAGMA_GOLEM, name: 'Magma Golem', archetype: A.TANK, counter: W.DEPTH_CHARGES, faction: F.IRON_ACCORD,
+    maxHealth: 80, radius: 13, speed: 40, contactDamage: 14, contactCooldown: 1.2, onHit: { burn: 1.5 },
+    gun: GUNS.magmaSlam, glow: 40, salvageDrop: [9, 14], color: '#3a2a26',
+  },
+  [E.OBSIDIAN_GALLEY]: {
+    id: E.OBSIDIAN_GALLEY, name: 'Obsidian Galley', archetype: A.BROADSIDER, counter: W.GRAPESHOT, faction: F.REAVERS,
+    maxHealth: 48, radius: 12, speed: 60, preferredRange: 105, contactDamage: 8, contactCooldown: 1,
+    gun: GUNS.incendiaryBroadside, salvageDrop: [7, 11], color: '#e8521f',
+  },
+  [E.CALDERA_WYRM]: {
+    id: E.CALDERA_WYRM, name: 'The Caldera Wyrm', archetype: A.SERPENT, isBoss: true,
+    maxHealth: 420, radius: 20, speed: 100, surfaceDistance: 115, submergedSeconds: [2.0, 2.8], surfacedSeconds: 2.4,
+    diveIntervalSeconds: [1.8, 2.6], contactDamage: 16, contactCooldown: 1.1, onHit: { burn: 3 }, glow: 70,
+    salvageDrop: [45, 65], color: '#d9481f',
+    phases: [
+      // Swims through the magma-hot water, surfaces beside you and spits fire.
+      { archetype: A.SERPENT, counter: W.DEPTH_CHARGES, durationSeconds: 14, gun: GUNS.magmaSpit },
+      // Takes wing: dive-bombs across the pit while the cinder bats come.
+      { archetype: A.FLYER, counter: W.CHAIN_SHOT, durationSeconds: 12,
+        summon: { defId: E.CINDER_BAT, count: 2, everySeconds: 6, max: 4 } },
+    ],
+  },
+  // ---- Caverns ----
+  [E.CAVE_BATS]: {
+    id: E.CAVE_BATS, name: 'Cave Bats', archetype: A.SWARM, flies: true, counter: W.GRAPESHOT, faction: F.REAVERS,
+    maxHealth: 12, radius: 6, speed: 118, packSize: [3, 5], contactDamage: 5, contactCooldown: 0.8,
+    salvageDrop: [2, 3], color: '#4a3a4a', eyes: '#ff4a3a',
+  },
+  [E.STALKER_EEL]: {
+    id: E.STALKER_EEL, name: 'Stalker Eel', archetype: A.SHARK, counter: W.DEPTH_CHARGES, faction: F.WYRDTIDE,
+    maxHealth: 40, radius: 9, speed: 90, chargeSpeed: 270, circleRadius: 90, chargeWindup: 0.7, chargeSeconds: 0.65,
+    chargeEvery: [1.6, 2.4], ambush: true, ambushRange: 130, contactDamage: 13, contactCooldown: 0.9, onHit: { shock: 0.5 },
+    salvageDrop: [5, 8], color: '#3f6a5a', eyes: '#c8ff5a',
+  },
+  [E.DEEP_TROLL]: {
+    id: E.DEEP_TROLL, name: 'Deep Troll', archetype: A.TANK, counter: W.FLAME_BARRELS, faction: F.IRON_ACCORD,
+    maxHealth: 76, radius: 13, speed: 36, contactDamage: 16, contactCooldown: 1.3,
+    gun: GUNS.boulderLob, salvageDrop: [9, 14], color: '#6a7a6a', eyes: '#ffd24a',
+  },
+  [E.HOLLOW_KING]: {
+    id: E.HOLLOW_KING, name: 'The Hollow King', archetype: A.SUBMERGED, isBoss: true,
+    maxHealth: 420, radius: 20, speed: 60, submergedSeconds: [1.8, 2.8], surfacedSeconds: 1.6,
+    contactDamage: 17, contactCooldown: 1.2, salvageDrop: [45, 65], color: '#d8d2c4', eyes: '#9ae8ff',
+    phases: [
+      // Sinks under and swallows the light (your lantern shrinks).
+      { archetype: A.SUBMERGED, counter: W.DEPTH_CHARGES, durationSeconds: 14, darken: 0.6 },
+      // Rises, hurls rings of rock, and the bats pour out of the dark.
+      { archetype: A.TANK, counter: W.FLAME_BARRELS, durationSeconds: 12, gun: GUNS.boulderRing,
+        summon: { defId: E.CAVE_BATS, count: 3, everySeconds: 6, max: 6 } },
+    ],
+  },
+  // ---- Mangrove ----
+  [E.BAYOU_GATOR]: {
+    id: E.BAYOU_GATOR, name: 'Bayou Gator', archetype: A.SHARK, counter: W.GRAPESHOT, faction: F.IRON_ACCORD,
+    maxHealth: 46, radius: 10, speed: 80, chargeSpeed: 250, circleRadius: 95, chargeWindup: 0.7, chargeSeconds: 0.7,
+    chargeEvery: [2.0, 3.0], ambush: true, ambushRange: 120, camo: 95, contactDamage: 13, contactCooldown: 1,
+    salvageDrop: [6, 9], color: '#4f6a3a',
+  },
+  [E.BOG_WITCH]: {
+    id: E.BOG_WITCH, name: 'Bog Witch', archetype: A.SKIRMISHER, flies: true, counter: W.CHAIN_SHOT, faction: F.WYRDTIDE,
+    maxHealth: 32, radius: 9, speed: 70, preferredRange: 145, contactDamage: 5, contactCooldown: 1,
+    gun: GUNS.hexBolt, glow: 28, salvageDrop: [5, 9], color: '#6a3a8a',
+  },
+  [E.LEECH_SWARM]: {
+    id: E.LEECH_SWARM, name: 'Leech Swarm', archetype: A.SWARM, counter: W.FLAME_BARRELS, faction: F.REAVERS,
+    maxHealth: 11, radius: 6, speed: 95, packSize: [4, 5], contactDamage: 3, contactCooldown: 0.7, onHit: { poison: 3 },
+    salvageDrop: [1, 3], color: '#3a2a2a',
+  },
+  [E.MIRE_MOTHER]: {
+    id: E.MIRE_MOTHER, name: 'Old Mother Mire', archetype: A.TANK, isBoss: true,
+    maxHealth: 420, radius: 21, speed: 42, submergedSeconds: [1.8, 2.6], surfacedSeconds: 1.4,
+    contactDamage: 16, contactCooldown: 1.2, onHit: { poison: 4 }, salvageDrop: [45, 65], color: '#5a6a3a',
+    phases: [
+      // Wades at you, puffing poison spores; leeches drop off her roots.
+      { archetype: A.TANK, counter: W.FLAME_BARRELS, durationSeconds: 14, gun: GUNS.sporeRing,
+        summon: { defId: E.LEECH_SWARM, count: 3, everySeconds: 6, max: 6 } },
+      // Sinks into the mire and rises beside you.
+      { archetype: A.SUBMERGED, counter: W.DEPTH_CHARGES, durationSeconds: 12 },
+    ],
+  },
+  // ---- Abyss ----
+  [E.ANGLERFISH]: {
+    id: E.ANGLERFISH, name: 'Anglerfish', archetype: A.SHARK, counter: W.DEPTH_CHARGES, faction: F.WYRDTIDE,
+    maxHealth: 50, radius: 11, speed: 70, chargeSpeed: 260, circleRadius: 90, chargeWindup: 0.6, chargeSeconds: 0.6,
+    chargeEvery: [2.2, 3.0], ambush: true, ambushRange: 95, contactDamage: 14, contactCooldown: 1,
+    glow: 55, salvageDrop: [8, 12], color: '#3a4a5a', lure: true,
+  },
+  [E.JELLY_BLOOM]: {
+    id: E.JELLY_BLOOM, name: 'Jelly Bloom', archetype: A.TANK, counter: W.GRAPESHOT, faction: F.REAVERS,
+    maxHealth: 16, radius: 8, speed: 32, packSize: [2, 3], contactDamage: 5, contactCooldown: 1.2, onHit: { shock: 0.5 },
+    glow: 34, salvageDrop: [2, 4], color: '#b07aff',
+  },
+  [E.INK_SQUID]: {
+    id: E.INK_SQUID, name: 'Ink Squid', archetype: A.SKIRMISHER, counter: W.CHAIN_SHOT, faction: F.IRON_ACCORD,
+    maxHealth: 36, radius: 10, speed: 85, preferredRange: 135, contactDamage: 7, contactCooldown: 1,
+    gun: GUNS.inkSpray, glow: 22, salvageDrop: [6, 9], color: '#c24a6a',
+  },
+  [E.DEEP_MOTHER]: {
+    id: E.DEEP_MOTHER, name: 'The Deep Mother', archetype: A.SERPENT, isBoss: true,
+    maxHealth: 420, radius: 21, speed: 95, surfaceDistance: 120, submergedSeconds: [2.0, 2.8], surfacedSeconds: 2.2,
+    contactDamage: 16, contactCooldown: 1.1, glow: 80, salvageDrop: [45, 65], color: '#5a3aa8',
+    phases: [
+      { archetype: A.SERPENT, counter: W.DEPTH_CHARGES, durationSeconds: 14, gun: GUNS.inkBreath },
+      { archetype: A.TANK, counter: W.CHAIN_SHOT, durationSeconds: 12, gun: GUNS.shockRing,
+        summon: { defId: E.JELLY_BLOOM, count: 3, everySeconds: 6, max: 6 } },
+    ],
+  },
+  // ---- Bone Sands ----
+  [E.DUNE_RAIDER]: {
+    id: E.DUNE_RAIDER, name: 'Dune Raider', archetype: A.SKIRMISHER, counter: W.CANNONBALLS, faction: F.REAVERS,
+    maxHealth: 34, radius: 10, speed: 84, preferredRange: 135, contactDamage: 6, contactCooldown: 1,
+    gun: GUNS.raiderVolley, salvageDrop: [6, 9], color: '#e0b050',
+  },
+  [E.BONE_VULTURE]: {
+    id: E.BONE_VULTURE, name: 'Bone Vulture', archetype: A.FLYER, counter: W.CHAIN_SHOT, faction: F.WYRDTIDE,
+    maxHealth: 24, radius: 9, speed: 130, contactDamage: 8, contactCooldown: 1, diveIntervalSeconds: [2.0, 3.0],
+    salvageDrop: [4, 7], color: '#e8e0cc',
+  },
+  [E.SAND_WYRM]: {
+    id: E.SAND_WYRM, name: 'Sand Wyrm', archetype: A.SERPENT, burrows: true, counter: W.DEPTH_CHARGES, faction: F.IRON_ACCORD,
+    maxHealth: 44, radius: 10, speed: 110, submergedSeconds: [2.2, 3.0], surfacedSeconds: 1.6, surfaceDistance: 105,
+    contactDamage: 9, contactCooldown: 1, gun: GUNS.sandSpit, salvageDrop: [6, 10], color: '#c8965a',
+  },
+  [E.DUNEMAW]: {
+    id: E.DUNEMAW, name: 'The Dunemaw', archetype: A.SERPENT, burrows: true, isBoss: true,
+    maxHealth: 420, radius: 22, speed: 105, surfaceDistance: 115, submergedSeconds: [1.8, 2.6], surfacedSeconds: 2.2,
+    contactDamage: 18, contactCooldown: 1.2, salvageDrop: [45, 65], color: '#b8864a',
+    phases: [
+      // Burrows through the dunes and bursts up beside you in a ring of sand.
+      { archetype: A.SERPENT, counter: W.DEPTH_CHARGES, durationSeconds: 14, gun: GUNS.sandBurst },
+      // Rears out of the sand, spitting volleys; the vultures circle in.
+      { archetype: A.TANK, counter: W.FLAME_BARRELS, durationSeconds: 12, gun: GUNS.sandVolley,
+        summon: { defId: E.BONE_VULTURE, count: 2, everySeconds: 6, max: 4 } },
+    ],
+  },
+  // ---- Crystal ----
+  [E.PRISM_SPRITE]: {
+    id: E.PRISM_SPRITE, name: 'Prism Sprite', archetype: A.SKIRMISHER, flies: true, counter: W.CHAIN_SHOT, faction: F.WYRDTIDE,
+    maxHealth: 26, radius: 8, speed: 90, preferredRange: 140, contactDamage: 5, contactCooldown: 1,
+    gun: GUNS.prismBolt, glow: 30, salvageDrop: [4, 7], color: '#c8a8ff',
+  },
+  [E.MIRROR_TORTOISE]: {
+    id: E.MIRROR_TORTOISE, name: 'Mirror Tortoise', archetype: A.TANK, counter: W.DEPTH_CHARGES, faction: F.IRON_ACCORD,
+    maxHealth: 80, radius: 13, speed: 34, frontArmor: 0.35, contactDamage: 11, contactCooldown: 1.3,
+    salvageDrop: [10, 15], color: '#8ad8e8',
+  },
+  [E.CRYSTAL_CRAB]: {
+    id: E.CRYSTAL_CRAB, name: 'Crystal Crab', archetype: A.SWARM, counter: W.GRAPESHOT, faction: F.REAVERS,
+    maxHealth: 18, radius: 7, speed: 100, packSize: [3, 4], contactDamage: 6, contactCooldown: 0.8,
+    salvageDrop: [2, 4], color: '#ff9ae0',
+  },
+  [E.PRISM_COLOSSUS]: {
+    id: E.PRISM_COLOSSUS, name: 'The Prism Colossus', archetype: A.TOTEM, isBoss: true,
+    maxHealth: 420, radius: 22, speed: 40, contactDamage: 16, contactCooldown: 1.2, glow: 90,
+    salvageDrop: [45, 65], color: '#b89cff',
+    phases: [
+      // Rooted in the pit, spinning spirals of light off its facets.
+      { archetype: A.TOTEM, counter: W.FLAME_BARRELS, durationSeconds: 13, gun: GUNS.prismSpiral },
+      // Tears itself loose and wades after you; the sprites join in.
+      { archetype: A.TANK, counter: W.GRAPESHOT, durationSeconds: 12, gun: GUNS.shardBurst,
+        summon: { defId: E.PRISM_SPRITE, count: 2, everySeconds: 6, max: 4 } },
+    ],
+  },
+});
 
 // The lair's warding seals (2026-09-29, project owner: "Boss too easy").
 // One stands on each ring of the lair; while any stands, the boss can't be

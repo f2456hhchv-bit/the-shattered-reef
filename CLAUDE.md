@@ -1973,6 +1973,121 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   costing the bot about 50 hull per stage-4 voyage; the bot doesn't dodge
   the marks, so check it by hand.
 
+- **Phase:** six new biomes (project owner: "New biomes too. Think
+  lava/volcanoes. Caverns/caves/dark. Anymore you can think of?"; chose
+  **all four extra suggestions** and **full biomes** via AskUserQuestion).
+  Stages 5-10, each a full biome: terrain art, weather, 3 enemies with
+  their own trick, a boss and a chart island.
+- **Just shipped:**
+  - **Stage table** (`data/stages.mjs`): 10 stages. Each entry now names
+    its `biome` (`biomeForStage` reads it) and carries a `scaling` for
+    enemy hull/damage (1.05 → 1.3 across stages 5-10). Past stage 10 the
+    table cycles from stage 1 at +20% hull / +10% damage per stage;
+    bosses cycle with it.
+  - **Stage 5, Fire and Ash (volcanic):** glowing lava pools inland,
+    embers in the air.
+    - Enemies: Cinder Bat (flyer, Chain Shot), Magma Golem (tank with a
+      fire-ring slam, Depth Charges), Obsidian Galley (incendiary
+      broadsides, Grapeshot).
+    - Trick: **burn**, damage over time.
+    - Boss, The Caldera Wyrm: swims and spits fire (Depth Charges), then
+      takes wing and dive-bombs with cinder bats (Chain Shot).
+    - Weather: eruption, ash cloud, fire whirls.
+  - **Stage 6, The Sunless Deep (caverns):**
+    - Trick: **darkness**. A lantern pool of light around you; glowing
+      mushrooms and coral light their own patches; eyes glint just past
+      the light. Every attack telegraph and every shot is drawn over the
+      dark, so you always see what's coming, just not who's shooting.
+    - Enemies: Cave Bats (flying packs, Grapeshot), Stalker Eel (ambush
+      charger, shocks, Depth Charges), Deep Troll (lobs boulders, Flame).
+    - Boss, The Hollow King: sinks and swallows your light (`darken`),
+      then hurls rock rings with bats.
+    - Weather: cave-in, blackout (lantern dims), glow spores, cave mist.
+  - **Stage 7, The Bayou (mangrove):**
+    - Trick: **camouflage + poison**. Bayou Gators lurk nearly invisible
+      and can't be auto-targeted until you're close, they strike, or
+      they're hurt.
+    - Enemies: Bayou Gator (Grapeshot), Bog Witch (flies, hex bolts that
+      poison, Chain Shot), Leech Swarm (packs that poison on contact,
+      Flame).
+    - Boss, Old Mother Mire: spore rings and leeches, then sinks into the
+      mire.
+    - Weather: swamp gas (bursts into flame), bog fog, will-o'-wisps,
+      deadwood.
+  - **Stage 8, The Abyss:** dark but less than the caverns.
+    - Enemies: Anglerfish (sits still behind a bright lure, then lunges,
+      Depth Charges), Jelly Bloom (glowing drifting packs whose sting
+      **shocks** your sails still, Grapeshot), Ink Squid (ink that
+      **blinds** you for a few seconds, Chain Shot).
+    - Boss, The Deep Mother: ink breath, then shock rings and jellies.
+    - Weather: pressure vents (shock), undertow, bioluminescent bloom,
+      maelstrom, blackout.
+  - **Stage 9, The Bone Sands:** desert coast with dunes, cacti and
+    ribcages.
+    - Enemies: Dune Raider (fast dhow volleys, Cannonballs), Bone Vulture
+      (flyer, Chain Shot), Sand Wyrm (**burrows under the dunes** and
+      only surfaces in water, Depth Charges).
+    - Boss, The Dunemaw: bursts up in sand rings, then rears and calls
+      vultures.
+    - Weather: sandstorm, sinkhole, dust devils.
+  - **Stage 10, The Prism Sea (crystal):**
+    - Trick: **ricochet**. Every shot, yours and theirs, glances off the
+      crystal shore once.
+    - Enemies: Prism Sprite (flyer, Chain Shot), Mirror Tortoise (**front
+      armour** at 35%: flank it, or Depth Charges from below), Crystal
+      Crab packs (Grapeshot).
+    - Boss, The Prism Colossus: rooted, spinning spirals of light (a
+      `spin` ring gun), then tears loose with sprites.
+    - Weather: shard rain, static storm (shocks), prism lights, lilac
+      mist.
+  - **Systems added:**
+    - Afflictions (`boat.mjs`: `AFFLICTIONS`, `applyAffliction`):
+      burn/poison DoT, shock, ink. Sources are enemy `onHit`, gun
+      `afflict` and weather `afflict`. Chill now shares
+      `statusTuning`/`tickBoatStatus`. First-time toasts, on-boat
+      visuals, and DoT damage numbers.
+    - `engine/ambient.mjs` (pure) plus `engine/lightArt.mjs` (darkness
+      layer, glows, eyes, screen motes). Aim-assist and the balance bot
+      both obey `viewRadius`/`canSee`/`isRevealed`.
+    - Enemy engine: `ambush`, `camo`, `burrows`, `frontArmor`
+      (`frontArmorFactor` in combat.mjs), `packSize` for any enemy,
+      ring-gun `spin`, and ricochet (combat.mjs + `bounceOff` in
+      enemyGuns.mjs).
+    - Terrain: biome `decor` styles (12 new decoration drawings),
+      `glow`, `lava`, `ambient`.
+    - Weather `kind` variants + `palette` + `afflict` + `dim`: 23 new
+      events, mostly data.
+    - Six chart landmarks: volcano, cave mouth, stilt hut, drowned
+      temple rift, giant skull, crystal spire.
+  - **Bugs found and fixed on the way:**
+    - Packs only ever spawned for Reef Skimmers (hard-coded id), so the
+      Drowned Skiffs logged last session as "packs of 3-4" actually
+      spawned singly. Now any `packSize` spawns a pack.
+    - A boss whose phase was rooted (TOTEM) never ran its phase timer.
+      Boss phases now tick before the archetype branch.
+  - Tests: new `tests/biomes.test.mjs` (16). The six new bosses were added
+    to the pinned-duel test, and Deep Troll HP was cut 88 → 76 to pass
+    the counter-ammo guard. 388/388 tests, 3 consecutive runs.
+  - Balance sim (16 voyages per stage, same seeds, baseline loadout), sunk
+    per stage:
+
+    | Stage | 1 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+    |---|---|---|---|---|---|---|---|---|
+    | Sunk / 16 | 6 | 9 | 10 | 3 | 4 | 6 | 10 | 7 |
+
+    That's after five tuning passes: burn 5 → 3 dps, weaker eruptions,
+    and lighter galley, raider, jelly, wyrm and tortoise numbers. By
+    stage 5 a real player has meta upgrades the bot lacks.
+  - Live playtest (390×844), no console errors:
+    - all six lairs hold their boss, and each boss wakes and fights
+    - all 18 regular enemies spawn and render
+    - all 22 new weather events start
+    - burn, shock and ink seen on the boat
+    - the chart shows all ten islands, cycling to Tropical at stage 11
+- **Next up:** play stages 5-10. The darkness radius (195 caverns / 235
+  abyss), camouflage range (95) and burn/poison rates are first-pass. No
+  new music per biome yet (voyage and lair themes play everywhere).
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2616,6 +2731,14 @@ Starting fresh below for the new game.)*
   and a siren's pull (shipwreck). Every one is telegraphed or escapable,
   and each still pairs with a counter weapon.
 
+- 2026-09-29: In dark biomes the darkness is drawn over the hunters but
+  under every telegraph and shot. You lose sight of who's attacking,
+  never of what's coming, which keeps darkness "avoidable" in the owner's
+  sense rather than random.
+- 2026-09-29: Stages carry their own biome and scaling in data, and past
+  the table they cycle. A generated "stage 11 in a random biome" would
+  have needed rosters for biomes that have none.
+
 ## Known open questions (do not silently resolve — ask)
 
 - See the PRD's "Open Risks & Provisional Decisions" section
@@ -2632,9 +2755,10 @@ Starting fresh below for the new game.)*
   landscape). The sticky Set Sail fixes access, but browsing is long.
   Tabs per track, or collapsing owned items, would help as more tracks
   arrive.
-- **Stage-to-stage difficulty.** Stages 1-4 now differ by roster
-  (data/stages.mjs), and 5+ scale hull/damage. The numbers are first-pass,
-  and all four stages still use the Tropical biome.
+- **Stage-to-stage difficulty.** Stages 1-10 differ by roster and biome;
+  5-10 also scale hull/damage and 11+ cycle harder. Stages 5 and 9 sink
+  the bot most, and the bot doesn't dodge weather marks, so judge by real
+  play.
 - **Level codes don't encode the stage**, so a shared code rebuilds the
   layout but not the stage's roster or scaling.
 - **Real-phone performance of the terrain renderer is unverified.**

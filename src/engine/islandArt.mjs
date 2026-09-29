@@ -26,6 +26,12 @@ const SHAPES = {
   cliff_cove: { rx: 13, ry: 8.5, wob: 0.35, cove: 0.42, islets: 1 },
   glacial: { rx: 13.5, ry: 8.5, wob: 0.55, cove: 0.3, islets: 3 },
   shipwreck: { rx: 12, ry: 7.5, wob: 0.6, cove: 0.45, islets: 2 },
+  volcanic: { rx: 12.5, ry: 9, wob: 0.3, cove: 0.25, islets: 2 },
+  caverns: { rx: 13, ry: 8.5, wob: 0.5, cove: 0.5, islets: 1 },
+  mangrove: { rx: 13.5, ry: 8, wob: 0.7, cove: 0.4, islets: 4 },
+  abyss: { rx: 11.5, ry: 7.5, wob: 0.55, cove: 0.55, islets: 3 },
+  bone_sands: { rx: 13.5, ry: 8.5, wob: 0.4, cove: 0.35, islets: 1 },
+  crystal: { rx: 12, ry: 8, wob: 0.5, cove: 0.4, islets: 3 },
 };
 
 function islandGrid(biomeId, stage) {
@@ -152,7 +158,102 @@ function wreck(ctx, x, y) {
   ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(x - 31.1, y + 15.4, 0.8, 0, TAU); ctx.arc(x - 28.9, y + 15.4, 0.8, 0, TAU); ctx.fill();
 }
 
+// ---- 2026-09-29: landmarks for the six new biomes ----
+function volcano(ctx, x, y) {
+  shadow(ctx, x + 4, y + 2, 34, 11);
+  ctx.fillStyle = '#2a2220';
+  ctx.beginPath(); ctx.moveTo(x - 34, y + 4); ctx.lineTo(x - 9, y - 38); ctx.lineTo(x + 9, y - 38); ctx.lineTo(x + 36, y + 4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#3f3430';
+  ctx.beginPath(); ctx.moveTo(x - 34, y + 4); ctx.lineTo(x - 9, y - 38); ctx.lineTo(x - 2, y - 38); ctx.lineTo(x - 12, y + 4); ctx.closePath(); ctx.fill();
+  // Lava down the slope and in the crater.
+  ctx.strokeStyle = '#ff6a1a'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x + 2, y - 37); ctx.quadraticCurveTo(x + 8, y - 20, x + 4, y - 8); ctx.quadraticCurveTo(x + 2, y - 2, x + 10, y + 3); ctx.stroke();
+  ctx.strokeStyle = '#ffd060'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#ff8a2a'; ctx.beginPath(); ctx.ellipse(x, y - 38, 9, 2.6, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#ffe07a'; ctx.beginPath(); ctx.ellipse(x, y - 38.5, 5, 1.4, 0, 0, TAU); ctx.fill();
+  // Smoke plume.
+  for (let k = 0; k < 5; k++) { ctx.fillStyle = `rgba(70, 62, 60, ${0.7 - k * 0.1})`; ctx.beginPath(); ctx.arc(x + k * 4 - 2, y - 46 - k * 8, 5 + k * 2, 0, TAU); ctx.fill(); }
+}
+
+function caveMouth(ctx, x, y) {
+  shadow(ctx, x, y + 2, 32, 10);
+  ctx.fillStyle = '#5a5048';
+  ctx.beginPath(); ctx.moveTo(x - 32, y + 4); ctx.quadraticCurveTo(x - 30, y - 34, x, y - 38); ctx.quadraticCurveTo(x + 30, y - 34, x + 32, y + 4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#6e645a';
+  ctx.beginPath(); ctx.moveTo(x - 32, y + 4); ctx.quadraticCurveTo(x - 30, y - 34, x, y - 38); ctx.lineTo(x - 6, y - 30); ctx.quadraticCurveTo(x - 22, y - 26, x - 20, y + 4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#07080a';
+  ctx.beginPath(); ctx.moveTo(x - 17, y + 4); ctx.quadraticCurveTo(x - 16, y - 20, x, y - 22); ctx.quadraticCurveTo(x + 16, y - 20, x + 17, y + 4); ctx.closePath(); ctx.fill();
+  // Stalactite teeth and a pair of eyes in the dark.
+  ctx.fillStyle = '#6e645a';
+  for (let k = -3; k <= 3; k++) { ctx.beginPath(); ctx.moveTo(x + k * 4.5 - 2, y - 19 + Math.abs(k)); ctx.lineTo(x + k * 4.5, y - 12 + Math.abs(k)); ctx.lineTo(x + k * 4.5 + 2, y - 19 + Math.abs(k)); ctx.fill(); }
+  ctx.fillStyle = '#ffd24a';
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(x + s * 3.5, y - 5, 1.4, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = '#3fe0c8';
+  for (const [ox, oy] of [[-26, 2], [24, 3], [-20, 6]]) { ctx.beginPath(); ctx.arc(x + ox, y + oy, 2, Math.PI, TAU); ctx.fill(); }
+}
+
+function stiltHut(ctx, x, y) {
+  shadow(ctx, x, y + 3, 26, 8);
+  ctx.strokeStyle = '#4a3a26'; ctx.lineWidth = 2;
+  for (const ox of [-12, -4, 4, 12]) { ctx.beginPath(); ctx.moveTo(x + ox, y + 6); ctx.lineTo(x + ox, y - 8); ctx.stroke(); }
+  box(ctx, x, y - 8, 30, 14, 12, '#6b5a3c', '#4a3e28', '#5c4a2c', '#3a2e1c');
+  ctx.fillStyle = '#ffd98a'; ctx.fillRect(x - 3, y - 18, 4, 4);
+  // Hanging moss and a lantern.
+  ctx.strokeStyle = 'rgba(150, 170, 110, 0.8)'; ctx.lineWidth = 0.8;
+  for (let k = 0; k < 5; k++) { ctx.beginPath(); ctx.moveTo(x - 14 + k * 7, y - 22); ctx.lineTo(x - 14 + k * 7, y - 14); ctx.stroke(); }
+  ctx.fillStyle = '#ffe07a'; ctx.beginPath(); ctx.arc(x + 17, y - 14, 2, 0, TAU); ctx.fill();
+  ctx.fillStyle = 'rgba(220, 255, 120, 0.5)';
+  for (const [ox, oy] of [[-22, -20], [20, -28], [-8, -34]]) { ctx.beginPath(); ctx.arc(x + ox, y + oy, 1.3, 0, TAU); ctx.fill(); }
+}
+
+function abyssRift(ctx, x, y) {
+  shadow(ctx, x, y + 2, 30, 10);
+  // Broken pillars of a drowned temple around a glowing rift.
+  ctx.fillStyle = 'rgba(80, 255, 240, 0.35)'; ctx.beginPath(); ctx.ellipse(x, y, 20, 7, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#081222'; ctx.beginPath(); ctx.ellipse(x, y, 14, 4.5, 0, 0, TAU); ctx.fill();
+  ctx.strokeStyle = '#6afff0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x, y, 14, 4.5, 0, 0, TAU); ctx.stroke();
+  for (const [ox, h] of [[-24, 26], [-12, 34], [14, 18], [26, 30]]) {
+    ctx.fillStyle = '#3a4152'; ctx.fillRect(x + ox - 3.5, y - h, 7, h + 2);
+    ctx.fillStyle = '#5a6278'; ctx.fillRect(x + ox - 3.5, y - h, 2.5, h + 2);
+    ctx.fillStyle = '#4a5163'; ctx.fillRect(x + ox - 5, y - h - 3, 10, 3);
+  }
+  ctx.fillStyle = '#ff7ad9';
+  for (const [ox, oy] of [[-18, 6], [20, 5], [0, 9]]) { ctx.beginPath(); ctx.arc(x + ox, y + oy, 1.8, 0, TAU); ctx.fill(); }
+}
+
+function giantSkull(ctx, x, y) {
+  shadow(ctx, x + 2, y + 3, 30, 9);
+  // Ribs of a great beast arching out of the sand, and its skull.
+  ctx.strokeStyle = '#efe6d0'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  for (let k = 0; k < 4; k++) { const bx = x + 6 + k * 7; ctx.beginPath(); ctx.moveTo(bx, y + 4); ctx.quadraticCurveTo(bx + 6, y - 22 + k * 3, bx + 14, y - 4); ctx.stroke(); }
+  ctx.fillStyle = '#efe6d0';
+  ctx.beginPath(); ctx.ellipse(x - 14, y - 8, 15, 12, -0.2, 0, TAU); ctx.fill();
+  ctx.fillRect(x - 24, y - 2, 18, 8);
+  ctx.fillStyle = '#b8ad94'; ctx.beginPath(); ctx.ellipse(x - 12, y - 4, 12, 7, -0.2, 0, Math.PI); ctx.fill();
+  ctx.fillStyle = '#3a2a1a';
+  ctx.beginPath(); ctx.ellipse(x - 19, y - 10, 3.6, 4.4, 0, 0, TAU); ctx.ellipse(x - 9, y - 11, 3.6, 4.4, 0, 0, TAU); ctx.fill();
+  for (let k = 0; k < 4; k++) ctx.fillRect(x - 22 + k * 4, y + 2, 2, 3);
+  // A tattered banner on a spear.
+  ctx.strokeStyle = '#5a3e22'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 36, y + 6); ctx.lineTo(x + 36, y - 26); ctx.stroke();
+  ctx.fillStyle = '#b8342a'; ctx.beginPath(); ctx.moveTo(x + 36, y - 26); ctx.lineTo(x + 48, y - 22); ctx.lineTo(x + 36, y - 17); ctx.fill();
+}
+
+function crystalSpire(ctx, x, y) {
+  shadow(ctx, x + 4, y + 2, 28, 9);
+  const shard = (sx, h, w, lean, c) => {
+    ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(sx - w, y); ctx.lineTo(sx + lean, y - h); ctx.lineTo(sx + w, y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.moveTo(sx - w, y); ctx.lineTo(sx + lean, y - h); ctx.lineTo(sx - w * 0.1, y); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#6a5a9a'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(sx - w, y); ctx.lineTo(sx + lean, y - h); ctx.lineTo(sx + w, y); ctx.stroke();
+  };
+  shard(x - 16, 26, 7, -5, '#c8a8ff'); shard(x + 16, 30, 7, 5, '#9affff'); shard(x, 50, 10, 0, '#e8d8ff'); shard(x + 6, 22, 5, 3, '#ff9ae0');
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(x, y - 30, 0, x, y - 30, 30); g.addColorStop(0, 'rgba(220, 200, 255, 0.5)'); g.addColorStop(1, 'rgba(220, 200, 255, 0)');
+  ctx.fillStyle = g; ctx.fillRect(x - 30, y - 60, 60, 60); ctx.restore();
+}
+
 function landmark(ctx, biomeId, p, t) {
+  const L = { volcanic: volcano, caverns: caveMouth, mangrove: stiltHut, abyss: abyssRift, bone_sands: giantSkull, crystal: crystalSpire }[biomeId];
+  if (L) { L(ctx, p.x, p.y + 4); return; }
   if (biomeId === 'cliff_cove') {
     ctx.save(); ctx.translate(p.x, p.y + 6); ctx.scale(0.72, 0.72); drawLighthouse(ctx, { x: 0, y: 0 }, t); ctx.restore();
   } else if (biomeId === 'glacial') iceSpires(ctx, p.x, p.y + 6);

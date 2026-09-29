@@ -8,6 +8,7 @@ import { SPRITES, drawAttackTelegraphs, drawEnemyProjectiles } from './enemySpri
 import { BOAT_STYLES, BOAT_STYLE_SCALE } from './boatSprites.mjs';
 export { drawEnemyProjectiles };
 import { damageNumberStyle, DAMAGE_NUMBER_COLORS } from './juice.mjs';
+import { isRevealed } from './enemies.mjs';
 
 export const PALETTE = {
   water: '#0b3a52',
@@ -465,12 +466,23 @@ export function drawEnemy(ctx, enemy, color, t, name = null, badge = null, boat 
 }
 
 export function drawEnemies(ctx, enemies, colorFor, t, nameFor = null, badgeFor = null, boat = null) {
-  for (const enemy of enemies) if (enemy.health > 0 && enemy.diveState === 'windup') drawDiveTelegraph(ctx, enemy, t);
-  drawAttackTelegraphs(ctx, enemies, t);
+  drawEnemyTelegraphs(ctx, enemies, t);
   for (const enemy of enemies) {
     if (enemy.health <= 0) continue;
-    drawEnemy(ctx, enemy, colorFor(enemy), t, nameFor ? nameFor(enemy) : null, badgeFor ? badgeFor(enemy) : null, boat);
+    // Camouflaged (Bayou Gators): only a faint ripple until it's revealed.
+    const hidden = boat && !isRevealed(enemy, boat);
+    if (hidden) ctx.globalAlpha = 0.14;
+    drawEnemy(ctx, enemy, colorFor(enemy), t, nameFor ? nameFor(enemy) : null, hidden ? null : (badgeFor ? badgeFor(enemy) : null), boat);
+    if (hidden) ctx.globalAlpha = 1;
   }
+}
+
+// Every attack telegraph (dive marks, sighting lines, charge lanes, slam
+// rings). Also redrawn over the darkness in dark biomes, so an attack is
+// always readable even when the attacker isn't.
+export function drawEnemyTelegraphs(ctx, enemies, t) {
+  for (const enemy of enemies) if (enemy.health > 0 && enemy.diveState === 'windup') drawDiveTelegraph(ctx, enemy, t);
+  drawAttackTelegraphs(ctx, enemies, t);
 }
 
 // Your shots (2026-09-29 armaments pass): each weapon looks like what it
@@ -694,4 +706,47 @@ export function drawDiveTelegraph(ctx, e, t) {
   ctx.beginPath(); ctx.arc(e.diveTargetX, e.diveTargetY, r, 0, Math.PI * 2); ctx.fill();
   ctx.lineWidth = 2.5; ctx.strokeStyle = `rgba(255, 90, 70, ${0.8 + 0.2 * pulse})`; ctx.stroke();
   ctx.restore();
+}
+
+// Status effects shown on your ship (2026-09-29): flames licking the deck
+// (burn), green bubbles (poison), sparks crawling over it (shock), frost
+// on the hull (chill), an ink stain spreading on the water (ink).
+export function drawBoatStatus(ctx, boat, radius, t) {
+  const a = boat.afflictions || {};
+  const TAU = Math.PI * 2;
+  if (a.burn > 0) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 7; i++) {
+      const ph = (t * 2.4 + i / 7) % 1; const ang = (i / 7) * TAU + 1.3;
+      const x = boat.x + Math.cos(ang) * radius * 0.5; const y = boat.y + Math.sin(ang) * radius * 0.35 - ph * 14;
+      ctx.fillStyle = `rgba(255, ${130 + (1 - ph) * 110}, 40, ${(1 - ph) * 0.85})`;
+      ctx.beginPath(); ctx.arc(x, y, 3.4 - ph * 2.4, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+  }
+  if (a.poison > 0) {
+    for (let i = 0; i < 5; i++) {
+      const ph = (t * 1.2 + i / 5) % 1; const ang = i * 2.2;
+      ctx.fillStyle = `rgba(140, 230, 90, ${(1 - ph) * 0.8})`;
+      ctx.beginPath(); ctx.arc(boat.x + Math.cos(ang) * radius * 0.7, boat.y + Math.sin(ang) * radius * 0.5 - ph * 12, 1.5 + ph * 1.5, 0, TAU); ctx.fill();
+    }
+  }
+  if (a.shock > 0) {
+    ctx.strokeStyle = 'rgba(190, 240, 255, 0.95)'; ctx.lineWidth = 1.3;
+    for (let i = 0; i < 3; i++) {
+      const ang = t * 30 + i * 2.1; ctx.beginPath();
+      ctx.moveTo(boat.x + Math.cos(ang) * radius * 1.2, boat.y + Math.sin(ang) * radius * 1.2);
+      ctx.lineTo(boat.x + Math.cos(ang + 0.6) * radius * 0.4, boat.y + Math.sin(ang + 0.6) * radius * 0.4);
+      ctx.lineTo(boat.x + Math.cos(ang + 1.2) * radius * 1.1, boat.y + Math.sin(ang + 1.2) * radius * 1.1);
+      ctx.stroke();
+    }
+  }
+  if (boat.chillRemaining > 0) {
+    ctx.strokeStyle = 'rgba(210, 245, 255, 0.8)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(boat.x, boat.y, radius * 1.15, 0, TAU); ctx.stroke();
+  }
+  if (a.ink > 0) {
+    ctx.fillStyle = 'rgba(10, 5, 20, 0.35)';
+    ctx.beginPath(); ctx.arc(boat.x, boat.y, radius * 2.2, 0, TAU); ctx.fill();
+  }
 }

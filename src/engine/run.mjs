@@ -17,7 +17,7 @@ import { makeSeededRng } from './rng.mjs';
 import { buildCoastField } from './terrain.mjs';
 import { buildLairGrid } from './lair.mjs';
 import { mixSeed, encodeLevelCode } from './levels.mjs';
-import { BIOME_IDS } from '../data/biomes.mjs';
+import { BIOME_IDS, BIOMES } from '../data/biomes.mjs';
 import { generateMazeGraph, farthestCell, buildOrganicReefGrid, cellCenterTile, braidMaze } from './maze.mjs';
 import { createBoat } from './boat.mjs';
 import { createWeaponState } from './combat.mjs';
@@ -26,7 +26,7 @@ import { treasureSpots } from './treasure.mjs';
 import { grantArmament } from './armaments.mjs';
 import { createWeather } from './weather.mjs';
 import { getEnemy, ENEMY_IDS } from '../data/enemies.mjs';
-import { stagePool, bossForStage, stageScaling } from '../data/stages.mjs';
+import { stagePool, bossForStage, stageScaling, stageInfo } from '../data/stages.mjs';
 import { CACHE_WEAPON_IDS } from '../data/pickups.mjs';
 import { spawnReefPickups, makeChest } from './pickups.mjs';
 import { SHIP_HULLS, HULL_IDS, tuningForHull, CHARMS, CHARM_IDS } from '../data/meta.mjs';
@@ -95,11 +95,10 @@ export function levelForReef(runSeed, reefIndex, biomeId = BIOME_IDS.TROPICAL) {
 // every attempt (learnable, shareable, and the basis for a numbered level
 // catalogue). Stage 1 is Tropical; later stages will take later biomes.
 const STAGE_SEED_BASE = 0x5eed2026;
-// Each stage is an island group in its own biome (2026-09-29); the four
-// cycle after stage 4 (data/stages.mjs names each stage).
-const STAGE_BIOMES = [BIOME_IDS.TROPICAL, BIOME_IDS.CLIFF_COVE, BIOME_IDS.GLACIAL, BIOME_IDS.SHIPWRECK];
+// Each stage is an island group in its own biome (2026-09-29); the stage
+// table (data/stages.mjs) names the biome, and cycles after its end.
 export function biomeForStage(stage) {
-  return STAGE_BIOMES[(Math.max(1, stage || 1) - 1) % STAGE_BIOMES.length];
+  return stageInfo(stage).biome || BIOME_IDS.TROPICAL;
 }
 export function stageLevel(stage, levelIndex) {
   return { biomeId: biomeForStage(stage), tier: levelIndex + 1, seed: mixSeed(STAGE_SEED_BASE + stage, levelIndex) };
@@ -194,6 +193,9 @@ function enterReef(run, reefIndex) {
   run.exitLocked = !!world.lair;
   run.grid = world.grid;
   run.coast = world.coast;
+  // Crystal shores bounce shots (data/biomes.mjs `ricochet`), yours and theirs.
+  run.ricochet = BIOMES[level.biomeId]?.ricochet || 0;
+  if (run.weapons) run.weapons.ricochet = run.ricochet;
   run.coastSeed = world.coastSeed;
   run.tileSize = world.tileSize;
   run.exitWorld = world.exitWorld;
@@ -207,6 +209,7 @@ function enterReef(run, reefIndex) {
   run.boat.heading = 0;
   run.boat.turnJamRemaining = 0;
   run.boat.chillRemaining = 0;
+  run.boat.afflictions = {};
 
   // Stage rosters (data/stages.mjs): ships first, monsters later, and
   // stages past the table scale enemy hull/damage up.

@@ -20,8 +20,8 @@ test('stage 3 is the glacial roster, stage 4 the shipwreck roster, each with its
   for (const id of [ENEMY_IDS.GHOST_SHIP, ENEMY_IDS.DROWNED_SKIFF, ENEMY_IDS.SIREN]) assert.ok(s4.has(id), id);
   assert.equal(bossForStage(3), ENEMY_IDS.FROST_LEVIATHAN);
   assert.equal(bossForStage(4), ENEMY_IDS.DROWNED_ADMIRAL);
-  const later = new Set([5, 6, 7, 8, 9].map(bossForStage));
-  assert.equal(later.size, 5, 'stages past the table rotate through all five bosses');
+  const later = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(bossForStage));
+  assert.equal(later.size, 10, 'every stage in the table has its own boss');
 });
 
 test('the new bosses sit in their lairs, with caches for every weapon they need', () => {

@@ -7,6 +7,7 @@ import { BOSS_ENRAGE } from '../data/enemies.mjs';
 
 import { sampleField } from './terrain.mjs';
 import { hasLineOfSight } from './enemies.mjs';
+import { applyAfflictions } from './boat.mjs';
 
 let nextShotId = 1;
 
@@ -41,15 +42,15 @@ function fire(enemy, boat, out) {
   const dmg = g.damage * (enemy.damageScale || 1);
   const mk = (x, y, ang) => out.push({
     id: nextShotId++, x, y, vx: Math.cos(ang) * g.speed, vy: Math.sin(ang) * g.speed,
-    radius: g.kind === 'heavy' ? 5 : g.kind === 'glob' || g.kind === 'frost' ? 4.5 : 3.5,
-    damage: dmg, life: g.range / g.speed + 0.25, kind: g.kind, faction: enemy.faction, sourceId: enemy.id, chill: g.chill || 0,
+    radius: g.kind === 'heavy' || g.kind === 'boulder' ? 5 : g.kind === 'glob' || g.kind === 'frost' || g.kind === 'fire' || g.kind === 'ink' ? 4.5 : 3.5,
+    damage: dmg, life: g.range / g.speed + 0.25, kind: g.kind, faction: enemy.faction, sourceId: enemy.id, chill: g.chill || 0, afflict: g.afflict || null,
   });
   if (g.pattern === 'lob') {
     // A shell arcs to the marked spot and bursts there after `flight`.
     out.push({
       id: nextShotId++, x: enemy.x, y: enemy.y, sx: enemy.x, sy: enemy.y, tx: enemy.gunAimX, ty: enemy.gunAimY,
       vx: 0, vy: 0, radius: 4, lob: true, t: 0, flight: g.flight, blast: g.blast,
-      damage: dmg, life: g.flight + 0.5, kind: g.kind, faction: enemy.faction, sourceId: enemy.id,
+      damage: dmg, life: g.flight + 0.5, kind: g.kind, faction: enemy.faction, sourceId: enemy.id, afflict: g.afflict || null,
     });
   } else if (g.pattern === 'broadside') {
     // Parallel balls off the side facing the boat (both sides for a boss).
@@ -64,7 +65,9 @@ function fire(enemy, boat, out) {
       }
     }
   } else if (g.pattern === 'ring') {
-    for (let i = 0; i < g.count; i++) mk(enemy.x, enemy.y, (i / g.count) * Math.PI * 2);
+    // A spinning ring (the Prism Colossus) turns a little every volley.
+    const off = enemy._ringSpin || 0; if (g.spin) enemy._ringSpin = off + g.spin;
+    for (let i = 0; i < g.count; i++) mk(enemy.x, enemy.y, off + (i / g.count) * Math.PI * 2);
   } else {
     const a = Math.atan2(enemy.gunAimY - enemy.y, enemy.gunAimX - enemy.x);
     for (let i = 0; i < g.count; i++) mk(enemy.x, enemy.y, a + (i - (g.count - 1) / 2) * g.spread);
@@ -106,7 +109,7 @@ export function updateEnemyGuns(enemies, boat, dt, { grid = null, tileSize = 16,
 // Moves enemy shots; they sink into land and hit the boat. Returns hit
 // events [{ shot, damage }] (damage already multiplied by the triangle via
 // `incomingMultiplier(shot)`), and splash events for shots that hit shore.
-export function stepEnemyProjectiles(shots, boat, boatRadius, dt, { grid = null, tileSize = 16, coast = null } = {}, incomingMultiplier = () => 1) {
+export function stepEnemyProjectiles(shots, boat, boatRadius, dt, { grid = null, tileSize = 16, coast = null, ricochet = 0 } = {}, incomingMultiplier = () => 1) {
   const hits = []; const splashes = [];
   for (const s of shots) {
     if (s.spent) continue;
@@ -120,6 +123,7 @@ export function stepEnemyProjectiles(shots, boat, boatRadius, dt, { grid = null,
       if (Math.hypot(boat.x - s.tx, boat.y - s.ty) <= s.blast + boatRadius) {
         const damage = s.damage * incomingMultiplier(s);
         boat.health = Math.max(0, boat.health - damage);
+        applyAfflictions(boat, s.afflict);
         hits.push({ shot: s, damage });
       }
       splashes.push(s);
@@ -131,6 +135,7 @@ export function stepEnemyProjectiles(shots, boat, boatRadius, dt, { grid = null,
       const damage = s.damage * incomingMultiplier(s);
       boat.health = Math.max(0, boat.health - damage);
       if (s.chill) boat.chillRemaining = Math.max(boat.chillRemaining || 0, s.chill);
+      applyAfflictions(boat, s.afflict);
       hits.push({ shot: s, damage });
       continue;
     }
@@ -140,9 +145,36 @@ export function stepEnemyProjectiles(shots, boat, boatRadius, dt, { grid = null,
       const tx = Math.floor(s.x / tileSize); const ty = Math.floor(s.y / tileSize);
       land = tx < 0 || ty < 0 || tx >= grid.width || ty >= grid.height || grid.tiles[ty][tx] === 1;
     }
+    if (land && ricochet && (s.bounces || 0) < ricochet) {
+      // Crystal shores (data/biomes.mjs `ricochet`): the shot glances off.
+      bounceOff(s, coast, grid, tileSize, dt);
+      continue;
+    }
     if (land) { s.spent = true; splashes.push(s); continue; }
     if (s.life <= 0) { s.spent = true; splashes.push(s); }
   }
   for (let i = shots.length - 1; i >= 0; i--) if (shots[i].spent) shots.splice(i, 1);
   return { hits, splashes };
+}
+
+// Reflects a shot that just entered land back off the shore: along the
+// coast field's normal when there is one, else by which axis hit the tile.
+export function bounceOff(s, coast, grid, tileSize, dt) {
+  const px = s.x - s.vx * dt; const py = s.y - s.vy * dt;
+  if (coast) {
+    const e = 2;
+    let nx = sampleField(coast, s.x + e, s.y) - sampleField(coast, s.x - e, s.y);
+    let ny = sampleField(coast, s.x, s.y + e) - sampleField(coast, s.x, s.y - e);
+    const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+    const dot = s.vx * nx + s.vy * ny;
+    if (dot > 0) { s.vx -= 2 * dot * nx; s.vy -= 2 * dot * ny; }
+    else { s.vx = -s.vx; s.vy = -s.vy; }
+  } else {
+    const solid = (x, y) => { const tx = Math.floor(x / tileSize); const ty = Math.floor(y / tileSize); return !grid || tx < 0 || ty < 0 || tx >= grid.width || ty >= grid.height || grid.tiles[ty][tx] === 1; };
+    const hx = solid(s.x, py); const hy = solid(px, s.y);
+    if (hx || !hy) s.vx = -s.vx;
+    if (hy || !hx) s.vy = -s.vy;
+  }
+  s.x = px; s.y = py;
+  s.bounces = (s.bounces || 0) + 1;
 }

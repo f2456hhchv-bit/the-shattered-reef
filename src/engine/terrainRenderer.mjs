@@ -26,6 +26,7 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
   const landLut = lut(biome.land, 60, 0.5);
   const foam = hexToRgb(biome.foam); const jungleDark = hexToRgb(biome.jungleDark);
   const rockC = hexToRgb(biome.rock); const rockD = hexToRgb(biome.rockDark);
+  const lava = biome.lava ? { c: hexToRgb(biome.lava.color), h: hexToRgb(biome.lava.hot), thr: biome.lava.threshold, start: biome.lava.start } : null;
   const cols = Math.ceil(terrain.widthPx / CHUNK); const rows = Math.ceil(terrain.heightPx / CHUNK);
   const chunks = new Array(cols * rows).fill(null);
 
@@ -100,6 +101,16 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
           }
           const sh = (SD[i] * w00 + SD[i + 1] * w10 + SD[j] * w01 + SD[j + 1] * w11) * (1 - shadow);
           r *= sh; gg *= sh; b *= sh;
+          if (lava && s > lava.start) {
+            // Molten pools: unshaded, so they glow; a dark crust at the rim.
+            let m = (tex - lava.thr) / 0.07; m = (m < 0 ? 0 : m > 1 ? 1 : m) * Math.min(1, (s - lava.start) / 4);
+            if (m > 0) {
+              const k = m < 0.35 ? 0.55 : 1; const hot = Math.max(0, (tex - lava.thr - 0.08) / 0.12);
+              const h = hot > 1 ? 1 : hot;
+              const lr = (lava.c[0] + (lava.h[0] - lava.c[0]) * h) * k; const lg = (lava.c[1] + (lava.h[1] - lava.c[1]) * h) * k; const lb = (lava.c[2] + (lava.h[2] - lava.c[2]) * h) * k;
+              r += (lr - r) * m; gg += (lg - gg) * m; b += (lb - b) * m;
+            }
+          }
           if (s < aa) { // anti-alias the shoreline over one output pixel
             const t = (s + aa) / (2 * aa);
             r = wr + (r - wr) * t; gg = wg + (gg - wg) * t; b = wb + (b - wb) * t;
@@ -125,7 +136,8 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
       for (const d of buckets[j * cols + i]) if (d.x > x0 - 20 && d.x < x0 + cw + 20 && d.y > y0 - 20 && d.y < y0 + ch + 20) list.push(d);
     }
     list.sort((a, b2) => a.y - b2.y);
-    for (const d of list) if (d.kind !== 'coral' && d.kind !== 'shell') drawShadowOf(g, d);
+    const flat = (d) => d.kind === 'coral' || d.kind === 'shell' || styleOf(d, biome) === 'lilypad';
+    for (const d of list) if (!flat(d)) drawShadowOf(g, d);
     for (const d of list) drawDecoration(g, d, biome);
     return { canvas: job.canvas, x0, y0, cw, ch };
   }
@@ -210,8 +222,25 @@ function drawShadowOf(g, d) {
   g.fill();
 }
 
+// A biome can draw a decoration kind in another style (data/biomes.mjs `decor`).
+function styleOf(d, biome) { return biome.decor?.[d.kind] ?? d.kind; }
+
+// Decorations that give off light in this biome (data/biomes.mjs `glow`):
+// [{ x, y, r, rgb }] for the darkness overlay and the glow halos.
+export function glowingDecorations(terrain, biome) {
+  if (!biome.glow) return [];
+  const out = [];
+  for (const d of terrain.decorations) {
+    const rgb = biome.glow[d.kind];
+    if (rgb) out.push({ x: d.x, y: d.y - (d.kind === 'palm' ? d.size * 0.4 : 0), r: 10 + d.size * 2.2, rgb, phase: d.variant * 6.28 });
+  }
+  return out;
+}
+
 function drawDecoration(g, d, biome) {
   const s = d.size;
+  const style = styleOf(d, biome);
+  if (style !== d.kind && drawStyled(g, d, biome, style)) return;
   switch (d.kind) {
     case 'palm': {
       const lean = (d.variant - 0.5) * s * 0.6;
@@ -266,5 +295,135 @@ function drawDecoration(g, d, biome) {
       break;
     }
     default: break;
+  }
+}
+
+// Biome-specific decoration styles (2026-09-29). Returns false for an
+// unknown style so the default kind is drawn instead.
+function drawStyled(g, d, biome, style) {
+  const s = d.size; const x = d.x; const y = d.y; const v = d.variant;
+  const TAU = Math.PI * 2;
+  switch (style) {
+    case 'charred': { // a dead, burnt tree
+      g.strokeStyle = biome.palm.trunk; g.lineCap = 'round';
+      g.lineWidth = Math.max(1, s * 0.2);
+      const lean = (v - 0.5) * s * 0.5;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + lean, y - s * 0.9); g.stroke();
+      g.lineWidth = Math.max(0.8, s * 0.1);
+      for (let k = 0; k < 3; k++) {
+        const t = 0.4 + k * 0.2; const bx = x + lean * t; const by = y - s * 0.9 * t; const dir = k % 2 ? 1 : -1;
+        g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + dir * s * 0.45, by - s * 0.3); g.stroke();
+      }
+      g.fillStyle = 'rgba(255, 120, 40, 0.8)'; g.beginPath(); g.arc(x + lean * 0.3, y - s * 0.25, s * 0.08, 0, TAU); g.fill();
+      return true;
+    }
+    case 'stalagmite': {
+      const h = s * (1.1 + v * 0.8); const w = s * 0.45;
+      g.fillStyle = biome.palm.trunk;
+      g.beginPath(); g.moveTo(x - w, y); g.quadraticCurveTo(x - w * 0.3, y - h * 0.5, x + (v - 0.5) * 2, y - h); g.quadraticCurveTo(x + w * 0.4, y - h * 0.5, x + w, y); g.closePath(); g.fill();
+      g.fillStyle = biome.palm.frondLight;
+      g.beginPath(); g.moveTo(x - w * 0.6, y - 1); g.quadraticCurveTo(x - w * 0.3, y - h * 0.5, x + (v - 0.5) * 2, y - h); g.lineTo(x - w * 0.1, y - 1); g.closePath(); g.fill();
+      g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.ellipse(x, y, w * 1.1, w * 0.4, 0, 0, TAU); g.fill();
+      return true;
+    }
+    case 'mushroom': { // glowing cave fungi
+      const [cap, hi] = biome.bush;
+      for (let k = 0; k < 3; k++) {
+        const ox = (k - 1) * s * 0.55 + (v - 0.5) * 2; const sz = s * (0.45 + ((k + v * 3) % 1) * 0.25);
+        g.strokeStyle = '#d8e8e0'; g.lineWidth = Math.max(0.8, sz * 0.25);
+        g.beginPath(); g.moveTo(x + ox, y); g.lineTo(x + ox, y - sz * 0.9); g.stroke();
+        g.fillStyle = cap; g.beginPath(); g.ellipse(x + ox, y - sz * 0.9, sz * 0.8, sz * 0.45, 0, Math.PI, TAU); g.fill();
+        g.fillStyle = hi; g.beginPath(); g.arc(x + ox - sz * 0.2, y - sz * 1.05, sz * 0.14, 0, TAU); g.fill();
+      }
+      return true;
+    }
+    case 'mangrove': { // arched stilt roots under a dark canopy
+      g.strokeStyle = biome.palm.trunk; g.lineWidth = Math.max(0.8, s * 0.1); g.lineCap = 'round';
+      for (let k = 0; k < 5; k++) {
+        const a = v * 6 + (k / 5) * TAU; const ex = x + Math.cos(a) * s * 0.9; const ey = y + Math.sin(a) * s * 0.55 + s * 0.2;
+        g.beginPath(); g.moveTo(x, y - s * 0.3); g.quadraticCurveTo((x + ex) / 2, y - s * 0.6, ex, ey); g.stroke();
+      }
+      g.fillStyle = biome.palm.frond;
+      for (const [ox, oy, k] of [[-0.45, -0.7, 0.7], [0.4, -0.65, 0.65], [0, -1, 0.75], [0, -0.45, 0.6]]) { g.beginPath(); g.arc(x + ox * s, y + oy * s, s * k, 0, TAU); g.fill(); }
+      g.fillStyle = biome.palm.frondLight;
+      for (const [ox, oy, k] of [[-0.5, -0.85, 0.3], [0.25, -1.1, 0.32]]) { g.beginPath(); g.arc(x + ox * s, y + oy * s, s * k, 0, TAU); g.fill(); }
+      // Hanging moss
+      g.strokeStyle = 'rgba(150, 170, 110, 0.7)'; g.lineWidth = 0.7;
+      for (let k = 0; k < 3; k++) { const mx = x + (k - 1) * s * 0.4; g.beginPath(); g.moveTo(mx, y - s * 0.4); g.lineTo(mx + 0.5, y + s * 0.1); g.stroke(); }
+      return true;
+    }
+    case 'lilypad': {
+      const c = biome.coral;
+      g.fillStyle = c[Math.floor(v * 2)];
+      g.beginPath(); g.arc(x, y, s * 0.9, 0.3 + v, TAU + v - 0.3); g.lineTo(x, y); g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(20, 50, 20, 0.35)'; g.lineWidth = 0.5; g.stroke();
+      if (v > 0.6) { g.fillStyle = c[2 + Math.floor(v * 7) % 2]; g.beginPath(); g.arc(x + s * 0.2, y - s * 0.1, s * 0.3, 0, TAU); g.fill(); }
+      return true;
+    }
+    case 'tubeworm': { // tall white tubes with red plumes
+      for (let k = 0; k < 3; k++) {
+        const ox = (k - 1) * s * 0.35; const h = s * (0.7 + ((v * 7 + k) % 1) * 0.6);
+        g.fillStyle = biome.palm.trunk; g.fillRect(x + ox - s * 0.09, y - h, s * 0.18, h);
+        g.fillStyle = biome.palm.frond; g.beginPath(); g.arc(x + ox, y - h, s * 0.2, 0, TAU); g.fill();
+        g.fillStyle = biome.palm.frondLight; g.beginPath(); g.arc(x + ox - s * 0.05, y - h - s * 0.05, s * 0.08, 0, TAU); g.fill();
+      }
+      return true;
+    }
+    case 'anemone': {
+      const [base, tip] = biome.bush;
+      g.strokeStyle = base; g.lineWidth = Math.max(0.8, s * 0.16); g.lineCap = 'round';
+      for (let k = 0; k < 9; k++) { const a = (k / 9) * TAU + v; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * s * 0.85, y + Math.sin(a) * s * 0.6); g.stroke(); }
+      g.fillStyle = tip;
+      for (let k = 0; k < 9; k++) { const a = (k / 9) * TAU + v; g.beginPath(); g.arc(x + Math.cos(a) * s * 0.85, y + Math.sin(a) * s * 0.6, s * 0.12, 0, TAU); g.fill(); }
+      return true;
+    }
+    case 'cactus': {
+      const [dark, light] = biome.bush; const h = s * 1.4; const w = s * 0.3;
+      g.fillStyle = dark; g.lineCap = 'round';
+      g.fillRect(x - w, y - h, w * 2, h); g.beginPath(); g.arc(x, y - h, w, 0, TAU); g.fill();
+      const arm = (dir, at) => { g.fillRect(x + dir * w, y - h * at, dir * s * 0.45, w * 1.2); g.fillRect(x + dir * (w + s * 0.45) - (dir > 0 ? w * 1.2 : 0), y - h * at - s * 0.5, w * 1.2, s * 0.5 + w * 1.2); };
+      arm(-1, 0.55); if (v > 0.4) arm(1, 0.75);
+      g.fillStyle = light; g.fillRect(x - w * 0.35, y - h, w * 0.5, h);
+      return true;
+    }
+    case 'bones': { // a bleached ribcage half-buried in the sand
+      const [light, dark] = biome.boulder;
+      g.save(); g.translate(x, y); g.rotate((v - 0.5) * 1.2);
+      g.strokeStyle = dark; g.lineWidth = Math.max(1, s * 0.22); g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-s * 1.2, 0); g.lineTo(s * 1.2, 0); g.stroke();
+      g.strokeStyle = light; g.lineWidth = Math.max(0.8, s * 0.16);
+      for (let k = 0; k < 5; k++) { const bx = -s + k * s * 0.5; g.beginPath(); g.moveTo(bx, 0); g.quadraticCurveTo(bx + s * 0.35, -s * 0.9, bx + s * 0.1, -s * 1.2); g.stroke(); g.beginPath(); g.moveTo(bx, 0); g.quadraticCurveTo(bx + s * 0.35, s * 0.6, bx + s * 0.15, s * 0.8); g.stroke(); }
+      g.restore();
+      return true;
+    }
+    case 'skull': {
+      g.fillStyle = '#f2ead6'; g.beginPath(); g.arc(x, y, s * 0.75, 0, TAU); g.fill();
+      g.fillStyle = '#3a2a1a'; g.beginPath(); g.arc(x - s * 0.28, y - s * 0.05, s * 0.18, 0, TAU); g.arc(x + s * 0.28, y - s * 0.05, s * 0.18, 0, TAU); g.fill();
+      return true;
+    }
+    case 'crystal': { // a cluster of faceted shards
+      const cols = [biome.palm.frond, biome.palm.frondLight, biome.palm.trunk];
+      const big = d.kind === 'palm' ? 1.3 : 0.8;
+      for (let k = 0; k < 4; k++) {
+        const a = -Math.PI / 2 + (k - 1.5) * 0.45 + (v - 0.5) * 0.4; const h = s * big * (0.8 + ((v * 5 + k * 0.37) % 1) * 0.7); const w = s * 0.22;
+        const bx = x + (k - 1.5) * s * 0.25; const tx = bx + Math.cos(a) * h; const ty = y + Math.sin(a) * h;
+        const nx = -Math.sin(a) * w; const ny = Math.cos(a) * w;
+        g.fillStyle = cols[k % 2]; g.beginPath(); g.moveTo(bx + nx, y + ny); g.lineTo(tx, ty); g.lineTo(bx - nx, y - ny); g.closePath(); g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.55)'; g.beginPath(); g.moveTo(bx, y); g.lineTo(tx, ty); g.lineTo(bx - nx, y - ny); g.closePath(); g.fill();
+        g.strokeStyle = cols[2]; g.lineWidth = 0.5; g.beginPath(); g.moveTo(bx + nx, y + ny); g.lineTo(tx, ty); g.lineTo(bx - nx, y - ny); g.stroke();
+      }
+      return true;
+    }
+    case 'ember': case 'glowcoral': {
+      const c = biome.coral;
+      g.globalAlpha = 0.85;
+      for (let k = 0; k < 4; k++) {
+        const a = v * 20 + k * 1.7; const cc = c[(Math.floor(v * c.length) + k) % c.length];
+        g.fillStyle = cc; g.beginPath(); g.arc(x + Math.cos(a) * s * 0.7, y + Math.sin(a) * s * 0.7, s * (0.35 + (k % 2) * 0.2), 0, TAU); g.fill();
+      }
+      g.globalAlpha = 1;
+      return true;
+    }
+    default: return false;
   }
 }

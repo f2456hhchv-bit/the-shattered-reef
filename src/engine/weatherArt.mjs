@@ -10,10 +10,10 @@ const hash = (i, k = 1) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5
 export function drawWeatherWorld(ctx, w, t) {
   if (!w || !w.active) return;
   const def = w.active.def;
-  if (w.whirl) drawWhirl(ctx, w.whirl, t);
+  if (w.whirl) drawWhirl(ctx, w.whirl, t, def.palette?.whirl);
   if (w.wave) drawWave(ctx, w.wave, def, t, w);
   for (const fl of w.floes) drawFloe(ctx, fl);
-  for (const l of w.lights) if (!l.taken) drawLight(ctx, l, t);
+  for (const l of w.lights) if (!l.taken) drawLight(ctx, l, t, def.palette?.light);
   for (const s of w.strikes) drawStrikeMark(ctx, s, t);
   for (const d of w.drops) drawDropMark(ctx, d, def, t);
 }
@@ -26,11 +26,12 @@ export function drawWeatherAbove(ctx, w, t) {
   for (const d of w.drops) drawFallingRock(ctx, d, def);
 }
 
-function drawWhirl(ctx, wh, t) {
+function drawWhirl(ctx, wh, t, tint = null) {
   const k = wh.strength ?? 1; if (k <= 0) return;
   ctx.save(); ctx.translate(wh.x, wh.y);
   const g = ctx.createRadialGradient(0, 0, 2, 0, 0, wh.r);
-  g.addColorStop(0, `rgba(1, 12, 24, ${0.92 * k})`); g.addColorStop(0.3, `rgba(6, 40, 70, ${0.6 * k})`); g.addColorStop(1, 'rgba(8, 60, 90, 0)');
+  const [tr, tg, tb] = tint || [6, 40, 70];
+  g.addColorStop(0, `rgba(${tr * 0.2}, ${tg * 0.3}, ${tb * 0.35}, ${0.92 * k})`); g.addColorStop(0.3, `rgba(${tr}, ${tg}, ${tb}, ${0.6 * k})`); g.addColorStop(1, `rgba(${tr}, ${tg}, ${tb}, 0)`);
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, wh.r, 0, TAU); ctx.fill();
   ctx.lineCap = 'round';
   for (let arm = 0; arm < 5; arm++) {
@@ -105,11 +106,12 @@ function drawFloe(ctx, fl) {
   ctx.restore();
 }
 
-function drawLight(ctx, l, t) {
+function drawLight(ctx, l, t, tint = null) {
   const bob = Math.sin(l.phase * 3) * 3;
+  const [r, gg, b] = tint || [110, 240, 190];
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   const g = ctx.createRadialGradient(l.x, l.y - bob, 0, l.x, l.y - bob, 22);
-  g.addColorStop(0, 'rgba(200, 255, 230, 0.95)'); g.addColorStop(0.3, 'rgba(110, 240, 190, 0.5)'); g.addColorStop(1, 'rgba(60, 200, 160, 0)');
+  g.addColorStop(0, `rgba(${Math.min(255, r + 90)}, ${Math.min(255, gg + 15)}, ${Math.min(255, b + 40)}, 0.95)`); g.addColorStop(0.3, `rgba(${r}, ${gg}, ${b}, 0.5)`); g.addColorStop(1, `rgba(${r}, ${gg}, ${b}, 0)`);
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(l.x, l.y - bob, 22, 0, TAU); ctx.fill();
   ctx.restore();
   void t;
@@ -170,6 +172,15 @@ function drawFallingRock(ctx, d, def) {
   if (u < 0.35) return;
   const h = (1 - u) * 160;
   const [c1, c2] = def.rock || ['#8b8a82', '#55575a'];
+  if (def.fiery) {
+    // A lava bomb / burning gas: a glowing blob with a flame trail.
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 5; k++) {
+      ctx.fillStyle = `rgba(255, ${120 + k * 20}, 40, ${0.5 - k * 0.08})`;
+      ctx.beginPath(); ctx.arc(d.x, d.y - h - k * 7, d.r * 0.4 - k * 1.2, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+  }
   ctx.save(); ctx.translate(d.x, d.y - h); ctx.rotate(d.spin + u * 4);
   const s = d.r * 0.55;
   ctx.fillStyle = c2; ctx.beginPath();
@@ -194,7 +205,8 @@ function drawSpout(ctx, sp, def, t) {
   for (let k = 0; k < 16; k++) {
     const u = k / 15; const r = def.radius * (0.55 + u * 0.9) + Math.sin(t * 5 + k) * 1.5;
     const off = Math.sin(t * 1.3 + u * 2.5 + sp.id) * 10 * u;
-    ctx.strokeStyle = `rgba(${95 + u * 80}, ${110 + u * 75}, ${125 + u * 70}, ${0.85 - u * 0.45})`; ctx.lineWidth = 4 - u * 1.5;
+    const sc = def.palette?.spout;
+    ctx.strokeStyle = sc ? `rgba(${sc[0] * (0.6 + u * 0.4)}, ${sc[1] * (0.6 + u * 0.4)}, ${sc[2] * (0.6 + u * 0.4)}, ${0.85 - u * 0.45})` : `rgba(${95 + u * 80}, ${110 + u * 75}, ${125 + u * 70}, ${0.85 - u * 0.45})`; ctx.lineWidth = 4 - u * 1.5;
     ctx.beginPath(); ctx.ellipse(off, -u * 120, r, r * 0.38, 0, t * 5 + k, t * 5 + k + 4.2); ctx.stroke();
   }
   ctx.fillStyle = 'rgba(120, 135, 150, 0.45)';
