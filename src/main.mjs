@@ -1145,7 +1145,7 @@ export function startApp(root) {
       id: e.id, defId: e.defId, aggro: e.aggro, x: e.x, y: e.y, health: e.health, invulnerable: e.invulnerable,
       isBoss: e.isBoss, phaseIndex: e.phaseIndex, diveState: e.diveState, sharkState: e.sharkState, submergedState: e.submergedState, gunWindup: e.gunWindup,
     })),
-    aimTargetId: aimTarget ? aimTarget.id : null, suggestedWeapon, enemyShots: run.enemyProjectiles.length, volleysAtYou: run.volleysAtYou || 0,
+    upgrades: { ...(run.upgrades || {}) }, aimTargetId: aimTarget ? aimTarget.id : null, suggestedWeapon, enemyShots: run.enemyProjectiles.length, volleysAtYou: run.volleysAtYou || 0,
     firing: isFiring, cooldownRemaining: run.weapons.cooldownRemaining,
     heldWeapons: Array.from(run.weapons.heldWeapons),
     ammo: { ...run.weapons.ammo },

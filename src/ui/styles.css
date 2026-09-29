@@ -567,6 +567,7 @@ body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
     max-width: 38vw;
   }
   #hull-bar { width: 110px; flex-shrink: 0; }
+  #upgrade-strip { flex-wrap: nowrap; flex-shrink: 0; }
   #stat-row { flex-shrink: 0; }
   #salvage-counter, #reef-indicator { padding: 4px 10px; font-size: 11px; }
 

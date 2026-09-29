@@ -1670,6 +1670,71 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   feel. Difficulty probably needs raising to match the better aim (see
   Known open questions).
 
+- **Phase:** the big playtest rework (project owner, 2026-09-29): "need a
+  heal pickup; rework the armaments, they're poor; hard to control the ship
+  and fire; more ship styles; levels should change each time, replaying
+  1-2 after failing 3-4 is annoying; better enemies: start with easy ships,
+  introduce monsters (birds, sea monsters, sharks) by stage".
+  AskUserQuestion answers: **auto-fire**, **retry the level you sank on**,
+  **better counter weapons + pick-1-of-3 upgrade cards**, **enemy ships fire
+  back**. Shipped in 4 gated commits:
+  1. `0bc57b0` Controls and structure:
+     - auto-fire at whatever aim-assist can hit; the fire button is gone
+       and the weapon dock sits at the bottom in thumb reach
+     - sinking offers **Retry this level**: same level, a new random reef,
+       hull repaired, the kit you arrived with (`retryLevel`,
+       `levelForAttempt`); "Give up" records the voyage
+     - every attempt rolls new layouts; the voyage card previews the real
+       first reef (`nextRunSeed`)
+     - repair kits (life rings, +35% hull): 1-3 per level, 12% kill drop
+  2. `e28b43a` Enemy rework (`data/stages.mjs`, `engine/enemyGuns.mjs`,
+     `engine/enemySprites.mjs`):
+     - Stage 1 Pirate Waters: Pirate Cutter (skirmisher, aimed shot) and
+       Pirate Brig (broadsider, 3-ball broadside), all sunk by Cannonballs.
+       Boss: The Black Gale (volleys from both sides, then chases and calls
+       in cutters)
+     - Stage 2 Shark Shallows: Reef Shark (circles, telegraphs, charges;
+       stuns itself on the shore) plus the Harpies. Boss: Bloodfin
+       Matriarch (charges, then dives and sends gulls)
+     - Stage 3 The Deep Reach: Sea Serpent (dives, resurfaces beside you,
+       spits a spread; only hittable while up), Crawlers, Ironclads. Boss:
+       Kraken's Anchor
+     - Stage 4: everything. Stage 5+ repeats it with +20% hull and +10%
+       damage per stage (`stageScaling`), and bosses rotate
+     - every attack is telegraphed: a sighting line, glowing gunports, a
+       red charge lane. Shots are slow enough to dodge (tested: weaving
+       beats sitting still)
+     - boss phases are generic now (`initArchetypeState`, phase `gun`,
+       `summon`)
+     - weapon caches only spawn for weapons a level's enemies need
+  3. `2633966` Armaments + upgrade cards (`data/upgrades.mjs`,
+     `engine/upgrades.mjs`, `effectiveWeapon`/`createWeaponMods` in
+     combat.mjs):
+     - weapons are faster and harder hitting; Chain Shot pierces
+     - each weapon has its own projectile art, plus a muzzle flash
+     - special weapons trickle ammo back (0.2/s)
+     - **auto-fire spends a special weapon only on what it counters;
+       everything else gets Cannonballs** (`chooseAutoFire` in aim.mjs)
+     - 15 upgrade cards, 3 offered after each level. The voyage pauses
+       while you pick; cards last the stage attempt and survive retries
+     - the dock shows only weapons you carry, with icons and x/y ammo
+  4. `3d9f9e5` Ship styles (`engine/boatSprites.mjs`): Catamaran, Junk,
+     Ironclad Steamer and Galleon, each with its own look and a perk built
+     from upgrade-card fields. Longboat and Skiff have their own art. The
+     Shipyard shows portraits, stats and perks.
+  - 323/323 tests; new test files `retry`, `roster`, `upgrades`.
+    A landscape end-to-end playtest passed 14/14 with no console errors:
+    - ships only on stage 1; cards after each of levels 1-4
+    - Black Gale lair: auto-fire sinks the boss, then victory and stage 2
+      unlocks
+    - stage 2 has sharks; sink, retry, new reef, full hull
+  - Balance sim (24 voyages per stage, bot also picks cards): stage 1 3/24
+    sunk; stage 2 0/24; stage 3 3/24 with 4 victories. Most other runs are
+    bot timeouts (a known bot limitation).
+- **Next up:** the project owner should play stages 1-3 and judge the
+  feel: enemy fire rate, shark charges, the serpent, card choices. The
+  numbers are first-pass.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2267,6 +2332,22 @@ Starting fresh below for the new game.)*
 - 2026-09-28: Music is synthesised from note data, with no sample files,
   to keep the no-assets/no-build deploy.
 
+- 2026-09-29: Auto-fire replaced the fire button (project owner). The
+  right thumb only picks weapons. To stop auto-fire wasting special ammo,
+  a special weapon only fires at what it counters; Cannonballs handle the
+  rest. Choosing a weapon now means choosing what to prioritise, not what
+  to hold down.
+- 2026-09-29: Sinking retries the level on a fresh layout (project owner);
+  the "sinking restarts the stage" rule from 2026-09-28 is superseded, and
+  so are fixed stage seeds. Retries are unlimited, but at-risk Salvage is
+  lost each time.
+- 2026-09-29: Stage rosters live in data (`data/stages.mjs`): ships
+  first, then one family of monsters per stage, each paired with the
+  weapon that answers it. A weapon's cache appears in the level that
+  first needs it.
+- 2026-09-29: Hull perks reuse upgrade-card fields rather than a new
+  system, so a ship is "a starting build".
+
 ## Known open questions (do not silently resolve — ask)
 
 - See the PRD's "Open Risks & Provisional Decisions" section
@@ -2283,11 +2364,11 @@ Starting fresh below for the new game.)*
   landscape). The sticky Set Sail fixes access, but browsing is long.
   Tabs per track, or collapsing owned items, would help as more tracks
   arrive.
-- **Stage-to-stage difficulty.** Stages 2+ reuse stage 1's per-level
-  tiers on new seeds, so they're no harder. A difficulty curve across
-  stages (and when later biomes take over) needs designing with the
-  project owner. It can't simply be baked into level codes, which today
-  encode only biome + tier + seed.
+- **Stage-to-stage difficulty.** Stages 1-4 now differ by roster
+  (data/stages.mjs), and 5+ scale hull/damage. The numbers are first-pass,
+  and all four stages still use the Tropical biome.
+- **Level codes don't encode the stage**, so a shared code rebuilds the
+  layout but not the stage's roster or scaling.
 - **Real-phone performance of the terrain renderer is unverified.**
   Measured on headless desktop Chromium: ~150ms to build fields at a
   reef-3 start, and ~8ms per chunk (64 chunks), streamed at 3ms per
