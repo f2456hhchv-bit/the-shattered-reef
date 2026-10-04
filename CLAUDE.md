@@ -10,6 +10,16 @@ https://claude.ai/artifact/FwH7vbLuCQ9ao1Hm7bB1KH — this file stays the
 authoritative build log/status; the PRD is the design reference, read it
 before starting step 3+.
 
+## Core loop (changed 2026-10-04): survival arena, not maze
+
+The voyage is now **Survivor.io-style survival** in the Shattered Reef's
+world and art. Read the 2026-10-04 Current-status entry first. One level
+is one open arena (`engine/arena.mjs`), 10 timed waves
+(`engine/survival.mjs`), and a build that grows from Cannonballs via XP
+level-ups. Five levels make a stage, with the boss on level 5. The maze
+(`maze.mjs`, `lair.mjs`, `run.mjs` voyages) stays in the repo for its
+tests and tools but is no longer the game loop.
+
 ## What this is (pivoted 2026-09-28)
 
 A mobile, single-player nautical roguelite: you captain a ship through
@@ -2272,6 +2282,115 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   New Voyage / Defend row fits.
 
 
+- **Phase:** core loop pivot to survival arena (project owner,
+  2026-10-04: "Survivor.io gameplay structure, but unmistakably The
+  Shattered Reef"; maze/exit no longer the loop; 10 waves per level,
+  5 levels per stage; XP level-ups; auto-firing weapons that evolve; big
+  scrolling map; existing art is the visual authority).
+- **Just shipped:**
+  - **Arena** (`engine/arena.mjs`, `buildArenaGrid`). A 128×128-tile
+    (2048px) open reef:
+    - a noisy island coastline rings the map
+    - inside are big islands, isles, rock clusters and sandbars, with
+      3.5-tile minimum channels
+    - slivers are closed and cut-off pools filled
+    - landmarks: the biome set piece on the biggest islands (fort,
+      lighthouse, ice spires, volcano, cave, hut, rift, skull, crystal) plus
+      3-4 wrecks, all drawn with the chart's landmark art
+      (`islandArt.drawLandmarkKind`)
+    - treasure chests float beside the landmarks
+    It uses the same tile-grid contract as the maze, so the coast field,
+    collision, weather and terrain art are unchanged. The terrain also
+    gained opt-in **shoals** (`buildTerrain(..., { shoals })`): lighter reef
+    shallows and coral heads, so open water isn't one flat deep colour.
+  - **Survival rules** (`data/survival.mjs` content, `engine/survival.mjs`
+    rules, `engine/survivalRun.mjs` run, `engine/survivalLoop.mjs` frame
+    order). The frame loop is shared by main.mjs and the sim, so they
+    can't drift.
+    - **Waves:** 10 × 30s. Spawns appear just off-screen all round you, a
+      batch at a time from one direction. Set pieces: encircle rings
+      (waves 3, 7), elites that drop chests (waves 5, 8), and wave 10
+      brings a Warlord (×14 HP, levels 1-4) or the stage boss (×6, level
+      5). The level ends when that one sinks, and the rest of the fleet
+      goes down with it. Enemies are `hunting` (always aggro, no leash);
+      stragglers recycle ahead of you; crowds separate (spatial hash);
+      the horde is knocked back on a bump.
+    - **Difficulty** (`waveScaling`) mostly scales counts and spawn rate.
+      It ramps within a level, so a later level's opening is close to
+      level 1's. HP grows only slightly. Stage toughness is halved in
+      survival. A **gunner cap** limits how many gun-carrying specialists
+      are afloat at once.
+    - **Horde:** one cheap chaser per biome (`HORDE_IDS`, new `HORDE`
+      archetype, reusing existing sprites via a new `sprite` field, plus a
+      new Raider Longboat sprite). Each keeps a counter. Horde HP doesn't
+      scale with stage, so a fresh Cannonball still one-shots it.
+    - **XP and loot:** sea-glass gems (1/5/25, merged above 220 on the
+      water) and anchor coins (Salvage), pulled in by a pickup radius.
+      Also lodestones (pull everything), life rings and chests. Loot from
+      kills over land spills onto water.
+    - **Level-ups:** 3 cards (4 with Lucky Draw) from new weapons, weapon
+      levels, armaments and ship upgrades. An available evolution is
+      always first. Early picks favour weapons. Up to 6 weapon slots
+      (core + armaments) and 6 upgrade slots. Cards show "Counters: …"
+      for this level's enemies.
+    - **Core weapons** fire on their own, levels 1-5 plus an evolution:
+      - Cannonballs (multi-target) → Ship of the Line (with Gun Crew)
+      - Chain Shot (piercing bolas) → Reaper Chains, orbiting blades (with
+        Fine Rigging)
+      - Grapeshot (cone) → Hailstorm, a 360° ring (with Fine Powder)
+      - Depth Charges (lobbed AoE; **the only weapon that hits submerged
+        enemies**) → Kraken's Wrath, a second blast (with Heavy Shot)
+      - Flame Barrels (lobbed barrel → fire pool that burns ships, not
+        flyers) → Greek Fire, a burning wake (with Swift Sails)
+      Each weapon targets what it counters first and deals ×1.75 to it
+      (gold numbers). Armaments go to 5 levels.
+    - **12 ship upgrades:** reload, damage, armour, hull, speed, turning,
+      pickup reach, Salvage, projectile speed, range, repair, ram.
+  - **Meta still matters.** Hull/faction/Workshop/charms carry in; Cargo
+    and faction weapons and Armory armament fittings start you at Lv 1.
+    Steady Hands becomes −5% reload. Progress: `meta.levelsCleared[stage]`,
+    `isLevelUnlocked`, `furthestLevel`, `recordLevelResult`. Clearing level
+    5 unlocks the next stage. Salvage: everything collected plus a clear
+    bonus on a win; half on a sinking.
+  - **HUD:**
+    - top: pause, place + Stage·Level, time to the boss, Salvage
+    - a segmented XP bar with the ship level
+    - 10 wave pips (elite rings, skull for the boss)
+    - a boss/warlord bar
+    - the hull bar under the ship
+    - a display-only dock at the bottom (a right column in landscape) with
+      level pips and MAX when evolved
+    - passive chips
+    The harbour voyage card has tappable level pips (locked until cleared)
+    and previews the selected arena. The summary offers Next level / Try
+    again.
+  - **Feel:**
+    - hit flash on enemies; sunk enemies sink and fade
+    - shockwave rings on blasts and level-ups; edge arrows to boss, elites
+      and the nearest 2 chests
+    - a vignette that reddens at low hull
+    - camera look-ahead; a smoothed sim dt
+    - capped damage numbers, particles and sounds for big crowds
+  - Save: a survival level round-trips mid-wave; the arena is rebuilt from
+    its seed.
+  - Tools: `tools/survival-sim.mjs` plays levels headless with a kiting
+    bot that picks sensibly (`node tools/survival-sim.mjs runs stage
+    level`).
+  - Tests: `tests/survival.test.mjs` (22: arena, director, XP, choices,
+    evolutions, passives, counters, submerged, fire pools, loot,
+    progression, save, a bot clear of 1-1). 439/439.
+  - Bot (baseline loadout, 6 runs each): 1-1 6/6, 1-3 5/6, 1-5 4/6, 2-1
+    5/6, 2-3 4/6, 4-1 2/6, 6-3 2/6, 8-1 3/6, 3-5 1/6, 10-3 1/6. Levels last
+    ~4m45s; peak ~90-145 enemies afloat; ship level 15-25 by the end.
+  - Playtest (390×844, 844×390), no console errors: level-ups, pause,
+    save → reload → continue, sink → try again, warlord → cleared → next
+    level, level 2 unlocked, defence still opens.
+- **Next up:** the owner plays it on the phone. Expected debates: wave
+  length, level-up pace, and later-stage difficulty (the bot struggles
+  from stage 3; a human with meta upgrades should do much better).
+  Headless frame time at wave 9: ~19ms (stage 1) to ~26ms (caverns), with
+  software rendering at DPR 2. Check on a real phone.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -2939,6 +3058,24 @@ Starting fresh below for the new game.)*
 - 2026-09-29: The Tower Yard took the lighthouse island instead of
   becoming a seventh building. Seven labels overlapped on phones; the
   Captain's Log was already on the captain chip.
+- 2026-10-04: Survival replaces the maze as the voyage loop (project
+  owner). Every level starts a fresh build, so a level is a complete
+  Survivor-style run; meta upgrades are what carry between levels.
+- 2026-10-04: Counters stay meaningful without manual swapping. Weapons
+  auto-target their counters first for ×1.75, and only Depth Charges
+  reach submerged enemies. Level-up cards name the enemies a weapon
+  counters, so choosing your build is how you counter.
+- 2026-10-04: Difficulty climbs through numbers, spawn rate, variety,
+  set pieces and a small speed rise. HP barely moves and stage toughness
+  is halved, per the owner's "don't make bullet sponges". Enemy fire is
+  the biggest killer, so gunners are capped separately from the crowd.
+- 2026-10-04: The arena keeps the tile-grid contract instead of a new
+  world format. Everything downstream (coast field, collision, terrain
+  art, weather, saves) just works, and the maze code stays testable.
+- 2026-10-04: Sinking keeps half the level's Salvage (it was all lost in
+  the voyage). Survivor games keep your haul, and with unlimited retries
+  a total loss read as punishing rather than tense.
+
 
 ## Known open questions (do not silently resolve — ask)
 
@@ -2973,6 +3110,12 @@ Starting fresh below for the new game.)*
   levels are easier. Retune enemy HP/counts after real play, not before.
 - **Reef Defence balance is bot-derived.** Tower costs, boss HP (×4.6)
   and the wave gap are first-pass; judge by real play.
+- **Survival balance is bot-derived** (2026-10-04): wave counts, the
+  gunner cap, XP curve and boss HP multipliers are first-pass. Judge by
+  real play, especially stages 3+.
+- **Real-phone frame rate with 100+ enemies** is unverified (see the
+  survival entry). The caverns/abyss darkness layer and fire pools are
+  the heaviest effects.
 - **The enemy matchup pips add clutter to Skimmer packs** (one pip per
   Skimmer, 3-5 per pack). Fine at current densities; revisit with real
   art.

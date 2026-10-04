@@ -9,13 +9,14 @@
 // starts fresh). Pure: storage is injected, like engine/meta.mjs.
 
 import { buildLevelWorld } from './run.mjs';
+import { buildSurvivalWorld } from './survivalRun.mjs';
 import { createWeather } from './weather.mjs';
 import { ensureEnemyIdsAbove } from './enemies.mjs';
 
 export const VOYAGE_STORAGE_KEY = 'shatteredReef.voyage.v1';
 const VERSION = 1;
 // Rebuilt from the level seed, or transient: never written.
-const SKIP = new Set(['grid', 'coast', 'maze', 'lair', 'weather', 'enemyProjectiles', 'projectiles']);
+const SKIP = new Set(['grid', 'coast', 'maze', 'lair', 'weather', 'enemyProjectiles', 'projectiles', 'arena', 'landmarks']);
 
 function pack(value, depth = 0) {
   if (value instanceof Set) return { __set: [...value].map((v) => pack(v, depth + 1)) };
@@ -55,6 +56,21 @@ export function serializeRun(run) {
 export function deserializeRun(data) {
   if (!data || data.v !== VERSION || !data.run?.level || !data.run?.boat) throw new Error('bad save');
   const run = unpack(data.run);
+  if (run.mode === 'survival') {
+    // Survival levels (2026-10-04): the arena is rebuilt from its seed.
+    const w = buildSurvivalWorld(run.level);
+    Object.assign(run, {
+      arena: w.arena, grid: w.grid, coast: w.coast, coastSeed: w.coastSeed, tileSize: w.tileSize,
+      widthPx: w.widthPx, heightPx: w.heightPx, landmarks: w.landmarks, exitWorld: w.spawnWorld, maze: null, lair: null,
+    });
+    run.enemyProjectiles = [];
+    run.weapons.projectiles = [];
+    run.weather = createWeather(run.level.biomeId);
+    run.weather.timer = 30;
+    run.enemies = run.enemies.filter((e) => e.health > 0);
+    ensureEnemyIdsAbove(Math.max(0, ...run.enemies.map((e) => e.id || 0)));
+    return run;
+  }
   const world = buildLevelWorld(run.level);
   run.maze = world.maze;
   run.lair = world.lair || null;

@@ -40,13 +40,13 @@ function simulate(run, seconds, enemy) {
   return dealt;
 }
 
-test('armaments: levels cap at 3 and maxed ones stop being offered', () => {
+test('armaments: levels cap at the max and maxed ones stop being offered', () => {
   const run = arena();
-  for (let i = 0; i < 5; i++) grantArmament(run, 'harpoon');
+  for (let i = 0; i < ARMAMENT_MAX_LEVEL + 2; i++) grantArmament(run, 'harpoon');
   assert.equal(armamentLevel(run, 'harpoon'), ARMAMENT_MAX_LEVEL);
   for (let i = 0; i < 50; i++) assert.ok(!rollArmamentChoices(run, Math.random, 3).includes('harpoon'));
   assert.equal(grantArmament(run, 'nonsense'), 0);
-  for (const a of ARMAMENTS) for (let i = 0; i < 3; i++) grantArmament(run, a.id);
+  for (const a of ARMAMENTS) for (let i = 0; i < ARMAMENT_MAX_LEVEL; i++) grantArmament(run, a.id);
   assert.deepEqual(rollArmamentChoices(run), []);
 });
 

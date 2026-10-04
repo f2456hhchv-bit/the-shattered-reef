@@ -56,6 +56,9 @@ export const ARCHETYPES = Object.freeze({
   RAMMER: 'rammer', // lights its sails, then drives straight at you
   GHOST: 'ghost', // fades out of this world (untouchable, sails through rock), then back to fire
   SIREN: 'siren', // rooted on the water; her song drags your ship toward her
+  // 2026-10-04 survival mode: the cheap chasers that fill the screen. They
+  // sail (or fly) straight at you, bump, bounce off and come again.
+  HORDE: 'horde',
 });
 
 // Enemy guns (engine/enemyGuns.mjs). Every shot has a wind-up the player
@@ -656,6 +659,30 @@ ENEMIES[ENEMY_IDS.WARDING_SEAL] = {
   salvageDrop: [8, 12],
   color: '#7a5cff',
 };
+
+// The horde (2026-10-04, survival mode): one cheap chaser per biome that
+// fills the screen around the stage's specialists. Each wears an existing
+// sprite (`sprite`) in its biome's colours, and keeps a real counter, so
+// the weapon that shreds this stage's horde is worth picking up.
+const horde = (id, name, o) => ({
+  id, name, archetype: ARCHETYPES.HORDE, contactCooldown: 0.8, salvageDrop: [0, 1], horde: true, ...o,
+});
+export const HORDE_IDS = Object.freeze({
+  RAIDER_LONGBOAT: 'raider_longboat', SKIMMER_RAIDER: 'skimmer_raider', ICE_SKIFF: 'ice_skiff', DROWNED_ROWER: 'drowned_rower',
+  EMBER_IMP: 'ember_imp', CAVE_BAT: 'cave_bat', BOG_LEECH: 'bog_leech', DRIFT_JELLY: 'drift_jelly', SAND_SKIFF: 'sand_skiff', SHARD_CRAB: 'shard_crab',
+});
+Object.assign(ENEMIES, {
+  raider_longboat: horde('raider_longboat', 'Raider Longboat', { counter: WEAPON_IDS.CANNONBALLS, faction: FACTION_IDS.REAVERS, maxHealth: 11, radius: 7, speed: 58, contactDamage: 5, sprite: 'longboat', color: '#c0392b' }),
+  skimmer_raider: horde('skimmer_raider', 'Skimmer Raider', { counter: WEAPON_IDS.GRAPESHOT, faction: FACTION_IDS.REAVERS, maxHealth: 11, radius: 7, speed: 66, contactDamage: 5, sprite: 'reef_skimmer', color: '#5aa0c8' }),
+  ice_skiff: horde('ice_skiff', 'Ice Skiff', { counter: WEAPON_IDS.GRAPESHOT, faction: FACTION_IDS.IRON_ACCORD, maxHealth: 13, radius: 7, speed: 56, contactDamage: 5, sprite: 'longboat', color: '#7fb6d6' }),
+  drowned_rower: horde('drowned_rower', 'Drowned Rower', { counter: WEAPON_IDS.GRAPESHOT, faction: FACTION_IDS.WYRDTIDE, maxHealth: 12, radius: 7, speed: 60, contactDamage: 5, sprite: 'drowned_skiff', color: '#6f8f6a' }),
+  ember_imp: horde('ember_imp', 'Ember Imp', { counter: WEAPON_IDS.CHAIN_SHOT, faction: FACTION_IDS.WYRDTIDE, maxHealth: 12, radius: 6, speed: 70, contactDamage: 5, flies: true, glow: 8, sprite: 'cinder_bat', color: '#ff7a2a' }),
+  cave_bat: horde('cave_bat', 'Cave Bat', { counter: WEAPON_IDS.GRAPESHOT, faction: FACTION_IDS.WYRDTIDE, maxHealth: 10, radius: 6, speed: 74, contactDamage: 4, flies: true, sprite: 'cave_bats', color: '#6a5a7a' }),
+  bog_leech: horde('bog_leech', 'Bog Leech', { counter: WEAPON_IDS.FLAME_BARRELS, faction: FACTION_IDS.WYRDTIDE, maxHealth: 13, radius: 6, speed: 58, contactDamage: 4, sprite: 'leech_swarm', color: '#7a4a4a' }),
+  drift_jelly: horde('drift_jelly', 'Drift Jelly', { counter: WEAPON_IDS.GRAPESHOT, faction: FACTION_IDS.WYRDTIDE, maxHealth: 12, radius: 7, speed: 50, contactDamage: 5, glow: 10, sprite: 'jelly_bloom', color: '#b48cff' }),
+  sand_skiff: horde('sand_skiff', 'Sand Skiff', { counter: WEAPON_IDS.CANNONBALLS, faction: FACTION_IDS.REAVERS, maxHealth: 13, radius: 7, speed: 62, contactDamage: 5, sprite: 'longboat', color: '#d9a441' }),
+  shard_crab: horde('shard_crab', 'Shard Crab', { counter: WEAPON_IDS.GRAPESHOT, faction: FACTION_IDS.IRON_ACCORD, maxHealth: 13, radius: 7, speed: 60, contactDamage: 5, sprite: 'crystal_crab', color: '#d9a6ff' }),
+});
 
 // Bosses enrage below half hull once their seals are gone: faster, and
 // their guns reload quicker (engine/enemies.mjs, engine/enemyGuns.mjs).

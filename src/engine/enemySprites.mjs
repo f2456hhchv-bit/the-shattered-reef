@@ -102,6 +102,31 @@ function drawCutter(ctx, e, color, t, boat) {
   ctx.restore();
 }
 
+// Raider Longboat (survival horde): a narrow rowboat, oars sweeping in
+// time, a little square sail in its crew's colour and a lantern at the bow.
+function drawLongboat(ctx, e, color, t) {
+  const r = e.radius; const L = r * 1.5; const B = r * 0.5;
+  shadow(ctx, L, B * 1.2, 0.28);
+  ctx.save(); ctx.rotate(facingOf(e));
+  const stroke = Math.sin(t * 7 + e.id * 1.3);
+  ctx.strokeStyle = '#3b2616'; ctx.lineWidth = 1; ctx.lineCap = 'round';
+  for (const side of [-1, 1]) {
+    for (let k = 0; k < 3; k++) {
+      const x = -L * 0.45 + k * L * 0.42;
+      ctx.beginPath(); ctx.moveTo(x, side * B * 0.7); ctx.lineTo(x - 2 + stroke * 2.2, side * B * 2.1); ctx.stroke();
+    }
+  }
+  hull(ctx, L, B, '#6b4426', '#b88a55', '#2a1a0c', 0.9);
+  // Crew: three heads in a row.
+  ctx.fillStyle = '#2a1e18';
+  for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(-L * 0.45 + k * L * 0.42, 0, 1.3, 0, Math.PI * 2); ctx.fill(); }
+  // Square sail on a short mast, billowing.
+  const bil = 0.5 + Math.sin(t * 2 + e.id) * 0.15;
+  squareSail(ctx, r * 0.1, r * 0.85, r * 0.5, color, 'rgba(40,10,10,0.6)', bil);
+  ctx.fillStyle = 'rgba(255, 220, 140, 0.9)'; ctx.beginPath(); ctx.arc(L * 0.82, 0, 1.1, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
 // Fire Ship: a tarred hulk stacked with powder kegs. Once kindled its sail
 // is ablaze and it trails fire.
 function drawFireShip(ctx, e, color, t) {
@@ -884,6 +909,7 @@ function drawPrismSprite(ctx, e, color, t) {
 // phone size (the hit circle stays honest; the art just has more detail).
 const scaled = (k, fn) => (ctx, e, c, t, boat) => { ctx.save(); ctx.scale(k, k); fn(ctx, e, c, t, boat); ctx.restore(); };
 export const SPRITES = {
+  longboat: scaled(1.35, (ctx, e, c, t) => drawLongboat(ctx, e, c, t)),
   pirate_cutter: scaled(1.3, (ctx, e, c, t, boat) => drawCutter(ctx, e, c, t, boat)),
   pirate_brig: scaled(1.25, (ctx, e, c, t, boat) => drawBrig(ctx, e, c, t, boat, false)),
   pirate_flagship: scaled(1.15, (ctx, e, c, t, boat) => drawBrig(ctx, e, c, t, boat, true)),

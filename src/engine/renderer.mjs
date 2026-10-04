@@ -239,10 +239,11 @@ function waterShadow(ctx, r, ox = 2.5, oy = 3.5, a = 0.32) {
 }
 
 export function drawEnemyBody(ctx, enemy, color, t, boat = null) {
-  if (SPRITES[enemy.defId]) { SPRITES[enemy.defId](ctx, enemy, color, t, boat); return; }
+  const sk = enemy.sprite || enemy.defId;
+  if (SPRITES[sk]) { SPRITES[sk](ctx, enemy, color, t, boat); return; }
   const r = enemy.radius;
   const h = facingOf(enemy);
-  const id = enemy.defId;
+  const id = sk;
   if (id === 'gullswarm_harpy') {
     // Airborne: shadow far below, beating wings.
     ctx.fillStyle = 'rgba(4, 30, 40, 0.25)';
@@ -397,6 +398,13 @@ export function drawEnemy(ctx, enemy, color, t, name = null, badge = null, boat 
   }
   drawEnemyBody(ctx, enemy, color, t, boat);
   ctx.globalAlpha = 1;
+  // Hit flash (survival, 2026-10-04): a brief white bloom on every hit.
+  if (enemy.hitFlash > 0) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = `rgba(255, 245, 225, ${Math.min(0.75, enemy.hitFlash * 8)})`;
+    ctx.beginPath(); ctx.arc(0, 0, enemy.radius * 1.15, 0, Math.PI * 2); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+  }
 
   if (enemy.invulnerable) {
     ctx.strokeStyle = PALETTE.invulnerable;
@@ -418,7 +426,7 @@ export function drawEnemy(ctx, enemy, color, t, name = null, badge = null, boat 
 
   // Health bar, world-space, above the enemy — skipped at full health so a
   // healthy reef doesn't look like a wall of UI.
-  if (enemy.health < enemy.maxHealth) {
+  if (enemy.health < enemy.maxHealth && !enemy.isBoss && !enemy.warlord) {
     const barWidth = enemy.radius * 2.2;
     const barY = enemy.y - enemy.radius - 8;
     ctx.fillStyle = PALETTE.healthBarBack;
@@ -509,15 +517,38 @@ export function drawProjectile(ctx, p, color, t = 0) {
       ctx.beginPath(); ctx.arc(p.x, p.y, 1.8, 0, Math.PI * 2); ctx.fill();
       return;
     case 'depth_charges': {
+      // Kraken's Wrath's second blast: a dark swell gathering under the water.
+      if (p.aftershockOf) {
+        const f = 1 - Math.max(0, p.fuseRemaining) / (p.fuseTotal || 0.35);
+        ctx.fillStyle = `rgba(10, 40, 50, ${0.25 + f * 0.3})`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, (p.blastRadius || 60) * (0.3 + f * 0.7), 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = `rgba(190, 240, 255, ${0.5 * f})`; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, (p.blastRadius || 60) * f, 0, Math.PI * 2); ctx.stroke();
+        return;
+      }
       // A barrel lobbed in an arc: the shadow stays on the water.
-      const total = 0.9; const f = p.fuseRemaining != null ? 1 - Math.max(0, p.fuseRemaining) / total : 1;
-      const h = Math.sin(Math.min(1, f) * Math.PI) * 10;
+      const total = p.fuseTotal || 0.9; const f = p.fuseRemaining != null ? 1 - Math.max(0, p.fuseRemaining) / total : 1;
+      const h = Math.sin(Math.min(1, f) * Math.PI) * (8 + total * 16);
       ctx.fillStyle = 'rgba(4, 30, 40, 0.35)';
       ctx.beginPath(); ctx.ellipse(p.x + 2, p.y + 3, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
       ctx.save(); ctx.translate(p.x, p.y - h); ctx.rotate(t * 6 + p.id);
       ctx.fillStyle = '#3d5a4a'; ctx.fillRect(-4.5, -3.2, 9, 6.4);
       ctx.fillStyle = '#c9a54a'; ctx.fillRect(-4.5, -1.2, 9, 0.9); ctx.fillRect(-4.5, 0.6, 9, 0.9);
       ctx.restore();
+      return;
+    }
+    case 'sv_barrel': {
+      // A tarred barrel tumbling through the air, its fuse alight.
+      const total = p.fuseTotal || 0.9; const f = p.fuseRemaining != null ? 1 - Math.max(0, p.fuseRemaining) / total : 1;
+      const h = Math.sin(Math.min(1, f) * Math.PI) * (8 + total * 16);
+      ctx.fillStyle = 'rgba(4, 30, 40, 0.3)';
+      ctx.beginPath(); ctx.ellipse(p.x + 2, p.y + 3, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.translate(p.x, p.y - h); ctx.rotate(t * 7 + p.id);
+      ctx.fillStyle = '#7a4a22'; ctx.beginPath(); ctx.ellipse(0, 0, 5, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2b2f33'; ctx.fillRect(-2.2, -4, 1.1, 8); ctx.fillRect(1.1, -4, 1.1, 8);
+      ctx.restore();
+      const fl = 0.7 + Math.sin(t * 40 + p.id) * 0.3;
+      ctx.fillStyle = `rgba(255, 170, 60, ${0.8 * fl})`; ctx.beginPath(); ctx.arc(p.x, p.y - h - 5, 2.4 * fl + 1, 0, Math.PI * 2); ctx.fill();
       return;
     }
     case 'flame_barrels':

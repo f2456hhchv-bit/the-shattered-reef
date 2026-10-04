@@ -6,77 +6,57 @@
 // an actual voyage with that loadout resolved into it.
 
 import { viewH, installViewportFix } from './ui/viewport.mjs';
-import { chooseAutoFire, trackEnemyMotion } from './engine/aim.mjs';
 import { playMusic, currentMusic } from './audio/music.mjs';
 import { musicFor } from './data/music.mjs';
 import { saveVoyage, loadVoyage, peekVoyage, clearVoyage } from './engine/save.mjs';
-import { rollUpgradeChoices, applyUpgrade, upgradeLevel } from './engine/upgrades.mjs';
-import { UPGRADE_BY_ID } from './data/upgrades.mjs';
 import { ARMAMENT_BY_ID, ARMAMENT_MAX_LEVEL } from './data/armaments.mjs';
-import { armamentLevel, grantArmament, rollArmamentChoices, stepArmaments, spiritPositions, chainLightning } from './engine/armaments.mjs';
-import { drawSpirits, drawLightning, drawWard, drawEnrage } from './engine/armamentArt.mjs';
-import { stepWeather, startWeather, weatherModifiers } from './engine/weather.mjs';
+import { grantArmament, spiritPositions } from './engine/armaments.mjs';
+import { drawSpirits, drawLightning, drawEnrage } from './engine/armamentArt.mjs';
+import { startWeather, weatherModifiers } from './engine/weather.mjs';
 import { drawWeatherWorld, drawWeatherAbove, drawWeatherScreen, drawBolt } from './engine/weatherArt.mjs';
-import { ambientLight, viewRadius, canSee } from './engine/ambient.mjs';
+import { ambientLight } from './engine/ambient.mjs';
 import { drawDarkness, drawGlows, drawEyes, drawAmbientScreen } from './engine/lightArt.mjs';
 import { glowingDecorations } from './engine/terrainRenderer.mjs';
 import { BASE_BUILDINGS } from './data/base.mjs';
 import { buildBaseWorld, computeBaseView, boatOrbitPoint } from './engine/base.mjs';
 import { drawBaseBuildings, drawGulls, BUILDING_SCALE } from './engine/baseRenderer.mjs';
 import { sampleField } from './engine/terrain.mjs';
-import { decodeLevelCode } from './engine/levels.mjs';
 import { buildTerrain } from './engine/terrain.mjs';
 import { createTerrainRenderer } from './engine/terrainRenderer.mjs';
 import { getBiome, BIOME_IDS } from './data/biomes.mjs';
-import {
-  createRun, checkReachedExit, checkSunk, retryLevel, snapshotLevelStart, addSalvage, totalSalvage, BOAT_RADIUS,
-  TIER_COUNT, LEVELS_PER_STAGE, biomeForStage, isExitOpen, levelForReef, buildLevelWorld,
-} from './engine/run.mjs';
-import { stepBoat, resolveCoastCollision, applyWallImpactDamage, statusTuning, tickBoatStatus, hasAffliction } from './engine/boat.mjs';
+import { checkSunk, addSalvage, BOAT_RADIUS, LEVELS_PER_STAGE, biomeForStage } from './engine/run.mjs';
+import { hasAffliction } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
 import {
-  drawExit, drawWake, drawSealedExit, drawLairCurrents, drawBoat, drawBoatStatus, drawEnemies, drawEnemyTelegraphs, drawProjectiles, drawPickups,
-  drawParticles, drawDamageNumbers, drawTargetReticle, drawEnemyProjectiles, PALETTE,
+  drawWake, drawBoat, drawBoatStatus, drawEnemies, drawEnemyTelegraphs, drawProjectiles, drawParticles, drawDamageNumbers, drawEnemyProjectiles, PALETTE,
 } from './engine/renderer.mjs';
 import { createJoystick } from './input/joystick.mjs';
-import {
-  tryFire, stepCombat, stepAmmoRegen, resolveHits, cleanupProjectiles, stepBurn, setActiveWeapon, ammoFor, isHeld, applyDamageToEnemy, effectiveWeapon, ammoMaxFor,
-  craftedMultiplierFor,
-} from './engine/combat.mjs';
-import {
-  createEnemy, updateEnemies, stepSummons, fireShipBlast, resolveEnemyContactEvents, currentCounter, factionMultiplierFor, incomingMultiplierFor, isRevealed,
-} from './engine/enemies.mjs';
-import { collectPickups, makeRepairKit } from './engine/pickups.mjs';
-import { PICKUP_KINDS, PICKUP_TUNING } from './data/pickups.mjs';
-import { WEAPON_LIST, getWeapon } from './data/weapons.mjs';
+import { resolveHits } from './engine/combat.mjs';
+import { createEnemy } from './engine/enemies.mjs';
+import { getWeapon } from './data/weapons.mjs';
 import { getEnemy } from './data/enemies.mjs';
 import { bossForStage, stageInfo, stageName } from './data/stages.mjs';
 import { createWorldMap } from './ui/worldMap.mjs';
 import { createIntro } from './ui/intro.mjs';
-import { updateEnemyGuns, stepEnemyProjectiles } from './engine/enemyGuns.mjs';
-import {
-  SHIP_HULL_LIST, CARGO_TIER_LIST, CHARM_LIST, PLAYABLE_FACTION_LIST, WORKSHOP_UPGRADE_LIST,
-} from './data/meta.mjs';
+import { SHIP_HULL_LIST, CARGO_TIER_LIST, CHARM_LIST, PLAYABLE_FACTION_LIST, WORKSHOP_UPGRADE_LIST } from './data/meta.mjs';
 import { triangleMultiplier, incomingTriangleMultiplier, matchupFor, relationTo } from './data/factions.mjs';
 import { ENEMY_LIST } from './data/enemies.mjs';
 import {
-  loadMeta, saveMeta, resolveLoadout, recordRunResult, canAfford,
-  purchaseHull, selectHull, purchaseCargoTier, purchaseCharm,
-  purchaseFaction, selectFaction,
-  purchaseWorkshopUpgrade, canAffordWorkshopUpgrade,
+  loadMeta, saveMeta, resolveLoadout, canAfford, purchaseHull, selectHull, purchaseCargoTier, purchaseCharm, purchaseFaction, selectFaction, purchaseWorkshopUpgrade, canAffordWorkshopUpgrade, isLevelUnlocked, furthestLevel, recordLevelResult,
 } from './engine/meta.mjs';
 import {
-  createParticlePool, spawnHitSpark, spawnMuzzleFlash, spawnKillBurst, spawnExplosion, spawnSplash, updateParticles,
-  createDamageNumberPool, spawnDamageNumber, updateDamageNumbers,
-  createShake, addShake, updateShake,
-  createHitStop, triggerHitStop, applyHitStop,
+  createParticlePool, spawnHitSpark, spawnMuzzleFlash, spawnKillBurst, spawnExplosion, spawnSplash, updateParticles, createDamageNumberPool, spawnDamageNumber, updateDamageNumbers, createShake, addShake, updateShake, createHitStop, triggerHitStop, applyHitStop,
 } from './engine/juice.mjs';
 import {
-  unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact,
-  playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playLockedWeapon,
-  playBossPhaseChange, playBossDefeated, playEnemyFire, playTreasure, playWardClink, playZap, playThunder, playWeatherWarning, playStrikeMark,
+  unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact, playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playBossPhaseChange, playBossDefeated, playTreasure, playZap, playThunder, playWeatherWarning, playStrikeMark,
 } from './audio/audio.mjs';
-import { WEAPON_IDS } from './data/weapons.mjs';
+import { createSurvivalRun, buildSurvivalWorld, survivalLevel, completeLevel, sinkLevel, addLevelSalvage } from './engine/survivalRun.mjs';
+import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, orbitBlades } from './engine/survival.mjs';
+import { stepSurvivalFrame } from './engine/survivalLoop.mjs';
+import {
+  drawSurvivalPickups, drawFirePools, drawOrbitBlades, drawHullBar, drawRings, drawSinkers, drawLandmarks, drawEdgeArrows, drawVignette,
+} from './engine/survivalArt.mjs';
+import { SURVIVAL, WAVES, SV_WEAPONS, SV_WEAPON_MAX, PASSIVE_BY_ID } from './data/survival.mjs';
 import { createDefenceMode } from './td/tdMode.mjs';
 import { renderTowerYard, towerYardBuyable } from './ui/towerYard.mjs';
 
@@ -103,22 +83,28 @@ export function startApp(root) {
 
   const hud = document.createElement('div');
   hud.id = 'hud';
+  // Survival HUD (2026-10-04): where you are and the time to the boss,
+  // Salvage, the XP bar with your ship's level, and the ten wave pips.
   hud.innerHTML = `
-    <span id="hud-status">Find the exit ⚓</span>
-    <div id="hull-bar"><div id="hull-bar-fill"></div></div>
-    <div id="stat-row">
-      <span id="reef-indicator">Level 1/5</span>
-      <span id="salvage-counter">⚓ Salvage: 0</span>
-      <span id="weather-chip" hidden></span>
+    <div id="sv-top">
+      <div id="sv-title"><b id="sv-place"></b><small id="sv-sub"></small></div>
+      <div id="sv-timer"><i>⏳</i><b id="sv-time">5:00</b></div>
+      <div id="sv-salvage"><i>⚓</i><b id="salvage-counter">0</b></div>
     </div>
-    <div id="upgrade-strip"></div>
+    <div id="sv-xp"><div id="sv-xp-fill"></div><span id="sv-lv">Lv 1</span></div>
+    <div id="sv-waves" aria-label="Waves"></div>
+    <div id="sv-under"><span id="weather-chip" hidden></span><span id="sv-boss" hidden></span></div>
+    <span id="hud-status" hidden></span>
   `;
   root.appendChild(hud);
-  // Weapons sit at the bottom, in thumb reach (2026-09-29): firing is
-  // automatic now, so the right thumb's only job is picking the weapon.
+  // The armament/weapon dock: what your ship carries, with level pips.
+  // Display only (everything fires on its own), so it never steals a touch.
   const weaponDock = document.createElement('div');
   weaponDock.id = 'weapon-bar';
   root.appendChild(weaponDock);
+  const passiveStrip = document.createElement('div');
+  passiveStrip.id = 'upgrade-strip';
+  root.appendChild(passiveStrip);
 
   // A top-level sibling (not nested inside #hud) so its own z-index isn't
   // capped by #hud's stacking context — it needs to stay clickable above
@@ -177,8 +163,8 @@ export function startApp(root) {
       <button type="button" id="pm-resume" class="pm-primary">▶ Resume</button>
       <button type="button" id="pm-sound" class="pm-btn"></button>
       <button type="button" id="pm-harbour" class="pm-btn">⚓ Save &amp; return to harbour</button>
-      <p class="pm-note">Your voyage is saved. Continue it from the harbour any time.</p>
-      <button type="button" id="pm-abandon" class="pm-btn pm-danger">Abandon voyage</button>
+      <p class="pm-note">Your level is saved. Continue it from the harbour any time.</p>
+      <button type="button" id="pm-abandon" class="pm-btn pm-danger">Abandon level</button>
     </div>`;
   root.appendChild(pauseMenu);
   const countdownEl = document.createElement('div');
@@ -206,7 +192,7 @@ export function startApp(root) {
   const upgradeOverlay = document.createElement('div');
   upgradeOverlay.id = 'upgrade-pick';
   upgradeOverlay.hidden = true;
-  upgradeOverlay.innerHTML = `<div class="up-wrap"><h2 id="up-title"></h2><p class="up-sub">Choose one upgrade. It lasts for the rest of this stage.</p><div id="up-cards"></div></div>`;
+  upgradeOverlay.innerHTML = `<div class="up-wrap"><h2 id="up-title"></h2><p class="up-sub"></p><div id="up-cards"></div></div>`;
   root.appendChild(upgradeOverlay);
 
   const summaryOverlay = document.createElement('div');
@@ -257,12 +243,10 @@ export function startApp(root) {
             <div id="stage-label"><strong></strong><span></span></div>
             <button type="button" id="stage-next" aria-label="Next stage">▶</button>
           </div>
-          <div class="vc-pips" aria-label="5 levels, boss on level 5">
-            <span>1</span><span>2</span><span>3</span><span>4</span><span class="boss" title="The boss lair">☠</span>
-          </div>
+          <div class="vc-pips" id="vc-pips" role="group" aria-label="Levels — the boss waits on level 5"></div>
         </div>
       </div>
-      <button type="button" id="hub-continue" hidden>▶ Continue voyage<small></small></button>
+      <button type="button" id="hub-continue" hidden>▶ Continue level<small></small></button>
       <div class="vc-actions">
         <button type="button" id="hub-set-sail">▶ Set Sail</button>
         <button type="button" id="vc-defend"><span>🏰 Defend</span><small>the Reef</small></button>
@@ -397,7 +381,7 @@ export function startApp(root) {
     toast.classList.toggle('dark', dark);
     // The dark briefing is longer-lived, so it sits just below the HUD
     // (the camera's measured inset) rather than over the weapon bar.
-    toast.style.top = dark ? `${hudInsets.top + 4}px` : '';
+    toast.style.top = (dark || document.body.classList.contains('in-run')) ? `${hudInsets.top + 4}px` : '';
     toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), ms);
@@ -433,7 +417,7 @@ export function startApp(root) {
   // the first voyage), but `sailing` gates whether physics/combat actually
   // advance — false while the Hub overlay is up.
   const meta = loadMeta(window.localStorage);
-  let run = createRun(Date.now() & 0xffffffff, resolveLoadout(meta));
+  let run = createSurvivalRun(Date.now() & 0xffffffff, resolveLoadout(meta));
   let sailing = false;
   // Pause and save (2026-09-29). `voyageActive`: a voyage is under way (or
   // sunk and waiting on retry / give up) and should be saved. `paused`
@@ -470,7 +454,7 @@ export function startApp(root) {
     if (terrainGrid === run.grid) return;
     terrainGrid = run.grid;
     runBiome = getBiome(run.level?.biomeId || BIOME_IDS.TROPICAL);
-    terrain = buildTerrain(run.grid, run.tileSize, run.coastSeed, runBiome, run.coast);
+    terrain = buildTerrain(run.grid, run.tileSize, run.coastSeed, runBiome, run.coast, { shoals: run.mode === 'survival' });
     terrainRenderer = createTerrainRenderer(terrain, runBiome, { res: Math.min(window.devicePixelRatio || 1, 1.5) });
     terrainGlows = glowingDecorations(terrain, runBiome);
     terrainFresh = true; // first draw renders every visible chunk at once
@@ -488,19 +472,18 @@ export function startApp(root) {
     const vh = viewH();
     const weaponBar = document.getElementById('weapon-bar');
     const top = Math.max(0, Math.round(hud.getBoundingClientRect().bottom + margin));
+    const dock = weaponBar.getBoundingClientRect();
+    const hasDock = dock.width > 0 && dock.height > 0;
+    hudInsets.top = top;
+    hudInsets.left = 0;
     if (landscapeMql && landscapeMql.matches) {
-      const leftEdge = weaponBar.getBoundingClientRect().left;
-      hudInsets.top = top;
-      hudInsets.right = Math.max(0, Math.round(vw - leftEdge + margin));
+      // Landscape: the dock is a column on the right.
+      hudInsets.right = hasDock ? Math.max(0, Math.round(vw - dock.left + margin)) : 0;
       hudInsets.bottom = 0;
-      hudInsets.left = 0;
       return;
     }
-    const bottom = Math.max(0, Math.round(vh - weaponBar.getBoundingClientRect().top + margin));
-    hudInsets.top = top;
     hudInsets.right = 0;
-    hudInsets.left = 0;
-    hudInsets.bottom = bottom;
+    hudInsets.bottom = hasDock ? Math.max(0, Math.round(vh - dock.top + margin)) : 0;
   }
   measureHudInsets();
   window.addEventListener('resize', measureHudInsets);
@@ -539,207 +522,158 @@ export function startApp(root) {
     document.getElementById('hud-status').textContent = text;
   }
 
-  function updateHullBar() {
-    const pct = Math.max(0, Math.min(100, (run.boat.health / run.boat.maxHull) * 100));
-    const fill = document.getElementById('hull-bar-fill');
-    fill.style.width = `${pct}%`;
-    fill.classList.toggle('low', pct <= 30);
-  }
-
+  // Survival HUD (2026-10-04). Every DOM write is guarded by a "changed?"
+  // check: per-frame writes force style recalcs on phones (2026-09-29).
+  const salvageEl = document.getElementById('salvage-counter');
+  const xpFill = document.getElementById('sv-xp-fill');
+  const lvEl = document.getElementById('sv-lv');
+  const timeEl = document.getElementById('sv-time');
+  const wavesEl = document.getElementById('sv-waves');
+  const timerBox = document.getElementById('sv-timer');
+  const hudShown = { salvage: -1, xp: -1, lv: -1, time: '', wave: -1 };
+  // Hull is drawn under the ship on the canvas; nothing to do in the DOM.
+  function updateHullBar() {}
   function updateSalvageCounter() {
-    document.getElementById('salvage-counter').textContent = `⚓ Salvage: ${Math.floor(totalSalvage(run))}`;
+    const v = Math.floor(run.reefSalvage);
+    if (v !== hudShown.salvage) { hudShown.salvage = v; salvageEl.textContent = String(v); }
   }
-
   function updateReefIndicator() {
-    document.getElementById('reef-indicator').textContent = `Level ${run.reefIndex + 1}/${run.reefCount}`;
+    document.getElementById('sv-place').textContent = stageName(run.stage || 1);
+    document.getElementById('sv-sub').textContent = `Stage ${run.stage || 1} · Level ${run.reefIndex + 1}/${run.reefCount}`;
+    hudShown.wave = -1;
+    renderWavePips();
+  }
+  function renderWavePips() {
+    if (!run.sv || run.sv.wave === hudShown.wave) return;
+    hudShown.wave = run.sv.wave;
+    const n = SURVIVAL.waves;
+    const boss = run.sv.bossDefId ? '☠' : '⚔';
+    wavesEl.replaceChildren(...Array.from({ length: n }, (_, i) => {
+      const el = document.createElement('span');
+      el.className = `pip${i < run.sv.wave ? ' done' : ''}${i === run.sv.wave ? ' now' : ''}${i === n - 1 ? ' boss' : ''}${WAVES[i].event === 'elite' || WAVES[i].event === 'elite2' ? ' elite' : ''}`;
+      if (i === n - 1) el.textContent = boss;
+      return el;
+    }));
+  }
+  function updateSurvivalHud() {
+    if (!run.sv) return;
+    const sv = run.sv;
+    const pct = Math.round((1000 * sv.xp) / sv.xpNeed) / 10;
+    if (pct !== hudShown.xp) { hudShown.xp = pct; xpFill.style.width = `${pct}%`; }
+    if (sv.shipLevel !== hudShown.lv) { hudShown.lv = sv.shipLevel; lvEl.textContent = `Lv ${sv.shipLevel}`; }
+    const left = timeToBoss(run);
+    const txt = left > 0 ? `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}` : (sv.bossDefId ? 'BOSS' : 'WARLORD');
+    if (txt !== hudShown.time) { hudShown.time = txt; timeEl.textContent = txt; timerBox.classList.toggle('boss', left <= 0); }
+    renderWavePips();
+    updateSalvageCounter();
   }
 
-  // Weapon-select bar: one button per weapon, thumb-sized, showing ammo
-  // (∞ for Cannonballs) and highlighting the active weapon. A tap swaps
-  // the active weapon without touching the joystick or fire button, so it
-  // works alongside steering with the same hand per the touch-first rule.
-  const weaponBar = document.getElementById('weapon-bar');
-  const weaponButtons = {};
-  for (const weapon of WEAPON_LIST) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'weapon-btn';
-    btn.dataset.weaponId = weapon.id;
-    btn.innerHTML = `<span class="weapon-icon">${WEAPON_ICONS[weapon.id] || ''}</span><span class="weapon-name">${weapon.name}</span><span class="weapon-ammo"></span>`;
-    btn.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-      if (!isHeld(run.weapons, weapon.id)) { playLockedWeapon(); return; } // locked — found via a weapon cache pickup
-      setActiveWeapon(run.weapons, weapon.id);
-      updateWeaponBar();
-    });
-    weaponBar.appendChild(btn);
-    weaponButtons[weapon.id] = btn;
+  // The dock: every weapon and armament aboard, with its level as pips
+  // (gold flame when evolved). Rebuilt only when the kit changes.
+  const weaponBar = weaponDock;
+  let dockKey = '';
+  function renderDock() {
+    if (!run.sv) return;
+    const items = [
+      ...Object.entries(run.sv.weapons).map(([id, lv]) => ({ id, lv, max: SV_WEAPON_MAX, icon: run.sv.evolved[id] ? SV_WEAPONS[id].evolve.icon : SV_WEAPONS[id].icon, name: run.sv.evolved[id] ? SV_WEAPONS[id].evolve.name : SV_WEAPONS[id].name, evo: !!run.sv.evolved[id] })),
+      ...Object.entries(run.armaments || {}).map(([id, lv]) => ({ id, lv, max: ARMAMENT_MAX_LEVEL, icon: ARMAMENT_BY_ID[id].icon, name: ARMAMENT_BY_ID[id].name, arm: true })),
+    ];
+    const key = items.map((i) => `${i.id}${i.lv}${i.evo ? 'e' : ''}`).join(',');
+    if (key === dockKey) return;
+    dockKey = key;
+    weaponBar.replaceChildren(...items.map((it) => {
+      const el = document.createElement('div');
+      el.className = `dock-tile${it.evo ? ' evo' : ''}${it.arm ? ' arm' : ''}`;
+      el.title = it.name;
+      const ic = document.createElement('span'); ic.className = 'dock-icon'; ic.textContent = it.icon;
+      const pips = document.createElement('span'); pips.className = 'dock-pips';
+      if (it.evo) pips.textContent = 'MAX';
+      else for (let k = 0; k < it.max; k++) { const d = document.createElement('i'); if (k < it.lv) d.className = 'on'; pips.appendChild(d); }
+      el.append(ic, pips);
+      return el;
+    }));
+  }
+  const updateWeaponBar = renderDock;
+  function renderUpgradeStrip() {
+    if (!run.sv) return;
+    passiveStrip.replaceChildren(...Object.entries(run.sv.passives).map(([id, lv]) => {
+      const el = document.createElement('span');
+      el.textContent = `${PASSIVE_BY_ID[id].icon}${lv}`;
+      el.title = PASSIVE_BY_ID[id].name;
+      return el;
+    }));
   }
 
-  // Unheld weapons (not yet found this run — everything but Cannonballs at
-  // the start, per the loot/economy design: the niche kit is discovered via
-  // weapon-cache pickups, not available from the outset) show a lock glyph
-  // in place of an ammo count and can't be tapped active.
-  function updateWeaponBar() {
-    for (const weapon of WEAPON_LIST) {
-      const btn = weaponButtons[weapon.id];
-      const held = isHeld(run.weapons, weapon.id);
-      btn.classList.toggle('active', held && run.weapons.activeWeaponId === weapon.id);
-      btn.classList.toggle('locked', !held);
-      // Only weapons you actually carry take space in the dock; it grows as
-      // you find them (and the first find is announced).
-      btn.hidden = !held;
-      const ammoEl = btn.querySelector('.weapon-ammo');
-      if (!held) {
-        ammoEl.textContent = '🔒';
-      } else {
-        const ammo = ammoFor(run.weapons, weapon.id);
-        ammoEl.textContent = Number.isFinite(ammo) ? `${ammo}/${ammoMaxFor(run.weapons, weapon.id)}` : '∞';
-      }
-    }
-  }
-
-  // Tracks the specific pointer (finger) that pressed the fire button, so
-  // a second finger steering the joystick — which may well cross over the
-  // fire button's screen region on a small phone screen — can't cancel
-  // firing just by passing near/over it. Only *that* pointer ending
-  // (pointerup/pointercancel) stops firing; pointerleave is deliberately
-  // not used here, since it fires for any pointer that crosses the
-  // button's bounds, not just the one holding it down.
-  // Auto-fire (2026-09-29, project owner): the ship fires by itself at
-  // whatever the aim-assist can hit, so steering is the only thing the
-  // left thumb has to do. `isFiring` is true while a target is locked.
-  let isFiring = false;
-
-  // Aim-assist (engine/aim.mjs): leads moving targets along their
-  // measured arc, only picks shots it can land (in range, clear water),
-  // prefers what the active weapon counters, and sticks to one target.
-  let aimTarget = null;
-  let aimHeading = null;
-  let fireWeaponId = WEAPON_IDS.CANNONBALLS;
-  // Auto-fire with a specialist loaded (2026-09-29): the special weapon is
-  // spent only on the enemies it counters; anything else in range gets
-  // Cannonballs, so picking Depth Charges never wastes them on a cutter.
-  function updateAim() {
-    // In fog or a blizzard your gunners can't shoot what they can't see.
-    // In the dark (caverns, the abyss, ink) only what your lantern or its
-    // own glow shows; a camouflaged gator not at all until it's revealed.
-    const wv = weatherModifiers(run.weather).view;
-    const view = viewRadius(run, runBiome, wv != null ? wv * 0.8 / 0.9 : null);
-    const seen = run.enemies.filter((e) => canSee(run, e, view) && isRevealed(e, run.boat));
-    const aim = chooseAutoFire(seen, run.boat, run.weapons.activeWeaponId, {
-      effectiveWeapon: (id) => effectiveWeapon(run.weapons, id), ammoOf: (id) => ammoFor(run.weapons, id),
-      grid: run.grid, tileSize: run.tileSize, coast: run.coast, counterOf: currentCounter, previousTarget: aimTarget,
-    });
-    aimTarget = aim ? aim.target : null;
-    aimHeading = aim ? aim.heading : null;
-    fireWeaponId = aim ? aim.weaponId : WEAPON_IDS.CANNONBALLS;
-  }
-  function computeFireHeading() {
-    return aimHeading ?? run.boat.heading;
-  }
-
-  // Counter hint: the weapon button that answers the nearest awake threat
-  // pulses, so "read the enemy, swap the weapon" is taught in play.
-  let suggestedWeapon = null;
-  function updateCounterHint() {
-    let nearest = null; let best = 200;
-    for (const e of run.enemies) {
-      if (e.health <= 0 || !e.aggro) continue;
-      const d = Math.hypot(e.x - run.boat.x, e.y - run.boat.y);
-      if (d < best) { best = d; nearest = e; }
-    }
-    let want = nearest ? currentCounter(nearest) : null;
-    // Cannonballs never needs a hint: auto-fire already falls back to it.
-    if (want && (want === WEAPON_IDS.CANNONBALLS || !isHeld(run.weapons, want) || ammoFor(run.weapons, want) <= 0 || run.weapons.activeWeaponId === want)) want = null;
-    if (want === suggestedWeapon) return;
-    if (suggestedWeapon) weaponButtons[suggestedWeapon].classList.remove('suggest');
-    if (want) weaponButtons[want].classList.add('suggest');
-    suggestedWeapon = want;
-  }
-
-  // Choice cards (upgrades and armaments): the voyage waits while you pick.
-  // A card is { kind: 'upgrade' | 'armament', id }.
-  function cardView(c) {
-    if (c.kind === 'armament') {
-      const a = ARMAMENT_BY_ID[c.id]; const lv = armamentLevel(run, c.id);
-      return { icon: a.icon, name: a.name, desc: a.desc[Math.min(lv, a.desc.length - 1)], lv: lv ? `Lv ${lv + 1}/${ARMAMENT_MAX_LEVEL}` : 'NEW', arm: true };
-    }
-    const u = UPGRADE_BY_ID[c.id]; const lv = upgradeLevel(run, c.id);
-    return { icon: u.icon, name: u.name, desc: u.desc, lv: u.max > 1 ? `${lv + 1}/${u.max}` : '', arm: false };
+  // Level-up and treasure choices: the level waits while you pick.
+  function cardEl(card) {
+    const v = describeChoice(run, card);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `up-card k-${card.kind}${v.evolve ? ' evo' : ''}`;
+    b.dataset.card = `${card.kind}:${card.id}`;
+    b.innerHTML = '<span class="up-icon"></span><span class="up-text"><small class="up-kind"></small><b></b><span class="up-desc"></span><em class="up-note"></em></span><span class="up-lv"></span>';
+    b.querySelector('.up-icon').textContent = v.icon;
+    b.querySelector('.up-kind').textContent = v.kindLabel;
+    b.querySelector('b').textContent = v.name;
+    b.querySelector('.up-desc').textContent = v.desc;
+    const note = v.counters?.length ? `Counters: ${v.counters.join(', ')}` : v.evolves ? `Evolves ${v.evolves} at Lv 5` : '';
+    b.querySelector('.up-note').textContent = note;
+    if (!note) b.querySelector('.up-note').remove();
+    const lv = b.querySelector('.up-lv');
+    if (v.max) lv.textContent = '★'.repeat(v.level) + '☆'.repeat(Math.max(0, v.max - v.level));
+    else if (v.evolve) lv.textContent = 'EVOLVE';
+    return b;
   }
   function offerChoices(title, sub, choices) {
-    if (!choices.length) { if (sub) showToast(`${title} ${sub}`); return false; }
+    if (!choices.length) return false;
     sailing = false;
     pendingChoice = { title, sub, choices };
     saveCurrentVoyage();
+    joystick.reset?.();
     upgradeOverlay.querySelector('#up-title').textContent = title;
     upgradeOverlay.querySelector('.up-sub').textContent = sub;
     const cards = upgradeOverlay.querySelector('#up-cards');
     cards.replaceChildren(...choices.map((c) => {
-      const v = cardView(c);
-      const b = document.createElement('button');
-      b.type = 'button'; b.className = `up-card${v.arm ? ' arm' : ''}`;
-      b.dataset[c.kind === 'armament' ? 'armament' : 'upgrade'] = c.id;
-      b.innerHTML = `<span class="up-icon"></span><span class="up-text"><small class="up-kind"></small><b></b><span></span></span><span class="up-lv"></span>`;
-      b.querySelector('.up-icon').textContent = v.icon;
-      b.querySelector('.up-kind').textContent = v.arm ? 'Armament' : 'Upgrade';
-      b.querySelector('b').textContent = v.name;
-      b.querySelector('.up-text span').textContent = v.desc;
-      b.querySelector('.up-lv').textContent = v.lv;
+      const b = cardEl(c);
       b.addEventListener('click', () => {
         if (upgradeOverlay.hidden) return;
-        if (c.kind === 'armament') grantArmament(run, c.id); else applyUpgrade(run, c.id);
-        snapshotLevelStart(run);
+        const v = describeChoice(run, c);
+        const res = applyChoice(run, c);
+        if (res?.salvage) addLevelSalvage(run, res.salvage);
         upgradeOverlay.hidden = true;
         pendingChoice = null;
-        saveCurrentVoyage();
         playPickupWeapon();
-        showToast(`${v.icon} ${v.name}${c.kind === 'armament' && armamentLevel(run, c.id) > 1 ? ` Lv ${armamentLevel(run, c.id)}` : ''}!`);
-        updateHullBar(); updateWeaponBar(); renderUpgradeStrip();
+        showToast(`${v.icon} ${v.name}${v.max ? ` ${'★'.repeat(v.level)}` : ''}`);
+        renderDock(); renderUpgradeStrip(); updateSurvivalHud();
+        spawnLevelRing(c.kind === 'evolve');
         sailing = true;
+        saveCurrentVoyage();
+        // Several level-ups at once: the next one follows straight on.
+        setTimeout(maybeOfferChoice, 140);
       });
       return b;
     }));
     upgradeOverlay.hidden = false;
     return true;
   }
-  // After a level: two upgrade cards and one armament.
-  function offerUpgrades(title, sub = '') {
-    const ups = rollUpgradeChoices(run, Math.random, 3 + (run.extraCardChoices || 0)).slice(0, 2 + (run.extraCardChoices || 0)).map((id) => ({ kind: 'upgrade', id }));
-    const arms = rollArmamentChoices(run, Math.random, 1).map((id) => ({ kind: 'armament', id }));
-    const choices = [...ups, ...arms];
-    const want = 3 + (run.extraCardChoices || 0);
-    if (choices.length < want) {
-      const have = new Set(choices.map((c) => c.id));
-      choices.push(...rollUpgradeChoices(run, Math.random, want + 2).filter((id) => !have.has(id)).slice(0, want - choices.length).map((id) => ({ kind: 'upgrade', id })));
-    }
-    offerChoices(title, `${sub ? `${sub}. ` : ''}Choose one for the rest of this stage.`, choices);
-  }
-  // A treasure chest: pick one of three armaments.
-  function offerTreasure() {
-    const choices = rollArmamentChoices(run, Math.random, run.chestChoices || 3).map((id) => ({ kind: 'armament', id }));
-    playTreasure();
-    if (run.chestSalvage) { addSalvage(run, run.chestSalvage); updateSalvageCounter(); }
-    if (!offerChoices('Treasure! 💰', 'Choose an armament. It fires on its own, alongside your guns.', choices)) {
-      addSalvage(run, 25); updateSalvageCounter(); showToast('Treasure: +25 Salvage ⚓');
+  function maybeOfferChoice() {
+    if (!run.sv || run.over || !upgradeOverlay.hidden || paused || !voyageActive) return;
+    const n = SURVIVAL.choices + (run.extraCardChoices || 0);
+    if (run.sv.pendingLevelUps > 0) {
+      run.sv.pendingLevelUps -= 1;
+      playReefCleared();
+      offerChoices(`Level up! ⚓ Lv ${run.sv.shipLevel - run.sv.pendingLevelUps}`, 'Choose one — it lasts for this level.', rollChoices(run, Math.random, n));
+    } else if (run.sv.pendingChests > 0) {
+      run.sv.pendingChests -= 1;
+      playTreasure();
+      if (run.chestSalvage) addLevelSalvage(run, run.chestSalvage);
+      const evo = rollChoices(run, Math.random, n);
+      offerChoices('Treasure! 💰', 'Pick a free upgrade from the hold.', evo);
     }
   }
-  function renderUpgradeStrip() {
-    const strip = document.getElementById('upgrade-strip');
-    const arms = Object.entries(run.armaments || {}).map(([id, n]) => {
-      const el = document.createElement('span');
-      el.className = 'arm';
-      el.textContent = `${ARMAMENT_BY_ID[id].icon}${n > 1 ? `${n}` : ''}`;
-      el.title = ARMAMENT_BY_ID[id].name;
-      return el;
-    });
-    strip.replaceChildren(...arms, ...Object.entries(run.upgrades || {}).map(([id, n]) => {
-      const el = document.createElement('span');
-      el.textContent = `${UPGRADE_BY_ID[id].icon}${n > 1 ? `×${n}` : ''}`;
-      el.title = UPGRADE_BY_ID[id].name;
-      return el;
-    }));
+  // A ring of light off the ship on a level-up pick (an evolution: gold).
+  function spawnLevelRing(evo) {
+    rings.push({ x: run.boat.x, y: run.boat.y, life: 0.6, maxLife: 0.6, r: evo ? 90 : 60, color: evo ? '255, 214, 92' : '150, 230, 255' });
   }
 
   // A ship's portrait for the Shipyard: the same art you'll sail.
@@ -753,76 +687,54 @@ export function startApp(root) {
     c.restore();
   }
 
-  let hullRegenUiTimer = 0;
-  // One place for everything a hit does: damage number, sparks, kill
-  // feedback, boss death, drops. Returns the Salvage it earned.
-  let wardClinkCooldown = 0;
+  // Feedback for one hit (the engine has already applied the damage and
+  // dropped the loot). With a hundred enemies on the water this runs a lot,
+  // so numbers, particles and sounds are capped and throttled.
+  const sinkers = []; // sunk enemies, drawn going under for a moment
+  const rings = []; // shockwave rings (blasts, level-ups)
+  let killSoundCd = 0; let hitSoundCd = 0;
   function processHitEvent(ev, { burn = false, ram = false } = {}) {
     const enemy = ev.enemy;
-    if (ev.blocked) {
-      // A shot glancing off the boss's ward.
-      spawnHitSpark(particles, enemy.x, enemy.y, '#b9a6ff', Math.random);
-      if (wardClinkCooldown <= 0) {
-        wardClinkCooldown = 2.5;
-        playWardClink();
-        const n = run.enemies.filter((e) => e.seal && e.health > 0).length;
-        showToast(`Warded! Sink the ${n} seal${n === 1 ? '' : 's'} first 🔮`);
-      }
-      return 0;
-    }
+    if (ev.blocked || !ev.damage) return 0;
+    burn = burn || !!ev.burn;
     const color = burn ? PALETTE.burn : getWeapon(ev.weaponId).color;
-    // Post-slice combat-triangle feedback: the raw multiplier (not the
-    // damage, which has it baked in) says whether this hit was favoured.
-    const triangleMult = ram ? 1 : triangleMultiplier(run.faction, enemy.faction);
-    spawnDamageNumber(damageNumbers, enemy.x, enemy.y - enemy.radius - 4, ev.damage, {
-      jitterX: (Math.random() - 0.5) * 10,
-      crit: !burn && !ram && currentCounter(enemy) === ev.weaponId,
-      triangle: triangleMult > 1 ? 'advantage' : triangleMult < 1 ? 'disadvantage' : null,
-    });
+    const big = enemy.isBoss || enemy.elite;
+    enemy.hitFlash = 0.09;
+    if (damageNumbers.length < 70 || ev.counter || big) {
+      const triangleMult = ram ? 1 : triangleMultiplier(run.faction, enemy.faction);
+      spawnDamageNumber(damageNumbers, enemy.x, enemy.y - enemy.radius - 4, ev.damage, {
+        jitterX: (Math.random() - 0.5) * 12,
+        crit: !!ev.counter,
+        triangle: triangleMult > 1 ? 'advantage' : triangleMult < 1 ? 'disadvantage' : null,
+      });
+    }
     if (!ev.killed) {
-      if (!burn) {
-        spawnHitSpark(particles, enemy.x, enemy.y, color, Math.random);
-        addShake(shake, ram ? 0.3 : 0.12);
-        playHit();
-      }
+      if (!burn && particles.length < 420) spawnHitSpark(particles, enemy.x, enemy.y, color, Math.random, big ? 8 : 4);
+      if (!burn && hitSoundCd <= 0) { hitSoundCd = 0.06; playHit(); }
+      if (big) addShake(shake, 0.06);
       return 0;
     }
-    if (enemy.isBoss) {
+    sinkers.push({ e: { ...enemy, burn: null, hitFlash: 0 }, life: 0.5, maxLife: 0.5 });
+    if (enemy.isBoss || enemy.warlord) {
       spawnExplosion(particles, enemy.x, enemy.y, 50, Math.random);
+      rings.push({ x: enemy.x, y: enemy.y, life: 0.7, maxLife: 0.7, r: 140, color: '255, 214, 92' });
       addShake(shake, 1);
       triggerHitStop(hitStop, 0.15);
       playBossDefeated();
-      showToast(run.lair ? `${bossName(run)} is sunk — the whirlpool opens! Sail into it ⚓` : `${bossName(run)} is sunk! ⚓`);
-      run.bossDefeated = true; // engine/meta.mjs's recordRunResult awards a Kraken Scale
-    } else {
-      spawnKillBurst(particles, enemy.x, enemy.y, color, Math.random);
-      if (enemy.seal) {
-        spawnExplosion(particles, enemy.x, enemy.y, 30, Math.random);
-        addShake(shake, 0.5);
-        playBossPhaseChange();
-        const n = run.enemies.filter((e) => e.seal && e.health > 0).length;
-        showToast(n ? `A seal shatters — ${n} left 🔮` : `The ward breaks! ${bossName(run)} can be hurt ⚓`);
-        setStatus(levelStartStatus());
-      } else if (enemy.elite) {
-        showToast('Elite sunk! ⚓');
-      }
-      maybeDropRepair(enemy);
-      addShake(shake, 0.35);
-      // A sunk fire ship goes up and burns whatever is beside it.
-      if (getEnemy(enemy.defId).explodes && !enemy.detonated) {
-        spawnExplosion(particles, enemy.x, enemy.y, getEnemy(enemy.defId).explodes.radius, Math.random);
-        playExplosion(); addShake(shake, 0.4);
-        let extra = 0;
-        for (const bev of fireShipBlast(enemy, run.enemies)) extra += processHitEvent(bev, { burn: true });
-        if (extra) { addSalvage(run, extra); updateSalvageCounter(); }
-      }
-      if (!burn) triggerHitStop(hitStop, 0.05);
+      showToast(enemy.isBoss ? `${getEnemy(enemy.defId).name} is sunk! ⚓` : 'The warlord is sunk! ⚓');
+    } else if (enemy.elite) {
+      spawnExplosion(particles, enemy.x, enemy.y, 30, Math.random);
+      addShake(shake, 0.4); triggerHitStop(hitStop, 0.05);
+      showToast('Elite sunk — it dropped a chest! 💰');
       playKill();
+    } else {
+      if (particles.length < 420) spawnKillBurst(particles, enemy.x, enemy.y, color, Math.random);
+      if (killSoundCd <= 0) { killSoundCd = 0.05; playKill(); }
     }
-    return enemy.salvageDrop;
+    return 0;
   }
 
-  // Weather events: announce, and feed hits through the usual feedback.
+  // Weather events: announce, and the hits on your hull.
   let weatherChipEl = null;
   function handleWeather(wx) {
     const chip = weatherChipEl || (weatherChipEl = document.getElementById('weather-chip'));
@@ -833,8 +745,6 @@ export function startApp(root) {
       playWeatherWarning();
       chip.textContent = `${d.icon} ${d.name}`; chip.hidden = false;
     }
-    // Only touch the DOM on a change: writing `hidden` every frame forced a
-    // style recalculation every frame (2026-09-29 "jumpy" playtest).
     if (!act && !chip.hidden) chip.hidden = true;
     announcedWeather = act || null;
     let hullHit = 0;
@@ -842,14 +752,12 @@ export function startApp(root) {
       hullHit += h.damage;
       spawnDamageNumber(damageNumbers, run.boat.x + 26, run.boat.y - BOAT_RADIUS - 8, h.damage, { incoming: true });
     }
-    if (hullHit > 0) { updateHullBar(); flashHit(); addShake(shake, Math.min(0.6, 0.2 + hullHit / 30)); playWallImpact(Math.min(1, hullHit / 15)); }
-    let salvage = wx.salvage;
-    for (const ev of wx.enemyHits) salvage += processHitEvent(ev, { burn: true });
-    if (salvage > 0) { addSalvage(run, salvage); updateSalvageCounter(); if (wx.salvage) playPickupSalvage(); }
+    if (hullHit > 0) { flashHit(); addShake(shake, Math.min(0.6, 0.2 + hullHit / 30)); playWallImpact(Math.min(1, hullHit / 15)); }
+    if (wx.salvage) playPickupSalvage();
     if (wx.marks) playStrikeMark();
-    for (const s of wx.strikes) {
-      bolts.push({ x: s.x, y: s.y, life: 0.25 });
-      spawnExplosion(particles, s.x, s.y, 20, Math.random);
+    for (const st of wx.strikes) {
+      bolts.push({ x: st.x, y: st.y, life: 0.25 });
+      spawnExplosion(particles, st.x, st.y, 20, Math.random);
       playThunder(); addShake(shake, 0.35);
     }
     for (const im of wx.impacts) {
@@ -857,11 +765,6 @@ export function startApp(root) {
       spawnExplosion(particles, im.x, im.y, im.r * 0.7, Math.random);
       playExplosion(); addShake(shake, 0.2);
     }
-  }
-
-  // A regular kill sometimes leaves a repair kit floating where it sank.
-  function maybeDropRepair(enemy) {
-    if (Math.random() < PICKUP_TUNING.repairDropChance) run.pickups.push(makeRepairKit(enemy.x, enemy.y));
   }
 
   let flashTimer = null;
@@ -1092,12 +995,15 @@ export function startApp(root) {
     nextRunSeed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
     previewCache.clear();
   }
+  // The voyage card's chart: the actual arena of the selected level, drawn
+  // from its coastline field, with its landmarks marked.
   function renderVoyagePreview(stage) {
     const g = voyageMap.getContext('2d');
-    let img = previewCache.get(stage);
+    const key = `${stage}:${selectedLevel}`;
+    let img = previewCache.get(key);
     if (!img) {
-      const level = levelForReef(nextRunSeed, 0, biomeForStage(stage));
-      const world = buildLevelWorld(level);
+      const level = survivalLevel(nextRunSeed, stage, selectedLevel);
+      const world = buildSurvivalWorld(level);
       const W = voyageMap.width; const H = voyageMap.height;
       img = g.createImageData(W, H);
       const b = getBiome(level.biomeId);
@@ -1106,60 +1012,72 @@ export function startApp(root) {
       const pick = (stops, d) => { let c = stops[0][1]; for (const [sd, sc] of stops) if (d >= sd) c = sc; return c; };
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
-          const s = sampleField(world.coast, ((x + 0.5) / W) * world.widthPx, ((y + 0.5) / H) * world.heightPx);
-          const c = s < 0 ? pick(water, -s * 0.8) : (s > 44 ? hexRgb(b.rock) : pick(land, s * 0.7));
+          const sm = sampleField(world.coast, ((x + 0.5) / W) * world.widthPx, ((y + 0.5) / H) * world.heightPx);
+          const c = sm < 0 ? pick(water, -sm * 0.8) : (sm > 44 ? hexRgb(b.rock) : pick(land, sm * 0.7));
           const o = (y * W + x) * 4;
           img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
         }
       }
-      img.spawn = { x: world.spawnWorld.x / world.widthPx, y: world.spawnWorld.y / world.heightPx };
-      img.exit = { x: world.exitWorld.x / world.widthPx, y: world.exitWorld.y / world.heightPx };
-      previewCache.set(stage, img);
+      img.marks = world.landmarks.map((l) => ({ x: l.x / world.widthPx, y: l.y / world.heightPx }));
+      previewCache.set(key, img);
     }
     g.putImageData(img, 0, 0);
     const W = voyageMap.width; const H = voyageMap.height;
-    // Start (white) → exit (gold), the route you'll be charting.
-    g.setLineDash([5, 5]); g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 2;
-    g.beginPath(); g.moveTo(img.spawn.x * W, img.spawn.y * H); g.lineTo(img.exit.x * W, img.exit.y * H); g.stroke();
-    g.setLineDash([]);
-    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(img.spawn.x * W, img.spawn.y * H, 6, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#e8b54b'; g.beginPath(); g.arc(img.exit.x * W, img.exit.y * H, 7, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#e8b54b';
+    for (const m of img.marks) { g.beginPath(); g.arc(m.x * W, m.y * H, 4, 0, Math.PI * 2); g.fill(); }
+    // You start in the middle; they come from everywhere.
+    g.strokeStyle = 'rgba(255, 90, 70, 0.75)'; g.lineWidth = 2; g.setLineDash([4, 5]);
+    g.beginPath(); g.arc(W / 2, H / 2, W * 0.2, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(W / 2, H / 2, 6, 0, Math.PI * 2); g.fill();
   }
   function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
 
-  // Stage picker (2026-09-28). Defaults to the furthest unlocked stage each
-  // time the Hub opens; cleared stages stay replayable (for Salvage).
+  // Stage and level picker (2026-10-04): five levels per stage, each opened
+  // by clearing the one before; the boss waits on level 5.
   let selectedStage = 1;
+  let selectedLevel = 0;
+  const pipsEl = hubOverlay.querySelector('#vc-pips');
   function renderStagePicker() {
     selectedStage = Math.min(Math.max(1, selectedStage), meta.highestStageUnlocked);
+    if (!isLevelUnlocked(meta, selectedStage, selectedLevel)) selectedLevel = furthestLevel(meta, selectedStage);
     stageLabel.querySelector('strong').textContent = `Stage ${selectedStage}`;
     const cleared = selectedStage < meta.highestStageUnlocked;
-    // Two short single lines, not one long wrapping one (it wrapped to three on phones).
     stageLabel.querySelector('span').innerHTML = `<em></em><i></i>`;
     stageLabel.querySelector('em').textContent = `${stageName(selectedStage)}${cleared ? ' ✓' : ''}`;
     stageLabel.querySelector('i').textContent = `☠ ${getEnemy(bossForStage(selectedStage)).name}`;
     stagePrevBtn.disabled = selectedStage <= 1;
     stageNextBtn.disabled = selectedStage >= meta.highestStageUnlocked;
+    const done = selectedStage < meta.highestStageUnlocked ? 5 : (meta.levelsCleared[selectedStage] || 0);
+    pipsEl.replaceChildren(...Array.from({ length: LEVELS_PER_STAGE }, (_, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      const open = isLevelUnlocked(meta, selectedStage, i);
+      b.className = `${i === LEVELS_PER_STAGE - 1 ? 'boss' : ''}${i < done ? ' cleared' : ''}${i === selectedLevel ? ' sel' : ''}`;
+      b.textContent = i === LEVELS_PER_STAGE - 1 ? '☠' : String(i + 1);
+      b.disabled = !open;
+      b.setAttribute('aria-label', `Level ${i + 1}${i === 4 ? ' (boss)' : ''}${open ? '' : ' (locked)'}`);
+      b.addEventListener('click', () => { selectedLevel = i; renderStagePicker(); renderSailLabel(); });
+      return b;
+    }));
     renderVoyagePreview(selectedStage);
+    renderSailLabel();
   }
-  stagePrevBtn.addEventListener('click', () => { selectedStage -= 1; renderStagePicker(); });
-  stageNextBtn.addEventListener('click', () => { selectedStage += 1; renderStagePicker(); });
+  function renderSailLabel() {
+    if (peekVoyage(window.localStorage)) return; // "New voyage" while one is saved
+    hubSetSailBtn.innerHTML = `▶ Set Sail <small>Level ${selectedLevel + 1}${selectedLevel === 4 ? ' ☠' : ''}</small>`;
+  }
+  stagePrevBtn.addEventListener('click', () => { selectedStage -= 1; selectedLevel = furthestLevel(meta, selectedStage); renderStagePicker(); });
+  stageNextBtn.addEventListener('click', () => { selectedStage += 1; selectedLevel = furthestLevel(meta, selectedStage); renderStagePicker(); });
 
   function bossName(r = run) {
     const b = r.enemies.find((e) => e.isBoss) || null;
     return b ? getEnemy(b.defId).name : getEnemy(bossForStage(r.stage || 1)).name;
   }
   function stageLevelText(r = run) {
-    return r.stage ? `${stageName(r.stage)} – Level ${r.reefIndex + 1}/${r.reefCount}` : `Level ${r.reefIndex + 1}/${r.reefCount}`;
+    return `${stageName(r.stage || 1)} – Level ${r.reefIndex + 1}/${r.reefCount}`;
   }
   function levelStartStatus(r = run) {
-    if (r.lair) {
-      const n = r.enemies.filter((e) => e.seal && e.health > 0).length;
-      return n ? `${stageLevelText(r)} — break ${n} seal${n === 1 ? '' : 's'} 🔮` : `${stageLevelText(r)} — sink ${bossName(r)} ⚓`;
-    }
-    return r.enemies.some((e) => e.isBoss)
-      ? `${stageLevelText(r)} — ${bossName(r)} guards the exit ⚓`
-      : `${stageLevelText(r)} — find the exit ⚓`;
+    return `${stageLevelText(r)} — survive 10 waves`;
   }
 
   // --- The base harbour scene (2026-09-28) ---------------------------------
@@ -1239,7 +1157,7 @@ export function startApp(root) {
   // chart button on the voyage card, slides it in.
   const worldMap = createWorldMap(root, {
     getMeta: () => meta,
-    onSail: (stage) => { selectedStage = stage; rollNextRunSeed(); renderStagePicker(); startRun(); },
+    onSail: (stage) => { selectedStage = stage; selectedLevel = furthestLevel(meta, stage); rollNextRunSeed(); renderStagePicker(); startRun(); },
     onClose: () => {},
     stageName, stageInfo, biomeForStage,
     biomeName: (st) => getBiome(biomeForStage(st)).name,
@@ -1296,83 +1214,75 @@ export function startApp(root) {
 
   function openHub() {
     sailing = false;
+    voyageActive = false;
     closePanel();
     selectedStage = meta.highestStageUnlocked;
+    selectedLevel = furthestLevel(meta, selectedStage);
     rollNextRunSeed();
     renderHub();
     renderContinue();
     paused = false; pauseMenu.hidden = true; countdownEl.hidden = true;
+    upgradeOverlay.hidden = true;
     hubOverlay.classList.add('show');
     document.body.classList.add('in-hub');
+    document.body.classList.remove('in-run');
     playMusic('harbour');
     layoutBase();
   }
 
-  function startRun() {
-    // `?level=TR2-0K3F9ZA` in the URL plays that exact reef first (the
-    // share/replay hook for seeded levels — engine/levels.mjs); the rest of
-    // the voyage is generated as normal. An invalid code is ignored.
-    const sharedLevel = decodeLevelCode(new URLSearchParams(window.location.search).get('level'), TIER_COUNT);
-    run = createRun(
-      nextRunSeed, resolveLoadout(meta),
-      { stage: selectedStage, ...(sharedLevel ? { levels: { 0: sharedLevel } } : {}) },
-    );
-    camera.x = run.boat.x;
-    camera.y = run.boat.y;
+  // Everything a fresh level (or a restored one) needs on screen.
+  function enterLevelView() {
+    camera.x = run.boat.x; camera.y = run.boat.y;
     particles = createParticlePool();
     damageNumbers = createDamageNumberPool();
-    shake.trauma = 0;
-    hitStop.remaining = 0;
-    setStatus(levelStartStatus());
-    toast.classList.remove('show');
-    if (run.faction) showMatchupBriefing(run.faction);
+    sinkers.length = 0; rings.length = 0; wake.length = 0;
+    shake.trauma = 0; hitStop.remaining = 0;
+    dockKey = ''; announcedWeather = null;
     hubOverlay.classList.remove('show');
     document.body.classList.remove('in-hub');
+    document.body.classList.add('in-run');
     if (worldMap.isOpen()) worldMap.close(false);
-    updateHullBar();
-    updateSalvageCounter();
-    updateReefIndicator();
-    updateWeaponBar();
-    renderUpgradeStrip(); upgradeOverlay.hidden = true;
-    pendingChoice = null; paused = false; resumeIn = 0; pauseMenu.hidden = true;
+    toast.classList.remove('show');
+    upgradeOverlay.hidden = true;
+    summaryOverlay.classList.remove('show');
+    setStatus(levelStartStatus());
+    updateReefIndicator(); renderDock(); renderUpgradeStrip(); updateSurvivalHud();
+    paused = false; resumeIn = 0; pauseMenu.hidden = true;
     voyageActive = true;
+  }
+  function startRun(stage = selectedStage, levelIndex = selectedLevel, seed = nextRunSeed) {
+    run = createSurvivalRun(seed, resolveLoadout(meta), { stage, levelIndex });
+    pendingChoice = null;
+    enterLevelView();
     saveCurrentVoyage();
     sailing = true;
+    startCountdown();
+    if (run.faction) showMatchupBriefing(run.faction);
+    else showToast(`${stageLevelText()} — survive 10 waves! ⚔`, { ms: 2400 });
   }
-  // Setting sail with a voyage still saved: that voyage is abandoned (its
-  // banked Salvage is kept, as if you'd given up), after asking.
+  // Setting sail with a level still saved: that one is abandoned (half its
+  // Salvage is kept, as if you'd sunk), after asking.
   hubSetSailBtn.addEventListener('click', async () => {
     const saved = peekVoyage(window.localStorage);
     if (saved) {
-      if (!await askConfirm(`Abandon your voyage in progress (Stage ${saved.stage || 1} – Level ${saved.reefIndex + 1})? Salvage you've banked is kept.`, 'Abandon & set sail')) return;
+      if (!await askConfirm(`Abandon your level in progress (Stage ${saved.stage || 1} – Level ${saved.reefIndex + 1})? You keep half its Salvage.`, 'Abandon & set sail')) return;
       abandonSavedVoyage();
     }
     startRun();
   });
   function abandonSavedVoyage() {
     const got = loadVoyage(window.localStorage);
-    if (got) { recordRunResult(meta, got.run); saveMeta(window.localStorage, meta); }
+    if (got && !got.run.over) { sinkLevel(got.run); recordLevelResult(meta, got.run); saveMeta(window.localStorage, meta); }
     clearVoyage(window.localStorage);
   }
-  // Continue a saved voyage exactly where it was left.
+  // Continue a saved level exactly where it was left.
   function continueVoyage() {
     const got = loadVoyage(window.localStorage);
     if (!got) { clearVoyage(window.localStorage); renderContinue(); return; }
     run = got.run;
-    camera.x = run.boat.x; camera.y = run.boat.y;
-    particles = createParticlePool();
-    damageNumbers = createDamageNumberPool();
-    shake.trauma = 0; hitStop.remaining = 0;
-    aimTarget = null; aimHeading = null;
-    hubOverlay.classList.remove('show');
-    document.body.classList.remove('in-hub');
-    if (worldMap.isOpen()) worldMap.close(false);
-    setStatus(levelStartStatus());
-    updateHullBar(); updateSalvageCounter(); updateReefIndicator(); updateWeaponBar();
-    renderUpgradeStrip(); upgradeOverlay.hidden = true;
-    voyageActive = true; paused = false; pauseMenu.hidden = true;
     pendingChoice = null;
-    if (run.over) { sailing = false; showRunSummary(false); return; }
+    enterLevelView();
+    if (run.over) { sailing = false; showRunSummary(); return; }
     sailing = true;
     if (got.pendingChoice && got.pendingChoice.choices?.length) {
       offerChoices(got.pendingChoice.title, got.pendingChoice.sub, got.pendingChoice.choices);
@@ -1385,8 +1295,10 @@ export function startApp(root) {
     const saved = peekVoyage(window.localStorage);
     continueBtn.hidden = !saved;
     hubSetSailBtn.classList.toggle('secondary', !!saved);
-    hubSetSailBtn.textContent = saved ? 'New voyage' : '▶ Set Sail';
-    if (saved) continueBtn.querySelector('small').textContent = `Stage ${saved.stage || 1} · Level ${saved.reefIndex + 1}/${saved.reefCount || 5}${saved.over ? ' · sunk' : ''}`;
+    if (saved) {
+      hubSetSailBtn.textContent = 'New voyage';
+      continueBtn.querySelector('small').textContent = `Stage ${saved.stage || 1} · Level ${saved.reefIndex + 1}/${saved.reefCount || 5}${saved.over ? ' · sunk' : ''}`;
+    } else renderSailLabel();
   }
   continueBtn.addEventListener('click', continueVoyage);
 
@@ -1396,9 +1308,11 @@ export function startApp(root) {
     joystick.reset?.();
     pauseMenu.querySelector('#pm-where').textContent = stageLevelText();
     const kit = pauseMenu.querySelector('#pm-kit');
+    const sv = run.sv;
     const items = [
-      ...Object.entries(run.armaments || {}).map(([id, n]) => `${ARMAMENT_BY_ID[id].icon} ${ARMAMENT_BY_ID[id].name}${n > 1 ? ` Lv ${n}` : ''}`),
-      ...Object.entries(run.upgrades || {}).map(([id, n]) => `${UPGRADE_BY_ID[id].icon} ${UPGRADE_BY_ID[id].name}${n > 1 ? ` ×${n}` : ''}`),
+      ...Object.entries(sv.weapons).map(([id, n]) => (sv.evolved[id] ? `${SV_WEAPONS[id].evolve.icon} ${SV_WEAPONS[id].evolve.name}` : `${SV_WEAPONS[id].icon} ${SV_WEAPONS[id].name} Lv ${n}`)),
+      ...Object.entries(run.armaments || {}).map(([id, n]) => `${ARMAMENT_BY_ID[id].icon} ${ARMAMENT_BY_ID[id].name} Lv ${n}`),
+      ...Object.entries(sv.passives).map(([id, n]) => `${PASSIVE_BY_ID[id].icon} ${PASSIVE_BY_ID[id].name} Lv ${n}`),
     ];
     kit.replaceChildren(...items.map((t) => { const s = document.createElement('span'); s.textContent = t; return s; }));
     kit.hidden = !items.length;
@@ -1433,8 +1347,8 @@ export function startApp(root) {
     showToast('Voyage saved — Continue it from the harbour ⚓');
   });
   pauseMenu.querySelector('#pm-abandon').addEventListener('click', async () => {
-    if (!await askConfirm('Abandon this voyage? Salvage you have banked is kept; anything not yet banked is lost.', 'Abandon voyage')) return;
-    recordRunResult(meta, run); saveMeta(window.localStorage, meta);
+    if (!await askConfirm('Abandon this level? You keep half the Salvage you\'ve collected in it.', 'Abandon level')) return;
+    sinkLevel(run); recordLevelResult(meta, run); saveMeta(window.localStorage, meta);
     clearVoyage(window.localStorage);
     voyageActive = false; paused = false; pauseMenu.hidden = true;
     openHub();
@@ -1446,115 +1360,98 @@ export function startApp(root) {
   // Testing only (never reachable from the UI): sail straight into any
   // stage's level, skipping the unlock and the earlier levels.
   window.__shatteredReefSailStage = (stage, level = 0) => {
-    selectedStage = stage; startRun();
-    for (let i = 0; i < level; i++) { run.exitLocked = false; run.boat.x = run.exitWorld.x; run.boat.y = run.exitWorld.y; checkReachedExit(run); }
-    camera.x = run.boat.x; camera.y = run.boat.y;
-    updateReefIndicator(); setStatus(levelStartStatus());
+    selectedStage = stage; selectedLevel = level;
+    startRun(stage, level);
+    resumeIn = 0; countdownEl.hidden = true;
     return { stage: run.stage, level: run.reefIndex, biome: run.level.biomeId };
   };
 
-  // A voyage ends in exactly two ways: cleared every reef (`victory`) or
-  // sank before finishing one (`sunk`). Either way the same summary
-  // screen shows what's actually true of a permadeath run — Salvage only
-  // "counts" once it's banked (a completed reef's exit reached); whatever
-  // was still at risk in the reef the boat died in is lost, not just
-  // hidden, so a sunk run's `reefSalvage` (not yet folded into
-  // `bankedSalvage`) is shown as lost rather than silently dropped.
-  function showRunSummary(newlyUnlocked = false) {
+  // A level ends two ways: the last wave's warlord or boss sinks (cleared),
+  // or you do. Either way the haul is banked now (all of it on a win, half
+  // on a sinking) and the summary says what happened.
+  let lastResult = null;
+  function showRunSummary() {
     playMusic(null);
-    const heldNiche = Array.from(run.weapons.heldWeapons).filter((id) => id !== 'cannonballs');
     const victory = run.outcome === 'victory';
-    summaryTitle.textContent = victory ? `${stageName(run.stage)} conquered! ⚓` : `Sunk at ${stageLevelText()}`;
-    summaryRetryBtn.hidden = victory;
-    summaryBtn.textContent = victory ? 'Return to Harbour ⚓' : 'Give up · keep banked Salvage';
-    summaryBtn.classList.toggle('secondary', !victory);
-    const reefsCleared = victory ? run.reefCount : run.reefIndex;
-    summaryBody.innerHTML = victory ? `
-      <p>Levels cleared: ${reefsCleared} / ${run.reefCount}${run.retries ? ` · retries: ${run.retries}` : ''}</p>
-      ${newlyUnlocked ? `<p><strong>New island on your chart: ${stageName(meta.highestStageUnlocked)}!</strong></p>` : ''}
-      <p>Salvage banked this voyage: ${Math.round(run.bankedSalvage)}</p>
-      <p>Weapons found: ${heldNiche.length ? heldNiche.map((id) => getWeapon(id).name).join(', ') : 'None'}</p>
+    const sv = run.sv;
+    const nextOpen = victory && run.reefIndex < LEVELS_PER_STAGE - 1;
+    summaryTitle.textContent = victory
+      ? (run.reefIndex === LEVELS_PER_STAGE - 1 ? `${stageName(run.stage)} conquered! ⚓` : `Level ${run.reefIndex + 1} cleared! ⚓`)
+      : `Sunk on wave ${sv.wave + 1} of ${SURVIVAL.waves}`;
+    summaryRetryBtn.hidden = false;
+    summaryRetryBtn.textContent = victory ? (nextOpen ? `▶ Next: Level ${run.reefIndex + 2}${run.reefIndex + 1 === LEVELS_PER_STAGE - 1 ? ' ☠' : ''}` : `▶ Stage ${run.stage + 1}`) : '↻ Try again';
+    summaryBtn.textContent = 'Return to Harbour ⚓';
+    summaryBtn.classList.toggle('secondary', true);
+    const mm = Math.floor(sv.time / 60); const ss = String(Math.floor(sv.time % 60)).padStart(2, '0');
+    const kit = [
+      ...Object.entries(sv.weapons).map(([id, lv]) => (sv.evolved[id] ? `${SV_WEAPONS[id].evolve.icon} ${SV_WEAPONS[id].evolve.name}` : `${SV_WEAPONS[id].icon} ${SV_WEAPONS[id].name} ${lv}`)),
+      ...Object.entries(run.armaments || {}).map(([id, lv]) => `${ARMAMENT_BY_ID[id].icon} ${ARMAMENT_BY_ID[id].name} ${lv}`),
+    ];
+    summaryBody.innerHTML = `
+      <div class="sum-stats">
+        <span><b>${sv.kills.toLocaleString('en-GB')}</b><small>sunk</small></span>
+        <span><b>Lv ${sv.shipLevel}</b><small>ship</small></span>
+        <span><b>${mm}:${ss}</b><small>time</small></span>
+        <span><b>${Math.round(run.bankedSalvage)}</b><small>Salvage ⚓</small></span>
+      </div>
+      ${victory ? `<p>Level bonus: +${run.levelBonus || 0} Salvage</p>` : `<p class="lost">Half your haul went down with the ship (−${Math.round(run.lostSalvage || 0)})</p>`}
+      ${lastResult?.unlockedStage ? `<p><strong>New island on your chart: ${stageName(meta.highestStageUnlocked)}!</strong></p>` : ''}
+      ${lastResult?.unlockedLevel ? `<p><strong>Level ${run.reefIndex + 2} unlocked</strong></p>` : ''}
       ${run.bossDefeated ? `<p>${bossName(run)} sunk — 1 Kraken Scale earned 🦑</p>` : ''}
+      <p class="sum-kit"></p>
       <p>Salvage in the Harbour: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}</p>
-      <p class="level-codes selectable">Level codes: ${run.levelCodes.map((c) => `<code>${c}</code>`).join(' ')}</p>
-    ` : `
-      <p>Retry Level ${run.reefIndex + 1} on a new reef, with your hull repaired and the weapons you arrived with. Levels already cleared stay cleared.</p>
-      ${run.reefSalvage > 0 ? `<p class="lost">Salvage lost with the ship: ${Math.round(run.reefSalvage)}</p>` : ''}
-      <p>Salvage banked so far: ${Math.round(run.bankedSalvage)}</p>
     `;
+    summaryBody.querySelector('.sum-kit').textContent = kit.join(' · ');
     summaryOverlay.classList.add('show');
   }
-  // A victory banks the voyage into the persistent meta state at once. A
-  // sinking waits: the player may retry the level, and the voyage is only
-  // recorded when they give up (so nothing is counted twice).
   function endRun() {
-    if (run.outcome === 'victory') {
-      playVictory();
-      const unlockedBefore = meta.highestStageUnlocked;
-      recordRunResult(meta, run);
-      saveMeta(window.localStorage, meta);
-      clearVoyage(window.localStorage); voyageActive = false;
-      showRunSummary(meta.highestStageUnlocked > unlockedBefore);
-    } else {
-      playSunk();
-      saveCurrentVoyage(); // sunk: come back to the same retry / give-up choice
-      showRunSummary(false);
-    }
+    if (run.outcome === 'victory') playVictory(); else playSunk();
+    lastResult = recordLevelResult(meta, run);
+    saveMeta(window.localStorage, meta);
+    clearVoyage(window.localStorage); voyageActive = false;
+    showRunSummary();
   }
   summaryBtn.addEventListener('click', () => {
-    if (run.outcome === 'sunk') {
-      recordRunResult(meta, run);
-      saveMeta(window.localStorage, meta);
-    }
     clearVoyage(window.localStorage); voyageActive = false;
     summaryOverlay.classList.remove('show');
     openHub();
   });
   summaryRetryBtn.addEventListener('click', () => {
-    if (!retryLevel(run)) return;
     summaryOverlay.classList.remove('show');
-    camera.x = run.boat.x; camera.y = run.boat.y;
-    particles = createParticlePool();
-    damageNumbers = createDamageNumberPool();
-    shake.trauma = 0; hitStop.remaining = 0;
-    aimTarget = null; aimHeading = null;
-    setStatus(levelStartStatus());
-    showToast(`Level ${run.reefIndex + 1} — a new reef. Hull repaired ⚓`);
-    updateHullBar(); updateSalvageCounter(); updateReefIndicator(); updateWeaponBar();
-    renderUpgradeStrip(); upgradeOverlay.hidden = true;
-    sailing = true;
-    saveCurrentVoyage();
-    startCountdown();
+    rollNextRunSeed();
+    if (run.outcome === 'victory') {
+      if (run.reefIndex < LEVELS_PER_STAGE - 1) startRun(run.stage, run.reefIndex + 1);
+      else startRun(run.stage + 1, 0);
+    } else startRun(run.stage, run.reefIndex);
   });
 
   // A tiny debug hook for headless/automated testing — not user-facing,
   // costs nothing at runtime, and saves having to poke at internals.
   window.__shatteredReefDebug = () => ({
     boatX: run.boat.x, boatY: run.boat.y, heading: run.boat.heading,
-    hull: run.boat.health, chill: run.boat.chillRemaining || 0, afflictions: { ...(run.boat.afflictions || {}) }, biome: run.level?.biomeId, maxHull: run.boat.maxHull, cameraX: camera.x, cameraY: camera.y,
-    over: run.over, outcome: run.outcome, sailing, hubOpen: hubOverlay.classList.contains('show'),
-    stage: run.stage, highestStageUnlocked: meta.highestStageUnlocked, reefIndex: run.reefIndex, reefCount: run.reefCount, levelCode: run.levelCode, levelCodes: run.levelCodes.slice(),
-    exitX: run.exitWorld.x, exitY: run.exitWorld.y,
-    bankedSalvage: run.bankedSalvage, reefSalvage: run.reefSalvage,
-    salvage: totalSalvage(run), activeWeapon: run.weapons.activeWeaponId,
+    hull: run.boat.health, maxHull: run.boat.maxHull, chill: run.boat.chillRemaining || 0, afflictions: { ...(run.boat.afflictions || {}) },
+    biome: run.level?.biomeId, cameraX: camera.x, cameraY: camera.y,
+    over: run.over, outcome: run.outcome, sailing, paused, hubOpen: hubOverlay.classList.contains('show'),
+    stage: run.stage, reefIndex: run.reefIndex, reefCount: run.reefCount, levelCode: run.levelCode,
+    highestStageUnlocked: meta.highestStageUnlocked, levelsCleared: { ...meta.levelsCleared },
+    mapW: run.widthPx, mapH: run.heightPx,
+    bankedSalvage: run.bankedSalvage, reefSalvage: run.reefSalvage, salvage: run.reefSalvage,
+    sv: run.sv && {
+      wave: run.sv.wave, waveTime: run.sv.waveTime, time: run.sv.time, xp: run.sv.xp, xpNeed: run.sv.xpNeed, shipLevel: run.sv.shipLevel,
+      pendingLevelUps: run.sv.pendingLevelUps, pendingChests: run.sv.pendingChests, kills: run.sv.kills, weapons: { ...run.sv.weapons },
+      evolved: { ...run.sv.evolved }, passives: { ...run.sv.passives }, pools: run.sv.pools.length, bossId: run.sv.bossId, finished: run.sv.finished,
+    },
     enemyCount: run.enemies.filter((e) => e.health > 0).length,
     projectileCount: run.weapons.projectiles.length,
     enemies: run.enemies.filter((e) => e.health > 0).map((e) => ({
-      id: e.id, defId: e.defId, aggro: e.aggro, x: e.x, y: e.y, health: e.health, invulnerable: e.invulnerable,
-      isBoss: e.isBoss, phaseIndex: e.phaseIndex, diveState: e.diveState, sharkState: e.sharkState, submergedState: e.submergedState, gunWindup: e.gunWindup, phased: !!e.phased, singing: !!e.singing,
+      id: e.id, defId: e.defId, x: e.x, y: e.y, health: e.health, maxHealth: e.maxHealth, isBoss: e.isBoss, elite: !!e.elite, warlord: !!e.warlord, invulnerable: e.invulnerable,
     })),
-    weather: run.weather && run.weather.active ? { id: run.weather.active.id, time: run.weather.time, total: run.weather.active.total, floes: run.weather.floes.length, spouts: run.weather.spouts.length, strikes: run.weather.strikes.length, drops: run.weather.drops.length, whirl: !!run.weather.whirl } : null, sightMult: run.boat.sightMult,
-    upgrades: { ...(run.upgrades || {}) }, armaments: { ...(run.armaments || {}) }, lightningArcs: lightning.length,
-    seals: run.enemies.filter((e) => e.seal && e.health > 0).length,
-    boss: (() => { const b = run.enemies.find((e) => e.isBoss); return b ? { id: b.id, health: b.health, maxHealth: b.maxHealth, warded: !!b.warded, enraged: !!b.enraged } : null; })(),
-    choice: upgradeOverlay.hidden ? null : { title: upgradeOverlay.querySelector('#up-title').textContent, cards: [...upgradeOverlay.querySelectorAll('.up-card')].map((c) => c.dataset.armament ? `arm:${c.dataset.armament}` : `up:${c.dataset.upgrade}`) }, aimTargetId: aimTarget ? aimTarget.id : null, suggestedWeapon, enemyShots: run.enemyProjectiles.length, volleysAtYou: run.volleysAtYou || 0,
-    firing: isFiring, cooldownRemaining: run.weapons.cooldownRemaining,
-    heldWeapons: Array.from(run.weapons.heldWeapons),
-    ammo: { ...run.weapons.ammo },
+    weather: run.weather && run.weather.active ? { id: run.weather.active.id } : null,
+    armaments: { ...(run.armaments || {}) },
+    choice: upgradeOverlay.hidden ? null : { title: upgradeOverlay.querySelector('#up-title').textContent, cards: [...upgradeOverlay.querySelectorAll('.up-card')].map((c) => c.dataset.card) },
+    enemyShots: run.enemyProjectiles.length,
     pickupsRemaining: run.pickups.filter((p) => !p.collected).length,
-    pickups: run.pickups.map((p) => ({
-      kind: p.kind, weaponId: p.weaponId, x: p.x, y: p.y, collected: p.collected,
-    })),
+    pickups: run.pickups.filter((p) => !p.collected).map((p) => ({ kind: p.kind, x: p.x, y: p.y, value: p.value })),
     meta: {
       salvage: meta.salvage, ownedHulls: meta.ownedHulls, selectedHull: meta.selectedHull,
       ownedCargoTiers: meta.ownedCargoTiers, ownedCharms: meta.ownedCharms, stats: meta.stats,
@@ -1563,11 +1460,20 @@ export function startApp(root) {
     },
     hudInsets: { ...hudInsets },
     boatScreen: lastView && { x: run.boat.x + lastView.translateX, y: run.boat.y + lastView.translateY },
-    faction: run.faction, bossDefeated: run.bossDefeated, craftedDamageMultipliers: run.craftedDamageMultipliers,
+    faction: run.faction, bossDefeated: run.bossDefeated,
     particleCount: particles.length, damageNumberCount: damageNumbers.length,
-    damageNumbers: damageNumbers.map((d) => ({ amount: d.amount, crit: d.crit, triangle: d.triangle, incoming: d.incoming })),
     shakeTrauma: shake.trauma, hitStopRemaining: hitStop.remaining, muted: isMuted(), audio: audioLevel(), music: currentMusic(),
+    frameMs: perf.avg, frameMax: perf.max,
   });
+  // Testing-only (never reachable from the UI): jump the level clock to a
+  // wave, grant XP, or queue a chest — so a playtest can reach the boss.
+  window.__shatteredReefSv = {
+    toWave: (n) => { run.sv.wave = Math.max(0, n - 1); run.sv.waveTime = 0; return run.sv.wave; },
+    addXp: (n) => { addXp(run, n); maybeOfferChoice(); return run.sv.shipLevel; },
+    chest: () => { run.sv.pendingChests += 1; maybeOfferChoice(); },
+    pick: (i = 0) => { const b = upgradeOverlay.querySelectorAll('.up-card')[i]; if (b) b.click(); return !!b; },
+    give: (kind, id, times = 1) => { for (let k = 0; k < times; k++) applyChoice(run, { kind, id }); renderDock(); renderUpgradeStrip(); return { ...run.sv.weapons }; },
+  };
   // Testing-only: teleports the boat, since a headless test driving the
   // touch joystick can't reliably pathfind a maze it has no map of. Not
   // reachable from any in-game UI.
@@ -1605,6 +1511,7 @@ export function startApp(root) {
   window.__shatteredReefSpawnEnemy = (defId, x, y, health) => {
     const e = createEnemy(defId, x, y);
     if (health != null) e.health = health;
+    e.hunting = true;
     run.enemies.push(e);
     return e.id;
   };
@@ -1625,19 +1532,20 @@ export function startApp(root) {
     const amb = ambientLight(run, runBiome);
     const enemyGlows = [];
     for (const e of run.enemies) {
-      if (e.health <= 0) continue;
+      if (e.health <= 0 || enemyGlows.length >= 28) continue;
+      if (e.x < visible.left - 30 || e.x > visible.right + 30 || e.y < visible.top - 30 || e.y > visible.bottom + 30) continue;
       const g = getEnemy(e.defId).glow;
-      if (g && !e.invulnerable) enemyGlows.push({ x: e.x, y: e.y, r: g * 1.6, rgb: hexRgb(e.colorHex || enemyColor(e)), phase: e.id });
+      if (g && !e.invulnerable) enemyGlows.push({ x: e.x, y: e.y, r: g * 1.6, rgb: e._rgb || (e._rgb = hexRgb(e.colorHex || enemyColor(e))), phase: e.id });
     }
     if (amb.dark && amb.light != null) {
       const lights = [{ x: run.boat.x, y: run.boat.y, r: amb.light * 1.15 }];
       if (!run.over || run.outcome !== 'sunk') lights.push({ x: run.boat.x, y: run.boat.y, r: amb.light * 0.55 });
-      lights.push({ x: run.exitWorld.x, y: run.exitWorld.y, r: 80, k: 0.8 });
-      for (const p of run.pickups) if (!p.collected) lights.push({ x: p.x, y: p.y, r: p.kind === 'chest' ? 60 : 30, k: 0.7 });
+      for (const p of run.pickups) if (!p.collected && (p.kind === 'chest' || p.kind === 'gem' && p.value >= 5)) lights.push({ x: p.x, y: p.y, r: p.kind === 'chest' ? 60 : 24, k: 0.7 });
       for (const gl of terrainGlows) lights.push({ x: gl.x, y: gl.y, r: gl.r * 1.4, k: 0.7 });
       for (const gl of enemyGlows) lights.push({ x: gl.x, y: gl.y, r: gl.r, k: 0.85 });
       for (const s of run.enemyProjectiles) lights.push({ x: s.x, y: s.y, r: 26, k: 0.6 });
-      for (const p of run.weapons.projectiles) lights.push({ x: p.x, y: p.y, r: 22, k: 0.5 });
+      for (let k = 0; k < Math.min(30, run.weapons.projectiles.length); k++) { const p = run.weapons.projectiles[k]; lights.push({ x: p.x, y: p.y, r: 22, k: 0.5 }); }
+      if (run.sv) for (const pl of run.sv.pools) lights.push({ x: pl.x, y: pl.y, r: pl.r * 1.6, k: 0.8 });
       for (const b of bolts) lights.push({ x: b.x, y: b.y, r: 140, k: 1 });
       if (run.weather?.active) {
         for (const st of run.weather.strikes) lights.push({ x: st.x, y: st.y, r: st.r * 1.6, k: 0.7 });
@@ -1660,6 +1568,11 @@ export function startApp(root) {
   }
 
   let lastTime = performance.now();
+  // Frame timing (2026-10-04 graphics pass): the simulation runs on a
+  // smoothed dt, so uneven rAF spacing on phones doesn't show as stutter
+  // in the camera; real hitches still pass straight through.
+  let smoothDt = 1 / 60;
+  const perf = { avg: 16, max: 0, n: 0 };
   const statusToastShown = new Set();
   let dotAccum = 0; let dotTimer = 0;
   const STATUS_TOASTS = [
@@ -1669,289 +1582,166 @@ export function startApp(root) {
     ['shock', '⚡ Shocked — your sails stall for a moment'],
     ['ink', '🦑 Ink! You can barely see for a few seconds'],
   ];
+  const fireSoundCd = {};
+  let explosionSoundCd = 0; let coinSoundCd = 0; let hullFlash = 0;
+  const lookAhead = { x: 0, y: 0 };
+  // Enemies appear just beyond the screen's corners.
+  function spawnDistance() {
+    return Math.hypot(window.innerWidth, viewH()) / 2 + SURVIVAL.spawnMargin;
+  }
+
+  // Everything one simulated frame did, turned into sound, light and HUD.
+  function feedback(ev, now) {
+    const b = run.boat;
+    if (ev.wallDamage > 0) {
+      flashHit(); hullFlash = 0.4;
+      const intensity = Math.min(1, ev.wallDamage / 15);
+      addShake(shake, 0.25 + intensity * 0.5);
+      spawnSplash(particles, b.x, b.y, Math.random, 8);
+      playWallImpact(intensity);
+    }
+    if (ev.dot > 0) {
+      dotAccum += ev.dot; dotTimer -= 1 / 60;
+      if (dotTimer <= 0) { dotTimer = 0.5; spawnDamageNumber(damageNumbers, b.x - 18, b.y - BOAT_RADIUS - 6, dotAccum, { incoming: true }); dotAccum = 0; }
+    }
+    for (const [kind, msg] of STATUS_TOASTS) {
+      if (!statusToastShown.has(kind) && hasAffliction(b, kind)) { statusToastShown.add(kind); showToast(msg); }
+    }
+    handleWeather(ev.weather);
+    // Your guns.
+    for (const f of ev.fired) {
+      if ((fireSoundCd[f.id] || 0) <= now) { fireSoundCd[f.id] = now + 90; playFire(f.id === 'flame_barrels' ? 'flame_barrels' : f.id); }
+      spawnMuzzleFlash(particles, b.x + Math.cos(f.heading) * BOAT_RADIUS, b.y + Math.sin(f.heading) * BOAT_RADIUS, f.heading, getWeapon(f.id).color, Math.random);
+    }
+    for (const id of ev.armFired) {
+      if ((fireSoundCd[id] || 0) <= now) { fireSoundCd[id] = now + 120; playFire(id); }
+      if (id === 'arm_broadside') addShake(shake, 0.08);
+    }
+    for (const x of ev.explosions) {
+      if (x.delayed) continue;
+      const fire = x.weaponId === 'flame_barrels';
+      if (particles.length < 460) spawnExplosion(particles, x.x, x.y, fire ? 16 : x.r * 0.7, Math.random);
+      rings.push({ x: x.x, y: x.y, life: 0.35, maxLife: 0.35, r: x.r * 1.1, color: fire ? '255, 150, 60' : '210, 245, 255' });
+      if (explosionSoundCd <= 0) { explosionSoundCd = 0.08; playExplosion(); }
+      addShake(shake, x.fireShip ? 0.5 : 0.08);
+    }
+    for (const h of ev.hits) processHitEvent(h, { burn: !!h.burn, ram: !!h.ram });
+    for (const a of ev.arcs) lightning.push({ ...a, life: 0.22, maxLife: 0.22, jag: Array.from({ length: 9 }, Math.random) });
+    if (ev.arcs.length) playZap();
+    // Their guns, their teeth.
+    for (const sp of ev.shots.splashes) {
+      if (sp.lob) { spawnExplosion(particles, sp.tx, sp.ty, sp.blast, Math.random); spawnSplash(particles, sp.tx, sp.ty, Math.random, 10); playExplosion(); addShake(shake, 0.15); }
+      else if (particles.length < 460) spawnSplash(particles, sp.x, sp.y, Math.random, 4);
+    }
+    let hurt = 0;
+    for (const h of ev.shots.hits) {
+      hurt += h.damage;
+      const m = incomingTriangleMultiplier(h.shot.faction, run.faction);
+      spawnDamageNumber(damageNumbers, b.x + 24, b.y - BOAT_RADIUS - 8, h.damage, { incoming: true, triangle: m > 1 ? 'danger' : m < 1 ? 'resist' : null });
+      spawnHitSpark(particles, h.shot.x, h.shot.y, '#ffb347', Math.random);
+    }
+    for (const c of ev.contacts) {
+      hurt += c.damage;
+      if (c.enemy.detonated) {
+        spawnExplosion(particles, c.enemy.x, c.enemy.y, 40, Math.random);
+        playExplosion(); addShake(shake, 0.6);
+        showToast('A fire ship rammed you! Sink them at range 🔥');
+      }
+      const m = incomingTriangleMultiplier(c.enemy.faction, run.faction);
+      spawnDamageNumber(damageNumbers, b.x - 30, b.y - BOAT_RADIUS - 8, c.damage, { incoming: true, triangle: m > 1 ? 'danger' : m < 1 ? 'resist' : null });
+    }
+    if (hurt > 0) { flashHit(); hullFlash = 0.5; addShake(shake, Math.min(0.5, 0.15 + hurt / 40)); playWallImpact(Math.min(1, hurt / 12)); }
+    // The director's set pieces.
+    const d = ev.director;
+    if (d.waveStarted != null) {
+      renderWavePips();
+      if (d.waveStarted > 0) {
+        const last = d.waveStarted === SURVIVAL.waves - 1;
+        showToast(last ? (run.sv.bossDefId ? `☠ Final wave — ${getEnemy(run.sv.bossDefId).name} is coming!` : '⚔ Final wave — the warlord is coming!') : `Wave ${d.waveStarted + 1} / ${SURVIVAL.waves}`, { ms: 1800 });
+        playReefCleared();
+      }
+    }
+    if (d.encircle && !d.boss) { showToast('⚠️ Surrounded! Break out!', { ms: 1600 }); playWeatherWarning(); }
+    if (d.elites.length) { showToast(`⭐ ${d.elites.length > 1 ? 'Elites approach' : 'An elite approaches'} — sink it for a chest!`, { ms: 2200 }); playBossPhaseChange(); }
+    if (d.boss) {
+      addShake(shake, 0.6); playBossPhaseChange();
+      if (d.boss.isBoss) d.boss._lastAnnouncedPhase = d.boss.phaseIndex;
+    }
+    if (ev.summoned) playBossPhaseChange();
+    // Loot.
+    const pk = ev.pickups;
+    if (pk.xp) updateSurvivalHud();
+    if (pk.salvage && coinSoundCd <= 0) { coinSoundCd = 0.07; playPickupSalvage(); }
+    if (pk.repaired > 0) { spawnDamageNumber(damageNumbers, b.x, b.y - BOAT_RADIUS - 10, pk.repaired, { heal: true }); playRevive(); }
+    if (pk.magnet) { showToast('🧲 Lodestone! Every gem comes to you'); playPickupWeapon(); rings.push({ x: b.x, y: b.y, life: 0.8, maxLife: 0.8, r: 260, color: '160, 220, 255' }); }
+    if (pk.chests) { run.sv.pendingChests += pk.chests; spawnExplosion(particles, b.x, b.y, 18, Math.random); }
+    if (ev.levelUps) rings.push({ x: b.x, y: b.y, life: 0.5, maxLife: 0.5, r: 70, color: '150, 230, 255' });
+    // Boss phase changes and enrage.
+    for (const e of run.enemies) {
+      if (!e.isBoss || e.health <= 0) continue;
+      if (e._lastAnnouncedPhase === undefined) e._lastAnnouncedPhase = e.phaseIndex;
+      else if (e.phaseIndex !== e._lastAnnouncedPhase) {
+        e._lastAnnouncedPhase = e.phaseIndex;
+        showToast(`${getEnemy(e.defId).name} changes tactics — ${getWeapon(e.counter).name} hurts it most ⚓`);
+        playBossPhaseChange(); addShake(shake, 0.3);
+      }
+      if (e.enraged && !e._enrageAnnounced) {
+        e._enrageAnnounced = true;
+        showToast(`${getEnemy(e.defId).name} is enraged! 🔥`);
+        playBossPhaseChange(); addShake(shake, 0.5);
+      }
+    }
+  }
+
   function frame(now) {
-    const rawDt = Math.min(0.05, (now - lastTime) / 1000); // clamp so a tab-switch stall can't fling the boat
+    const realDt = Math.min(0.05, (now - lastTime) / 1000); // clamp so a tab-switch stall can't fling the boat
     lastTime = now;
+    smoothDt += (realDt - smoothDt) * 0.3;
+    const rawDt = Math.abs(realDt - smoothDt) > 0.012 ? realDt : smoothDt;
+    perf.avg += (realDt * 1000 - perf.avg) * 0.05; perf.max = Math.max(perf.max * 0.995, realDt * 1000);
     // Reef Defence (td/tdMode.mjs) owns the canvas while it's running.
     if (defence.active) { defence.frame(now, rawDt); requestAnimationFrame(frame); return; }
-    // Hit-stop (engine/juice.mjs) only ever freezes active gameplay
-    // simulation, never the Hub/summary screens or the juice systems
-    // themselves — a brief freeze on a big hit should still let its own
-    // particles/shake play out smoothly rather than freezing with them.
     if (resumeIn > 0 && !paused) {
       resumeIn -= rawDt;
       countdownEl.textContent = resumeIn > 1 ? '3' : resumeIn > 0.5 ? '2' : '1';
       if (resumeIn <= 0) countdownEl.hidden = true;
     }
-    const live = sailing && !run.over && !paused && resumeIn <= 0;
+    const live = sailing && !run.over && !paused && resumeIn <= 0 && upgradeOverlay.hidden;
     const showPause = sailing && !run.over;
     if (pauseButton.hidden === showPause) pauseButton.hidden = !showPause;
     const dt = live ? applyHitStop(hitStop, rawDt) : rawDt;
+    killSoundCd -= rawDt; hitSoundCd -= rawDt; explosionSoundCd -= rawDt; coinSoundCd -= rawDt; hullFlash = Math.max(0, hullFlash - rawDt * 2);
 
-    if (live) {
+    if (live && dt > 0 && run.sv) {
       autosaveTimer += rawDt;
       if (autosaveTimer > 6) { autosaveTimer = 0; saveCurrentVoyage(); }
-      const wmods = weatherModifiers(run.weather);
-      run.boat.sightMult = wmods.sight;
-      const tuning = statusTuning(run.tuning, run.boat, wmods.turn);
-
-      const vec = joystick.getVector();
-      stepBoat(run.boat, vec, dt, tuning);
-      handleWeather(stepWeather(run, dt));
-      const impactSpeed = resolveCoastCollision(run.boat, BOAT_RADIUS, run.coast);
-      const damage = applyWallImpactDamage(run.boat, impactSpeed);
-      if (damage > 0) {
-        updateHullBar();
-        flashHit();
-        const intensity = Math.min(1, damage / 15);
-        addShake(shake, 0.25 + intensity * 0.5);
-        spawnSplash(particles, run.boat.x, run.boat.y, Math.random, 8);
-        playWallImpact(intensity);
-      }
-
-      const dot = tickBoatStatus(run.boat, dt);
-      if (dot > 0) {
-        dotAccum += dot; dotTimer -= dt;
-        if (dotTimer <= 0) {
-          dotTimer = 0.5;
-          spawnDamageNumber(damageNumbers, run.boat.x - 18, run.boat.y - BOAT_RADIUS - 6, dotAccum, { incoming: true });
-          dotAccum = 0;
-          updateHullBar();
-        }
-      }
-      // Explain each status the first time it happens.
-      for (const [kind, msg] of STATUS_TOASTS) {
-        if (!statusToastShown.has(kind) && hasAffliction(run.boat, kind)) { statusToastShown.add(kind); showToast(msg); }
-      }
-
-      updateAim();
-      updateCounterHint();
-      playMusic(musicFor(run.level?.biomeId, !!run.lair));
-      isFiring = aimHeading != null;
-      if (isFiring) {
-        const chosen = run.weapons.activeWeaponId;
-        run.weapons.activeWeaponId = fireWeaponId;
-        const fired = tryFire(run.weapons, run.boat.x, run.boat.y, computeFireHeading());
-        run.weapons.activeWeaponId = chosen;
-        if (fired) {
-          if (fireWeaponId !== WEAPON_IDS.CANNONBALLS) updateWeaponBar();
-          playFire(fireWeaponId);
-          const bx = run.boat.x + Math.cos(aimHeading) * BOAT_RADIUS; const by = run.boat.y + Math.sin(aimHeading) * BOAT_RADIUS;
-          spawnMuzzleFlash(particles, bx, by, aimHeading, getWeapon(fireWeaponId).color, Math.random);
-        }
-      }
-      stepCombat(run.weapons, dt, run.grid, run.tileSize, run.enemies);
-      if (stepAmmoRegen(run.weapons, dt)) updateWeaponBar();
-      updateEnemies(run.enemies, run.boat, dt, run.grid, run.tileSize, run.coast);
-      if (stepSummons(run.enemies, dt).length) playBossPhaseChange();
-      trackEnemyMotion(run.enemies, dt);
-      // Armaments (treasure-chest weapons) fire on their own.
-      if (wardClinkCooldown > 0) wardClinkCooldown -= dt;
-      const armStep = stepArmaments(run, dt, { grid: run.grid, tileSize: run.tileSize, coast: run.coast }, { t: now / 1000 });
-      for (const id of armStep.fired) {
-        playFire(id);
-        if (id === 'arm_broadside') addShake(shake, 0.15);
-      }
-      let armSalvage = 0;
-      for (const ev of armStep.events) armSalvage += processHitEvent(ev);
-      if (armSalvage > 0) { addSalvage(run, armSalvage); updateSalvageCounter(); }
-      // Boss enrage (below half hull): announce it once.
-      for (const e of run.enemies) {
-        if (e.isBoss && e.enraged && !e._enrageAnnounced && e.health > 0) {
-          e._enrageAnnounced = true;
-          showToast(`${getEnemy(e.defId).name} is enraged! 🔥`);
-          playBossPhaseChange(); addShake(shake, 0.5);
-        }
-      }
-      // Enemy gunnery: wind-up, fire, and shots in flight.
-      const world = { grid: run.grid, tileSize: run.tileSize, coast: run.coast, ricochet: run.ricochet || 0 };
-      const volleys = updateEnemyGuns(run.enemies, run.boat, dt, world, run.enemyProjectiles);
-      if (volleys > 0) { playEnemyFire(); run.volleysAtYou = (run.volleysAtYou || 0) + volleys; }
-      const shotResult = stepEnemyProjectiles(run.enemyProjectiles, run.boat, BOAT_RADIUS, dt, world, incomingMultiplierFor(run.faction));
-      for (const sp of shotResult.splashes) {
-        if (sp.lob) { spawnExplosion(particles, sp.tx, sp.ty, sp.blast, Math.random); spawnSplash(particles, sp.tx, sp.ty, Math.random, 10); playExplosion(); addShake(shake, 0.15); }
-        else spawnSplash(particles, sp.x, sp.y, Math.random, 5);
-      }
-      if (shotResult.hits.length) {
-        for (const h of shotResult.hits) {
-          const m = incomingTriangleMultiplier(h.shot.faction, run.faction);
-          spawnDamageNumber(damageNumbers, run.boat.x + 24, run.boat.y - BOAT_RADIUS - 8, h.damage, {
-            incoming: true, triangle: m > 1 ? 'danger' : m < 1 ? 'resist' : null,
-          });
-          spawnHitSpark(particles, h.shot.x, h.shot.y, '#ffb347', Math.random);
-        }
-        updateHullBar();
-        flashHit();
-        addShake(shake, 0.35);
-        playWallImpact(0.7);
-      }
-
-      // The Kraken's Anchor announces its own phase swaps (submerged/
-      // Depth-Charges <-> tank/Flame-Barrels) — the whole point of the
-      // mechanic is "your weapon just stopped working, swap," which is
-      // silent and easy to miss without an explicit cue. `_lastAnnouncedPhase`
-      // is transient render/UI state kept directly on the enemy object
-      // (never read by engine/enemies.mjs itself), initialized on first
-      // sight rather than at spawn so it doesn't fire a false "swap" the
-      // instant the boss appears.
-      for (const enemy of run.enemies) {
-        if (!enemy.isBoss || enemy.health <= 0) continue;
-        if (enemy._lastAnnouncedPhase === undefined) {
-          enemy._lastAnnouncedPhase = enemy.phaseIndex;
-        } else if (enemy.phaseIndex !== enemy._lastAnnouncedPhase) {
-          enemy._lastAnnouncedPhase = enemy.phaseIndex;
-          showToast(`${getEnemy(enemy.defId).name} changes tactics — ${getWeapon(enemy.counter).name} hurts it most ⚓`);
-          playBossPhaseChange();
-          addShake(shake, 0.3);
-        }
-      }
-
-      // Depth Charges detonate as an AoE rather than a per-enemy direct
-      // hit, so their "something exploded" feedback (a big particle ring +
-      // boom) is tied to the projectile itself going spent, not to
-      // resolveHits' per-enemy events below — it should fire even against
-      // open water with nothing in the blast.
-      for (const p of run.weapons.projectiles) {
-        if (p.spent && !p.detonated && getWeapon(p.weaponId).kind === 'lobbed') {
-          spawnExplosion(particles, p.x, p.y, p.blastRadius || 28, Math.random);
-          addShake(shake, 0.5);
-          playExplosion();
-        }
-      }
-
-      let salvageGained = 0;
-      const hitEvents = resolveHits(
-        run.weapons, run.enemies, currentCounter,
-        factionMultiplierFor(run.faction), craftedMultiplierFor(run.craftedDamageMultipliers)
-      );
-      cleanupProjectiles(run.weapons);
-      for (const ev of hitEvents) salvageGained += processHitEvent(ev);
-      // St Elmo's Fire: cannonball hits arc lightning on.
-      const chain = chainLightning(run, hitEvents);
-      for (const ev of chain.events) salvageGained += processHitEvent(ev);
-      for (const a of chain.arcs) lightning.push({ ...a, life: 0.22, maxLife: 0.22, jag: Array.from({ length: 9 }, Math.random) });
-      if (chain.arcs.length) playZap();
-      for (const enemy of run.enemies) {
-        const burnEvent = stepBurn(enemy, dt);
-        if (burnEvent) salvageGained += processHitEvent(burnEvent, { burn: true });
-      }
-      // Iron Ram (upgrade): touching an enemy hurts it.
-      if (run.ramDamage) {
-        for (const e of run.enemies) {
-          if (e.health <= 0 || e.invulnerable || e.warded || (e.ramCooldown || 0) > 0) continue;
-          if (Math.hypot(e.x - run.boat.x, e.y - run.boat.y) > e.radius + BOAT_RADIUS + 2) continue;
-          e.ramCooldown = 0.8;
-          const killed = applyDamageToEnemy(e, run.ramDamage);
-          salvageGained += processHitEvent({ enemy: e, weaponId: 'cannonballs', damage: run.ramDamage, killed }, { ram: true });
-        }
-        for (const e of run.enemies) if (e.ramCooldown > 0) e.ramCooldown -= dt;
-      }
-      // Bilge Pumps (upgrade): slow hull repair.
-      if (run.hullRegenPerSecond && run.boat.health < run.boat.maxHull) {
-        run.boat.health = Math.min(run.boat.maxHull, run.boat.health + run.hullRegenPerSecond * dt);
-        hullRegenUiTimer -= dt;
-        if (hullRegenUiTimer <= 0) { hullRegenUiTimer = 0.5; updateHullBar(); }
-      }
-      if (salvageGained > 0) {
-        addSalvage(run, salvageGained);
-        updateSalvageCounter();
-      }
-
-      // The triangle applies to damage you TAKE too (engine/enemies.mjs
-      // incomingMultiplierFor). Each hit floats a number over the boat, so
-      // "your predator hits harder" is visible, not just a faster hull bar.
-      const contactMult = incomingMultiplierFor(run.faction);
-      const contactEvents = resolveEnemyContactEvents(run.enemies, run.boat, BOAT_RADIUS, (e) => contactMult(e) * (run.contactDamageTaken ?? 1));
-      let contactDamage = 0;
-      for (const ev of contactEvents) {
-        contactDamage += ev.damage;
-        if (ev.enemy.detonated) {
-          spawnExplosion(particles, ev.enemy.x, ev.enemy.y, 40, Math.random);
-          playExplosion(); addShake(shake, 0.6);
-          showToast('A fire ship rammed you! Sink them at range 🔥');
-        }
-        const m = incomingTriangleMultiplier(ev.enemy.faction, run.faction);
-        // Offset left of the boat: an enemy touching the boat spawns its own
-        // (outgoing) numbers at nearly the same point, and the two used to
-        // overprint each other.
-        spawnDamageNumber(damageNumbers, run.boat.x - 30, run.boat.y - BOAT_RADIUS - 8, ev.damage, {
-          incoming: true,
-          triangle: m > 1 ? 'danger' : m < 1 ? 'resist' : null,
-        });
-      }
-      if (contactDamage > 0) {
-        updateHullBar();
-        flashHit();
-        addShake(shake, 0.3);
-        playWallImpact(Math.min(1, contactDamage / 10));
-      }
-
-      const pickupEvents = collectPickups(run.pickups, run.boat, BOAT_RADIUS * (run.pickupReach || 1), run.weapons);
-      for (const ev of pickupEvents) {
-        if (ev.kind === PICKUP_KINDS.WEAPON_CACHE) {
-          updateWeaponBar();
-          showToast(ev.freshUnlock ? `New weapon: ${getWeapon(ev.weaponId).name}! ⚓` : `${getWeapon(ev.weaponId).name} restocked ⚓`);
-          playPickupWeapon();
-        } else if (ev.kind === PICKUP_KINDS.CHEST) {
-          spawnExplosion(particles, run.boat.x, run.boat.y, 18, Math.random);
-          offerTreasure();
-        } else if (ev.kind === PICKUP_KINDS.REPAIR) {
-          updateHullBar();
-          spawnDamageNumber(damageNumbers, run.boat.x, run.boat.y - BOAT_RADIUS - 10, ev.amount, { heal: true });
-          spawnSplash(particles, run.boat.x, run.boat.y, Math.random, 10);
-          showToast('Hull repaired ⚓');
-          playRevive();
-        } else if (ev.kind === PICKUP_KINDS.SALVAGE) {
-          addSalvage(run, ev.amount);
-          updateSalvageCounter();
-          playPickupSalvage();
-        }
-      }
-
-      // checkSunk has three outcomes: false (nothing happened), true (the
-      // voyage is over — bank stats and show the summary), or the string
-      // 'revived' (the Last Gasp charm patched the boat through at 1 hull
-      // instead — the run continues, so this must NOT be treated as a
-      // truthy "game over", which the old plain `if (checkSunk(run))`
-      // check would have done).
+      const ev = stepSurvivalFrame(run, dt, joystick.getVector(), { spawnDist: spawnDistance(), biome: runBiome, rng: Math.random, t: now / 1000 });
+      feedback(ev, now);
+      playMusic(musicFor(run.level?.biomeId, run.sv.wave >= SURVIVAL.waves - 1 && !!run.sv.bossDefId));
+      updateSurvivalHud(); renderDock(); renderUpgradeStrip();
       const sunkResult = checkSunk(run);
       if (sunkResult === true) {
         sailing = false;
-        spawnExplosion(particles, run.boat.x, run.boat.y, 24, Math.random);
-        addShake(shake, 0.7);
-        endRun();
+        sinkLevel(run);
+        spawnExplosion(particles, run.boat.x, run.boat.y, 30, Math.random);
+        rings.push({ x: run.boat.x, y: run.boat.y, life: 0.8, maxLife: 0.8, r: 120, color: '255, 120, 80' });
+        addShake(shake, 0.8);
+        setTimeout(endRun, 900);
       } else if (sunkResult === 'revived') {
-        updateHullBar();
-        flashHit();
-        addShake(shake, 0.4);
-        playRevive();
+        flashHit(); addShake(shake, 0.4); playRevive();
         showToast('Last Gasp! Patched through at 1 hull ⚓');
-      } else {
-        const bankedThisReef = run.reefSalvage;
-        const reefResult = checkReachedExit(run);
-        if (reefResult === 'victory') {
-          sailing = false;
-          endRun();
-        } else if (reefResult === 'advanced') {
-          camera.x = run.boat.x;
-          camera.y = run.boat.y;
-          setStatus(levelStartStatus());
-          // The Kraken's Anchor is a chance-based spawn on the final reef
-          // (see data/enemies.mjs), so a voyage may or may not meet it —
-          // when it does, fold the warning into the same toast as the
-          // reef-cleared message rather than a second toast that would
-          // just overwrite this one a moment later.
-          const boss = run.enemies.find((e) => e.isBoss);
-          if (boss) boss._lastAnnouncedPhase = boss.phaseIndex; // don't fire a false "swap" on first sight
-          updateReefIndicator();
-          updateSalvageCounter();
-          updateWeaponBar();
-          playReefCleared();
-          saveCurrentVoyage();
-          offerUpgrades(`Level ${run.reefIndex} cleared!`, `+${Math.round(bankedThisReef)} Salvage banked${boss ? ` · next: ${getEnemy(boss.defId).name}'s lair` : ''}`);
-        }
+      } else if (run.sv.finished) {
+        sailing = false;
+        completeLevel(run);
+        // Everything still afloat goes down with its warlord.
+        for (const e of run.enemies) if (e.health > 0) { e.health = 0; sinkers.push({ e: { ...e }, life: 0.6, maxLife: 0.6 }); if (particles.length < 500) spawnKillBurst(particles, e.x, e.y, '#f4ead0', Math.random); }
+        playReefCleared();
+        setTimeout(endRun, 1400);
+      } else if (run.sv.pendingLevelUps > 0 || run.sv.pendingChests > 0) {
+        maybeOfferChoice();
       }
     }
+    for (const e of run.enemies) if (e.hitFlash > 0) e.hitFlash -= rawDt;
 
     if (hubOverlay.classList.contains('show')) {
       // The base harbour replaces the reef view entirely while the Hub is up.
@@ -1959,16 +1749,27 @@ export function startApp(root) {
       requestAnimationFrame(frame);
       return;
     }
+    drawWorld(now, rawDt);
+    requestAnimationFrame(frame);
+  }
 
-    updateCamera(camera, run.boat.x, run.boat.y, rawDt);
+  function drawWorld(now, rawDt) {
+    const t = now / 1000;
+    // Look ahead: the camera leads the ship a little, so you see more of
+    // where you're going (and what's coming) than where you've been.
+    const sp = Math.hypot(run.boat.vx, run.boat.vy);
+    const lead = Math.min(1, sp / 120) * 70;
+    const la = 1 - Math.exp(-3 * rawDt);
+    lookAhead.x += ((sp > 1 ? (run.boat.vx / sp) * lead : 0) - lookAhead.x) * la;
+    lookAhead.y += ((sp > 1 ? (run.boat.vy / sp) * lead : 0) - lookAhead.y) * la;
+    updateCamera(camera, run.boat.x + lookAhead.x, run.boat.y + lookAhead.y, rawDt, 6);
     // Wake: foam puffs off the stern while under way.
     for (const w of wake) w.life -= rawDt;
     while (wake.length && wake[0].life <= 0) wake.shift();
-    const boatSpeed = Math.hypot(run.boat.vx, run.boat.vy);
     wakeTimer -= rawDt;
-    if (boatSpeed > 25 && !run.over && wakeTimer <= 0) {
-      wakeTimer = 0.05;
-      const life = 0.5 + Math.min(1, boatSpeed / 120) * 0.5;
+    if (sp > 25 && !run.over && wakeTimer <= 0) {
+      wakeTimer = 0.04;
+      const life = 0.6 + Math.min(1, sp / 120) * 0.6;
       wake.push({ x: run.boat.x - Math.cos(run.boat.heading) * BOAT_RADIUS * 1.2, y: run.boat.y - Math.sin(run.boat.heading) * BOAT_RADIUS * 1.2, heading: run.boat.heading, life, maxLife: life });
     }
     particles = updateParticles(particles, rawDt);
@@ -1976,6 +1777,10 @@ export function startApp(root) {
     bolts = bolts.filter((b) => b.life > 0);
     for (const a of lightning) a.life -= rawDt;
     lightning = lightning.filter((a) => a.life > 0);
+    for (const s of sinkers) s.life -= rawDt;
+    for (let i = sinkers.length - 1; i >= 0; i--) if (sinkers[i].life <= 0) sinkers.splice(i, 1);
+    for (const r of rings) r.life -= rawDt;
+    for (let i = rings.length - 1; i >= 0; i--) if (rings[i].life <= 0) rings.splice(i, 1);
     damageNumbers = updateDamageNumbers(damageNumbers, rawDt);
     const shakeOffset = updateShake(shake, rawDt);
 
@@ -1987,51 +1792,80 @@ export function startApp(root) {
     const view = applyCameraTransform(ctx, camera, vw, vh, run.widthPx, run.heightPx, shakeOffset, hudInsets);
     lastView = view;
     ensureTerrain();
-    terrainRenderer.draw(ctx, view.visible, now / 1000, { forceVisible: terrainFresh, maxNewChunks: 0 });
+    terrainRenderer.draw(ctx, view.visible, t, { forceVisible: terrainFresh, maxNewChunks: 0 });
     terrainFresh = false;
-    if (run.lair) drawLairCurrents(ctx, run.lair.centre, run.lair.pitRadius, now / 1000);
-    drawWeatherWorld(ctx, run.weather, now / 1000);
+    drawLandmarks(ctx, run.landmarks || [], view.visible, t);
+    drawWeatherWorld(ctx, run.weather, t);
     drawWake(ctx, wake);
-    if (isExitOpen(run)) drawExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
-    else drawSealedExit(ctx, run.exitWorld.x, run.exitWorld.y, run.tileSize * 0.9, now / 1000);
-    drawPickups(ctx, run.pickups, (p) => WEAPON_SHORT_LABEL[p.weaponId], now / 1000);
+    if (run.sv) drawFirePools(ctx, run.sv.pools, view.visible, t);
+    drawSurvivalPickups(ctx, run.pickups, view.visible, t);
+    drawSinkers(ctx, sinkers, t, (e) => e.colorHex || enemyColor(e));
     drawEnemies(
-      ctx, run.enemies, (e) => e.colorHex || enemyColor(e), now / 1000,
-      (e) => (e.isBoss ? getEnemy(e.defId).name : null),
+      ctx, visibleOnly(run.enemies, view.visible), (e) => e.colorHex || enemyColor(e), t,
+      (e) => (e.isBoss ? getEnemy(e.defId).name : e.warlord ? `Warlord ${getEnemy(e.defId).name}` : null),
       (e) => relationTo(run.faction, e.faction),
       run.boat,
     );
-    for (const e of run.enemies) {
-      if (!e.isBoss || e.health <= 0) continue;
-      if (e.warded) drawWard(ctx, e, run.enemies.filter((s) => s.seal && s.health > 0), now / 1000);
-      else if (e.enraged) drawEnrage(ctx, e, now / 1000);
+    for (const e of run.enemies) if (e.isBoss && e.enraged && e.health > 0) drawEnrage(ctx, e, t);
+    drawLighting(view.visible, t);
+    drawEnemyProjectiles(ctx, run.enemyProjectiles, t);
+    drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color, t);
+    if (run.outcome !== 'sunk') {
+      if (run.sv) drawOrbitBlades(ctx, orbitBlades(run), t);
+      drawBoat(ctx, run.boat, BOAT_RADIUS, t);
+      drawBoatStatus(ctx, run.boat, BOAT_RADIUS, t);
+      drawSpirits(ctx, spiritPositions(run), run.spiritAngle || 0, t);
+      drawHullBar(ctx, run.boat, BOAT_RADIUS, hullFlash);
     }
-    drawLighting(view.visible, now / 1000);
-    drawEnemyProjectiles(ctx, run.enemyProjectiles, now / 1000);
-    if (aimTarget && aimTarget.health > 0 && sailing && !run.over) drawTargetReticle(ctx, aimTarget, now / 1000, isFiring);
-    drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color, now / 1000);
-    if (run.outcome !== 'sunk') drawBoat(ctx, run.boat, BOAT_RADIUS, now / 1000);
-    if (run.outcome !== 'sunk') drawBoatStatus(ctx, run.boat, BOAT_RADIUS, now / 1000);
-    if (run.outcome !== 'sunk') drawSpirits(ctx, spiritPositions(run), run.spiritAngle || 0, now / 1000);
     drawLightning(ctx, lightning);
-    drawWeatherAbove(ctx, run.weather, now / 1000);
+    drawWeatherAbove(ctx, run.weather, t);
     for (const b of bolts) drawBolt(ctx, b.x, b.y, b.life / 0.25);
     drawParticles(ctx, particles);
+    drawRings(ctx, rings);
     drawDamageNumbers(ctx, damageNumbers);
     ctx.restore();
     // Rain, snow, fog, darkness: over the world, under the HUD.
-    drawAmbientScreen(ctx, runBiome, now / 1000, vw, vh);
-    if (sailing || run.over) drawWeatherScreen(ctx, run.weather, weatherModifiers(run.weather), now / 1000, vw, vh, { x: run.boat.x + view.translateX, y: run.boat.y + view.translateY });
-
-    // Stream the rest of the reef's terrain in the background, one chunk a
-    // frame, so scrolling never reveals an unrendered chunk.
-    // Adaptive: only spend what's left of this frame's budget, so a busy
-    // frame never also pays for terrain (it streamed at a fixed 3ms before,
-    // which tipped heavy frames over 16ms on phones).
+    drawAmbientScreen(ctx, runBiome, t, vw, vh);
+    if (sailing || run.over) drawWeatherScreen(ctx, run.weather, weatherModifiers(run.weather), t, vw, vh, { x: run.boat.x + view.translateX, y: run.boat.y + view.translateY });
+    drawVignette(ctx, vw, vh, run.boat.health / run.boat.maxHull, t);
+    // What's worth knowing about off-screen: the boss, elites, treasure.
+    const marks = [];
+    for (const e of run.enemies) {
+      if (e.health <= 0) continue;
+      if (e.isBoss || e.warlord) marks.push({ x: e.x, y: e.y, color: '#ff5a4a', icon: '☠' });
+      else if (e.elite) marks.push({ x: e.x, y: e.y, color: '#ffd35c', icon: '⭐' });
+    }
+    const chests = run.pickups.filter((p) => p.kind === 'chest' && !p.collected)
+      .map((p) => ({ p, d: Math.hypot(p.x - run.boat.x, p.y - run.boat.y) })).filter((c) => c.d < 900).sort((a, b) => a.d - b.d).slice(0, 2);
+    for (const { p } of chests) marks.push({ x: p.x, y: p.y, color: '#e8b54b', icon: '💰' });
+    drawEdgeArrows(ctx, marks, (x, y) => ({ x: x + view.translateX, y: y + view.translateY }),
+      { left: hudInsets.left + 22, right: vw - hudInsets.right - 22, top: hudInsets.top + 22, bottom: vh - hudInsets.bottom - 22 }, t);
+    updateBossBar();
+    // Stream the rest of the terrain in what's left of this frame's budget.
     const spent = performance.now() - now;
     terrainRenderer.prewarm(camera.x, camera.y, Math.max(0, Math.min(3, 11 - spent)));
+  }
 
-    requestAnimationFrame(frame);
+  // Only what's on (or just off) the screen is worth drawing.
+  function visibleOnly(enemies, v) {
+    const out = [];
+    for (const e of enemies) if (e.health > 0 && e.x > v.left - 40 && e.x < v.right + 40 && e.y > v.top - 40 && e.y < v.bottom + 40) out.push(e);
+    return out;
+  }
+
+  // The warlord / boss bar under the HUD.
+  const bossBarEl = document.getElementById('sv-boss');
+  bossBarEl.innerHTML = '<b></b><i><u></u></i>';
+  let bossShown = '';
+  function updateBossBar() {
+    const b = run.sv && run.sv.bossId != null ? run.enemies.find((e) => e.id === run.sv.bossId && e.health > 0) : null;
+    const key = b ? `${b.id}:${Math.ceil((100 * b.health) / b.maxHealth)}` : '';
+    if (key === bossShown) return;
+    bossShown = key;
+    bossBarEl.hidden = !b;
+    if (!b) return;
+    bossBarEl.querySelector('b').textContent = b.isBoss ? getEnemy(b.defId).name : `Warlord ${getEnemy(b.defId).name}`;
+    bossBarEl.querySelector('u').style.width = `${(100 * b.health) / b.maxHealth}%`;
   }
   requestAnimationFrame(frame);
   setStatus(levelStartStatus());

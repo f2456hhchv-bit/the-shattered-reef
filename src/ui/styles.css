@@ -1151,3 +1151,155 @@ body.in-td #hud, body.in-td #weapon-bar, body.in-td #pause-button, body.in-td #t
   /* With a voyage saved there's one more button: drop the mini-map to fit. */
   #voyage-card:has(#hub-continue:not([hidden])) #voyage-map { display: none; }
 }
+
+/* ------------------------------------------------------------------------
+   Survival HUD (2026-10-04). Same dark-teal panels, gold trim and cream
+   type as the rest of the game; laid out like a survival arena's HUD:
+   place + time + Salvage across the top, the XP bar with your ship's
+   level, the ten wave pips, and a weapon dock at the bottom.
+   ------------------------------------------------------------------------ */
+body.in-run #mute-button { display: none; }
+body.in-run #pause-button { right: auto; left: max(10px, env(safe-area-inset-left)); }
+#hud { padding: 0 max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left)); gap: 5px; }
+#hud-status[hidden] { display: none; }
+#sv-top {
+  display: flex; align-items: stretch; gap: 6px;
+  width: 100%; max-width: 560px; padding-left: 52px; box-sizing: border-box;
+}
+#sv-title, #sv-timer, #sv-salvage {
+  background: linear-gradient(180deg, rgba(14, 44, 62, .92), rgba(6, 26, 38, .92));
+  border: 1.5px solid rgba(232, 181, 75, .55);
+  border-radius: 14px; box-shadow: 0 3px 10px rgba(0, 0, 0, .35);
+  color: #f3e7c9;
+}
+#sv-title { flex: 1; min-width: 0; padding: 4px 10px; display: flex; flex-direction: column; justify-content: center; }
+#sv-title b { font-size: 14.5px; line-height: 1.15; color: #f6e6c2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .01em; }
+#sv-title small { font-size: 11px; color: #9fd0e8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#sv-timer { display: flex; align-items: center; gap: 4px; padding: 0 10px; flex-shrink: 0; }
+#sv-timer i { font-style: normal; font-size: 14px; }
+#sv-timer b { font-size: 17px; font-variant-numeric: tabular-nums; min-width: 3ch; text-align: center; }
+#sv-timer.boss { border-color: #ff6a5a; color: #ffb0a0; animation: boss-pulse 1s ease-in-out infinite; }
+#sv-timer.boss b { font-size: 13px; letter-spacing: .06em; }
+@keyframes boss-pulse { 50% { box-shadow: 0 0 0 2px rgba(255, 90, 70, .5), 0 0 14px rgba(255, 90, 70, .5); } }
+#sv-salvage { display: flex; align-items: center; gap: 4px; padding: 0 10px; flex-shrink: 0; color: #ffd978; }
+#sv-salvage i { font-style: normal; font-size: 13px; }
+#sv-salvage b { font-size: 15px; font-variant-numeric: tabular-nums; }
+#sv-xp {
+  position: relative; width: 100%; max-width: 560px; height: 17px; box-sizing: border-box;
+  border-radius: 999px; background: rgba(4, 18, 26, .88);
+  border: 1.5px solid rgba(232, 181, 75, .55); overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+}
+#sv-xp-fill {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  background: linear-gradient(180deg, #8ff07a, #3fbf4a 55%, #2a9a3a);
+  transition: width .18s ease-out;
+}
+/* Segments, like a ship's log tally. */
+#sv-xp::after {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), rgba(4, 18, 26, .7) calc(10% - 2px) 10%);
+  pointer-events: none;
+}
+#sv-lv {
+  position: absolute; right: 0; top: 0; bottom: 0; z-index: 1;
+  display: grid; place-items: center; padding: 0 9px;
+  background: linear-gradient(180deg, #1c4a64, #0c2a3c); border-left: 1.5px solid rgba(232, 181, 75, .55);
+  color: #ffd978; font-size: 11.5px; font-weight: 800;
+}
+#sv-waves { display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; background: rgba(4, 18, 26, .7); border: 1px solid rgba(232, 181, 75, .3); }
+#sv-waves .pip { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, .12); border: 1.5px solid rgba(233, 221, 196, .45); box-sizing: border-box; }
+#sv-waves .pip.elite { border-color: #ffd35c; }
+#sv-waves .pip.done { background: #e8b54b; border-color: #ffe08a; }
+#sv-waves .pip.now { background: #ffe08a; border-color: #fff6cc; box-shadow: 0 0 8px rgba(255, 224, 138, .9); transform: scale(1.25); }
+#sv-waves .pip.boss { width: 20px; height: 20px; display: grid; place-items: center; font-size: 11px; background: rgba(160, 30, 40, .85); border-color: #ff7a7a; color: #fff; }
+#sv-waves .pip.boss.now { box-shadow: 0 0 10px rgba(255, 90, 70, .9); }
+#sv-under { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; }
+#sv-boss { display: flex; flex-direction: column; align-items: center; gap: 2px; width: min(300px, 70vw); }
+#sv-boss[hidden] { display: none; }
+#sv-boss b { font-size: 12px; color: #ffb0a0; text-shadow: 0 1px 2px #000; letter-spacing: .03em; }
+#sv-boss i { display: block; width: 100%; height: 8px; border-radius: 999px; background: rgba(20, 6, 6, .85); border: 1.5px solid #ff7a6a; overflow: hidden; }
+#sv-boss u { display: block; height: 100%; background: linear-gradient(180deg, #ff7a5a, #c0302a); transition: width .15s; }
+
+/* The dock: display only, so it never steals a steering touch. */
+#weapon-bar {
+  pointer-events: none !important; display: flex; justify-content: center; gap: 5px; flex-wrap: nowrap;
+  width: auto; left: 50%; right: auto; transform: translateX(-50%); padding: 0; max-width: none;
+}
+.dock-tile {
+  width: 46px; height: 52px; border-radius: 12px; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  background: linear-gradient(180deg, rgba(14, 44, 62, .9), rgba(6, 24, 36, .92));
+  border: 1.5px solid rgba(232, 181, 75, .5); box-shadow: 0 3px 8px rgba(0, 0, 0, .35);
+}
+.dock-tile.arm { border-color: rgba(127, 216, 232, .6); }
+.dock-tile.evo { border-color: #ffe08a; background: linear-gradient(180deg, #6a4a12, #2a1a06); box-shadow: 0 0 10px rgba(255, 214, 92, .6), 0 3px 8px rgba(0, 0, 0, .35); }
+.dock-icon { font-size: 20px; line-height: 1; }
+.dock-pips { display: flex; gap: 2px; font-size: 9px; font-weight: 900; color: #ffe08a; letter-spacing: .05em; }
+.dock-pips i { width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, .2); }
+.dock-pips i.on { background: #ffd35c; box-shadow: 0 0 3px rgba(255, 211, 92, .9); }
+#upgrade-strip {
+  position: absolute; left: 50%; transform: translateX(-50%); z-index: 5;
+  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 58px);
+  display: flex; gap: 3px; flex-wrap: nowrap;
+}
+#upgrade-strip span { font-size: 10.5px; padding: 1px 5px; }
+body.in-hub #upgrade-strip, body.in-td #upgrade-strip { display: none; }
+
+/* Level-up cards. */
+.up-wrap h2 { font-size: 22px; text-shadow: 0 2px 6px rgba(0, 0, 0, .6); }
+.up-desc { display: block; font-size: 12.5px; opacity: .92; }
+.up-note { display: block; margin-top: 3px; font-size: 11px; font-style: normal; font-weight: 700; color: #ffd35c; }
+.up-lv { color: #ffd35c; letter-spacing: 1px; font-size: 12px; }
+.up-card.k-armament { border-color: #7fd8e8; background: linear-gradient(180deg, rgba(14, 52, 70, .97), rgba(8, 28, 40, .97)); }
+.up-card.k-armament .up-text b { color: #bff3ff; }
+.up-card.k-passive { border-color: #9fd0a0; background: linear-gradient(180deg, rgba(22, 50, 32, .97), rgba(10, 28, 18, .97)); }
+.up-card.k-passive .up-text b { color: #d4ffc8; }
+.up-card.evo { border-color: #ffe08a; background: linear-gradient(180deg, rgba(110, 72, 14, .98), rgba(48, 28, 6, .98)); box-shadow: 0 0 22px rgba(255, 214, 92, .55), 0 5px 16px rgba(0, 0, 0, .45); }
+.up-card.evo .up-lv { color: #fff3c0; font-weight: 900; letter-spacing: .1em; }
+
+/* Level summary. */
+.sum-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 10px; }
+.sum-stats span { display: flex; flex-direction: column; padding: 6px 2px; border-radius: 10px; background: rgba(0, 0, 0, .25); }
+.sum-stats b { font-size: 16px; color: #ffd978; }
+.sum-stats small { font-size: 10.5px; opacity: .75; }
+.sum-kit { font-size: 12px !important; color: #bfe6f5; line-height: 1.5; }
+#run-summary-card { width: min(360px, 90vw); }
+
+/* Level picker on the voyage card. */
+.vc-pips { gap: 6px; }
+.vc-pips button {
+  width: 36px; height: 36px; margin: 0; padding: 0; border-radius: 50%;
+  display: grid; place-items: center; font-size: 13px; font-weight: 800;
+  background: rgba(255, 255, 255, .1); border: 1.5px solid rgba(255, 255, 255, .3); color: #e9ddc4;
+  touch-action: manipulation;
+}
+.vc-pips button.cleared { background: rgba(232, 181, 75, .35); border-color: #e8b54b; }
+.vc-pips button.boss { background: rgba(160, 40, 60, .55); border-color: #ff7a7a; }
+.vc-pips button.sel { box-shadow: 0 0 0 3px #ffe08a; color: #fff; }
+.vc-pips button:disabled { opacity: .3; }
+#hub-set-sail small { display: block; font-size: 11px; letter-spacing: .08em; opacity: .8; }
+
+@media (orientation: portrait) and (max-height: 700px) {
+  .vc-pips button { width: 32px; height: 32px; font-size: 12px; }
+}
+@media (orientation: landscape) and (max-height: 540px) {
+  #hud { flex-direction: column; padding: 0 calc(max(10px, env(safe-area-inset-right)) + 60px) 0 calc(max(10px, env(safe-area-inset-left)) + 52px); }
+  #sv-top { padding-left: 0; max-width: 620px; }
+  #sv-xp { max-width: 620px; height: 14px; }
+  #sv-title b { font-size: 13px; }
+  #weapon-bar {
+    left: auto; transform: none; right: max(10px, env(safe-area-inset-right)); top: 50%; bottom: auto;
+    transform: translateY(-50%); flex-direction: column; display: flex;
+  }
+  .dock-tile { width: 44px; height: 46px; }
+  #upgrade-strip { bottom: max(8px, env(safe-area-inset-bottom)); }
+}
+#sv-salvage #salvage-counter { background: none; border: 0; padding: 0; font-size: 15px; color: #ffd978; }
+@media (orientation: landscape) and (max-height: 540px) {
+  #run-summary-card { padding: 14px 18px; }
+  #run-summary-title { margin-bottom: 8px; font-size: 18px; }
+  #run-summary-body p { margin: 3px 0; font-size: 12.5px; }
+  .sum-stats { margin-bottom: 6px; }
+  #run-summary-retry { min-height: 46px; margin-top: 10px; }
+}

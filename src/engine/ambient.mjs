@@ -20,6 +20,9 @@ export function ambientLight(run, biome) {
   let dark = a.dark || 0;
   let light = a.light || null;
   let color = a.color || [3, 5, 12];
+  // Survival arenas (2026-10-04): a brighter lantern — the crowd comes from
+  // every side, so you need to see further than in a maze's corridors.
+  if (light && run.lanternMult) light *= run.lanternMult;
   if (light) {
     for (const e of run.enemies || []) {
       if (!e.isBoss || e.health <= 0 || !e.aggro) continue;

@@ -126,7 +126,10 @@ export function buildCoastField(grid, tileSize, seed) {
   return { w, h, data };
 }
 
-export function buildTerrain(grid, tileSize, seed, biome, coast = buildCoastField(grid, tileSize, seed)) {
+// `shoals` (survival arenas, 2026-10-04): open water gets reef shallows —
+// patches where the sea floor rises (lighter water, coral) — so a big open
+// arena isn't one flat deep colour. Visual only: still sailable water.
+export function buildTerrain(grid, tileSize, seed, biome, coast = buildCoastField(grid, tileSize, seed), { shoals = false } = {}) {
   const C = FIELD_CELL;
   const { w, h } = coast;
   const noise2 = makeValueNoise(seed ^ 0x5bd1e995);
@@ -168,6 +171,19 @@ export function buildTerrain(grid, tileSize, seed, biome, coast = buildCoastFiel
 
   const f = (data) => ({ w, h, data });
   const terrain = { w, h, cell: C, sdf: coast, tex: f(tex), rock: f(rock), shade: f(shade), shadow: f(shadow), widthPx: grid.width * tileSize, heightPx: grid.height * tileSize };
+  if (shoals) {
+    // The deepest the water can look here (px of "depth"): low noise = a shoal.
+    const n3 = makeValueNoise(seed ^ 0x1b873593);
+    const cap = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const px = (x + 0.5) * C; const py = (y + 0.5) * C;
+        const v = fbm(n3, px / 150, py / 150, 3);
+        cap[y * w + x] = 14 + Math.max(0, (v - 0.36) / 0.3) * 110;
+      }
+    }
+    terrain.shoal = f(cap);
+  }
   terrain.decorations = placeDecorations(terrain, seed, biome);
   terrain.sparkles = placeSparkles(terrain, seed);
   return terrain;
@@ -193,6 +209,8 @@ export function placeDecorations(terrain, seed, biome) {
         out.push({ kind: 'boulder', x: jx, y: jy, size: 3 + size * 4, variant });
       } else if (s < -5 && s > -15 && roll < 0.05) {
         out.push({ kind: 'coral', x: jx, y: jy, size: 2 + size * 2.5, variant });
+      } else if (terrain.shoal && s < -15 && roll < 0.035 && sampleField(terrain.shoal, jx, jy) < 26) {
+        out.push({ kind: 'coral', x: jx, y: jy, size: 2 + size * 3, variant }); // coral heads on the shoals
       } else if (s > 2.5 && s < 8 && roll < 0.025) {
         out.push({ kind: 'shell', x: jx, y: jy, size: 1.2 + size, variant });
       }

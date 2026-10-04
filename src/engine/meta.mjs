@@ -35,6 +35,9 @@ export function createDefaultMeta() {
     // Stages (2026-09-28): the highest stage the player may sail. Clearing
     // it (all 5 levels) unlocks the next; cleared stages stay replayable.
     highestStageUnlocked: 1,
+    // Survival levels (2026-10-04): per stage, how many of its 5 levels are
+    // cleared. Level n+1 opens once level n is cleared.
+    levelsCleared: {},
     stats: { runsPlayed: 0, bestReefsCleared: 0, deepestReefReached: 0, totalSalvageEarned: 0 },
     // Reef Defence (2026-09-29): towers, specialisations and perks bought
     // in the Tower Yard, and the best star rating on each defence map.
@@ -88,6 +91,10 @@ export function loadMeta(storage) {
     meta.tdStars = {};
     if (parsed.tdStars && typeof parsed.tdStars === 'object') {
       for (const [id, n] of Object.entries(parsed.tdStars)) if (TD_MAP_BY_ID[id] && Number.isInteger(n) && n >= 0 && n <= 3) meta.tdStars[id] = n;
+    }
+    meta.levelsCleared = {};
+    if (parsed.levelsCleared && typeof parsed.levelsCleared === 'object') {
+      for (const [st, n] of Object.entries(parsed.levelsCleared)) if (Number.isInteger(n) && n >= 0 && n <= 5 && Number(st) >= 1) meta.levelsCleared[st] = n;
     }
     meta.tdStats = { ...defaults.tdStats, ...(parsed.tdStats && typeof parsed.tdStats === 'object' ? parsed.tdStats : {}) };
     return meta;
@@ -244,6 +251,42 @@ export function recordRunResult(meta, run) {
   if (run.outcome === 'victory' && run.stage && run.stage >= meta.highestStageUnlocked) {
     meta.highestStageUnlocked = run.stage + 1;
   }
+}
+
+// ---- Survival levels (2026-10-04) ----------------------------------------
+// Stages before your furthest are wide open (cleared under any rules); on
+// your furthest stage, levels open one at a time.
+export function isLevelUnlocked(meta, stage, levelIndex) {
+  if (stage < meta.highestStageUnlocked) return true;
+  if (stage > meta.highestStageUnlocked) return false;
+  return levelIndex <= (meta.levelsCleared[stage] || 0);
+}
+
+// The furthest level you can sail on a stage (0-based).
+export function furthestLevel(meta, stage) {
+  if (stage < meta.highestStageUnlocked) return Math.min(4, meta.levelsCleared[stage] ?? 4);
+  return Math.min(4, meta.levelsCleared[stage] || 0);
+}
+
+// Folds a finished survival level into the save: Salvage, stats, a Kraken
+// Scale for a stage boss, and the next level (or stage) unlocked on a win.
+// Returns { unlockedLevel, unlockedStage }.
+export function recordLevelResult(meta, run) {
+  const banked = Math.round(run.bankedSalvage);
+  meta.salvage += banked;
+  meta.stats.totalSalvageEarned += banked;
+  meta.stats.runsPlayed += 1;
+  if (run.bossDefeated) meta.krakenScales += 1;
+  const out = { unlockedLevel: false, unlockedStage: false };
+  if (run.outcome !== 'victory') return out;
+  const st = run.stage; const lv = run.reefIndex;
+  const before = meta.levelsCleared[st] || 0;
+  meta.levelsCleared[st] = Math.max(before, lv + 1);
+  if (meta.levelsCleared[st] > before && lv < 4) out.unlockedLevel = true;
+  meta.stats.bestReefsCleared = Math.max(meta.stats.bestReefsCleared, meta.levelsCleared[st]);
+  meta.stats.deepestReefReached = Math.max(meta.stats.deepestReefReached, lv + 1);
+  if (lv >= 4 && st >= meta.highestStageUnlocked) { meta.highestStageUnlocked = st + 1; out.unlockedStage = true; }
+  return out;
 }
 
 // ---- Reef Defence (2026-09-29) ------------------------------------------

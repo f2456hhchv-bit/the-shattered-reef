@@ -232,7 +232,7 @@ export function stepCombat(state, dt, grid, tileSize, enemies = []) {
       p.fuseRemaining -= dt;
       if (p.armDelay > 0) p.armDelay -= dt; // a dropped keg arms after a moment
       if (p.fuseRemaining <= 0) p.spent = true; // detonate at end of fuse
-      else if (!(p.armDelay > 0) && enemies.some((e) => e.health > 0 && !e.invulnerable && !e.warded
+      else if (!(p.armDelay > 0) && !p.noProximity && enemies.some((e) => e.health > 0 && !e.invulnerable && !e.warded
         && Math.hypot(e.x - p.x, e.y - p.y) <= e.radius + (p.radius ?? 0) + DEPTH_CHARGE_PROXIMITY_MARGIN)) {
         p.spent = true; // proximity fuse
       }
@@ -298,7 +298,11 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
     const lobbed = weapon.kind === 'lobbed';
     if (p.spent && !lobbed) continue; // already resolved elsewhere
     // An armament projectile carries its own damage and ignores counters.
-    const baseDamage = (enemy) => (p.damage != null ? p.damage : damageAgainst(weapon, getEnemyCounter(enemy)));
+    // Survival weapons (engine/survival.mjs) carry their damage too, plus a
+    // counter bonus against what their weapon (`counterId`) counters.
+    const baseDamage = (enemy) => (p.damage != null
+      ? p.damage * (p.counterMult && getEnemyCounter(enemy) === (p.counterId || p.weaponId) ? p.counterMult : 1)
+      : damageAgainst(weapon, getEnemyCounter(enemy)));
 
     if (lobbed && p.fuseRemaining != null && p.fuseRemaining > 0 && !p.spent) {
       continue; // still travelling — only resolves on impact/fuse-out below
@@ -312,12 +316,14 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
       p.detonated = true;
       const radius = p.blastRadius ?? weapon.blastRadius;
       for (const enemy of enemies) {
-        if (enemy.health <= 0 || enemy.invulnerable || enemy.warded) continue;
+        if (enemy.health <= 0 || enemy.warded) continue;
+        // Survival Depth Charges reach what's hiding underwater.
+        if (enemy.invulnerable && !(p.hitsSubmerged && enemy.submergedState === 'submerged')) continue;
         const dist = Math.hypot(enemy.x - p.x, enemy.y - p.y);
         if (dist <= radius + enemy.radius) {
           const dmg = baseDamage(enemy) * getFactionMultiplier(enemy) * getWeaponMultiplier(weapon.id);
           const killed = applyDamageToEnemy(enemy, dmg);
-          events.push({ enemy, weaponId: weapon.id, damage: dmg, killed });
+          events.push({ enemy, weaponId: p.counterId || weapon.id, damage: dmg, killed, ...(p.counterMult && getEnemyCounter(enemy) === (p.counterId || p.weaponId) ? { counter: true } : {}) });
         }
       }
       continue; // detonated; cleanupProjectiles removes it (already spent)
@@ -346,7 +352,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
         const armor = frontArmorFactor(enemy, p);
         const dmg = baseDamage(enemy) * extraMult * armor;
         const killed = applyDamageToEnemy(enemy, dmg);
-        events.push({ enemy, weaponId: weapon.id, damage: dmg, killed, ...(armor < 1 ? { armored: true } : {}) });
+        events.push({ enemy, weaponId: p.counterId || weapon.id, damage: dmg, killed, ...(armor < 1 ? { armored: true } : {}), ...(p.counterMult && getEnemyCounter(enemy) === (p.counterId || p.weaponId) ? { counter: true } : {}) });
         if (p.pierceLeft > 0) {
           p.pierceLeft -= 1;
           (p.hitIds ||= new Set()).add(enemy.id);
@@ -354,7 +360,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
           p.spent = true;
         }
 
-        if (weapon.id === WEAPON_IDS.FLAME_BARRELS) {
+        if (weapon.id === WEAPON_IDS.FLAME_BARRELS && p.damage == null) {
           enemy.burn = {
             weaponId: weapon.id,
             ticksRemaining: Math.round(weapon.burnDurationSeconds / weapon.burnTickSeconds),

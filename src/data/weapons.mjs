@@ -123,6 +123,9 @@ export const ARMAMENT_WEAPONS = {
   arm_keg: armamentGun('arm_keg', { name: 'Powder Keg', kind: 'lobbed', projectileSpeed: 0, projectileRadius: 5, range: 9999, fuseSeconds: 6, blastRadius: 36, color: '#8a5a2b' }),
   arm_stern: armamentGun('arm_stern', { name: 'Stern Chaser', kind: 'projectile', projectileSpeed: 340, projectileRadius: 3, range: 220, color: '#d9b36a' }),
   arm_broadside: armamentGun('arm_broadside', { name: 'Broadside Battery', kind: 'projectile', projectileSpeed: 330, projectileRadius: 3.2, range: 200, color: '#f0c070' }),
+  // Survival Flame Barrels (engine/survival.mjs): a lobbed barrel that
+  // bursts into a pool of fire where it lands.
+  sv_barrel: armamentGun('sv_barrel', { name: 'Flame Barrel', kind: 'lobbed', projectileSpeed: 200, projectileRadius: 5, range: 260, fuseSeconds: 1, blastRadius: 22, color: '#d9622f' }),
   sea_spirit: armamentGun('sea_spirit', { name: 'Sea Spirit', kind: 'aura', projectileSpeed: 0, range: 0, color: '#7ff0e0' }),
   st_elmos_fire: armamentGun('st_elmos_fire', { name: "St Elmo's Fire", kind: 'aura', projectileSpeed: 0, range: 0, color: '#b8e4ff' }),
 };

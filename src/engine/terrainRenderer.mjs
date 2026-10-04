@@ -40,6 +40,7 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
   const C = terrain.cell; const FW = terrain.w; const FH = terrain.h;
   const S = terrain.sdf.data; const T = terrain.tex.data; const SH = terrain.shadow.data;
   const SD = terrain.shade.data; const R = terrain.rock.data;
+  const SHOAL = terrain.shoal ? terrain.shoal.data : null;
 
   // A chunk renders in row bands across frames (see step()), so no single
   // frame pays for a whole chunk on a phone.
@@ -75,7 +76,11 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
         const shadow = SH[i] * w00 + SH[i + 1] * w10 + SH[j] * w01 + SH[j + 1] * w11;
         const grain = ((((wx * 7.31 | 0) * 73856093) ^ ((wy * 7.31 | 0) * 19349663)) & 255) / 255 - 0.5;
         let r; let gg; let b;
-        const depth = s < 0 ? -s : 0;
+        let depth = s < 0 ? -s : 0;
+        if (SHOAL && depth > 14) {
+          const cap = SHOAL[i] * w00 + SHOAL[i + 1] * w10 + SHOAL[j] * w01 + SHOAL[j + 1] * w11;
+          if (depth > cap) depth = cap + (depth - cap) * 0.08;
+        }
         const wi = Math.min(waterLut.n - 1, (depth / waterLut.step) | 0) * 3;
         const m = 0.92 + tex * 0.16;
         let wr = waterLut.data[wi] * m; let wg = waterLut.data[wi + 1] * m; let wb = waterLut.data[wi + 2] * m;

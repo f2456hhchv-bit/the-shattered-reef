@@ -102,6 +102,8 @@ export function createEnemy(defId, x, y, rng = Math.random, { scale = null } = {
     senseTimer: rng() * AGGRO.senseInterval,
     lastHealth: 0,
     frontArmor: def.frontArmor ?? null,
+    // Which sprite to draw (renderer): survival's horde reuses others' art.
+    sprite: def.sprite || null,
   };
   enemy.lastHealth = enemy.health;
 
@@ -402,6 +404,26 @@ function updateSubmerged(enemy, boat, dt, def) {
   }
 }
 
+// HORDE (survival): heads for you along its own slightly-offset line, so
+// a crowd fans out and closes from all sides instead of queuing in a file.
+// After a bump (`recoil`, set by engine/survival.mjs) it falls back a
+// moment before coming again.
+function updateHorde(enemy, boat, dt) {
+  if (enemy.recoil > 0) {
+    enemy.recoil -= dt;
+    enemy.x += enemy.vx * dt; enemy.y += enemy.vy * dt;
+    enemy.vx *= Math.max(0, 1 - 4 * dt); enemy.vy *= Math.max(0, 1 - 4 * dt);
+    return;
+  }
+  enemy.idlePhase += dt * 0.7;
+  const dx = boat.x - enemy.x; const dy = boat.y - enemy.y;
+  const d = Math.hypot(dx, dy) || 1;
+  // Far away: angle in by up to ~35 degrees; close: straight at you.
+  const off = Math.sin(enemy.idlePhase) * 0.6 * Math.min(1, d / 220);
+  const a = Math.atan2(dy, dx) + off;
+  steerToward(enemy, enemy.x + Math.cos(a) * 40, enemy.y + Math.sin(a) * 40, dt);
+}
+
 function updateTank(enemy, boat, dt) {
   steerToward(enemy, boat.x, boat.y, dt);
 }
@@ -568,9 +590,12 @@ export function updateEnemy(enemy, boat, dt, grid, tileSize, coast = null) {
       enemy.senseTimer = AGGRO.senseInterval;
       if (dist <= radius && (enemy.archetype === ARCHETYPES.FLYER || def.flies || hasLineOfSight(enemy, boat, grid, tileSize, coast))) enemy.aggro = true;
     }
-  } else if (dist > radius * AGGRO.leashMultiplier) {
+  } else if (dist > radius * AGGRO.leashMultiplier && !enemy.hunting) {
     enemy.aggro = false; // lost the boat: drift back home
   }
+  // Survival mode (engine/survival.mjs): everything that spawns is hunting
+  // you from the moment it appears, wherever you are.
+  if (enemy.hunting) enemy.aggro = true;
 
   if (def.isBoss && enemy.aggro) updateBossPhase(enemy, def, dt);
   if (enemy.archetype === ARCHETYPES.GHOST && enemy.aggro) stepGhostPhase(enemy, def, dt, coast, grid, tileSize);
@@ -632,6 +657,7 @@ function moveAggroed(enemy, boat, dt, def) {
     case ARCHETYPES.RAMMER: updateRammer(enemy, boat, dt, def); break;
     case ARCHETYPES.GHOST: updateGhost(enemy, boat, dt, def); break;
     case ARCHETYPES.SIREN: break;
+    case ARCHETYPES.HORDE: updateHorde(enemy, boat, dt); break;
     default: updateTank(enemy, boat, dt); break;
   }
 }

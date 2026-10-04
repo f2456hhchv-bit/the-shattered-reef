@@ -261,6 +261,16 @@ function landmark(ctx, biomeId, p, t) {
   else pirateFort(ctx, p.x, p.y + 4);
 }
 
+// Landmarks out on a survival arena (2026-10-04): the same set pieces the
+// chart islands carry, by kind (engine/arena.mjs BIOME_LANDMARKS).
+const LANDMARK_KINDS = { fort: pirateFort, ice: iceSpires, wreck, volcano, cave: caveMouth, hut: stiltHut, rift: abyssRift, skull: giantSkull, crystal: crystalSpire };
+export function drawLandmarkKind(ctx, kind, x, y, t, scale = 1, angle = 0) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(scale, scale); ctx.rotate(angle * 0.4);
+  if (kind === 'lighthouse') { ctx.translate(0, 6); ctx.scale(0.72, 0.72); drawLighthouse(ctx, { x: 0, y: 0 }, t); }
+  else (LANDMARK_KINDS[kind] || pirateFort)(ctx, 0, 4);
+  ctx.restore();
+}
+
 const cache = new Map();
 function portrait(biomeId, stage, res) {
   const key = `${biomeId}|${stage}|${res}`;
