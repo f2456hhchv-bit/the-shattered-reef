@@ -2391,6 +2391,13 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   Headless frame time at wave 9: ~19ms (stage 1) to ~26ms (caverns), with
   software rendering at DPR 2. Check on a real phone.
 
+- **Fix (same day):** on the owner's phone, Continue resumed an old maze
+  voyage saved before the pivot. The HUD showed but nothing moved
+  (`run.sv` was missing). Saves without `mode: 'survival'` are now
+  retired when the harbour opens (`retireLegacyVoyage`): their banked
+  Salvage is paid out with a toast, and they're never offered as
+  Continue.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in

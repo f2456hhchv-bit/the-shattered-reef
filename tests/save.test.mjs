@@ -2,7 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRun, checkReachedExit, addSalvage } from '../src/engine/run.mjs';
-import { serializeRun, deserializeRun, saveVoyage, loadVoyage, peekVoyage, clearVoyage } from '../src/engine/save.mjs';
+import { serializeRun, deserializeRun, saveVoyage, loadVoyage, peekVoyage, clearVoyage, retireLegacyVoyage } from '../src/engine/save.mjs';
+import { createSurvivalRun } from '../src/engine/survivalRun.mjs';
 import { updateEnemies, createEnemy, stepSummons } from '../src/engine/enemies.mjs';
 import { applyUpgrade } from '../src/engine/upgrades.mjs';
 import { grantArmament } from '../src/engine/armaments.mjs';
@@ -69,8 +70,16 @@ test('a restored voyage plays on: enemies move, guns fire, summons get fresh ids
 test('storage: save, peek, load, clear; junk never throws', () => {
   const s = memStorage();
   assert.equal(loadVoyage(s), null); assert.equal(peekVoyage(s), null);
-  const run = midLevelRun();
+  // A maze voyage saved before survival mode is retired, not continued.
+  const legacy = midLevelRun();
+  legacy.bankedSalvage = 37;
+  assert.ok(saveVoyage(s, legacy));
+  assert.equal(peekVoyage(s), null); assert.equal(loadVoyage(s), null);
+  assert.deepEqual(retireLegacyVoyage(s), { salvage: 37 });
+  assert.equal(retireLegacyVoyage(s), null);
+  const run = createSurvivalRun(5, undefined, { stage: 6, levelIndex: 1 });
   assert.ok(saveVoyage(s, run, { pendingChoice: { title: 'x', choices: [] } }));
+  assert.equal(retireLegacyVoyage(s), null, 'a survival save is never retired');
   assert.deepEqual(peekVoyage(s), { stage: 6, reefIndex: 1, reefCount: run.reefCount, savedAt: peekVoyage(s).savedAt, over: false });
   const got = loadVoyage(s);
   assert.equal(got.run.reefIndex, 1); assert.equal(got.pendingChoice.title, 'x');

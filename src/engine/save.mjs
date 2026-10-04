@@ -106,6 +106,7 @@ export function loadVoyage(storage) {
     const raw = storage.getItem(VOYAGE_STORAGE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw);
+    if (data?.run?.mode !== 'survival') return null;
     return { ...data, run: deserializeRun(data) };
   } catch {
     return null;
@@ -116,8 +117,22 @@ export function loadVoyage(storage) {
 export function peekVoyage(storage) {
   try {
     const data = JSON.parse(storage.getItem(VOYAGE_STORAGE_KEY) || 'null');
-    if (!data || data.v !== VERSION || !data.run?.level) return null;
+    if (!data || data.v !== VERSION || !data.run?.level || data.run.mode !== 'survival') return null;
     return { stage: data.run.stage, reefIndex: data.run.reefIndex, reefCount: data.run.reefCount, savedAt: data.savedAt, over: !!data.run.over };
+  } catch {
+    return null;
+  }
+}
+
+// A voyage saved before survival mode (2026-10-04) can't be continued: its
+// maze level has no waves or build. Returns the Salvage it had banked (so
+// the caller can pay it out) and clears it, or null if there's none.
+export function retireLegacyVoyage(storage) {
+  try {
+    const data = JSON.parse(storage.getItem(VOYAGE_STORAGE_KEY) || 'null');
+    if (!data || !data.run || data.run.mode === 'survival') return null;
+    storage.removeItem(VOYAGE_STORAGE_KEY);
+    return { salvage: Math.max(0, Math.round(Number(data.run.bankedSalvage) || 0)) };
   } catch {
     return null;
   }

@@ -8,7 +8,7 @@
 import { viewH, installViewportFix } from './ui/viewport.mjs';
 import { playMusic, currentMusic } from './audio/music.mjs';
 import { musicFor } from './data/music.mjs';
-import { saveVoyage, loadVoyage, peekVoyage, clearVoyage } from './engine/save.mjs';
+import { saveVoyage, loadVoyage, peekVoyage, clearVoyage, retireLegacyVoyage } from './engine/save.mjs';
 import { ARMAMENT_BY_ID, ARMAMENT_MAX_LEVEL } from './data/armaments.mjs';
 import { grantArmament, spiritPositions } from './engine/armaments.mjs';
 import { drawSpirits, drawLightning, drawEnrage } from './engine/armamentArt.mjs';
@@ -1213,6 +1213,14 @@ export function startApp(root) {
   window.addEventListener('resize', () => layoutBase());
 
   function openHub() {
+    // An old maze voyage left saved from before survival mode: it can't be
+    // continued, so pay out its banked Salvage and clear it.
+    const legacy = retireLegacyVoyage(window.localStorage);
+    if (legacy) {
+      meta.salvage += legacy.salvage;
+      saveMeta(window.localStorage, meta);
+      setTimeout(() => showToast(`The reefs have changed! Your old voyage is retired${legacy.salvage ? ` — +${legacy.salvage} Salvage banked` : ''} ⚓`, { ms: 3600 }), 400);
+    }
     sailing = false;
     voyageActive = false;
     closePanel();
@@ -1279,6 +1287,7 @@ export function startApp(root) {
   function continueVoyage() {
     const got = loadVoyage(window.localStorage);
     if (!got) { clearVoyage(window.localStorage); renderContinue(); return; }
+    if (!got.run.sv) { clearVoyage(window.localStorage); renderContinue(); return; }
     run = got.run;
     pendingChoice = null;
     enterLevelView();
