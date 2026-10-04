@@ -13,7 +13,7 @@
 import { makeValueNoise, fbm } from './maze.mjs';
 
 export const ARENA_DEFAULTS = Object.freeze({
-  size: 128, // tiles per side (16px tiles: 2048px, about 5 phone screens across)
+  size: 122, // tiles per side (16px tiles: 1952px; was 128 until 2026-10-04)
   border: 5, // tiles of coastline round the edge (plus noise)
   centreClear: 11, // tiles of open water round the spawn
   islandDensity: 1, // biome data can scale this (arena.islands)
@@ -173,7 +173,19 @@ export function buildArenaGrid(rng, biomeId = 'tropical', opts = {}) {
   const wrecks = Math.min(isles.length, 3 + Math.floor(rng() * 2));
   for (let k = 0; k < wrecks; k++) {
     const p = isles.splice(Math.floor(rng() * isles.length), 1)[0];
-    landmarks.push({ kind: 'wreck', tx: p.x, ty: p.y, angle: -0.6 + rng() * 1.2 });
+    const angle = -0.6 + rng() * 1.2;
+    // A rock cluster's centre can be water between its stacks: use the
+    // nearest land tile instead.
+    let spot = null; let bd = Infinity;
+    const R = Math.ceil(p.r + 3);
+    for (let y = Math.max(0, Math.floor(p.y) - R); y <= Math.min(N - 1, Math.floor(p.y) + R); y++) {
+      for (let x = Math.max(0, Math.floor(p.x) - R); x <= Math.min(N - 1, Math.floor(p.x) + R); x++) {
+        if (tiles[y][x] !== 1) continue;
+        const d = Math.hypot(x + 0.5 - p.x, y + 0.5 - p.y);
+        if (d < bd) { bd = d; spot = { tx: x + 0.5, ty: y + 0.5 }; }
+      }
+    }
+    if (spot) landmarks.push({ kind: 'wreck', ...spot, angle });
   }
   // Chests: an open-water tile 2-6 tiles from each landmark, clear of shore.
   const chestTiles = [];

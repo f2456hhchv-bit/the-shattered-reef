@@ -2398,6 +2398,58 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   Salvage is paid out with a toast, and they're never offered as
   Continue.
 
+- **Phase:** harder, tighter builds, special bosses, ship art (project
+  owner, 2026-10-04: "brilliant… can be a bit easy… shrink the map ~5%…
+  enemy damage +5%… boss more special each level… 5 weapons, 5 buffs,
+  only 3 evolve… make the player boats WOW", with a painted harbour
+  reference image).
+- **Just shipped:**
+  - Arena 128 → 122 tiles; `SURVIVAL.enemyDamage` 1.05 on every spawn.
+  - Build caps: `maxWeapons` 5 (core + armaments), `maxPassives` 5,
+    `maxEvolutions` 3 (`evolutionsUsed`, checked in `canEvolve`). Full
+    slots stop offering new picks of that type. The dock shows 5 berths
+    (empty ones dashed); the upgrade strip shows 5 slots plus "✦ n/3"
+    evolutions. Evolution cards read "Evolution n/3"; upgrade cards stop
+    hinting evolutions once the 3 are spent.
+  - **Warlords and bosses** (`engine/warlord.mjs`, art in
+    `engine/warlordArt.mjs`): wave 10's enemy gets a kit that grows each
+    level (`LORD_KITS`): L1 crew call; L2 + ring of shot; L3 ring + ram;
+    L4 crew + ring + ram; the stage boss gets crew + ring + a ward at ⅔
+    and ⅓ hull on top of its phases. Every move is telegraphed
+    (tightening ring with spikes, a marked charge lane that locks 0.35s
+    before the ram, a gilded ward). Warlords get a title ("Ironjaw ·
+    Warlord Reef Shark"), a crown and aura, an entrance banner listing
+    their moves, and the trait icons on the boss bar. Stepped in
+    `survivalLoop` after enemy AI; `spawnCrew` exported from survival.mjs.
+  - **Ship art** (`engine/shipArt.mjs`, replaces `boatSprites.mjs`): one
+    painter for all 7 hulls, lit from the world's top-left whatever the
+    heading (light turned into the boat frame), with strakes, wale, gilt
+    rails, run-out cannons, plank decks, castles, stern windows,
+    lanterns, seamed/bellied sails with cast shadows, rigging, pennants,
+    foam and a speed-driven bow wave. Hull-specific: sloop gaff + jib,
+    skiff lateen + outrigger, longboat oars + shields + dragon prow,
+    catamaran net + battened main, junk battened red sails + eyes,
+    steamer paddlewheels + funnel smoke, galleon three masts with
+    topsails. Drawn at ×1.32 the collision radius (`SHIP_DISPLAY_SCALE`).
+  - **Harbour:** the shared building `box()` now has lit walls, timber
+    framing, a stone footing, shingled roofs and a ridge; windows glow
+    (`windowGlow`). `buildBaseWorld` adds `decor`: ships at anchor in the
+    channel mouths (the hull styles), rowboats, red/green channel buoys
+    with blinking lights, rock clusters with foam, and wrecks on the
+    outer islets (`drawHarbourDecor`).
+  - Also fixed: arena wrecks could sit on the water between a rock
+    cluster's stacks (they now snap to the nearest land tile; a test
+    caught it after the resize).
+  - Tests: `tests/warlord.test.mjs` (6) and a build-cap test. 446/446.
+  - Bot (6 runs each), before → after: 1-1 6/6 → 6/6, 1-5 4/6 → 4/6,
+    2-3 4/6 → 2/6, 4-1 2/6 → 2/6. The bot doesn't dodge charge lanes.
+  - Playtested portrait and landscape: banner, crown, ring of shot,
+    ward, ships in play and in the Shipyard, harbour decor clear of the
+    labels. No console errors.
+- **Next up:** the reference image's level of painting for the harbour
+  buildings themselves (three-quarter 3D-ish buildings, foliage) is a
+  bigger art job than this pass; `box()` and decor were the first step.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -3079,6 +3131,15 @@ Starting fresh below for the new game.)*
 - 2026-10-04: The arena keeps the tile-grid contract instead of a new
   world format. Everything downstream (coast field, collision, terrain
   art, weather, saves) just works, and the maze code stays testable.
+- 2026-10-04: Build caps (5 weapons, 5 upgrades, 3 evolutions) make the
+  level-up a real choice; the 3-evolution cap means a full build still
+  has two weapons that never evolve, so which three you push matters.
+- 2026-10-04: The level's last enemy escalates by kit, not by HP alone:
+  each level adds a telegraphed move, so "special" means new things to
+  read and dodge rather than a longer bar.
+- 2026-10-04: Ships are lit in world space (the light is rotated into the
+  boat's frame), so the sunlit side stays put as you turn. That one rule
+  is most of what makes them read as solid objects on the water.
 - 2026-10-04: Sinking keeps half the level's Salvage (it was all lost in
   the voyage). Survivor games keep your haul, and with unlimited retries
   a total loss read as punishing rather than tense.

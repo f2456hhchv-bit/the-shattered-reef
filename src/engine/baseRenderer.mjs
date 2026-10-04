@@ -19,20 +19,59 @@ export function shadow(ctx, x, y, rx, ry) {
 }
 
 export function box(ctx, x, y, w, h, roofH, wall, wallDark, roof, roofDark) {
-  // Front wall (x centred, y = ground line)
-  ctx.fillStyle = wall; ctx.fillRect(x - w / 2, y - h, w, h);
-  ctx.fillStyle = wallDark; ctx.fillRect(x - w / 2, y - 3, w, 3);
-  // Pitched roof seen from the front-top: a trapezoid, lit left, shaded right.
-  ctx.fillStyle = roof;
-  ctx.beginPath();
-  ctx.moveTo(x - w / 2 - 5, y - h); ctx.lineTo(x + w / 2 + 5, y - h);
-  ctx.lineTo(x + w / 2 - 4, y - h - roofH); ctx.lineTo(x - w / 2 + 4, y - h - roofH); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = roofDark;
-  ctx.beginPath();
-  ctx.moveTo(x, y - h); ctx.lineTo(x + w / 2 + 5, y - h);
-  ctx.lineTo(x + w / 2 - 4, y - h - roofH); ctx.lineTo(x, y - h - roofH); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1;
+  // Front wall (x centred, y = ground line), lit from the left.
+  const wg = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+  wg.addColorStop(0, wall); wg.addColorStop(1, wallDark);
+  ctx.fillStyle = wg; ctx.fillRect(x - w / 2, y - h, w, h);
+  // Timber frame: corner posts, a mid rail and weatherboard lines.
+  ctx.strokeStyle = 'rgba(40, 24, 10, .28)'; ctx.lineWidth = 0.6;
+  for (let yy = y - h + 3; yy < y - 3; yy += 3) { ctx.beginPath(); ctx.moveTo(x - w / 2, yy); ctx.lineTo(x + w / 2, yy); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(50, 30, 14, .75)';
+  ctx.fillRect(x - w / 2, y - h, 2.2, h); ctx.fillRect(x + w / 2 - 2.2, y - h, 2.2, h);
+  ctx.fillRect(x - w / 2, y - h * 0.55, w, 1.4);
+  // Stone footing.
+  ctx.fillStyle = '#6f6c66'; ctx.fillRect(x - w / 2 - 1, y - 4, w + 2, 4);
+  ctx.fillStyle = 'rgba(255, 255, 255, .15)'; ctx.fillRect(x - w / 2 - 1, y - 4, w + 2, 1);
+  // Eave shadow on the wall.
+  ctx.fillStyle = 'rgba(0, 0, 0, .25)'; ctx.fillRect(x - w / 2, y - h, w, 3.5);
+  // Pitched roof seen from the front-top: a trapezoid, lit left, shaded
+  // right, laid in rows of shingles.
+  const L = () => { ctx.beginPath(); ctx.moveTo(x - w / 2 - 5, y - h); ctx.lineTo(x + w / 2 + 5, y - h); ctx.lineTo(x + w / 2 - 4, y - h - roofH); ctx.lineTo(x - w / 2 + 4, y - h - roofH); ctx.closePath(); };
+  ctx.fillStyle = roof; L(); ctx.fill();
+  ctx.save(); L(); ctx.clip();
+  ctx.fillStyle = roofDark; ctx.fillRect(x, y - h - roofH, w / 2 + 6, roofH);
+  const rows = Math.max(3, Math.round(roofH / 3.2));
+  for (let r = 0; r < rows; r++) {
+    const yy = y - h - (r / rows) * roofH;
+    ctx.strokeStyle = 'rgba(0, 0, 0, .22)'; ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.moveTo(x - w / 2 - 6, yy); ctx.lineTo(x + w / 2 + 6, yy); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0, 0, 0, .12)'; ctx.lineWidth = 0.5;
+    for (let xx = x - w / 2 - 5 + (r % 2) * 2.5; xx < x + w / 2 + 5; xx += 5) { ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx, yy - roofH / rows); ctx.stroke(); }
+  }
+  // A sunlit sheen along the lower left.
+  const sg = ctx.createLinearGradient(x - w / 2, y - h, x, y - h - roofH);
+  sg.addColorStop(0, 'rgba(255, 245, 220, .22)'); sg.addColorStop(1, 'rgba(255, 245, 220, 0)');
+  ctx.fillStyle = sg; ctx.fillRect(x - w / 2 - 6, y - h - roofH, w / 2 + 6, roofH);
+  ctx.restore();
+  // Ridge and eave lines.
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1.2;
   ctx.beginPath(); ctx.moveTo(x - w / 2 + 4, y - h - roofH); ctx.lineTo(x + w / 2 - 4, y - h - roofH); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255, 240, 210, .3)'; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(x - w / 2 - 5, y - h); ctx.lineTo(x + w / 2 + 5, y - h); ctx.stroke();
+}
+
+// A lit window with a frame and a warm glow spilling out.
+export function windowGlow(ctx, x, y, w, h, t = 0) {
+  const fl = 0.85 + 0.15 * Math.sin(t * 4 + x);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(x, y, 0, x, y, Math.max(w, h) * 1.6);
+  g.addColorStop(0, `rgba(255, 190, 90, ${0.35 * fl})`); g.addColorStop(1, 'rgba(255, 160, 60, 0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, Math.max(w, h) * 1.6, 0, TAU); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = '#3a2412'; ctx.fillRect(x - w / 2 - 1, y - h / 2 - 1, w + 2, h + 2);
+  ctx.fillStyle = `rgba(255, ${210 + 30 * fl}, 130, 1)`; ctx.fillRect(x - w / 2, y - h / 2, w, h);
+  ctx.fillStyle = '#3a2412'; ctx.fillRect(x - 0.4, y - h / 2, 0.8, h); ctx.fillRect(x - w / 2, y - 0.4, w, 0.8);
 }
 
 export function barrel(ctx, x, y, s = 1) {
@@ -62,7 +101,7 @@ function drawShipyard(ctx, b, t) {
   shadow(ctx, x - 12, y + 4, 36, 14);
   box(ctx, x - 12, y + 6, 50, 26, 22, '#c79a5a', '#8a6333', '#c2472f', '#8f2f1f');
   ctx.fillStyle = '#3a2412'; ctx.fillRect(x - 20, y - 12, 16, 18);
-  ctx.fillStyle = 'rgba(255,220,140,0.9)'; ctx.fillRect(x + 2, y - 14, 7, 6);
+  windowGlow(ctx, x + 6, y - 11, 7, 6, t);
   // Crane with a swinging crate.
   ctx.strokeStyle = '#5a3616'; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.moveTo(x + 22, y + 6); ctx.lineTo(x + 22, y - 54); ctx.lineTo(x + 48, y - 48); ctx.stroke();
@@ -235,8 +274,7 @@ function drawHall(ctx, b, t, state) {
   // Keep: a tall stone hall with a steep roof and lit windows.
   box(ctx, x, y, 44, 34, 24, '#a58d6a', '#6e5a3e', '#34546b', '#243c4e');
   ctx.fillStyle = '#2b1c10'; ctx.fillRect(x - 6, y - 16, 12, 16);
-  ctx.fillStyle = 'rgba(255, 214, 120, 0.9)';
-  ctx.fillRect(x - 17, y - 28, 6, 8); ctx.fillRect(x + 11, y - 28, 6, 8);
+  windowGlow(ctx, x - 14, y - 24, 6, 8, t); windowGlow(ctx, x + 14, y - 24, 6, 8, t);
   // Three banners, one per faction. The one you sail under flies highest.
   const ids = ['reavers', 'wyrdtide', 'iron_accord'];
   ids.forEach((id, k) => {
@@ -313,4 +351,97 @@ export function drawGulls(ctx, centre, t) {
     ctx.beginPath(); ctx.moveTo(-8, -flap); ctx.quadraticCurveTo(-3, 0, 0, 1); ctx.quadraticCurveTo(3, 0, 8, -flap); ctx.stroke();
     ctx.restore();
   }
+}
+
+// Harbour life (engine/base.mjs `decor`): jetties, moored ships, buoys,
+// wrecks and rocks, drawn on the water under the buildings.
+export function drawHarbourDecor(ctx, decor, t, { drawShip, drawLandmark }) {
+  for (const d of decor) {
+    if (d.kind === 'jetty') drawJetty(ctx, d, t);
+    else if (d.kind === 'rocks') drawRocks(ctx, d, t);
+    else if (d.kind === 'buoy') drawBuoy(ctx, d, t);
+  }
+  for (const d of decor) {
+    if (d.kind === 'moored') {
+      const bob = Math.sin(t * 1.1 + d.x) * 0.04;
+      drawShip(ctx, { x: d.x, y: d.y, heading: d.heading + bob, style: d.style, vx: 0, vy: 0 }, d.scale, t + d.x);
+    } else if (d.kind === 'rowboat') drawRowboat(ctx, d, t);
+    else if (d.kind === 'wreck') drawLandmark(ctx, 'wreck', d.x, d.y, t, d.scale, d.angle);
+  }
+}
+
+function drawJetty(ctx, d, t) {
+  ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.angle);
+  const L = d.len; const W = 11;
+  ctx.fillStyle = 'rgba(5, 25, 30, .3)'; ctx.fillRect(3, -W / 2 + 4, L, W);
+  // Pilings, then the planked deck.
+  ctx.fillStyle = '#3a2410';
+  for (let x = 6; x < L; x += 14) for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(x, s * (W / 2 + 0.5), 2.2, 0, TAU); ctx.fill(); }
+  const g = ctx.createLinearGradient(0, -W / 2, 0, W / 2);
+  g.addColorStop(0, '#b98a52'); g.addColorStop(1, '#7c5428');
+  ctx.fillStyle = g; ctx.fillRect(0, -W / 2, L, W);
+  ctx.strokeStyle = 'rgba(50, 28, 10, .55)'; ctx.lineWidth = 0.7;
+  for (let x = 3; x < L; x += 3.2) { ctx.beginPath(); ctx.moveTo(x, -W / 2); ctx.lineTo(x, W / 2); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(255, 240, 200, .25)'; ctx.fillRect(0, -W / 2, L, 1);
+  // Foam round the end posts.
+  ctx.strokeStyle = `rgba(235, 250, 255, ${0.35 + 0.15 * Math.sin(t * 2 + d.x)})`; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(L, 0, W * 0.75, -1.2, 1.2); ctx.stroke();
+  // Crates, a coil of rope and a lantern post at the end.
+  ctx.fillStyle = '#8a5a2b'; ctx.fillRect(L * 0.35, -W / 2 + 1, 5, 5);
+  ctx.strokeStyle = '#3e2410'; ctx.lineWidth = 0.6; ctx.strokeRect(L * 0.35, -W / 2 + 1, 5, 5);
+  ctx.strokeStyle = '#d9c08a'; for (let k = 1; k < 3; k++) { ctx.beginPath(); ctx.arc(L * 0.6, 2, k * 1.1, 0, TAU); ctx.stroke(); }
+  ctx.restore();
+  // The lantern stays upright in screen space.
+  const ex = d.x + Math.cos(d.angle) * (d.len - 3); const ey = d.y + Math.sin(d.angle) * (d.len - 3);
+  ctx.strokeStyle = '#2a1a0c'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex, ey - 14); ctx.stroke();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const fl = 0.8 + 0.2 * Math.sin(t * 6 + d.x);
+  const lg = ctx.createRadialGradient(ex, ey - 15, 0, ex, ey - 15, 16 * fl);
+  lg.addColorStop(0, 'rgba(255, 210, 120, .7)'); lg.addColorStop(1, 'rgba(255, 150, 60, 0)');
+  ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(ex, ey - 15, 16 * fl, 0, TAU); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = '#ffe2a0'; ctx.fillRect(ex - 1.6, ey - 17, 3.2, 4);
+}
+
+function drawRocks(ctx, d, t) {
+  for (const r of d.stones) {
+    const x = d.x + r.dx; const y = d.y + r.dy;
+    ctx.strokeStyle = `rgba(235, 250, 255, ${0.35 + 0.2 * Math.sin(t * 1.7 + x)})`; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.ellipse(x, y + r.r * 0.3, r.r * 1.35, r.r * 0.9, 0, 0, TAU); ctx.stroke();
+    ctx.fillStyle = 'rgba(5, 25, 30, .35)'; ctx.beginPath(); ctx.ellipse(x + r.r * 0.4, y + r.r * 0.5, r.r, r.r * 0.6, 0, 0, TAU); ctx.fill();
+    const g = ctx.createRadialGradient(x - r.r * 0.4, y - r.r * 0.5, 0, x, y, r.r * 1.2);
+    g.addColorStop(0, '#a7a49b'); g.addColorStop(0.6, '#6f6d68'); g.addColorStop(1, '#3d3c3a');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    for (let k = 0; k < 7; k++) {
+      const a = (k / 7) * TAU; const rr = r.r * (0.8 + 0.25 * Math.sin(k * 2.7 + r.r));
+      const px = x + Math.cos(a) * rr; const py = y + Math.sin(a) * rr * 0.8;
+      if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(110, 150, 70, .55)'; ctx.beginPath(); ctx.ellipse(x - r.r * 0.2, y - r.r * 0.45, r.r * 0.45, r.r * 0.22, 0, 0, TAU); ctx.fill();
+  }
+}
+
+function drawBuoy(ctx, d, t) {
+  const bob = Math.sin(t * 2 + d.x * 0.1) * 1.2;
+  ctx.strokeStyle = 'rgba(235, 250, 255, .45)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.ellipse(d.x, d.y + 2, 6, 3, 0, 0, TAU); ctx.stroke();
+  ctx.fillStyle = 'rgba(5, 25, 30, .3)'; ctx.beginPath(); ctx.ellipse(d.x + 2, d.y + 3, 4, 2, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = d.color; ctx.beginPath(); ctx.moveTo(d.x - 4, d.y + bob); ctx.lineTo(d.x + 4, d.y + bob); ctx.lineTo(d.x, d.y - 11 + bob); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#f4ead0'; ctx.fillRect(d.x - 2.6, d.y - 5 + bob, 5.2, 1.6);
+  const on = Math.sin(t * 3 + d.x) > 0.6;
+  if (on) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255, 230, 150, .7)'; ctx.beginPath(); ctx.arc(d.x, d.y - 12 + bob, 3.5, 0, TAU); ctx.fill(); ctx.restore(); }
+}
+
+function drawRowboat(ctx, d, t) {
+  ctx.save(); ctx.translate(d.x, d.y + Math.sin(t * 1.3 + d.x) * 0.6); ctx.rotate(d.heading);
+  ctx.fillStyle = 'rgba(5, 25, 30, .3)'; ctx.beginPath(); ctx.ellipse(2, 3, 10, 4.5, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#7a4a22'; ctx.beginPath(); ctx.ellipse(0, 0, 10, 4.2, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#c99a5c'; ctx.beginPath(); ctx.ellipse(-0.5, 0, 8, 3, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#7a4a22'; ctx.fillRect(-2, -3, 1.6, 6); ctx.fillRect(3, -3, 1.6, 6);
+  ctx.strokeStyle = '#5a3616'; ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.moveTo(-1, -3); ctx.lineTo(-4, -8); ctx.moveTo(-1, 3); ctx.lineTo(-4, 8); ctx.stroke();
+  ctx.restore();
 }

@@ -95,9 +95,60 @@ export function buildBaseWorld(layout = BASE_LAYOUT, buildingsData = BASE_BUILDI
   }
 
   const grid = { width: W, height: W, tiles };
+  const decor = buildDecor(tiles, W, c, buildings, islets, channels, layout, rng);
   const coastSeed = Math.floor(rng() * 2 ** 31);
   const coast = buildCoastField(grid, TILE, coastSeed);
-  return { grid, coast, coastSeed, tileSize: TILE, widthPx: size, heightPx: size, centre: { x: c, y: c }, buildings, layout };
+  return { grid, coast, coastSeed, tileSize: TILE, widthPx: size, heightPx: size, centre: { x: c, y: c }, buildings, layout, decor };
+}
+
+// Harbour life: jetties into the lagoon with ships moored alongside,
+// buoys marking the channels, rock clusters and wrecks out at sea.
+const MOORED = ['junk', 'steamer', 'longboat', 'galleon', 'sloop', 'catamaran'];
+function buildDecor(tiles, W, c, buildings, islets, channels, layout, rng) {
+  const water = (x, y) => { const tx = Math.floor(x / TILE); const ty = Math.floor(y / TILE); return tx >= 0 && ty >= 0 && tx < W && ty < W && tiles[ty][tx] === 0; };
+  const decor = [];
+  // Ships riding at anchor in the channel mouths, bows to the sea. The two
+  // channels nearest north are left clear (the lighthouse beam and the
+  // shipyard crane own that water).
+  channels.forEach((ang, i) => {
+    const deg = ((ang * 180) / Math.PI + 360) % 360;
+    if (deg > 200 && deg < 340) return;
+    // Side channels: just outside the lagoon. Southern ones sit further
+    // out, beyond the building labels.
+    const side = deg < 30 || deg > 330 || (deg > 150 && deg < 210);
+    const along = side ? 205 : 380;
+    const x = c + Math.cos(ang) * along; const y = c + Math.sin(ang) * along;
+    if (!water(x, y)) return;
+    decor.push({ kind: 'moored', style: MOORED[i % MOORED.length], x, y, heading: ang + 0.25, scale: 11, anchor: true });
+    const rx = c + Math.cos(ang) * (along - 34) + Math.cos(ang + Math.PI / 2) * 14;
+    const ry = c + Math.sin(ang) * (along - 34) + Math.sin(ang + Math.PI / 2) * 14;
+    if (water(rx, ry) && rng() < 0.7) decor.push({ kind: 'rowboat', x: rx, y: ry, heading: ang + 2 });
+  });
+  // Buoys in pairs at each channel mouth, red to port and green to starboard.
+  for (const ang of channels) {
+    for (const along of [230, 320]) {
+      for (const s of [-1, 1]) {
+        const x = c + Math.cos(ang) * along - Math.sin(ang) * s * (layout.channelHalfWidth + 2);
+        const y = c + Math.sin(ang) * along + Math.cos(ang) * s * (layout.channelHalfWidth + 2);
+        if (water(x, y)) decor.push({ kind: 'buoy', x, y, color: s < 0 ? '#c8402e' : '#2f8f4e' });
+      }
+    }
+  }
+  // Rock clusters out in open water.
+  for (let i = 0, made = 0; i < 200 && made < 14; i++) {
+    const a = rng() * Math.PI * 2; const r = 270 + rng() * 420;
+    const x = c + Math.cos(a) * r * 0.9; const y = c + Math.sin(a) * r * 1.05;
+    if (!water(x, y) || !water(x + 18, y) || !water(x - 18, y) || !water(x, y + 18) || !water(x, y - 18)) continue;
+    if (buildings.some((b) => Math.hypot(b.x - x, b.y - y) < layout.islandRadius + 40)) continue;
+    if (decor.some((d) => Math.hypot(d.x - x, d.y - y) < 60)) continue;
+    const n = 1 + Math.floor(rng() * 3);
+    decor.push({ kind: 'rocks', x, y, stones: Array.from({ length: n }, (_, k) => ({ dx: (rng() - 0.5) * 16 * k, dy: (rng() - 0.5) * 10 * k, r: 3.5 + rng() * 4.5 })) });
+    made++;
+  }
+  // Wrecks run aground on two of the outer islets.
+  const outer = islets.filter((p) => p.r > 30).slice(0, 2);
+  for (const p of outer) decor.push({ kind: 'wreck', x: p.x, y: p.y, scale: 0.9, angle: rng() * 1.2 - 0.6 });
+  return decor;
 }
 
 // Camera for the base: fit every building AND its fixed-size label chip

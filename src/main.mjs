@@ -19,7 +19,8 @@ import { drawDarkness, drawGlows, drawEyes, drawAmbientScreen } from './engine/l
 import { glowingDecorations } from './engine/terrainRenderer.mjs';
 import { BASE_BUILDINGS } from './data/base.mjs';
 import { buildBaseWorld, computeBaseView, boatOrbitPoint } from './engine/base.mjs';
-import { drawBaseBuildings, drawGulls, BUILDING_SCALE } from './engine/baseRenderer.mjs';
+import { drawBaseBuildings, drawGulls, BUILDING_SCALE, drawHarbourDecor } from './engine/baseRenderer.mjs';
+import { drawLandmarkKind } from './engine/islandArt.mjs';
 import { sampleField } from './engine/terrain.mjs';
 import { buildTerrain } from './engine/terrain.mjs';
 import { createTerrainRenderer } from './engine/terrainRenderer.mjs';
@@ -51,11 +52,13 @@ import {
   unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact, playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playBossPhaseChange, playBossDefeated, playTreasure, playZap, playThunder, playWeatherWarning, playStrikeMark,
 } from './audio/audio.mjs';
 import { createSurvivalRun, buildSurvivalWorld, survivalLevel, completeLevel, sinkLevel, addLevelSalvage } from './engine/survivalRun.mjs';
-import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, orbitBlades } from './engine/survival.mjs';
+import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, orbitBlades, evolutionsUsed } from './engine/survival.mjs';
 import { stepSurvivalFrame } from './engine/survivalLoop.mjs';
 import {
   drawSurvivalPickups, drawFirePools, drawOrbitBlades, drawHullBar, drawRings, drawSinkers, drawLandmarks, drawEdgeArrows, drawVignette,
 } from './engine/survivalArt.mjs';
+import { drawLords } from './engine/warlordArt.mjs';
+import { LORD_TRAITS, lordName } from './engine/warlord.mjs';
 import { SURVIVAL, WAVES, SV_WEAPONS, SV_WEAPON_MAX, PASSIVE_BY_ID } from './data/survival.mjs';
 import { createDefenceMode } from './td/tdMode.mjs';
 import { renderTowerYard, towerYardBuyable } from './ui/towerYard.mjs';
@@ -167,6 +170,31 @@ export function startApp(root) {
       <button type="button" id="pm-abandon" class="pm-btn pm-danger">Abandon level</button>
     </div>`;
   root.appendChild(pauseMenu);
+  // The warlord / boss entrance banner.
+  const lordBanner = document.createElement('div');
+  lordBanner.id = 'lord-banner';
+  lordBanner.hidden = true;
+  lordBanner.innerHTML = '<small></small><b></b><span class="lb-traits"></span>';
+  root.appendChild(lordBanner);
+  let lordBannerTimer = null;
+  function lordTitle(e) {
+    const base = getEnemy(e.defId).name;
+    return e.isBoss ? base : lordName(e, `Warlord ${base}`);
+  }
+  function showLordBanner(e) {
+    lordBanner.querySelector('small').textContent = e.isBoss ? `☠ Stage ${run.stage} boss` : `⚔ Level ${run.reefIndex + 1} warlord`;
+    lordBanner.querySelector('b').textContent = lordTitle(e);
+    lordBanner.querySelector('.lb-traits').replaceChildren(...(e.lord?.kit || []).map((k) => {
+      const c = document.createElement('i');
+      c.textContent = `${LORD_TRAITS[k].icon} ${LORD_TRAITS[k].name}`;
+      return c;
+    }));
+    lordBanner.classList.toggle('boss', !!e.isBoss);
+    lordBanner.hidden = false;
+    lordBanner.classList.remove('go'); void lordBanner.offsetWidth; lordBanner.classList.add('go');
+    clearTimeout(lordBannerTimer);
+    lordBannerTimer = setTimeout(() => { lordBanner.hidden = true; }, 3200);
+  }
   const countdownEl = document.createElement('div');
   countdownEl.id = 'resume-countdown';
   countdownEl.hidden = true;
@@ -581,6 +609,12 @@ export function startApp(root) {
     const key = items.map((i) => `${i.id}${i.lv}${i.evo ? 'e' : ''}`).join(',');
     if (key === dockKey) return;
     dockKey = key;
+    // Five weapon slots: empty ones show as open berths.
+    const empties = Array.from({ length: Math.max(0, SURVIVAL.maxWeapons - items.length) }, () => {
+      const el = document.createElement('div');
+      el.className = 'dock-tile empty';
+      return el;
+    });
     weaponBar.replaceChildren(...items.map((it) => {
       const el = document.createElement('div');
       el.className = `dock-tile${it.evo ? ' evo' : ''}${it.arm ? ' arm' : ''}`;
@@ -591,17 +625,28 @@ export function startApp(root) {
       else for (let k = 0; k < it.max; k++) { const d = document.createElement('i'); if (k < it.lv) d.className = 'on'; pips.appendChild(d); }
       el.append(ic, pips);
       return el;
-    }));
+    }), ...empties);
   }
   const updateWeaponBar = renderDock;
   function renderUpgradeStrip() {
     if (!run.sv) return;
-    passiveStrip.replaceChildren(...Object.entries(run.sv.passives).map(([id, lv]) => {
+    const owned = Object.entries(run.sv.passives);
+    const evo = evolutionsUsed(run);
+    const evoEl = document.createElement('span');
+    evoEl.className = `evo-count${evo >= SURVIVAL.maxEvolutions ? ' full' : ''}`;
+    evoEl.title = 'Evolutions';
+    evoEl.textContent = `✦ ${evo}/${SURVIVAL.maxEvolutions}`;
+    passiveStrip.replaceChildren(...owned.map(([id, lv]) => {
       const el = document.createElement('span');
       el.textContent = `${PASSIVE_BY_ID[id].icon}${lv}`;
       el.title = PASSIVE_BY_ID[id].name;
       return el;
-    }));
+    }), ...Array.from({ length: Math.max(0, SURVIVAL.maxPassives - owned.length) }, () => {
+      const el = document.createElement('span');
+      el.className = 'empty';
+      el.textContent = '·';
+      return el;
+    }), evoEl);
   }
 
   // Level-up and treasure choices: the level waits while you pick.
@@ -1144,6 +1189,7 @@ export function startApp(root) {
       b.wakeTimer = 0.07;
       b.wake.push({ x: p.x - Math.cos(p.heading) * 18, y: p.y - Math.sin(p.heading) * 18, heading: p.heading, life: 1.1, maxLife: 1.1 });
     }
+    drawHarbourDecor(ctx, b.world.decor || [], t, { drawShip: drawBoat, drawLandmark: drawLandmarkKind });
     drawWake(ctx, b.wake);
     ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1.5, 1.5); ctx.translate(-p.x, -p.y);
     drawBoat(ctx, { x: p.x, y: p.y, heading: p.heading, style: baseBoatStyle }, BOAT_RADIUS, t);
@@ -1490,6 +1536,7 @@ export function startApp(root) {
   window.__shatteredReefWeather = (id) => startWeather(run, id);
   window.__shatteredReefGrantArmament = (id) => { const lv = grantArmament(run, id); renderUpgradeStrip(); return lv; };
   window.__shatteredReefWarp = (x, y) => { run.boat.x = x; run.boat.y = y; run.boat.vx = 0; run.boat.vy = 0; };
+  window.__shatteredReefBoatStyle = (style) => { run.boat.style = style; };
   // Testing-only: sets hull directly, since reliably sinking the boat by
   // simulating wall rams through a headless pointer script is unreliable
   // (wall-impact damage was already proven correct in step 2's dedicated
@@ -1674,9 +1721,26 @@ export function startApp(root) {
     if (d.elites.length) { showToast(`⭐ ${d.elites.length > 1 ? 'Elites approach' : 'An elite approaches'} — sink it for a chest!`, { ms: 2200 }); playBossPhaseChange(); }
     if (d.boss) {
       addShake(shake, 0.6); playBossPhaseChange();
+      showLordBanner(d.boss);
+      rings.push({ x: d.boss.x, y: d.boss.y, life: 1, maxLife: 1, r: 160, color: '255, 90, 60' });
       if (d.boss.isBoss) d.boss._lastAnnouncedPhase = d.boss.phaseIndex;
     }
     if (ev.summoned) playBossPhaseChange();
+    // Warlord moves.
+    for (const l of ev.lord) {
+      const e = l.e;
+      if (l.escort) { rings.push({ x: e.x, y: e.y, life: 0.6, maxLife: 0.6, r: e.radius + 50, color: '255, 214, 92' }); playBossPhaseChange(); }
+      if (l.nova) { addShake(shake, 0.35); if (explosionSoundCd <= 0) { explosionSoundCd = 0.12; playExplosion(); } rings.push({ x: e.x, y: e.y, life: 0.45, maxLife: 0.45, r: e.radius + 60, color: '255, 110, 70' }); }
+      if (l.chargeStart) playWeatherWarning();
+      if (l.chargeCrash) { addShake(shake, 0.4); spawnSplash(particles, e.x, e.y, Math.random, 14); playWallImpact(0.8); }
+      if (l.rammed) {
+        spawnDamageNumber(damageNumbers, b.x, b.y - BOAT_RADIUS - 12, ev.rammed, { incoming: true });
+        flashHit(); hullFlash = 0.5; addShake(shake, 0.7); playWallImpact(1);
+        spawnSplash(particles, b.x, b.y, Math.random, 16);
+      }
+      if (l.shieldUp) { showToast(`🛡️ ${lordTitle(e)} raises a ward — sink its crew!`, { ms: 2000 }); playBossPhaseChange(); addShake(shake, 0.3); }
+      if (l.shieldDown) { showToast('The ward breaks — open fire! 💥', { ms: 1400 }); rings.push({ x: e.x, y: e.y, life: 0.5, maxLife: 0.5, r: e.radius + 40, color: '255, 240, 180' }); }
+    }
     // Loot.
     const pk = ev.pickups;
     if (pk.xp) updateSurvivalHud();
@@ -1811,11 +1875,12 @@ export function startApp(root) {
     drawSinkers(ctx, sinkers, t, (e) => e.colorHex || enemyColor(e));
     drawEnemies(
       ctx, visibleOnly(run.enemies, view.visible), (e) => e.colorHex || enemyColor(e), t,
-      (e) => (e.isBoss ? getEnemy(e.defId).name : e.warlord ? `Warlord ${getEnemy(e.defId).name}` : null),
+      (e) => (e.isBoss || e.warlord ? lordTitle(e) : null),
       (e) => relationTo(run.faction, e.faction),
       run.boat,
     );
     for (const e of run.enemies) if (e.isBoss && e.enraged && e.health > 0) drawEnrage(ctx, e, t);
+    drawLords(ctx, visibleOnly(run.enemies, view.visible), t);
     drawLighting(view.visible, t);
     drawEnemyProjectiles(ctx, run.enemyProjectiles, t);
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color, t);
@@ -1868,12 +1933,13 @@ export function startApp(root) {
   let bossShown = '';
   function updateBossBar() {
     const b = run.sv && run.sv.bossId != null ? run.enemies.find((e) => e.id === run.sv.bossId && e.health > 0) : null;
-    const key = b ? `${b.id}:${Math.ceil((100 * b.health) / b.maxHealth)}` : '';
+    const key = b ? `${b.id}:${Math.ceil((100 * b.health) / b.maxHealth)}:${b.lord?.shieldTime > 0}` : '';
     if (key === bossShown) return;
     bossShown = key;
     bossBarEl.hidden = !b;
     if (!b) return;
-    bossBarEl.querySelector('b').textContent = b.isBoss ? getEnemy(b.defId).name : `Warlord ${getEnemy(b.defId).name}`;
+    bossBarEl.querySelector('b').textContent = `${lordTitle(b)}  ${(b.lord?.kit || []).map((k) => LORD_TRAITS[k].icon).join('')}`;
+    bossBarEl.classList.toggle('warded', b.lord?.shieldTime > 0);
     bossBarEl.querySelector('u').style.width = `${(100 * b.health) / b.maxHealth}%`;
   }
   requestAnimationFrame(frame);

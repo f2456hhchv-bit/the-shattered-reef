@@ -15,9 +15,10 @@ import { stepArmaments, chainLightning } from './armaments.mjs';
 import { updateEnemyGuns, stepEnemyProjectiles } from './enemyGuns.mjs';
 import { ambientLight, viewRadius, canSee } from './ambient.mjs';
 import {
-  stepDirector, recycleStragglers, separateEnemies, knockBack, fireWeapons, afterHits, stepWeaponExtras, dropLoot, stepPickups, addXp,
+  spawnCrew, stepDirector, recycleStragglers, separateEnemies, knockBack, fireWeapons, afterHits, stepWeaponExtras, dropLoot, stepPickups, addXp,
 } from './survival.mjs';
 import { addLevelSalvage } from './survivalRun.mjs';
+import { stepLord } from './warlord.mjs';
 import { getEnemy } from '../data/enemies.mjs';
 
 export const BOAT_RADIUS = 11;
@@ -35,7 +36,7 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   const sv = run.sv;
   const boat = run.boat;
   const ev = {
-    wallDamage: 0, dot: 0, boatHits: [], contacts: [], shots: null, hits: [], arcs: [], explosions: [],
+    wallDamage: 0, dot: 0, lord: [], rammed: 0, boatHits: [], contacts: [], shots: null, hits: [], arcs: [], explosions: [],
     fired: [], armFired: [], director: null, kills: [], pickups: null, levelUps: 0, weather: null, summoned: 0,
   };
   const wmods = weatherModifiers(run.weather);
@@ -98,6 +99,17 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   // Their guns, their teeth.
   const taken = sv.stats.damageTaken;
   const incoming = incomingMultiplierFor(run.faction);
+  // Warlords' and bosses' signature moves.
+  for (const e of run.enemies) {
+    if (!e.lord || e.health <= 0) continue;
+    const lv = stepLord(run, e, dt, rng, (x, y) => spawnCrew(run, x, y, rng), run.enemyProjectiles, BOAT_RADIUS);
+    if (lv.rammed) {
+      const dmg = lv.rammed * incoming(e) * taken;
+      boat.health = Math.max(0, boat.health - dmg);
+      ev.rammed += dmg;
+    }
+    if (Object.keys(lv).length) ev.lord.push({ e, ...lv });
+  }
   updateEnemyGuns(run.enemies, boat, dt, world, run.enemyProjectiles, rng);
   ev.shots = stepEnemyProjectiles(run.enemyProjectiles, boat, BOAT_RADIUS, dt, world, (s) => incoming(s) * taken);
   run.enemyProjectiles = run.enemyProjectiles.filter((s) => !s.spent);

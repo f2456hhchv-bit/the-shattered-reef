@@ -3,6 +3,7 @@
 // Pure logic over a survival run (engine/survivalRun.mjs builds one); no
 // DOM or Canvas. Content lives in data/survival.mjs.
 
+import { initLord } from './warlord.mjs';
 import {
   SURVIVAL, SV_WEAPONS, SV_WEAPON_IDS, SV_WEAPON_MAX, PASSIVES, PASSIVE_BY_ID, PASSIVE_MAX,
   WAVES, waveScaling, HORDE_FOR_BIOME, LOOT, GEMS, GEM_CAP, xpToNext,
@@ -123,10 +124,14 @@ export function countersInLevel(run, weaponId) {
   return [...ids].filter((id) => getEnemy(id).counter === weaponId || id === run.sv.bossDefId).map((id) => getEnemy(id).name);
 }
 
+export function evolutionsUsed(run) {
+  return Object.keys(run.sv.evolved).filter((k) => run.sv.evolved[k]).length;
+}
+
 export function canEvolve(run, weaponId) {
   const sv = run.sv;
   const w = SV_WEAPONS[weaponId];
-  return !!w && !sv.evolved[weaponId] && (sv.weapons[weaponId] || 0) >= SV_WEAPON_MAX && (sv.passives[w.evolve.with] || 0) > 0;
+  return !!w && !sv.evolved[weaponId] && evolutionsUsed(run) < SURVIVAL.maxEvolutions && (sv.weapons[weaponId] || 0) >= SV_WEAPON_MAX && (sv.passives[w.evolve.with] || 0) > 0;
 }
 
 // Up to `count` distinct cards: { kind, id }. kind: 'weapon' | 'armament' |
@@ -241,7 +246,7 @@ function spawnEnemy(run, defId, p, rng, { health = 1, radius = 1, damage = 1, el
   // The horde stays one-shot fodder for a fresh build in every stage; the
   // stage's toughness lives in its specialists.
   const hordeDef = getEnemy(defId).horde;
-  const e = createEnemy(defId, p.x, p.y, rng, { scale: { health: (hordeDef ? 1 : ss.health) * ws.health * health, damage: ss.damage * damage } });
+  const e = createEnemy(defId, p.x, p.y, rng, { scale: { health: (hordeDef ? 1 : ss.health) * ws.health * health, damage: ss.damage * damage * SURVIVAL.enemyDamage } });
   e.hunting = true; e.aggro = true;
   e.speed *= ws.speed;
   if (radius !== 1) e.radius *= radius;
@@ -251,6 +256,18 @@ function spawnEnemy(run, defId, p, rng, { health = 1, radius = 1, damage = 1, el
   if (warlord) { e.warlord = true; e.xp = 60; e.salvageDrop = 30; }
   run.enemies.push(e);
   return e;
+}
+
+// A warlord's crew (engine/warlord.mjs): one horde enemy at a point on
+// water (flyers anywhere), or null.
+export function spawnCrew(run, x, y, rng = Math.random) {
+  const id = run.sv.hordeId;
+  const flyer = isFlyerDef(getEnemy(id));
+  if (!flyer) {
+    const tx = Math.floor(x / run.tileSize); const ty = Math.floor(y / run.tileSize);
+    if (!(run.arena?.waterDist[ty]?.[tx] >= 1.2)) return null;
+  }
+  return spawnEnemy(run, id, { x, y }, rng);
 }
 
 // How many gun-carrying specialists may be afloat at once: enemy fire is
@@ -322,6 +339,7 @@ function runEvent(run, event, ctx, rng, out) {
       e = spawnEnemy(run, id, p, rng, { health: SURVIVAL.warlordHp * (def.horde ? 3 : 1), radius: 1.75, damage: 1.4, elite: true, warlord: true });
       e.contactCooldownRemaining = 0;
     }
+    initLord(e, { levelIndex: sv.levelIndex, stage: sv.stage, boss: !!sv.bossDefId }, rng);
     sv.bossId = e.id;
     out.boss = e;
     // An escort ring arrives with it.
@@ -793,7 +811,7 @@ export function describeChoice(run, card) {
   }
   if (card.kind === 'evolve') {
     const w = SV_WEAPONS[card.id];
-    return { icon: w.evolve.icon, name: w.evolve.name, kindLabel: 'Evolution', level: 0, max: 0, desc: w.evolve.desc, evolve: true, counters: [] };
+    return { icon: w.evolve.icon, name: w.evolve.name, kindLabel: `Evolution ${evolutionsUsed(run) + 1}/${SURVIVAL.maxEvolutions}`, level: 0, max: 0, desc: w.evolve.desc, evolve: true, counters: [] };
   }
   if (card.kind === 'armament') {
     const a = ARMAMENT_BY_ID[card.id]; const lv = armamentLevel(run, card.id);
@@ -801,7 +819,9 @@ export function describeChoice(run, card) {
   }
   if (card.kind === 'passive') {
     const p = PASSIVE_BY_ID[card.id]; const lv = run.sv.passives[card.id] || 0;
-    const ev = SV_WEAPON_IDS.find((w) => SV_WEAPONS[w].evolve.with === card.id);
+    const ev0 = SV_WEAPON_IDS.find((w) => SV_WEAPONS[w].evolve.with === card.id);
+    // No evolution hint once the three evolutions are spent.
+    const ev = ev0 && !run.sv.evolved[ev0] && evolutionsUsed(run) < SURVIVAL.maxEvolutions ? ev0 : null;
     return { icon: p.icon, name: p.name, kindLabel: 'Ship upgrade', level: lv + 1, max: PASSIVE_MAX, desc: p.desc, counters: [], evolves: ev ? SV_WEAPONS[ev].name : null };
   }
   if (card.kind === 'repair') return { icon: '🛟', name: 'Patch the Hull', kindLabel: 'Supplies', level: 0, max: 0, desc: 'Repair 35% of your hull', counters: [] };

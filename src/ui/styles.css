@@ -1244,6 +1244,10 @@ body.in-run #pause-button { right: auto; left: max(10px, env(safe-area-inset-lef
   display: flex; gap: 3px; flex-wrap: nowrap;
 }
 #upgrade-strip span { font-size: 10.5px; padding: 1px 5px; }
+#upgrade-strip span.empty { min-width: 22px; text-align: center; opacity: .45; border-style: dashed; }
+#upgrade-strip span.evo-count { color: #ffe08a; border-color: rgba(255, 224, 138, .7); margin-left: 4px; }
+#upgrade-strip span.evo-count.full { background: rgba(110, 72, 14, .9); }
+.dock-tile.empty { background: rgba(6, 24, 36, .35); border: 1.5px dashed rgba(232, 181, 75, .35); box-shadow: none; }
 body.in-hub #upgrade-strip, body.in-td #upgrade-strip { display: none; }
 
 /* Level-up cards. */
@@ -1303,3 +1307,27 @@ body.in-hub #upgrade-strip, body.in-td #upgrade-strip { display: none; }
   .sum-stats { margin-bottom: 6px; }
   #run-summary-retry { min-height: 46px; margin-top: 10px; }
 }
+
+/* Warlord / boss entrance (engine/warlord.mjs). */
+#lord-banner {
+  position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%); z-index: 8; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+  padding: 12px 26px 14px; min-width: min(320px, 84vw); border-radius: 14px;
+  background: linear-gradient(180deg, rgba(60, 10, 8, .92), rgba(24, 4, 4, .92));
+  border: 2px solid #e8b54b; box-shadow: 0 0 30px rgba(255, 80, 40, .45), 0 8px 24px rgba(0, 0, 0, .55);
+}
+#lord-banner[hidden] { display: none; }
+#lord-banner.boss { border-color: #ff7a6a; }
+#lord-banner small { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: #ffb0a0; font-weight: 800; }
+#lord-banner b { font-size: 20px; color: #ffe08a; text-shadow: 0 2px 0 #3a0a04, 0 0 12px rgba(255, 180, 60, .6); font-family: Georgia, 'Times New Roman', serif; }
+#lord-banner .lb-traits { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+#lord-banner .lb-traits i { font-style: normal; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 214, 92, .45); color: #f4ead0; }
+#lord-banner.go { animation: lord-in 3.2s ease forwards; }
+@keyframes lord-in {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(.96); }
+  16% { transform: translate(-50%, -50%) scale(1); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -60%) scale(1); }
+}
+#sv-boss.warded u { background: linear-gradient(180deg, #fff3c0, #e8b54b); }

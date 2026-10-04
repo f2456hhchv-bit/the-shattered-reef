@@ -5,7 +5,7 @@
 
 import { drawArmamentProjectile, drawChest, drawEliteAura } from './armamentArt.mjs';
 import { SPRITES, drawAttackTelegraphs, drawEnemyProjectiles } from './enemySprites.mjs';
-import { BOAT_STYLES, BOAT_STYLE_SCALE } from './boatSprites.mjs';
+import { drawShipArt, SHIP_ART_SCALE } from './shipArt.mjs';
 export { drawEnemyProjectiles };
 import { damageNumberStyle, DAMAGE_NUMBER_COLORS } from './juice.mjs';
 import { isRevealed } from './enemies.mjs';
@@ -138,62 +138,28 @@ export function drawWake(ctx, wake) {
 // The player's ship (2026-09-28 art pass): a top-down sloop — planked
 // hull, square sail billowing across the beam, a red pennant streaming
 // aft. Drawn along +x (the heading).
+// The player's ship (engine/shipArt.mjs paints every hull). Drawn a
+// little larger than its collision circle (SHIP_DISPLAY_SCALE) so the
+// detail reads on a phone; collision is unchanged.
+export const SHIP_DISPLAY_SCALE = 1.32;
 export function drawBoat(ctx, boat, radius, t = 0) {
-  const L = radius * 1.45; // half-length
-  const B = radius * 0.72; // half-beam
+  const style = boat.style || 'sloop';
+  const k = (SHIP_ART_SCALE[style] || 1) * SHIP_DISPLAY_SCALE;
+  const L = radius * 1.5 * k;
+  const B = radius * 0.72 * k;
+  const speed = Math.hypot(boat.vx || 0, boat.vy || 0);
   ctx.save();
   ctx.translate(boat.x, boat.y);
-  // Drop shadow on the water (unrotated offset = consistent light).
+  // Soft drop shadow on the water, offset with the world light.
   ctx.save();
-  ctx.translate(3, 4);
+  ctx.translate(4, 5);
   ctx.rotate(boat.heading);
-  ctx.fillStyle = 'rgba(4, 30, 40, 0.35)';
-  hullPath(ctx, L, B); ctx.fill();
+  ctx.fillStyle = 'rgba(2, 22, 32, 0.32)';
+  hullPath(ctx, L * 1.02, B * (style === 'catamaran' ? 1.9 : 1.05)); ctx.fill();
   ctx.restore();
-
   ctx.rotate(boat.heading);
-  // Other ship styles (engine/boatSprites.mjs), by the hull you sail.
-  const style = BOAT_STYLES[boat.style];
-  if (style) {
-    const k = BOAT_STYLE_SCALE[boat.style] || 1;
-    ctx.scale(k, k);
-    style(ctx, radius, t);
-    ctx.restore();
-    return;
-  }
-  // Hull
-  const hg = ctx.createLinearGradient(0, -B, 0, B);
-  hg.addColorStop(0, '#b8783a'); hg.addColorStop(0.5, '#96592a'); hg.addColorStop(1, '#6d3d1b');
-  ctx.fillStyle = hg;
-  hullPath(ctx, L, B); ctx.fill();
-  ctx.lineWidth = 1.6; ctx.strokeStyle = '#3e2410'; ctx.stroke();
-  // Deck
-  ctx.fillStyle = '#d9a863';
-  hullPath(ctx, L * 0.84, B * 0.72, -L * 0.04); ctx.fill();
-  ctx.strokeStyle = 'rgba(110, 70, 30, 0.45)'; ctx.lineWidth = 0.6;
-  for (const y of [-B * 0.36, 0, B * 0.36]) { ctx.beginPath(); ctx.moveTo(-L * 0.78, y); ctx.lineTo(L * 0.5, y); ctx.stroke(); }
-  // Bowsprit
-  ctx.strokeStyle = '#5a3616'; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.moveTo(L * 0.8, 0); ctx.lineTo(L * 1.28, 0); ctx.stroke();
-  // Sail: a billowed yard across the beam, lit from the top-left.
-  const billow = Math.sin(t * 3) * 0.6;
-  ctx.fillStyle = 'rgba(40, 30, 20, 0.25)';
-  ctx.beginPath(); ctx.ellipse(-L * 0.02 + 2, 2, L * 0.24, B * 1.32, 0, 0, Math.PI * 2); ctx.fill();
-  const sg = ctx.createLinearGradient(-L * 0.3, -B, L * 0.3, B);
-  sg.addColorStop(0, '#fbf5e6'); sg.addColorStop(1, '#d9ccb0');
-  ctx.fillStyle = sg;
-  ctx.beginPath();
-  ctx.moveTo(-L * 0.12, -B * 1.3);
-  ctx.quadraticCurveTo(L * (0.32 + billow * 0.05), 0, -L * 0.12, B * 1.3);
-  ctx.quadraticCurveTo(-L * 0.02, 0, -L * 0.12, -B * 1.3);
-  ctx.fill();
-  ctx.strokeStyle = '#5a3616'; ctx.lineWidth = 1.3;
-  ctx.beginPath(); ctx.moveTo(-L * 0.12, -B * 1.35); ctx.lineTo(-L * 0.12, B * 1.35); ctx.stroke();
-  // Mast top + pennant streaming aft
-  ctx.fillStyle = '#4a2c12'; ctx.beginPath(); ctx.arc(-L * 0.05, 0, 1.8, 0, Math.PI * 2); ctx.fill();
-  const flap = Math.sin(t * 9) * 1.5;
-  ctx.fillStyle = '#d8453a';
-  ctx.beginPath(); ctx.moveTo(-L * 0.05, -1.2); ctx.quadraticCurveTo(-L * 0.4, flap, -L * 0.62, flap * 0.6); ctx.quadraticCurveTo(-L * 0.4, flap + 1.5, -L * 0.05, 1.2); ctx.fill();
+  ctx.scale(k, k);
+  drawShipArt(ctx, style, radius, t, boat.heading, speed);
   ctx.restore();
 }
 

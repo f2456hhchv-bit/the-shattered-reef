@@ -228,6 +228,28 @@ test('choices: a maxed weapon with its partner upgrade is always offered its evo
   }
 });
 
+test('build caps: 5 weapons, 5 upgrades, only 3 evolutions', () => {
+  assert.equal(SURVIVAL.maxWeapons, 5);
+  assert.equal(SURVIVAL.maxPassives, 5);
+  const run = createSurvivalRun(3);
+  for (const id of SV_WEAPON_IDS) {
+    run.sv.weapons[id] = 5;
+    run.sv.passives[SV_WEAPONS[id].evolve.with] = 1;
+  }
+  const evolved = [];
+  for (const id of SV_WEAPON_IDS) if (canEvolve(run, id)) { applyChoice(run, { kind: 'evolve', id }); evolved.push(id); }
+  assert.equal(evolved.length, 3);
+  for (const id of SV_WEAPON_IDS) if (!run.sv.evolved[id]) assert.ok(!canEvolve(run, id));
+  // Full slots: no new weapon, armament or upgrade is offered.
+  for (let k = 0; k < 40; k++) {
+    for (const c of rollChoices(run, Math.random)) {
+      assert.notEqual(c.kind, 'evolve');
+      if (c.kind === 'armament') assert.ok(false, 'armament offered with full weapon slots');
+      if (c.kind === 'passive') assert.ok(run.sv.passives[c.id], 'new upgrade offered with full upgrade slots');
+    }
+  }
+});
+
 test('passives change the ship: hull, speed, reload, pickup reach', () => {
   const run = createSurvivalRun(1);
   const hull = run.boat.maxHull; const speed = run.tuning.maxSpeed; const cd = weaponStats(run, 'cannonballs').cooldown;

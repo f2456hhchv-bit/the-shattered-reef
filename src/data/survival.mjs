@@ -17,8 +17,10 @@ import { HORDE_IDS as H } from './enemies.mjs';
 export const SURVIVAL = Object.freeze({
   waves: 10,
   waveSeconds: 30,
-  maxWeapons: 6, // core weapons + armaments together
-  maxPassives: 6,
+  maxWeapons: 5, // core weapons + armaments together (project owner: 5 + 5)
+  maxPassives: 5,
+  maxEvolutions: 3, // once three weapons evolve, the rest can't
+  enemyDamage: 1.05, // owner 2026-10-04: a bit easy
   counterBonus: 1.75, // damage vs. the enemies a weapon counters
   spawnMargin: 70, // px beyond the screen edge enemies appear
   recycleBeyond: 1.7, // × spawn distance: further than this, a straggler is moved back in
