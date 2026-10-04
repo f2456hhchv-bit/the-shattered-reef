@@ -15,13 +15,43 @@ import { stepArmaments, chainLightning } from './armaments.mjs';
 import { updateEnemyGuns, stepEnemyProjectiles } from './enemyGuns.mjs';
 import { ambientLight, viewRadius, canSee } from './ambient.mjs';
 import {
-  spawnCrew, stepDirector, recycleStragglers, separateEnemies, knockBack, fireWeapons, afterHits, stepWeaponExtras, dropLoot, stepPickups, addXp,
+  spawnCrew, applySynergies, stepDirector, recycleStragglers, separateEnemies, knockBack, fireWeapons, afterHits, stepWeaponExtras, dropLoot, stepPickups, addXp,
 } from './survival.mjs';
 import { addLevelSalvage } from './survivalRun.mjs';
 import { stepLord } from './warlord.mjs';
 import { getEnemy } from '../data/enemies.mjs';
+import { DASH } from '../data/survival.mjs';
 
 export const BOAT_RADIUS = 11;
+
+function tallyKill(sv, e) {
+  (sv.killsByDef ||= {})[e.defId] = (sv.killsByDef[e.defId] || 0) + 1;
+  if (e.elite && !e.warlord) sv.eliteKills = (sv.eliteKills || 0) + 1;
+}
+
+// The dash: `input.dash` asks for one. Bursts along the stick (or the bow
+// if the stick is centred). Returns true on the frame a dash starts.
+export function stepDash(run, input, dt) {
+  const d = (run.dash ||= { cd: 0, t: 0, iframes: 0, uses: 0, dx: 1, dy: 0 });
+  const boat = run.boat;
+  d.cd = Math.max(0, d.cd - dt);
+  d.iframes = Math.max(0, d.iframes - dt);
+  let started = false;
+  if (input.dash && d.cd <= 0) {
+    const m = Math.hypot(input.x || 0, input.y || 0);
+    if (m > 0.2) { d.dx = input.x / m; d.dy = input.y / m; } else { d.dx = Math.cos(boat.heading); d.dy = Math.sin(boat.heading); }
+    d.t = DASH.time; d.iframes = DASH.iframes; d.cd = run.sv.stats?.dashCooldown ?? DASH.cooldown; d.uses++;
+    boat.heading = Math.atan2(d.dy, d.dx);
+    started = true;
+  }
+  if (d.t > 0) {
+    d.t -= dt;
+    boat.vx = d.dx * DASH.speed; boat.vy = d.dy * DASH.speed;
+    boat.x += boat.vx * dt * 0.5; boat.y += boat.vy * dt * 0.5; // on top of stepBoat's own move
+    if (d.t <= 0) { boat.vx *= 0.45; boat.vy *= 0.45; }
+  }
+  return started;
+}
 
 // What the crew can see to shoot at: fog, darkness and camouflage hide the rest.
 export function visibleEnemies(run, biome) {
@@ -39,13 +69,15 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
     wallDamage: 0, dot: 0, lord: [], rammed: 0, boatHits: [], contacts: [], shots: null, hits: [], arcs: [], explosions: [],
     fired: [], armFired: [], director: null, kills: [], pickups: null, levelUps: 0, weather: null, summoned: 0,
   };
+  const hpStart = boat.health;
   const wmods = weatherModifiers(run.weather);
   boat.sightMult = wmods.sight;
   const tuning = statusTuning(run.tuning, boat, wmods.turn);
   stepBoat(boat, input, dt, tuning);
+  ev.dashed = stepDash(run, input, dt);
   ev.weather = stepWeather(run, dt, rng);
   const impact = resolveCoastCollision(boat, BOAT_RADIUS, run.coast);
-  ev.wallDamage = applyWallImpactDamage(boat, impact);
+  ev.wallDamage = run.dash.t > 0 ? 0 : applyWallImpactDamage(boat, impact);
   ev.dot = tickBoatStatus(boat, dt);
   if (run.hullRegenPerSecond && boat.health > 0 && boat.health < boat.maxHull) {
     boat.health = Math.min(boat.maxHull, boat.health + run.hullRegenPerSecond * dt);
@@ -78,6 +110,7 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   const chain = chainLightning(run, hits);
   ev.hits.push(...chain.events); ev.arcs = chain.arcs;
   ev.hits.push(...stepWeaponExtras(run, dt));
+  ev.hits.push(...applySynergies(run, ev.hits, ev.explosions, dt));
   for (const e of run.enemies) {
     const b = stepBurn(e, dt);
     if (b) ev.hits.push({ ...b, burn: true });
@@ -99,6 +132,9 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   // Their guns, their teeth.
   const taken = sv.stats.damageTaken;
   const incoming = incomingMultiplierFor(run.faction);
+  // While dashing nothing touches you: remember the hull and status now and
+  // put them back after the hits below.
+  const guard = run.dash.iframes > 0 ? { hp: boat.health, aff: { ...(boat.afflictions || {}) }, chill: boat.chillRemaining || 0, jam: boat.turnJamRemaining || 0 } : null;
   // Warlords' and bosses' signature moves.
   for (const e of run.enemies) {
     if (!e.lord || e.health <= 0) continue;
@@ -115,6 +151,12 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   run.enemyProjectiles = run.enemyProjectiles.filter((s) => !s.spent);
   ev.contacts = resolveEnemyContactEvents(run.enemies, boat, BOAT_RADIUS, (e) => incoming(e) * (run.contactDamageTaken ?? 1) * taken);
   for (const c of ev.contacts) knockBack(c.enemy, boat);
+  if (guard) {
+    ev.dodged = ev.shots.hits.length + ev.contacts.length + (ev.rammed > 0 ? 1 : 0);
+    boat.health = guard.hp; boat.afflictions = guard.aff; boat.chillRemaining = guard.chill; boat.turnJamRemaining = guard.jam;
+    ev.shots.hits = []; ev.contacts = []; ev.rammed = 0;
+    for (const l of ev.lord) l.rammed = 0;
+  }
 
   // The fallen: loot, fire ships going up, and clear them off the water.
   for (const e of run.enemies) {
@@ -122,6 +164,7 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
     e._looted = true;
     if (e.detonated) continue; // a fire ship that reached you: no loot
     sv.kills++;
+    tallyKill(sv, e);
     ev.kills.push(e);
     dropLoot(run, e, rng);
     const def = getEnemy(e.defId);
@@ -134,13 +177,15 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   // Second pass for anything a fire ship's blast just sank.
   for (const e of run.enemies) {
     if (e.health > 0 || e._looted) continue;
-    e._looted = true; sv.kills++; ev.kills.push(e); dropLoot(run, e, rng);
+    e._looted = true; sv.kills++; tallyKill(sv, e); ev.kills.push(e); dropLoot(run, e, rng);
   }
   if (run.enemies.length > 40) run.enemies = run.enemies.filter((e) => e.health > 0);
 
   // Sea glass, coins, chests.
   ev.pickups = stepPickups(run, dt, BOAT_RADIUS);
   if (ev.pickups.xp) ev.levelUps = addXp(run, ev.pickups.xp);
+  if (ev.pickups.chests) sv.chestsOpened = (sv.chestsOpened || 0) + ev.pickups.chests;
+  if (boat.health < hpStart) sv.hullLost = (sv.hullLost || 0) + (hpStart - boat.health);
   if (ev.pickups.salvage) ev.pickups.salvageGained = addLevelSalvage(run, ev.pickups.salvage);
   if (ev.weather.salvage) addLevelSalvage(run, ev.weather.salvage);
   return ev;

@@ -33,6 +33,10 @@ export const SURVIVAL = Object.freeze({
   choices: 3,
 });
 
+// The dash (2026-10-04): a short burst of speed you can't be hurt during.
+// Swift Sails also shortens its cooldown.
+export const DASH = Object.freeze({ speed: 390, time: 0.2, iframes: 0.34, cooldown: 3.6, minCooldown: 1.6 });
+
 // XP to reach the next ship level from `lv` (1-based).
 export function xpToNext(lv) {
   return Math.round(5 + 3.4 * (lv - 1) + Math.pow(lv - 1, 1.55));
@@ -133,6 +137,18 @@ export const SV_WEAPONS = {
   },
 };
 export const SV_WEAPON_IDS = Object.keys(SV_WEAPONS);
+
+// Weapon combos (2026-10-04): carry both weapons (any level) and the pair
+// does something neither does alone. Level-up cards name the combo a pick
+// would complete. engine/survival.mjs applySynergies runs them.
+export const SYNERGIES = [
+  { id: 'burning_shrapnel', name: 'Burning Shrapnel', icon: '🔥', needs: [W.GRAPESHOT, W.FLAME_BARRELS], desc: 'Grapeshot pellets set what they hit alight' },
+  { id: 'undertow', name: 'Undertow', icon: '🌀', needs: [W.CHAIN_SHOT, W.DEPTH_CHARGES], desc: 'Depth-charge blasts drag nearby enemies into a clump' },
+  { id: 'heated_shot', name: 'Heated Shot', icon: '♨️', needs: [W.CANNONBALLS, W.FLAME_BARRELS], desc: 'Cannonball kills burst into a pool of fire' },
+  { id: 'rigging_shredder', name: 'Rigging Shredder', icon: '🪝', needs: [W.CHAIN_SHOT, W.GRAPESHOT], desc: 'Chain Shot slows what it hits by 40%' },
+  { id: 'shock_shells', name: 'Shock Shells', icon: '💫', needs: [W.CANNONBALLS, W.DEPTH_CHARGES], desc: 'Cannonballs knock enemies back' },
+];
+export const SYNERGY_BY_ID = Object.fromEntries(SYNERGIES.map((x) => [x.id, x]));
 export const SV_WEAPON_MAX = 5;
 
 // -- Ship upgrades (passives) -------------------------------------------------
@@ -142,7 +158,7 @@ export const PASSIVES = [
   { id: 'heavy_shot', name: 'Heavy Shot', icon: '🎯', desc: '+10% damage for every weapon', per: { damage: 0.1 } },
   { id: 'armour', name: 'Armour Plating', icon: '🛡️', desc: 'Take 7% less damage', per: { resist: 0.07 } },
   { id: 'hull', name: 'Reinforced Hull', icon: '🪵', desc: '+20 max hull, and patch 20 now', per: { maxHull: 20 } },
-  { id: 'sails', name: 'Swift Sails', icon: '⛵', desc: '+7% speed and acceleration', per: { speed: 0.07 } },
+  { id: 'sails', name: 'Swift Sails', icon: '⛵', desc: '+7% speed, and dash 8% sooner', per: { speed: 0.07, dash: -0.08 } },
   { id: 'rudder', name: 'Fine Rigging', icon: '🪢', desc: 'Turn 12% faster', per: { turn: 0.12 } },
   { id: 'lodestone', name: 'Lodestone', icon: '🧲', desc: 'Pull in sea glass and coins from 30% further', per: { pickup: 0.3 } },
   { id: 'plunder', name: 'Plunderer', icon: '💰', desc: '+15% Salvage from coins and chests', per: { salvage: 0.15 } },
@@ -158,6 +174,9 @@ export const PASSIVE_MAX = 5;
 // Per wave: seconds between spawns, enemies per spawn, the cap on enemies
 // alive, and the share of each spawn that's a stage specialist (the rest
 // is the biome's horde). `event` adds a set piece at the wave's start.
+// From FINAL_STRETCH on, the sky darkens, the music turns and `hunters`
+// (seconds) sends an elite at you on a timer.
+export const FINAL_STRETCH = 7;
 export const WAVES = [
   { every: 1.4, batch: 2, alive: 16, special: 0.0 },
   { every: 1.15, batch: 2, alive: 22, special: 0.1 },
@@ -166,8 +185,8 @@ export const WAVES = [
   { every: 0.9, batch: 3, alive: 38, special: 0.2, event: 'elite' },
   { every: 0.8, batch: 4, alive: 44, special: 0.24 },
   { every: 0.72, batch: 4, alive: 50, special: 0.28, event: 'encircle' },
-  { every: 0.66, batch: 4, alive: 56, special: 0.3, event: 'elite2' },
-  { every: 0.6, batch: 5, alive: 62, special: 0.34 },
+  { every: 0.66, batch: 4, alive: 56, special: 0.3, event: 'elite2', hunters: 20 },
+  { every: 0.6, batch: 5, alive: 62, special: 0.34, hunters: 18 },
   { every: 0.85, batch: 4, alive: 48, special: 0.3, event: 'boss' }, // until the warlord/boss sinks
 ];
 

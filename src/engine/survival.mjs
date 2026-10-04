@@ -4,6 +4,7 @@
 // DOM or Canvas. Content lives in data/survival.mjs.
 
 import { initLord } from './warlord.mjs';
+import { DASH, SYNERGIES, FINAL_STRETCH } from '../data/survival.mjs';
 import {
   SURVIVAL, SV_WEAPONS, SV_WEAPON_IDS, SV_WEAPON_MAX, PASSIVES, PASSIVE_BY_ID, PASSIVE_MAX,
   WAVES, waveScaling, HORDE_FOR_BIOME, LOOT, GEMS, GEM_CAP, xpToNext,
@@ -49,6 +50,10 @@ export function createSurvivalState({ stage = 1, levelIndex = 0, biomeId = 'trop
     kills: 0,
     coins: 0,
     stats: null,
+    // Tallies for contracts, achievements and the bestiary.
+    killsByDef: {}, eliteKills: 0, chestsOpened: 0, hullLost: 0,
+    // Daily-voyage modifiers (data/progression.mjs DAILY_MODS).
+    countMult: 1, xpMult: 1, enemySpeed: 1,
   };
 }
 
@@ -61,7 +66,7 @@ export function weaponSlots(run) {
 // Totals from passives and the meta loadout. Recomputed on every choice.
 export function recomputeStats(run) {
   const sv = run.sv;
-  const t = { cooldown: 0, damage: 0, resist: 0, maxHull: 0, speed: 0, turn: 0, pickup: 0, salvage: 0, projSpeed: 0, range: 0, regen: 0, ram: 0, contact: 0 };
+  const t = { cooldown: 0, damage: 0, resist: 0, maxHull: 0, speed: 0, turn: 0, pickup: 0, salvage: 0, projSpeed: 0, range: 0, regen: 0, ram: 0, contact: 0, dash: 0 };
   for (const [id, lv] of Object.entries(sv.passives)) {
     const p = PASSIVE_BY_ID[id];
     for (const [k, v] of Object.entries(p.per)) t[k] += v * lv;
@@ -69,8 +74,8 @@ export function recomputeStats(run) {
   const base = run.baseStats;
   sv.stats = {
     cooldownMult: Math.max(0.45, (1 + t.cooldown) * (base.cooldownMult ?? 1)),
-    damageMult: 1 + t.damage,
-    damageTaken: Math.max(0.4, 1 - t.resist),
+    damageMult: (1 + t.damage) * (base.damageMult ?? 1),
+    damageTaken: Math.max(0.4, 1 - t.resist) * (base.takenMult ?? 1),
     pickup: (1 + t.pickup) * (base.pickupMult ?? 1),
     salvageMult: 1 + t.salvage,
     projSpeed: 1 + t.projSpeed,
@@ -78,6 +83,7 @@ export function recomputeStats(run) {
     regen: t.regen,
     ram: t.ram + (base.ram || 0),
     contactTaken: Math.max(0.4, (1 + t.contact) * (base.contactTaken ?? 1)),
+    dashCooldown: Math.max(DASH.minCooldown, DASH.cooldown * (1 + t.dash) * (base.dashMult ?? 1)),
   };
   // Ship handling and hull.
   const tuning = base.tuning;
@@ -102,7 +108,7 @@ export function recomputeStats(run) {
 
 export function addXp(run, amount) {
   const sv = run.sv;
-  sv.xp += amount;
+  sv.xp += amount * (sv.xpMult || 1);
   let ups = 0;
   while (sv.xp >= sv.xpNeed) {
     sv.xp -= sv.xpNeed;
@@ -148,12 +154,12 @@ export function rollChoices(run, rng = Math.random, count = SURVIVAL.choices) {
     const lv = sv.weapons[id] || 0;
     if (lv > 0 && lv < SV_WEAPON_MAX) cands.push({ kind: 'weapon', id, w: 11 });
     // Early on a build wants guns: new weapons dominate the first picks.
-    else if (lv === 0 && !slotsFull) cands.push({ kind: 'weapon', id, w: (countersInLevel(run, id).length ? 12 : 7) * (weaponSlots(run).length < 3 ? 1.6 : 1) });
+    else if (lv === 0 && !slotsFull && !run.poolLocked?.has(id)) cands.push({ kind: 'weapon', id, w: (countersInLevel(run, id).length ? 12 : 7) * (weaponSlots(run).length < 3 ? 1.6 : 1) });
   }
   for (const a of ARMAMENTS) {
     const lv = armamentLevel(run, a.id);
     if (lv > 0 && lv < ARMAMENT_MAX_LEVEL) cands.push({ kind: 'armament', id: a.id, w: 9 });
-    else if (lv === 0 && !slotsFull) cands.push({ kind: 'armament', id: a.id, w: 3 });
+    else if (lv === 0 && !slotsFull && !run.poolLocked?.has(a.id)) cands.push({ kind: 'armament', id: a.id, w: 3 });
   }
   for (const p of PASSIVES) {
     const lv = sv.passives[p.id] || 0;
@@ -248,7 +254,7 @@ function spawnEnemy(run, defId, p, rng, { health = 1, radius = 1, damage = 1, el
   const hordeDef = getEnemy(defId).horde;
   const e = createEnemy(defId, p.x, p.y, rng, { scale: { health: (hordeDef ? 1 : ss.health) * ws.health * health, damage: ss.damage * damage * SURVIVAL.enemyDamage } });
   e.hunting = true; e.aggro = true;
-  e.speed *= ws.speed;
+  e.speed *= ws.speed * (sv.enemySpeed || 1);
   if (radius !== 1) e.radius *= radius;
   const def = getEnemy(defId);
   e.xp = def.horde ? 1 : Math.max(2, Math.round(def.maxHealth / 10));
@@ -361,6 +367,15 @@ export function stepDirector(run, dt, ctx, rng = Math.random) {
     out.waveStarted = sv.wave;
   }
   const W = WAVES[sv.wave];
+  if (out.waveStarted === FINAL_STRETCH) out.finalStretch = true;
+  // The final stretch: an elite hunter every so often.
+  if (W.hunters) {
+    sv.hunterTimer = (sv.hunterTimer ?? W.hunters * 0.5) - dt;
+    if (sv.hunterTimer <= 0) {
+      sv.hunterTimer = W.hunters;
+      runEvent(run, 'elite', ctx, rng, out);
+    }
+  }
   if (W.event && !sv.eventsDone[sv.wave]) {
     sv.eventsDone[sv.wave] = true;
     runEvent(run, W.event, ctx, rng, out);
@@ -377,8 +392,9 @@ export function stepDirector(run, dt, ctx, rng = Math.random) {
     sv.spawnTimer += W.every;
     let alive = 0;
     for (const e of run.enemies) if (e.health > 0) alive++;
-    const cap = Math.round(W.alive * ws.count);
-    const want = Math.min(cap - alive, Math.max(1, Math.round(W.batch * ws.count)));
+    const cm = sv.countMult || 1;
+    const cap = Math.round(W.alive * ws.count * cm);
+    const want = Math.min(cap - alive, Math.max(1, Math.round(W.batch * ws.count * cm)));
     // A batch arrives together from one direction, so you can read it.
     const aim = rng() * TAU;
     for (let i = 0; i < want; i++) {
@@ -598,6 +614,7 @@ function shot(run, weaponId, x, y, heading, speed, o) {
     radius: o.radius ?? 3.5, traveled: 0, maxRange: o.range,
     fuseRemaining: o.fuse ?? null, pierceLeft: o.pierce || 0, hitIds: null, spent: false,
     damage: o.damage, counterMult: SURVIVAL.counterBonus, counterId: o.counterId || weaponId,
+    evo: !!run.sv.evolved[o.counterId || weaponId],
     ...o.extra,
   };
   run.weapons.projectiles.push(p);
@@ -803,11 +820,69 @@ export function orbitBlades(run) {
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// Weapon combos
+
+export function activeSynergies(run) {
+  const w = run.sv.weapons;
+  return SYNERGIES.filter((x) => x.needs.every((id) => (w[id] || 0) > 0));
+}
+
+// Combos a new weapon would complete (for its card).
+export function synergiesCompletedBy(run, weaponId) {
+  const w = run.sv.weapons;
+  if (w[weaponId]) return [];
+  return SYNERGIES.filter((x) => x.needs.includes(weaponId) && x.needs.every((id) => id === weaponId || (w[id] || 0) > 0));
+}
+
+// Runs every active combo over this frame's hits and blasts. Returns extra
+// hit events (same shape as resolveHits') for the feedback and loot.
+export function applySynergies(run, hits, explosions, dt) {
+  const on = new Set(activeSynergies(run).map((x) => x.id));
+  const out = [];
+  const dm = run.sv.stats?.damageMult ?? 1;
+  // Slows wear off.
+  for (const e of run.enemies) {
+    if (e._slowT > 0) { e._slowT -= dt; if (e._slowT <= 0 && e._baseSpeed) { e.speed = e._baseSpeed; e._baseSpeed = null; } }
+  }
+  if (!on.size) return out;
+  for (const h of hits) {
+    const e = h.enemy;
+    if (!e) continue;
+    if (on.has('burning_shrapnel') && h.weaponId === 'grapeshot' && !h.killed && e.health > 0 && !e.burn) {
+      e.burn = { weaponId: 'flame_barrels', tickDamage: 3 * dm, ticksRemaining: 4, tickInterval: 0.4, tickTimer: 0.4 };
+    }
+    if (on.has('rigging_shredder') && h.weaponId === 'chain_shot' && e.health > 0 && !e.isBoss) {
+      if (!e._baseSpeed) { e._baseSpeed = e.speed; e.speed *= 0.6; }
+      e._slowT = 1.6;
+    }
+    if (on.has('heated_shot') && h.weaponId === 'cannonballs' && h.killed && !h.burn) {
+      run.sv.pools.push({ x: e.x, y: e.y, r: 24, t: 0, duration: 1.6, burn: 5 * dm, every: 0.4, tick: 0.1, combo: true });
+    }
+    if (on.has('shock_shells') && h.weaponId === 'cannonballs' && e.health > 0 && !e.isBoss && !e.warlord) {
+      knockBack(e, run.boat, 150);
+    }
+  }
+  if (on.has('undertow')) {
+    for (const x of explosions) {
+      if (x.weaponId !== 'depth_charges' && !x.delayed) continue;
+      const R = (x.r || 40) * 2;
+      for (const e of run.enemies) {
+        if (e.health <= 0 || e.isBoss || e.warlord) continue;
+        const d = Math.hypot(e.x - x.x, e.y - x.y);
+        if (d > R || d < 4) continue;
+        e.x += (x.x - e.x) * 0.45; e.y += (x.y - e.y) * 0.45;
+      }
+    }
+  }
+  return out;
+}
+
 // Card text for a choice (the UI, the pause menu and tests share it).
 export function describeChoice(run, card) {
   if (card.kind === 'weapon') {
     const w = SV_WEAPONS[card.id]; const lv = run.sv.weapons[card.id] || 0;
-    return { icon: w.icon, name: w.name, kindLabel: lv ? 'Weapon' : 'New weapon', level: lv + 1, max: SV_WEAPON_MAX, desc: w.levels[lv].desc, counters: countersInLevel(run, card.id) };
+    return { icon: w.icon, name: w.name, kindLabel: lv ? 'Weapon' : 'New weapon', level: lv + 1, max: SV_WEAPON_MAX, desc: w.levels[lv].desc, counters: countersInLevel(run, card.id), combos: synergiesCompletedBy(run, card.id) };
   }
   if (card.kind === 'evolve') {
     const w = SV_WEAPONS[card.id];
@@ -821,7 +896,8 @@ export function describeChoice(run, card) {
     const p = PASSIVE_BY_ID[card.id]; const lv = run.sv.passives[card.id] || 0;
     const ev0 = SV_WEAPON_IDS.find((w) => SV_WEAPONS[w].evolve.with === card.id);
     // No evolution hint once the three evolutions are spent.
-    const ev = ev0 && !run.sv.evolved[ev0] && evolutionsUsed(run) < SURVIVAL.maxEvolutions ? ev0 : null;
+    const ev = ev0 && !run.sv.evolved[ev0] && evolutionsUsed(run) < SURVIVAL.maxEvolutions
+      && (run.sv.weapons[ev0] || !run.poolLocked?.has(ev0)) ? ev0 : null;
     return { icon: p.icon, name: p.name, kindLabel: 'Ship upgrade', level: lv + 1, max: PASSIVE_MAX, desc: p.desc, counters: [], evolves: ev ? SV_WEAPONS[ev].name : null };
   }
   if (card.kind === 'repair') return { icon: '🛟', name: 'Patch the Hull', kindLabel: 'Supplies', level: 0, max: 0, desc: 'Repair 35% of your hull', counters: [] };

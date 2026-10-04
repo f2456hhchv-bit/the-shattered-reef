@@ -159,7 +159,7 @@ export function drawBoat(ctx, boat, radius, t = 0) {
   ctx.restore();
   ctx.rotate(boat.heading);
   ctx.scale(k, k);
-  drawShipArt(ctx, style, radius, t, boat.heading, speed);
+  drawShipArt(ctx, style, radius, t, boat.heading, speed, boat.livery || null);
   ctx.restore();
 }
 
@@ -462,6 +462,14 @@ export function drawEnemyTelegraphs(ctx, enemies, t) {
 // Your shots (2026-09-29 armaments pass): each weapon looks like what it
 // is, so you can see what you're firing without reading the weapon bar.
 export function drawProjectile(ctx, p, color, t = 0) {
+  if (p.evo) {
+    // An evolved weapon's shot: a gold corona under the round.
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 11);
+    g.addColorStop(0, 'rgba(255, 214, 92, .55)'); g.addColorStop(1, 'rgba(255, 160, 40, 0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
   if (p.weaponId.startsWith('arm_') && drawArmamentProjectile(ctx, p, t)) return;
   const sp = Math.hypot(p.vx, p.vy) || 1;
   const ux = p.vx / sp; const uy = p.vy / sp;

@@ -6,6 +6,7 @@
 // only main.mjs ever passes the real window.localStorage; tests pass an
 // in-memory fake.
 
+import { defaultProgression, sanitizeProgression } from './progression.mjs';
 import {
   HULL_IDS, getHull,
   CARGO_TIER_LIST, cargoLoadoutFor,
@@ -46,6 +47,8 @@ export function createDefaultMeta() {
     tdPerks: [],
     tdStars: {},
     tdStats: { played: 0, won: 0, kills: 0 },
+    // Engagement pass (2026-10-04): engine/progression.mjs.
+    ...defaultProgression(),
   };
 }
 
@@ -97,6 +100,7 @@ export function loadMeta(storage) {
       for (const [st, n] of Object.entries(parsed.levelsCleared)) if (Number.isInteger(n) && n >= 0 && n <= 5 && Number(st) >= 1) meta.levelsCleared[st] = n;
     }
     meta.tdStats = { ...defaults.tdStats, ...(parsed.tdStats && typeof parsed.tdStats === 'object' ? parsed.tdStats : {}) };
+    sanitizeProgression(meta, parsed);
     return meta;
   } catch {
     return defaults;

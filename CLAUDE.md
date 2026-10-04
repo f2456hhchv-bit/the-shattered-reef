@@ -2450,6 +2450,74 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   buildings themselves (three-quarter 3D-ish buildings, foliage) is a
   bigger art job than this pass; `box()` and decor were the first step.
 
+- **Phase:** engagement pass (project owner, 2026-10-04: "how else to
+  improve the gameplay and make people want to pick it up" → "do all
+  now"). Ten items, all built:
+  - **Dash** (`stepDash` in `survivalLoop.mjs`, `DASH` in
+    `data/survival.mjs`): ⚡ button bottom-right (Space/Shift on desktop),
+    a 0.2s burst along the stick with 0.34s of i-frames and a 3.6s
+    cooldown. Swift Sails cuts it 8% a level. While invulnerable, the
+    loop restores hull/afflictions after the enemy-hit phase and reports
+    `ev.dodged`. Afterimages, a cooldown ring on the button.
+  - **Evolution moment:** 1.4s slow-mo easing back in, gold screen flash,
+    "Evolution n/3" banner, rings, a fanfare; the next card waits for
+    it. Evolved weapons' shots carry `p.evo` and get a gold corona.
+  - **Weapon combos** (`SYNERGIES` in `data/survival.mjs`,
+    `applySynergies` in `survival.mjs`), five pairs: Burning Shrapnel
+    (grape+flame: pellets ignite), Undertow (chain+depth: blasts drag
+    enemies in), Heated Shot (cannon+flame: kills leave fire), Rigging
+    Shredder (chain+grape: chain slows 40%), Shock Shells
+    (cannon+depth: knockback). Shown on the card that completes one, a
+    banner when it activates, chips on the upgrade strip.
+  - **Final stretch** (`FINAL_STRETCH = 7`): from wave 8 the sky
+    darkens, the lair music plays on every level, and elite "hunters"
+    arrive every 18-20s (`WAVES[].hunters`).
+  - **Unlock drip** (`POOL_UNLOCKS`): Depth Charges, Flame Barrels and
+    four armaments join the level-up pool as total levels cleared grows
+    (2/3/4/6/8/10/13). Stages behind your furthest count as 5 each, so
+    existing saves keep everything. Cargo/faction/Armory starts ignore
+    it. The Log shows what's next; the summary names what just joined.
+  - **Liveries** (`LIVERIES`, Shipyard → Liveries): 9 sail/trim/flag
+    schemes, 4 for Salvage, 4 from achievements; `shipArt.mjs` takes a
+    livery (module-level `LIV` while painting).
+  - **Daily voyage** (`dailyVoyage` in `engine/progression.mjs`): a
+    date-seeded level on a stage you've unlocked, with one of 6 modifiers
+    (Fortune Tide, Glass Cannon, Swarm Season, Fast Water, Iron Hulls,
+    Scholar's Sea). Best score kept, first clear pays Salvage plus a
+    streak bonus. It doesn't open levels or stages. Harbour chip with a
+    "!" until cleared.
+  - **Contracts** (`CONTRACTS`): 3 active from 10 templates, three tiers
+    that rise as you complete them; progress counts across levels, pays
+    out at level end and refills.
+  - **Achievements** (21) and **bestiary** (every enemy, horde and boss
+    by stage, with silhouettes for unseen ones; a full stage set pays
+    60 × stage Salvage), both in the Captain's Log tabs.
+  - **First-launch tutorial:** a new captain goes straight to Stage 1 –
+    Level 1 with five do-it-to-continue steps (steer, collect glass, pick
+    a card, dash, survive). `?tutorial` forces it; skipped under
+    automation.
+  - Save: new meta fields via `defaultProgression`/`sanitizeProgression`
+    (old saves load clean). Run tallies on `sv` (`killsByDef`,
+    `eliteKills`, `chestsOpened`, `hullLost`).
+  - Also: the upgrade strip rebuilt its DOM every frame; it's now keyed.
+  - Tests: `tests/engagement.test.mjs` (17). 460/460.
+  - Bot (6 runs): 1-1 6/6, 1-5 3/6, 2-3 4/6 (noise-level change; the bot
+    gets combos but never dashes).
+  - Playtested portrait and landscape: harbour chips, daily, contracts,
+    log tabs, liveries, dash, evolution, final stretch, daily summary
+    with rewards, the full tutorial. No console errors.
+- **Art reference V3** (project owner, same day): `docs/art-reference/v3/`
+  holds the owner's V3 master sheet and UI style guide, with its README
+  ("visual source of truth": simple clean 2D, strong silhouettes,
+  controlled detail). They're reference images (1536×1024, no alpha,
+  sprites ~60-90px), not cut-ready sprites. They draw ships, enemies and
+  buildings in a three-quarter side view; the game is top-down with
+  rotating ships. Matching V3 means either restyling the code-drawn art
+  toward it or switching to side-view sprites that flip instead of
+  rotate. Ask the owner which before starting.
+- **Next up:** the V3 art direction call above; then real-phone feel for
+  dash timing and the daily/contract numbers.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -3140,6 +3208,15 @@ Starting fresh below for the new game.)*
 - 2026-10-04: Ships are lit in world space (the light is rotated into the
   boat's frame), so the sunlit side stays put as you turn. That one rule
   is most of what makes them read as solid objects on the water.
+- 2026-10-04: The dash is the player's skill tool: i-frames make it a
+  dodge, not just speed. It's implemented by restoring state after the
+  hit phase rather than threading an "invulnerable" check through every
+  damage source, so new damage types are covered automatically.
+- 2026-10-04: The unlock drip only gates what the level-up pool offers.
+  It never takes away a weapon you can start with, and old saves unlock
+  everything they've earned at once.
+- 2026-10-04: A daily voyage clear doesn't advance stage progress, so it
+  can't skip levels for a new captain; it pays Salvage and a streak.
 - 2026-10-04: Sinking keeps half the level's Salvage (it was all lost in
   the voyage). Survivor games keep your haul, and with unlimited retries
   a total loss read as punishing rather than tense.

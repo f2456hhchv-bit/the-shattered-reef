@@ -29,7 +29,7 @@ import { checkSunk, addSalvage, BOAT_RADIUS, LEVELS_PER_STAGE, biomeForStage } f
 import { hasAffliction } from './engine/boat.mjs';
 import { createCamera, updateCamera, applyCameraTransform } from './engine/camera.mjs';
 import {
-  drawWake, drawBoat, drawBoatStatus, drawEnemies, drawEnemyTelegraphs, drawProjectiles, drawParticles, drawDamageNumbers, drawEnemyProjectiles, PALETTE,
+  drawWake, drawBoat, drawEnemyBody, drawBoatStatus, drawEnemies, drawEnemyTelegraphs, drawProjectiles, drawParticles, drawDamageNumbers, drawEnemyProjectiles, PALETTE,
 } from './engine/renderer.mjs';
 import { createJoystick } from './input/joystick.mjs';
 import { resolveHits } from './engine/combat.mjs';
@@ -49,17 +49,22 @@ import {
   createParticlePool, spawnHitSpark, spawnMuzzleFlash, spawnKillBurst, spawnExplosion, spawnSplash, updateParticles, createDamageNumberPool, spawnDamageNumber, updateDamageNumbers, createShake, addShake, updateShake, createHitStop, triggerHitStop, applyHitStop,
 } from './engine/juice.mjs';
 import {
-  unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact, playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playBossPhaseChange, playBossDefeated, playTreasure, playZap, playThunder, playWeatherWarning, playStrikeMark,
+  unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact, playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playBossPhaseChange, playBossDefeated, playDash, playEvolve, playSynergy, playAchievement, playTap, playTreasure, playZap, playThunder, playWeatherWarning, playStrikeMark,
 } from './audio/audio.mjs';
 import { createSurvivalRun, buildSurvivalWorld, survivalLevel, completeLevel, sinkLevel, addLevelSalvage } from './engine/survivalRun.mjs';
-import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, orbitBlades, evolutionsUsed } from './engine/survival.mjs';
+import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, orbitBlades, evolutionsUsed, activeSynergies } from './engine/survival.mjs';
 import { stepSurvivalFrame } from './engine/survivalLoop.mjs';
 import {
   drawSurvivalPickups, drawFirePools, drawOrbitBlades, drawHullBar, drawRings, drawSinkers, drawLandmarks, drawEdgeArrows, drawVignette,
 } from './engine/survivalArt.mjs';
 import { drawLords } from './engine/warlordArt.mjs';
+import {
+  lockedPool, levelsWonTotal, newlyUnlocked, nextPoolUnlock, purchaseLivery, selectLivery, liveryColours, dailyVoyage, dailyReward,
+  ensureContracts, contractText, contractReward, recordProgress, bestiaryByStage, bestiaryFraction, checkAchievements,
+} from './engine/progression.mjs';
+import { LIVERIES, ACHIEVEMENTS, POOL_UNLOCKS } from './data/progression.mjs';
 import { LORD_TRAITS, lordName } from './engine/warlord.mjs';
-import { SURVIVAL, WAVES, SV_WEAPONS, SV_WEAPON_MAX, PASSIVE_BY_ID } from './data/survival.mjs';
+import { SURVIVAL, WAVES, SV_WEAPONS, SV_WEAPON_MAX, PASSIVE_BY_ID, FINAL_STRETCH } from './data/survival.mjs';
 import { createDefenceMode } from './td/tdMode.mjs';
 import { renderTowerYard, towerYardBuyable } from './ui/towerYard.mjs';
 
@@ -108,6 +113,25 @@ export function startApp(root) {
   const passiveStrip = document.createElement('div');
   passiveStrip.id = 'upgrade-strip';
   root.appendChild(passiveStrip);
+  // The dash button: a burst of speed you can't be hit during. Its own
+  // touch, so it never starts the steering stick.
+  const dashBtn = document.createElement('button');
+  dashBtn.id = 'dash-btn'; dashBtn.type = 'button'; dashBtn.setAttribute('aria-label', 'Dash');
+  dashBtn.innerHTML = '<span>⚡</span><small>DASH</small>';
+  root.appendChild(dashBtn);
+  let dashQueued = false;
+  dashBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); dashQueued = true; unlockAudio(); });
+  addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ShiftLeft') { dashQueued = true; e.preventDefault(); } });
+  let dashShown = -1;
+  function updateDashButton() {
+    const d = run.dash; if (!d) return;
+    const cd = run.sv?.stats?.dashCooldown || 3.6;
+    const frac = Math.round((1 - Math.min(1, d.cd / cd)) * 40) / 40;
+    if (frac === dashShown) return;
+    dashShown = frac;
+    dashBtn.style.setProperty('--cd', `${frac * 360}deg`);
+    dashBtn.classList.toggle('ready', frac >= 1);
+  }
 
   // A top-level sibling (not nested inside #hud) so its own z-index isn't
   // capped by #hud's stacking context — it needs to stay clickable above
@@ -181,19 +205,42 @@ export function startApp(root) {
     const base = getEnemy(e.defId).name;
     return e.isBoss ? base : lordName(e, `Warlord ${base}`);
   }
-  function showLordBanner(e) {
-    lordBanner.querySelector('small').textContent = e.isBoss ? `☠ Stage ${run.stage} boss` : `⚔ Level ${run.reefIndex + 1} warlord`;
-    lordBanner.querySelector('b').textContent = lordTitle(e);
-    lordBanner.querySelector('.lb-traits').replaceChildren(...(e.lord?.kit || []).map((k) => {
-      const c = document.createElement('i');
-      c.textContent = `${LORD_TRAITS[k].icon} ${LORD_TRAITS[k].name}`;
-      return c;
+  function showBanner({ eyebrow, title, chips = [], cls = '', ms = 3200 }) {
+    lordBanner.querySelector('small').textContent = eyebrow;
+    lordBanner.querySelector('b').textContent = title;
+    lordBanner.querySelector('.lb-traits').replaceChildren(...chips.map((t) => {
+      const c = document.createElement('i'); c.textContent = t; return c;
     }));
-    lordBanner.classList.toggle('boss', !!e.isBoss);
+    lordBanner.className = cls;
+    lordBanner.style.setProperty('--ms', `${ms}ms`);
     lordBanner.hidden = false;
-    lordBanner.classList.remove('go'); void lordBanner.offsetWidth; lordBanner.classList.add('go');
+    void lordBanner.offsetWidth; lordBanner.classList.add('go');
     clearTimeout(lordBannerTimer);
-    lordBannerTimer = setTimeout(() => { lordBanner.hidden = true; }, 3200);
+    lordBannerTimer = setTimeout(() => { lordBanner.hidden = true; }, ms);
+  }
+  function showLordBanner(e) {
+    showBanner({
+      eyebrow: e.isBoss ? `☠ Stage ${run.stage} boss` : `⚔ Level ${run.reefIndex + 1} warlord`,
+      title: lordTitle(e),
+      chips: (e.lord?.kit || []).map((k) => `${LORD_TRAITS[k].icon} ${LORD_TRAITS[k].name}`),
+      cls: e.isBoss ? 'boss' : '',
+    });
+  }
+  // Evolving a weapon is the big moment of a run: the world slows, the
+  // screen flashes gold, and a banner names what you just made.
+  let evoSlow = 0;
+  const evoFlash = document.createElement('div');
+  evoFlash.id = 'evo-flash'; evoFlash.hidden = true;
+  root.appendChild(evoFlash);
+  function evolutionMoment(v) {
+    evoSlow = 1.4;
+    evoFlash.hidden = false; evoFlash.classList.remove('go'); void evoFlash.offsetWidth; evoFlash.classList.add('go');
+    setTimeout(() => { evoFlash.hidden = true; }, 900);
+    showBanner({ eyebrow: `✦ Evolution ${evolutionsUsed(run)}/${SURVIVAL.maxEvolutions}`, title: `${v.icon} ${v.name}`, chips: [v.desc], cls: 'evo', ms: 3000 });
+    playEvolve(); addShake(shake, 0.6);
+    const b = run.boat;
+    for (let k = 0; k < 3; k++) rings.push({ x: b.x, y: b.y, life: 0.6 + k * 0.25, maxLife: 0.6 + k * 0.25, r: 90 + k * 70, color: '255, 214, 92' });
+    if (particles.length < 400) spawnExplosion(particles, b.x, b.y, 40, Math.random);
   }
   const countdownEl = document.createElement('div');
   countdownEl.id = 'resume-countdown';
@@ -260,6 +307,10 @@ export function startApp(root) {
         <span class="pill pill-scales" title="Kraken Scales"><i>🦑</i><b id="pill-scales">0</b></span>
       </div>
     </div>
+    <div id="quest-row">
+      <button type="button" id="daily-chip" class="quest-chip"><span>📅</span><b>Daily</b><small id="daily-chip-sub"></small><i class="bc-badge" hidden>!</i></button>
+      <button type="button" id="contracts-chip" class="quest-chip"><span>📜</span><b>Contracts</b><small id="contracts-chip-sub"></small></button>
+    </div>
     <div id="base-chips"></div>
     <div id="voyage-card">
       <div class="vc-head">
@@ -294,6 +345,16 @@ export function startApp(root) {
           <section class="hub-section" data-panel="hulls">
             <p id="hub-hulls-note" class="hub-section-note" hidden></p>
             <div id="hub-hulls" class="hub-list"></div>
+            <h3 class="hub-subhead">Liveries</h3>
+            <p class="hub-section-note">Sail, trim and flag colours for whichever hull you sail. Some are only earned through achievements.</p>
+            <div id="hub-liveries" class="hub-list"></div>
+          </section>
+          <section class="hub-section" data-panel="daily">
+            <div id="hub-daily"></div>
+          </section>
+          <section class="hub-section" data-panel="contracts">
+            <p class="hub-section-note">Three at a time. Progress counts across every level you sail; a finished contract pays out at the end of the level and a new one takes its place.</p>
+            <div id="hub-contracts" class="hub-list"></div>
           </section>
           <section class="hub-section" data-panel="cargo">
             <p class="hub-section-note">Permanent: every tier you own is loaded on every voyage.</p>
@@ -315,7 +376,14 @@ export function startApp(root) {
             <div id="hub-towers" class="hub-list"></div>
           </section>
           <section class="hub-section" data-panel="log">
-            <div id="hub-log" class="log-grid"></div>
+            <div class="log-tabs" role="tablist">
+              <button type="button" role="tab" data-tab="record" aria-selected="true">Record</button>
+              <button type="button" role="tab" data-tab="achievements" aria-selected="false">Achievements</button>
+              <button type="button" role="tab" data-tab="bestiary" aria-selected="false">Bestiary</button>
+            </div>
+            <div data-tabpane="record"><div id="hub-log" class="log-grid"></div></div>
+            <div data-tabpane="achievements" hidden><div id="hub-achievements" class="ach-grid"></div></div>
+            <div data-tabpane="bestiary" hidden><p id="bestiary-note" class="hub-section-note"></p><div id="hub-bestiary"></div></div>
           </section>
         </div>
       </div>
@@ -348,7 +416,9 @@ export function startApp(root) {
     charms: ['Charm Shrine', "Captain's charms — permanent blessings"],
     factions: ['Faction Hall', 'Sail under a flag — and its rivalries'],
     workshop: ['Workshop', 'Craft upgrades from Kraken Scales'],
-    log: ["Captain's Log", 'Your record at sea'],
+    log: ["Captain's Log", 'Your record, achievements and bestiary'],
+    daily: ['Daily Voyage', 'One level a day, the same for every captain'],
+    contracts: ['Contracts', 'Jobs from the harbour master'],
     towers: ['Tower Yard', 'Reef Defence — towers, specialisations and reef works'],
   };
   const chipEls = new Map();
@@ -364,21 +434,33 @@ export function startApp(root) {
     chipEls.set(b.id, chip);
   }
   hubOverlay.querySelector('#captain-chip').addEventListener('click', () => openPanel('log'));
+  hubOverlay.querySelector('#daily-chip').addEventListener('click', () => openPanel('daily'));
+  hubOverlay.querySelector('#contracts-chip').addEventListener('click', () => openPanel('contracts'));
+  const questRow = hubOverlay.querySelector('#quest-row');
+  for (const tab of hubOverlay.querySelectorAll('.log-tabs button')) {
+    tab.addEventListener('click', () => {
+      for (const t of hubOverlay.querySelectorAll('.log-tabs button')) t.setAttribute('aria-selected', String(t === tab));
+      for (const pane of hubOverlay.querySelectorAll('[data-tabpane]')) pane.hidden = pane.dataset.tabpane !== tab.dataset.tab;
+    });
+  }
   hubOverlay.querySelector('#base-panel-back').addEventListener('click', closePanel);
   basePanel.addEventListener('click', (e) => { if (e.target === basePanel) closePanel(); });
 
   function openPanel(id) {
     const [title, sub] = PANEL_TITLES[id];
+    if (id === 'log') queueMicrotask(() => renderBestiary());
     hubOverlay.querySelector('#base-panel-title').textContent = title;
     hubOverlay.querySelector('#base-panel-sub').textContent = sub;
     for (const sec of basePanel.querySelectorAll('.hub-section')) sec.hidden = sec.dataset.panel !== id;
     basePanel.hidden = false;
     basePanel.dataset.open = id;
+    hubOverlay.querySelector('#quest-row').hidden = true;
     basePanel.querySelector('.bp-body').scrollTop = 0;
   }
   function closePanel() {
     basePanel.hidden = true;
     delete basePanel.dataset.open;
+    hubOverlay.querySelector('#quest-row').hidden = false;
   }
 
 
@@ -628,10 +710,15 @@ export function startApp(root) {
     }), ...empties);
   }
   const updateWeaponBar = renderDock;
+  let stripKey = '';
   function renderUpgradeStrip() {
     if (!run.sv) return;
     const owned = Object.entries(run.sv.passives);
     const evo = evolutionsUsed(run);
+    const combos = activeSynergies(run);
+    const key = `${owned.map(([k, v]) => k + v).join()}|${evo}|${combos.map((c) => c.id).join()}`;
+    if (key === stripKey) return;
+    stripKey = key;
     const evoEl = document.createElement('span');
     evoEl.className = `evo-count${evo >= SURVIVAL.maxEvolutions ? ' full' : ''}`;
     evoEl.title = 'Evolutions';
@@ -646,7 +733,11 @@ export function startApp(root) {
       el.className = 'empty';
       el.textContent = '·';
       return el;
-    }), evoEl);
+    }), evoEl, ...combos.map((c) => {
+      const el = document.createElement('span');
+      el.className = 'combo'; el.title = `${c.name}: ${c.desc}`; el.textContent = `🔗${c.icon}`;
+      return el;
+    }));
   }
 
   // Level-up and treasure choices: the level waits while you pick.
@@ -664,6 +755,11 @@ export function startApp(root) {
     const note = v.counters?.length ? `Counters: ${v.counters.join(', ')}` : v.evolves ? `Evolves ${v.evolves} at Lv 5` : '';
     b.querySelector('.up-note').textContent = note;
     if (!note) b.querySelector('.up-note').remove();
+    for (const c of v.combos || []) {
+      const em = document.createElement('em'); em.className = 'up-combo';
+      em.textContent = `🔗 Combo: ${c.name} — ${c.desc}`;
+      b.querySelector('.up-text').appendChild(em);
+    }
     const lv = b.querySelector('.up-lv');
     if (v.max) lv.textContent = '★'.repeat(v.level) + '☆'.repeat(Math.max(0, v.max - v.level));
     else if (v.evolve) lv.textContent = 'EVOLVE';
@@ -683,12 +779,19 @@ export function startApp(root) {
       b.addEventListener('click', () => {
         if (upgradeOverlay.hidden) return;
         const v = describeChoice(run, c);
+        const combosBefore = new Set(activeSynergies(run).map((x) => x.id));
         const res = applyChoice(run, c);
+        const newCombos = activeSynergies(run).filter((x) => !combosBefore.has(x.id));
         if (res?.salvage) addLevelSalvage(run, res.salvage);
         upgradeOverlay.hidden = true;
         pendingChoice = null;
         playPickupWeapon();
-        showToast(`${v.icon} ${v.name}${v.max ? ` ${'★'.repeat(v.level)}` : ''}`);
+        if (c.kind === 'evolve') evolutionMoment(v);
+        else if (newCombos.length) {
+          const x = newCombos[0];
+          showBanner({ eyebrow: '🔗 Weapon combo', title: `${x.icon} ${x.name}`, chips: [x.desc], cls: 'combo', ms: 2400 });
+          playSynergy();
+        } else showToast(`${v.icon} ${v.name}${v.max ? ` ${'★'.repeat(v.level)}` : ''}`);
         renderDock(); renderUpgradeStrip(); updateSurvivalHud();
         spawnLevelRing(c.kind === 'evolve');
         sailing = true;
@@ -703,6 +806,7 @@ export function startApp(root) {
   }
   function maybeOfferChoice() {
     if (!run.sv || run.over || !upgradeOverlay.hidden || paused || !voyageActive) return;
+    if (evoSlow > 0.2) return; // let the evolution moment play out first
     const n = SURVIVAL.choices + (run.extraCardChoices || 0);
     if (run.sv.pendingLevelUps > 0) {
       run.sv.pendingLevelUps -= 1;
@@ -723,12 +827,12 @@ export function startApp(root) {
 
   // A ship's portrait for the Shipyard: the same art you'll sail.
   let baseBoatStyle = 'sloop';
-  function drawHullPreview(cv, hullId) {
+  function drawHullPreview(cv, hullId, livery = liveryColours(meta)) {
     const c = cv.getContext('2d');
     c.clearRect(0, 0, cv.width, cv.height);
     c.fillStyle = '#1f7fa0'; c.beginPath(); c.arc(56, 56, 54, 0, Math.PI * 2); c.fill();
     c.save(); c.translate(56, 56); c.scale(2.3, 2.3);
-    drawBoat(c, { x: 0, y: 0, heading: -Math.PI / 2, style: hullId }, BOAT_RADIUS, 0.4);
+    drawBoat(c, { x: 0, y: 0, heading: -Math.PI / 2, style: hullId, livery }, BOAT_RADIUS, 0.4);
     c.restore();
   }
 
@@ -832,6 +936,11 @@ export function startApp(root) {
     hubOverlay.querySelector('#cc-bar-fill').style.width = `${Math.min(100, (100 * meta.stats.bestReefsCleared) / LEVELS_PER_STAGE)}%`;
     renderBadges();
     renderLog();
+    renderLiveries();
+    renderDaily();
+    renderContracts();
+    renderAchievements();
+    renderBestiary();
     renderStagePicker();
 
     // A selected faction overrides the hull (engine/meta.mjs resolveLoadout),
@@ -1002,6 +1111,178 @@ export function startApp(root) {
     for (const [, chip] of chipEls) chip.querySelector('.bc-badge').hidden = !buyable[chip.dataset.panel];
   }
 
+  // ---- First-launch tutorial ----------------------------------------------
+  // Five short steps, each finished by doing the thing it asks.
+  const tutEl = document.createElement('div');
+  tutEl.id = 'tutorial'; tutEl.hidden = true;
+  tutEl.innerHTML = '<small></small><b></b><span class="tut-arrow" hidden>▼</span>';
+  root.appendChild(tutEl);
+  let tut = null;
+  const TUT_STEPS = [
+    { text: 'Drag anywhere to steer your ship', done: (t) => t.steer > 1.2 },
+    { text: 'Your guns fire on their own. Sail over the sea glass they leave to gain XP', done: () => run.sv.xp > 0 || run.sv.shipLevel > 1 },
+    { text: 'Level up! Pick one card — new weapons, weapon levels or ship upgrades', done: () => run.sv.shipLevel > 1 && upgradeOverlay.hidden && !run.sv.pendingLevelUps, onCards: true },
+    { text: 'Tap ⚡ DASH to burst through danger — nothing can hurt you mid-dash', done: (t) => (run.dash?.uses || 0) > t.dash0 || t.stepT > 9, arrow: true },
+    { text: 'Survive 10 waves. A warlord sails in on the last one — sink it to clear the level!', done: (t) => t.stepT > 5 },
+  ];
+  function startTutorial() { tut = { step: 0, steer: 0, stepT: 0, dash0: 0 }; showTutStep(); }
+  function showTutStep() {
+    const st = TUT_STEPS[tut.step];
+    tutEl.querySelector('small').textContent = `Tutorial ${tut.step + 1} / ${TUT_STEPS.length}`;
+    tutEl.querySelector('b').textContent = st.text;
+    tutEl.querySelector('.tut-arrow').hidden = !st.arrow;
+    tutEl.classList.toggle('dash', !!st.arrow);
+    tutEl.classList.toggle('cards', !!st.onCards);
+    tutEl.hidden = false;
+    tutEl.classList.remove('pop'); void tutEl.offsetWidth; tutEl.classList.add('pop');
+  }
+  function stepTutorial(dt, stick) {
+    if (!tut || !run.sv) return;
+    tut.stepT += dt;
+    if (Math.hypot(stick.x, stick.y) > 0.3) tut.steer += dt;
+    if (!TUT_STEPS[tut.step].done(tut)) return;
+    tut.step++; tut.stepT = 0; tut.dash0 = run.dash?.uses || 0;
+    if (tut.step >= TUT_STEPS.length) {
+      tut = null; tutEl.hidden = true;
+      meta.tutorialDone = true; saveMeta(window.localStorage, meta);
+      return;
+    }
+    playTap();
+    showTutStep();
+  }
+
+  // ---- Engagement pass (2026-10-04) --------------------------------------
+  function renderLiveries() {
+    const list = hubOverlay.querySelector('#hub-liveries');
+    list.replaceChildren(...LIVERIES.map((l) => {
+      const owned = meta.ownedLiveries.includes(l.id);
+      const selected = meta.livery === l.id;
+      const row = document.createElement('div');
+      row.className = 'hub-item';
+      const src = l.from ? `🏆 ${ACHIEVEMENTS.find((a) => a.id === l.from)?.name}` : '';
+      const label = selected ? 'Selected' : owned ? 'Select' : l.from ? 'Locked' : `Buy ${l.cost} ⚓`;
+      const disabled = selected || (!owned && (l.from || meta.salvage < l.cost));
+      row.innerHTML = `<canvas class="hull-preview" width="112" height="112" aria-hidden="true"></canvas>
+        <div class="hub-item-info"><span class="hub-item-name"></span><span class="hub-item-desc"></span><span class="hull-stats"></span></div>
+        <button type="button" class="hub-item-btn" data-livery-id="${l.id}"${disabled ? ' disabled' : ''}>${label}</button>`;
+      row.querySelector('.hub-item-name').textContent = `${l.name}${selected ? ' ✓' : ''}`;
+      row.querySelector('.hub-item-desc').textContent = l.desc;
+      row.querySelector('.hull-stats').textContent = !owned && src ? `Earned by: ${src}` : '';
+      drawHullPreview(row.querySelector('canvas'), baseBoatStyle, l.sail ? { sail: l.sail, trim: l.trim, flag: l.flag } : null);
+      row.querySelector('button').addEventListener('click', () => {
+        if (!owned) { if (!purchaseLivery(meta, l.id).ok) return; }
+        selectLivery(meta, l.id);
+        saveMeta(window.localStorage, meta);
+        renderHub();
+      });
+      return row;
+    }));
+  }
+  function renderDaily() {
+    const v = dailyVoyage(meta);
+    const best = meta.daily.best[v.key];
+    const sub = hubOverlay.querySelector('#daily-chip-sub');
+    sub.textContent = best?.cleared ? '✓' : v.mod.icon;
+    hubOverlay.querySelector('#daily-chip .bc-badge').hidden = !!best?.cleared;
+    const box = hubOverlay.querySelector('#hub-daily');
+    const reward = dailyReward(meta, v);
+    box.innerHTML = `
+      <div class="daily-card">
+        <div class="daily-mod"><span class="daily-icon"></span><div><b class="daily-name"></b><small class="daily-desc"></small></div></div>
+        <dl class="daily-facts">
+          <dt>Where</dt><dd class="daily-where"></dd>
+          <dt>Best today</dt><dd>${best ? `${best.kills.toLocaleString('en-GB')} sunk${best.cleared ? ' · cleared ✓' : ''}` : '—'}</dd>
+          <dt>Streak</dt><dd>${meta.daily.streak || 0} day${meta.daily.streak === 1 ? '' : 's'} · best ${meta.daily.bestStreak || 0}</dd>
+          <dt>First clear today</dt><dd>${best?.cleared ? 'Claimed ✓' : `+${reward} Salvage`}</dd>
+        </dl>
+        <button type="button" id="daily-sail" class="daily-sail">▶ Sail today's voyage</button>
+        <p class="hub-section-note">Everyone at your stage sails the same reef today. Clear it on consecutive days to build a streak (+${15} Salvage a day, up to 7). Retry as often as you like; your best score is kept.</p>
+      </div>`;
+    box.querySelector('.daily-icon').textContent = v.mod.icon;
+    box.querySelector('.daily-name').textContent = v.mod.name;
+    box.querySelector('.daily-desc').textContent = v.mod.desc;
+    box.querySelector('.daily-where').textContent = `Stage ${v.stage} – Level ${v.levelIndex + 1} · ${stageName(v.stage)}`;
+    box.querySelector('#daily-sail').addEventListener('click', () => startDaily());
+  }
+  function renderContracts() {
+    ensureContracts(meta);
+    const list = hubOverlay.querySelector('#hub-contracts');
+    const near = meta.contracts.reduce((a, c) => Math.max(a, c.progress / c.target), 0);
+    hubOverlay.querySelector('#contracts-chip-sub').textContent = `${Math.round(near * 100)}%`;
+    list.replaceChildren(...meta.contracts.map((c) => {
+      const row = document.createElement('div');
+      row.className = 'hub-item contract';
+      const pct = Math.min(100, Math.round((100 * c.progress) / c.target));
+      row.innerHTML = `<div class="hub-item-info"><span class="hub-item-name"></span>
+        <span class="contract-bar"><span style="width:${pct}%"></span></span>
+        <span class="hub-item-desc">${Math.floor(c.progress).toLocaleString('en-GB')} / ${c.target.toLocaleString('en-GB')}</span></div>
+        <span class="contract-reward">+${contractReward(c)} ⚓</span>`;
+      row.querySelector('.hub-item-name').textContent = contractText(c);
+      return row;
+    }));
+    saveMeta(window.localStorage, meta);
+  }
+  function renderAchievements() {
+    const grid = hubOverlay.querySelector('#hub-achievements');
+    grid.replaceChildren(...ACHIEVEMENTS.map((a) => {
+      const got = meta.achievements.includes(a.id);
+      const el = document.createElement('div');
+      el.className = `ach${got ? ' got' : ''}`;
+      const r = a.reward || {};
+      const rw = [r.salvage ? `${r.salvage} ⚓` : '', r.scales ? `${r.scales} 🦑` : '', r.livery ? '🎨 livery' : ''].filter(Boolean).join(' · ');
+      el.innerHTML = '<span class="ach-icon"></span><b></b><small></small><em></em>';
+      el.querySelector('.ach-icon').textContent = got ? a.icon : '🔒';
+      el.querySelector('b').textContent = a.name;
+      el.querySelector('small').textContent = a.desc;
+      el.querySelector('em').textContent = got ? 'Unlocked ✓' : rw;
+      return el;
+    }));
+  }
+  const bestiaryCache = new Map();
+  function enemyPortrait(defId, seen) {
+    const key = `${defId}|${seen}`;
+    if (bestiaryCache.has(key)) return bestiaryCache.get(key);
+    const cv = document.createElement('canvas'); cv.width = 96; cv.height = 96;
+    const c = cv.getContext('2d');
+    const def = getEnemy(defId);
+    const e = createEnemy(defId, 0, 0, () => 0.5);
+    e.heading = -Math.PI / 2; e.vx = 0; e.vy = -1; e.invulnerable = false; e.phased = false; e.submergedState = 'surfaced';
+    const k = Math.min(3, 34 / (e.radius * 1.3));
+    c.save(); c.translate(48, 50); c.scale(k, k);
+    try { drawEnemyBody(c, e, def.color, 1.3, null); } catch { /* a sprite that needs live state */ }
+    c.restore();
+    if (!seen) { c.globalCompositeOperation = 'source-atop'; c.fillStyle = '#4f7f93'; c.fillRect(0, 0, 96, 96); }
+    bestiaryCache.set(key, cv);
+    return cv;
+  }
+  function renderBestiary() {
+    const box = hubOverlay.querySelector('#hub-bestiary');
+    if (basePanel.dataset.open !== 'log' && box.childElementCount) return; // drawn lazily
+    const frac = bestiaryFraction(meta);
+    hubOverlay.querySelector('#bestiary-note').textContent = `${Math.round(frac * 100)}% recorded. Sink every ship and creature of a stage to complete its set and earn Salvage.`;
+    box.replaceChildren(...bestiaryByStage().map((set) => {
+      const sec = document.createElement('div');
+      sec.className = 'best-set';
+      const done = meta.bestiarySets.includes(set.stage);
+      sec.innerHTML = `<h4></h4><div class="best-grid"></div>`;
+      sec.querySelector('h4').textContent = `Stage ${set.stage} · ${set.name}${done ? ' ✓' : ''}`;
+      sec.querySelector('.best-grid').append(...set.ids.map((id) => {
+        const n = meta.bestiary[id] || 0;
+        const card = document.createElement('div');
+        card.className = `best-card${n ? '' : ' unseen'}`;
+        const src = enemyPortrait(id, n > 0);
+        const cv = document.createElement('canvas'); cv.width = src.width; cv.height = src.height;
+        cv.getContext('2d').drawImage(src, 0, 0);
+        card.appendChild(cv);
+        const b = document.createElement('b'); b.textContent = n ? getEnemy(id).name : '???';
+        const sm = document.createElement('small'); sm.textContent = n ? `${n.toLocaleString('en-GB')} sunk` : 'Not yet seen';
+        card.append(b, sm);
+        return card;
+      }));
+      return sec;
+    }));
+  }
+
   // The Captain's Log: the record the save file actually holds.
   function renderLog() {
     const faction = PLAYABLE_FACTION_LIST.find((f) => f.id === meta.selectedFaction);
@@ -1019,6 +1300,13 @@ export function startApp(root) {
       ['Cargo tiers', `${meta.ownedCargoTiers.length} / ${CARGO_TIER_LIST.length}`],
       ['Charms', `${meta.ownedCharms.length} / ${CHARM_LIST.length}`],
       ['Workshop crafts', `${meta.ownedWorkshopUpgrades.length} / ${WORKSHOP_UPGRADE_LIST.length}`],
+      ['Enemies sunk', meta.life.kills.toLocaleString('en-GB')],
+      ['Levels cleared', meta.life.levels],
+      ['Weapons evolved', meta.life.evolutions],
+      ['Contracts completed', meta.contractsDone],
+      ['Achievements', `${meta.achievements.length} / ${ACHIEVEMENTS.length}`],
+      ['Bestiary', `${Math.round(bestiaryFraction(meta) * 100)}%`],
+      ['Level-up pool', (() => { const n = nextPoolUnlock(meta); return n ? `Next: ${poolName(n.id)} in ${n.left} level${n.left === 1 ? '' : 's'}` : 'Everything unlocked'; })()],
     ];
     hubLog.replaceChildren(...rows.map(([k, v]) => {
       const row = document.createElement('div');
@@ -1143,7 +1431,7 @@ export function startApp(root) {
   // (portrait) or left of (landscape) the voyage card.
   function baseFreeInsets() {
     const vw = window.innerWidth; const vh = viewH();
-    const top = baseTopbar.getBoundingClientRect().bottom + 4;
+    const top = Math.max(baseTopbar.getBoundingClientRect().bottom, questRow.getBoundingClientRect().bottom) + 4;
     const vc = voyageCard.getBoundingClientRect();
     const sideCard = vc.left > vw * 0.35 && vc.top < vh * 0.5;
     return sideCard
@@ -1192,7 +1480,7 @@ export function startApp(root) {
     drawHarbourDecor(ctx, b.world.decor || [], t, { drawShip: drawBoat, drawLandmark: drawLandmarkKind });
     drawWake(ctx, b.wake);
     ctx.save(); ctx.translate(p.x, p.y); ctx.scale(1.5, 1.5); ctx.translate(-p.x, -p.y);
-    drawBoat(ctx, { x: p.x, y: p.y, heading: p.heading, style: baseBoatStyle }, BOAT_RADIUS, t);
+    drawBoat(ctx, { x: p.x, y: p.y, heading: p.heading, style: baseBoatStyle, livery: liveryColours(meta) }, BOAT_RADIUS, t);
     ctx.restore();
     drawBaseBuildings(ctx, b.world.buildings, t, { selectedFaction: meta.selectedFaction });
     drawGulls(ctx, b.world.centre, t);
@@ -1270,6 +1558,7 @@ export function startApp(root) {
     sailing = false;
     voyageActive = false;
     closePanel();
+    if (tut) { tut = null; tutEl.hidden = true; }
     selectedStage = meta.highestStageUnlocked;
     selectedLevel = furthestLevel(meta, selectedStage);
     rollNextRunSeed();
@@ -1291,7 +1580,7 @@ export function startApp(root) {
     damageNumbers = createDamageNumberPool();
     sinkers.length = 0; rings.length = 0; wake.length = 0;
     shake.trauma = 0; hitStop.remaining = 0;
-    dockKey = ''; announcedWeather = null;
+    dockKey = ''; stripKey = ''; announcedWeather = null;
     hubOverlay.classList.remove('show');
     document.body.classList.remove('in-hub');
     document.body.classList.add('in-run');
@@ -1304,8 +1593,22 @@ export function startApp(root) {
     paused = false; resumeIn = 0; pauseMenu.hidden = true;
     voyageActive = true;
   }
+  function poolName(id) { return SV_WEAPONS[id]?.name || ARMAMENT_BY_ID[id]?.name || id; }
+  function runOptions() { return { locked: lockedPool(meta), livery: liveryColours(meta) }; }
+  function startDaily() {
+    const v = dailyVoyage(meta);
+    const saved = peekVoyage(window.localStorage);
+    if (saved) abandonSavedVoyage();
+    run = createSurvivalRun(v.seed, resolveLoadout(meta), { stage: v.stage, levelIndex: v.levelIndex, daily: { key: v.key, mod: v.mod }, ...runOptions() });
+    pendingChoice = null;
+    enterLevelView();
+    saveCurrentVoyage();
+    sailing = true;
+    startCountdown();
+    showBanner({ eyebrow: `📅 Daily voyage · ${v.key}`, title: `${v.mod.icon} ${v.mod.name}`, chips: [v.mod.desc, `Stage ${v.stage} – Level ${v.levelIndex + 1}`], cls: 'combo', ms: 3000 });
+  }
   function startRun(stage = selectedStage, levelIndex = selectedLevel, seed = nextRunSeed) {
-    run = createSurvivalRun(seed, resolveLoadout(meta), { stage, levelIndex });
+    run = createSurvivalRun(seed, resolveLoadout(meta), { stage, levelIndex, ...runOptions() });
     pendingChoice = null;
     enterLevelView();
     saveCurrentVoyage();
@@ -1453,15 +1756,52 @@ export function startApp(root) {
       ${lastResult?.unlockedStage ? `<p><strong>New island on your chart: ${stageName(meta.highestStageUnlocked)}!</strong></p>` : ''}
       ${lastResult?.unlockedLevel ? `<p><strong>Level ${run.reefIndex + 2} unlocked</strong></p>` : ''}
       ${run.bossDefeated ? `<p>${bossName(run)} sunk — 1 Kraken Scale earned 🦑</p>` : ''}
+      <div class="sum-rewards"></div>
       <p class="sum-kit"></p>
       <p>Salvage in the Harbour: ${meta.salvage} ⚓${meta.krakenScales > 0 ? ` · Kraken Scales: ${meta.krakenScales} 🦑` : ''}</p>
     `;
     summaryBody.querySelector('.sum-kit').textContent = kit.join(' · ');
+    // What this level did for the long game: daily score, contracts,
+    // achievements, the bestiary and new weapons in the pool.
+    const rw = summaryBody.querySelector('.sum-rewards');
+    const lines = [];
+    const P = lastProgress;
+    if (P) {
+      if (P.daily) lines.push(['📅', `Daily: ${P.daily.kills.toLocaleString('en-GB')} sunk${P.daily.newBest ? ' — new best!' : ` (best ${P.daily.best.toLocaleString('en-GB')})`}${P.daily.firstClear ? ` · cleared! +${P.daily.reward} ⚓ · streak ${P.daily.streak}` : ''}`]);
+      for (const c of P.contracts) lines.push(['📜', `Contract done: ${c.text} · +${c.reward} ⚓`]);
+      for (const a of P.achievements) lines.push(['🏆', `${a.icon} ${a.name} — ${a.desc}`]);
+      for (const l of P.liveries) lines.push(['🎨', `New livery: ${LIVERIES.find((x) => x.id === l)?.name}`]);
+      if (P.bestiaryNew.length) lines.push(['📖', `Bestiary: ${P.bestiaryNew.map((id) => getEnemy(id).name).join(', ')}`]);
+      for (const st of P.bestiarySets) lines.push(['📖', `Stage ${st} bestiary complete! +${st * 60} ⚓`]);
+      for (const id of P.poolUnlocks || []) lines.push(['✨', `${poolName(id)} now appears in level-ups`]);
+    }
+    rw.replaceChildren(...lines.map(([i, t]) => { const p = document.createElement('p'); p.className = 'sum-reward'; p.textContent = `${i} ${t}`; return p; }));
+    if (P?.achievements?.length) {
+      const a = P.achievements[0];
+      setTimeout(() => { showBanner({ eyebrow: '🏆 Achievement', title: `${a.icon} ${a.name}`, chips: [a.desc], cls: 'achieve', ms: 2600 }); playAchievement(); }, 600);
+    }
+    if (run.daily) {
+      summaryRetryBtn.textContent = '↻ Sail the daily again';
+      summaryTitle.textContent = victory ? 'Daily voyage cleared! ⚓' : `Daily voyage: sunk on wave ${sv.wave + 1}`;
+    }
     summaryOverlay.classList.add('show');
   }
+  let lastProgress = null;
   function endRun() {
     if (run.outcome === 'victory') playVictory(); else playSunk();
-    lastResult = recordLevelResult(meta, run);
+    const wonBefore = levelsWonTotal(meta);
+    if (run.daily) {
+      // A daily voyage pays its Salvage but doesn't open levels or stages.
+      const banked = Math.round(run.bankedSalvage);
+      meta.salvage += banked; meta.stats.totalSalvageEarned += banked; meta.stats.runsPlayed += 1;
+      if (run.bossDefeated) meta.krakenScales += 1;
+      lastResult = { unlockedLevel: false, unlockedStage: false };
+    } else {
+      lastResult = recordLevelResult(meta, run);
+    }
+    lastProgress = recordProgress(meta, run);
+    lastProgress.poolUnlocks = newlyUnlocked(wonBefore, levelsWonTotal(meta));
+    if (!meta.tutorialDone) meta.tutorialDone = true;
     saveMeta(window.localStorage, meta);
     clearVoyage(window.localStorage); voyageActive = false;
     showRunSummary();
@@ -1474,7 +1814,8 @@ export function startApp(root) {
   summaryRetryBtn.addEventListener('click', () => {
     summaryOverlay.classList.remove('show');
     rollNextRunSeed();
-    if (run.outcome === 'victory') {
+    if (run.daily) startDaily();
+    else if (run.outcome === 'victory') {
       if (run.reefIndex < LEVELS_PER_STAGE - 1) startRun(run.stage, run.reefIndex + 1);
       else startRun(run.stage + 1, 0);
     } else startRun(run.stage, run.reefIndex);
@@ -1717,6 +2058,10 @@ export function startApp(root) {
         playReefCleared();
       }
     }
+    if (d.finalStretch) {
+      showBanner({ eyebrow: '🌩 The tide turns', title: 'Final stretch', chips: ['Elite hunters every 20s', 'Hold on until the warlord'], cls: 'dark', ms: 2600 });
+      playWeatherWarning(); addShake(shake, 0.4);
+    }
     if (d.encircle && !d.boss) { showToast('⚠️ Surrounded! Break out!', { ms: 1600 }); playWeatherWarning(); }
     if (d.elites.length) { showToast(`⭐ ${d.elites.length > 1 ? 'Elites approach' : 'An elite approaches'} — sink it for a chest!`, { ms: 2200 }); playBossPhaseChange(); }
     if (d.boss) {
@@ -1726,6 +2071,12 @@ export function startApp(root) {
       if (d.boss.isBoss) d.boss._lastAnnouncedPhase = d.boss.phaseIndex;
     }
     if (ev.summoned) playBossPhaseChange();
+    if (ev.dashed) {
+      playDash();
+      spawnSplash(particles, b.x, b.y, Math.random, 10);
+      rings.push({ x: b.x, y: b.y, life: 0.3, maxLife: 0.3, r: 34, color: '190, 240, 255' });
+    }
+    if (ev.dodged) { rings.push({ x: b.x, y: b.y, life: 0.35, maxLife: 0.35, r: 26, color: '255, 255, 255' }); playZap(); }
     // Warlord moves.
     for (const l of ev.lord) {
       const e = l.e;
@@ -1782,16 +2133,21 @@ export function startApp(root) {
     const live = sailing && !run.over && !paused && resumeIn <= 0 && upgradeOverlay.hidden;
     const showPause = sailing && !run.over;
     if (pauseButton.hidden === showPause) pauseButton.hidden = !showPause;
-    const dt = live ? applyHitStop(hitStop, rawDt) : rawDt;
+    let dt = live ? applyHitStop(hitStop, rawDt) : rawDt;
+    if (tut && !live && !upgradeOverlay.hidden) stepTutorial(0, { x: 0, y: 0 });
+    if (evoSlow > 0) { evoSlow -= rawDt; if (live) dt *= 0.3 + 0.7 * Math.max(0, 1 - evoSlow / 1.4) ** 2; }
     killSoundCd -= rawDt; hitSoundCd -= rawDt; explosionSoundCd -= rawDt; coinSoundCd -= rawDt; hullFlash = Math.max(0, hullFlash - rawDt * 2);
 
     if (live && dt > 0 && run.sv) {
       autosaveTimer += rawDt;
       if (autosaveTimer > 6) { autosaveTimer = 0; saveCurrentVoyage(); }
-      const ev = stepSurvivalFrame(run, dt, joystick.getVector(), { spawnDist: spawnDistance(), biome: runBiome, rng: Math.random, t: now / 1000 });
+      const stick = joystick.getVector();
+      stepTutorial(rawDt, stick);
+      const ev = stepSurvivalFrame(run, dt, { x: stick.x, y: stick.y, dash: dashQueued }, { spawnDist: spawnDistance(), biome: runBiome, rng: Math.random, t: now / 1000 });
+      dashQueued = false;
       feedback(ev, now);
-      playMusic(musicFor(run.level?.biomeId, run.sv.wave >= SURVIVAL.waves - 1 && !!run.sv.bossDefId));
-      updateSurvivalHud(); renderDock(); renderUpgradeStrip();
+      playMusic(musicFor(run.level?.biomeId, run.sv.wave >= FINAL_STRETCH));
+      updateSurvivalHud(); renderDock(); renderUpgradeStrip(); updateDashButton();
       const sunkResult = checkSunk(run);
       if (sunkResult === true) {
         sailing = false;
@@ -1886,6 +2242,14 @@ export function startApp(root) {
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color, t);
     if (run.outcome !== 'sunk') {
       if (run.sv) drawOrbitBlades(ctx, orbitBlades(run), t);
+      if (run.dash?.iframes > 0) {
+        // Afterimages along the dash.
+        for (let k = 3; k >= 1; k--) {
+          ctx.save(); ctx.globalAlpha = 0.16 * (4 - k) * (run.dash.iframes / 0.34);
+          drawBoat(ctx, { ...run.boat, x: run.boat.x - run.dash.dx * k * 14, y: run.boat.y - run.dash.dy * k * 14 }, BOAT_RADIUS, t);
+          ctx.restore();
+        }
+      }
       drawBoat(ctx, run.boat, BOAT_RADIUS, t);
       drawBoatStatus(ctx, run.boat, BOAT_RADIUS, t);
       drawSpirits(ctx, spiritPositions(run), run.spiritAngle || 0, t);
@@ -1902,6 +2266,14 @@ export function startApp(root) {
     drawAmbientScreen(ctx, runBiome, t, vw, vh);
     if (sailing || run.over) drawWeatherScreen(ctx, run.weather, weatherModifiers(run.weather), t, vw, vh, { x: run.boat.x + view.translateX, y: run.boat.y + view.translateY });
     drawVignette(ctx, vw, vh, run.boat.health / run.boat.maxHull, t);
+    if (run.sv && run.sv.wave >= FINAL_STRETCH) {
+      // The final stretch: a storm-dark sky closing in from the edges.
+      const k = Math.min(1, (run.sv.wave - FINAL_STRETCH + Math.min(1, run.sv.waveTime / 4)) / 2);
+      const g = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.25, vw / 2, vh / 2, Math.hypot(vw, vh) * 0.6);
+      g.addColorStop(0, 'rgba(20, 6, 18, 0)'); g.addColorStop(1, `rgba(30, 6, 14, ${0.45 * k})`);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);
+      ctx.fillStyle = `rgba(40, 10, 30, ${0.12 * k})`; ctx.fillRect(0, 0, vw, vh);
+    }
     // What's worth knowing about off-screen: the boss, elites, treasure.
     const marks = [];
     for (const e of run.enemies) {
@@ -1949,6 +2321,16 @@ export function startApp(root) {
   updateReefIndicator();
   updateWeaponBar();
   openHub();
+  // A brand-new captain goes straight to sea: Stage 1 – Level 1 with a
+  // short guided tutorial, then the harbour after the level (?tutorial
+  // forces it for testing; ?notutorial skips it).
+  const qp = new URLSearchParams(window.location.search);
+  const freshCaptain = !meta.tutorialDone && meta.stats.runsPlayed === 0 && !peekVoyage(window.localStorage);
+  if ((freshCaptain && !qp.has('notutorial') && !navigator.webdriver) || qp.has('tutorial')) {
+    selectedStage = 1; selectedLevel = 0;
+    startRun(1, 0);
+    startTutorial();
+  }
   // Opening sequence (ui/intro.mjs): a short painted scene that covers the
   // harbour's build, then washes over into it. Skipped under automation
   // (playtest scripts) unless ?intro is in the URL.

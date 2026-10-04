@@ -66,7 +66,10 @@ function applyWorld(run, world) {
 // for no meta). Meta still matters here: your hull, faction, Workshop
 // crafts and charms carry in, and Cargo Loadouts / faction weapons start
 // you with those weapons at level 1.
-export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1, levelIndex = 0, level = null } = {}) {
+// `locked`: weapon/armament ids kept out of the level-up pool (engine/
+// progression.mjs lockedPool). `daily`: { key, mod } for a daily voyage,
+// whose modifier effects (mod.fx) are applied here. `livery`: sail colours.
+export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1, levelIndex = 0, level = null, locked = [], daily = null, livery = null } = {}) {
   const lvl = level || survivalLevel(seed, stage, levelIndex);
   const world = buildSurvivalWorld(lvl);
   const hull = loadout.hull;
@@ -104,6 +107,7 @@ export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1,
     upgrades: {},
     ricochet: BIOMES[lvl.biomeId]?.ricochet || 0,
     lanternMult: 1.35,
+    dash: { cd: 0, t: 0, iframes: 0, uses: 0, dx: 1, dy: 0 },
   };
   applyWorld(run, world);
   run.weapons.ricochet = run.ricochet;
@@ -125,9 +129,22 @@ export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1,
     extraCannonballs: perks.extraCannonballs || 0,
     // Steady Hands (a voyage ammo charm) becomes a steadier gun crew here.
     cooldownMult: loadout.charms.steadyHands ? 0.95 : 1,
+    damageMult: daily?.mod?.fx?.damageDealt ?? 1,
+    takenMult: daily?.mod?.fx?.damageTaken ?? 1,
+    dashMult: daily?.mod?.fx?.dashMult ?? 1,
   };
   run.sv = createSurvivalState({ stage, levelIndex, biomeId: lvl.biomeId });
   run.sv.weapons.cannonballs = 1;
+  run.poolLocked = new Set(locked);
+  if (livery) run.boat.livery = livery;
+  if (daily) {
+    const fx = daily.mod?.fx || {};
+    run.daily = { key: daily.key, modId: daily.mod?.id, stage, levelIndex };
+    run.salvageMult *= fx.salvageMult ?? 1;
+    run.sv.countMult = fx.countMult ?? 1;
+    run.sv.xpMult = fx.xpMult ?? 1;
+    run.sv.enemySpeed = fx.enemySpeed ?? 1;
+  }
   // Meta weapons start at level 1 (Cargo Loadouts, a faction's weapon bias,
   // Armory armament fittings), up to the six weapon slots.
   for (const id of loadout.extraHeldWeapons || []) {

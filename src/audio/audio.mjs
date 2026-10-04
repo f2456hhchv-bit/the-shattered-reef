@@ -319,3 +319,20 @@ export function playWaveHorn(boss = false) {
 export function playTap() {
   tone(660, { duration: 0.04, type: 'sine', gain: 0.05 });
 }
+
+// Engagement pass (2026-10-04).
+export function playDash() {
+  noiseBurst({ duration: 0.22, gain: 0.16, filterFreq: 2400, filterType: 'bandpass' });
+  tone(380, { duration: 0.16, type: 'sine', gain: 0.1, glideTo: 820 });
+}
+export function playEvolve() {
+  [392, 523, 659, 784, 1046].forEach((f, i) => tone(f, { duration: 0.28, type: 'triangle', gain: 0.16, delay: i * 0.07 }));
+  tone(196, { duration: 0.9, type: 'sawtooth', gain: 0.08, glideTo: 392 });
+}
+export function playSynergy() {
+  tone(660, { duration: 0.12, type: 'triangle', gain: 0.14 });
+  tone(990, { duration: 0.2, type: 'triangle', gain: 0.12, delay: 0.08 });
+}
+export function playAchievement() {
+  [523, 659, 784].forEach((f, i) => tone(f, { duration: 0.22, type: 'sine', gain: 0.15, delay: i * 0.09 }));
+}

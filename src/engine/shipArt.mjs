@@ -12,6 +12,8 @@
 // flags, lanterns.
 
 const TAU = Math.PI * 2;
+// The livery being painted (set by drawShipArt): { sail, trim, flag } or null.
+let LIV = null;
 const LIGHT = { x: -0.6, y: -0.8 }; // toward the light, world space
 
 // ---------------------------------------------------------------------------
@@ -251,7 +253,8 @@ function squareSail(ctx, x, span, depth, t, env, cloth, { emblem = null, phase =
     ctx.fillStyle = 'rgba(20, 14, 8, .28)'; path(); ctx.fill();
     ctx.restore();
   }
-  const base = cloth[0];
+  const base = LIV?.sail || cloth[0];
+  if (LIV && cloth[1]) cloth = [base, LIV.trim];
   // Lit along the belly toward the light, shadowed in the hollow.
   const g = ctx.createLinearGradient(x + env.lx * span, env.ly * span, x - env.lx * span, -env.ly * span);
   g.addColorStop(0, shade(base, 0.35)); g.addColorStop(0.5, base); g.addColorStop(1, shade(base, -0.3));
@@ -292,6 +295,7 @@ function squareSail(ctx, x, span, depth, t, env, cloth, { emblem = null, phase =
 // A fore-and-aft sail (gaff, lateen, catamaran main): from the mast aft
 // along a boom swung out to `side`, bellied to leeward.
 function foreAftSail(ctx, mx, len, swing, belly, t, env, cloth, { peak = 0, phase = 0, battens = 0 } = {}) {
+  if (LIV) cloth = [LIV.sail, cloth[1] ? LIV.trim : null];
   const wob = Math.sin(t * 2.4 + phase) * 0.08;
   const ex = mx - len; const ey = swing;
   const path = () => {
@@ -328,6 +332,7 @@ function foreAftSail(ctx, mx, len, swing, belly, t, env, cloth, { peak = 0, phas
 }
 
 function jib(ctx, mx, tip, belly, t, env, color = '#f3ead6') {
+  if (LIV) color = LIV.sail;
   const w = Math.sin(t * 3.1) * 0.5;
   ctx.fillStyle = 'rgba(20, 14, 8, .22)';
   ctx.beginPath(); ctx.moveTo(tip - env.lx * 3, -env.ly * 3); ctx.quadraticCurveTo((mx + tip) / 2 - env.lx * 3, belly + w - env.ly * 3, mx - env.lx * 3, belly * 0.4 - env.ly * 3); ctx.closePath(); ctx.fill();
@@ -356,7 +361,7 @@ function figurehead(ctx, H, color = '#e8b54b') {
 function pennant(ctx, x, t, color, len = 10, w = 1.6, swallow = false) {
   len *= 0.7; w *= 0.55;
   ctx.save();
-  ctx.fillStyle = color;
+  ctx.fillStyle = LIV?.flag || color;
   ctx.beginPath();
   ctx.moveTo(x, -w);
   const segs = 6;
@@ -648,10 +653,11 @@ export const SHIP_ART_SCALE = { sloop: 1, skiff: 0.95, longboat: 1.0, catamaran:
 
 // Draws `style` at the origin facing +x. `heading` is the boat's world
 // heading (for the light); `speed` drives the foam and bow wave.
-export function drawShipArt(ctx, style, r, t, heading = 0, speed = 0) {
+export function drawShipArt(ctx, style, r, t, heading = 0, speed = 0, livery = null) {
   const fn = SHIP_ART[style] || sloop;
   const l = lightIn(heading);
-  fn(ctx, r, t, { lx: l.x, ly: l.y, speed });
+  LIV = livery;
+  try { fn(ctx, r, t, { lx: l.x, ly: l.y, speed }); } finally { LIV = null; }
 }
 
 export { skull };
