@@ -58,6 +58,7 @@ import {
   drawSurvivalPickups, drawFirePools, drawOrbitBlades, drawHullBar, drawRings, drawSinkers, drawLandmarks, drawEdgeArrows, drawVignette,
 } from './engine/survivalArt.mjs';
 import { drawLords } from './engine/warlordArt.mjs';
+import { loadCreatureSprites } from './engine/creatureSprites.mjs';
 import { loadShipSprites, shipSpriteReady, hasShipSprite, whenShipSpriteReady } from './engine/shipSprites.mjs';
 import {
   lockedPool, levelsWonTotal, newlyUnlocked, nextPoolUnlock, purchaseLivery, selectLivery, liveryColours, dailyVoyage, dailyReward,
@@ -82,6 +83,7 @@ const WEAPON_SHORT_LABEL = {
 export function startApp(root) {
   installViewportFix();
   loadShipSprites();
+  loadCreatureSprites();
   root.innerHTML = '';
   const canvas = document.createElement('canvas');
   canvas.id = 'game-canvas';

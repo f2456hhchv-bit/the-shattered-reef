@@ -91,3 +91,22 @@ test('every enemy ship look names a painted hull and a real enemy sprite', () =>
     assert.ok(keys.has(k), `${k} is an enemy sprite key`);
   }
 });
+
+import { CREATURE_ART, CREATURE_FILES } from '../src/data/creatureArt.mjs';
+import { creatureRotation } from '../src/engine/creatureSprites.mjs';
+
+test('creature art: every file exists and every key is a real enemy id or sprite key', () => {
+  const keys = new Set(Object.values(ENEMIES).flatMap((d) => [d.id, d.sprite].filter(Boolean)));
+  for (const f of CREATURE_FILES) assert.ok(existsSync(new URL(`../assets/creatures/${f}.png`, import.meta.url)), `${f}.png`);
+  for (const [k, a] of Object.entries(CREATURE_ART)) {
+    assert.ok(keys.has(k), `${k} is an enemy`);
+    assert.ok(a.mode === 'turn' || a.mode === 'face');
+    assert.ok(a.size > 1.5 && a.size < 5);
+  }
+});
+
+test('creature art: turning art points along the heading', () => {
+  // Art drawn pointing up (−y) must rotate by +90° to point east (heading 0).
+  assert.ok(Math.abs(creatureRotation({ forward: 'up' }, 0) - Math.PI / 2) < 1e-9);
+  assert.equal(creatureRotation({ forward: 'right' }, 1.2), 1.2);
+});

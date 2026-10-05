@@ -6,6 +6,7 @@
 import { drawArmamentProjectile, drawChest, drawEliteAura } from './armamentArt.mjs';
 import { SPRITES, drawAttackTelegraphs, drawEnemyProjectiles, facingOf, windupGlow } from './enemySprites.mjs';
 import { ENEMY_SHIP_LOOKS, ENEMY_SHIP_LENGTH } from '../data/enemyShipLooks.mjs';
+import { creatureArtFor, drawCreature } from './creatureSprites.mjs';
 import { drawShipArt, SHIP_ART_SCALE } from './shipArt.mjs';
 import { shipSpriteReady, drawShipSprite } from './shipSprites.mjs';
 export { drawEnemyProjectiles };
@@ -297,6 +298,8 @@ export function drawEnemyBody(ctx, enemy, color, t, boat = null) {
   const sk = enemy.sprite || enemy.defId;
   const ship = ENEMY_SHIP_LOOKS[sk];
   if (ship && shipSpriteReady(ship.hull)) { drawEnemyShip(ctx, enemy, ship, color, t); return; }
+  const art = creatureArtFor(enemy);
+  if (art) { drawCreature(ctx, enemy, art, facingOf(enemy), t); return; }
   if (SPRITES[sk]) { SPRITES[sk](ctx, enemy, color, t, boat); return; }
   const r = enemy.radius;
   const h = facingOf(enemy);

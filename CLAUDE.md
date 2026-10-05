@@ -2577,6 +2577,28 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - Tests: 3 new in `tests/shipSprites.test.mjs`. Playtested stages 1 and 4
   portrait, no console errors.
 
+- **Phase:** creature sprites from the owner's 30-creature pack.
+- **Just shipped:**
+  - `assets/creatures/*.png` (27 images, 261KB): the pack's sprites with
+    the baked-in shadows removed, cropped, and scaled to 112px max.
+    The pack's three ship sprites (dune raider, ironclad, skimmer) aren't
+    used; those already draw as painted hulls.
+  - `data/creatureArt.mjs`: per enemy id or sprite key: file, `turn`
+    (top-down art rotated to the heading, `forward` up/right) or `face`
+    (upright golems/siren/wisps/jellies, flipped left-right), size in
+    radii, `flies`. `engine/creatureSprites.mjs` loads and draws them with
+    their own shadow, a swim sway or wing beat, and a bob for flyers.
+    Used by the arena, Reef Defence and the bestiary through
+    `drawEnemyBody`. Code art stays as the fallback until images load.
+  - Still code art: every boss except the Bloodfin Matriarch, the
+    warding seal, the rigger, and the Kraken's Anchor.
+  - **Galleon not done:** the pack's galleon panel is a 375×493 RGB
+    image (about 55px per frame), with the background baked in. It's a
+    different two-masted blue ship, and its 24 frames don't form a
+    consistent turn (several show the stern at the bottom, and there's
+    no clear bow-on view).
+  - 2 new tests. 468/468. Playtested stage 2 portrait; no console errors.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
