@@ -53,3 +53,41 @@ test('every atlas exists, holds its frames, and anchors sit inside them', () => 
     assert.ok(spriteRefWidth(id) > 0);
   }
 });
+
+import { recolourPixels, classifyPixel, lookKey } from '../src/engine/shipRecolour.mjs';
+import { ENEMY_SHIP_LOOKS } from '../src/data/enemyShipLooks.mjs';
+import { ENEMIES } from '../src/data/enemies.mjs';
+
+test('recolour: cream sail takes the new colour with its shading, hull keeps its own', () => {
+  const px = new Uint8ClampedArray([
+    235, 225, 200, 255, // bright cream sail
+    150, 140, 120, 255, // shaded cream sail (folds)
+    110, 70, 40, 255, // brown hull
+    40, 170, 170, 255, // teal flag
+    0, 0, 0, 0, // transparent
+  ]);
+  assert.equal(classifyPixel('sloop', 235, 225, 200), 'sail');
+  assert.equal(classifyPixel('sloop', 110, 70, 40), 'hull');
+  assert.equal(classifyPixel('sloop', 40, 170, 170), 'flag');
+  recolourPixels(px, 'sloop', { sail: '#b8322a', flag: '#111111' });
+  assert.ok(px[0] > px[1] * 2, 'sail is red');
+  assert.ok(px[4] < px[0], 'fold stays darker than the lit cloth');
+  assert.deepEqual([...px.slice(8, 12)], [110, 70, 40, 255], 'hull untouched without a hull tint');
+  assert.ok(px[12] < 30 && px[13] < 30, 'flag recoloured');
+  assert.equal(px[19], 0, 'transparent stays transparent');
+});
+
+test('recolour: ghost looks are see-through', () => {
+  const px = new Uint8ClampedArray([110, 70, 40, 255]);
+  recolourPixels(px, 'sloop', { ghost: true });
+  assert.ok(px[3] < 255 && px[2] > px[0]);
+  assert.notEqual(lookKey({ ghost: true }), lookKey({ sail: '#000000' }));
+});
+
+test('every enemy ship look names a painted hull and a real enemy sprite', () => {
+  const keys = new Set(Object.values(ENEMIES).map((d) => d.sprite || d.id));
+  for (const [k, v] of Object.entries(ENEMY_SHIP_LOOKS)) {
+    assert.ok(SHIP_SPRITE_FRAMES[v.hull], `${k} uses a painted hull`);
+    assert.ok(keys.has(k), `${k} is an enemy sprite key`);
+  }
+});

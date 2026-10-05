@@ -4,7 +4,8 @@
 // the one place to swap in a real image later.
 
 import { drawArmamentProjectile, drawChest, drawEliteAura } from './armamentArt.mjs';
-import { SPRITES, drawAttackTelegraphs, drawEnemyProjectiles } from './enemySprites.mjs';
+import { SPRITES, drawAttackTelegraphs, drawEnemyProjectiles, facingOf, windupGlow } from './enemySprites.mjs';
+import { ENEMY_SHIP_LOOKS, ENEMY_SHIP_LENGTH } from '../data/enemyShipLooks.mjs';
 import { drawShipArt, SHIP_ART_SCALE } from './shipArt.mjs';
 import { shipSpriteReady, drawShipSprite } from './shipSprites.mjs';
 export { drawEnemyProjectiles };
@@ -204,7 +205,8 @@ function drawSpriteBoat(ctx, boat, style, radius, k, speed, t) {
   ctx.fill();
   // A slight bob.
   ctx.translate(0, Math.sin(t * 2.4 + boat.x * 0.01) * 0.8);
-  drawShipSprite(ctx, style, h, len);
+  const lv = boat.livery;
+  drawShipSprite(ctx, style, h, len, lv && (lv.sail || lv.flag) ? { sail: lv.sail, flag: lv.flag } : null);
   ctx.restore();
 }
 
@@ -221,11 +223,7 @@ function hullPath(ctx, L, B, ox = 0) {
 // keeping its data colour as the dominant tone, so "which enemy is this"
 // (the counter-weapon read) is answered by shape AND colour. Drawn in the
 // enemy's local space; facing comes from its velocity.
-function facingOf(enemy) {
-  const sp = Math.hypot(enemy.vx || 0, enemy.vy || 0);
-  if (sp > 4) enemy._facing = Math.atan2(enemy.vy, enemy.vx);
-  return enemy._facing ?? 0;
-}
+// (facingOf is shared with enemySprites.mjs.)
 
 function shade(hex, k) {
   const n = parseInt(hex.slice(1), 16);
@@ -249,8 +247,56 @@ function waterShadow(ctx, r, ox = 2.5, oy = 3.5, a = 0.32) {
   ctx.beginPath(); ctx.ellipse(ox, oy, r * 1.15, r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
 }
 
+// An enemy ship in the painted player-hull style (data/enemyShipLooks.mjs):
+// shadow, a gunport glow while a gun winds up, the recoloured sprite, and
+// flames on a lit fire ship. Drawn at the enemy's origin.
+const enemyLooks = new Map();
+function drawEnemyShip(ctx, e, ship, color, t) {
+  const h = facingOf(e);
+  const len = e.radius * ENEMY_SHIP_LENGTH * (ship.scale || 1);
+  let look = ship.look;
+  if (ship.tintFromColor) {
+    const k = `${ship.hull}:${color}`;
+    look = enemyLooks.get(k) || { ...ship.look, sail: color };
+    enemyLooks.set(k, look);
+  }
+  const cx = Math.cos(h), cy = Math.sin(h);
+  ctx.fillStyle = 'rgba(2, 22, 32, 0.28)';
+  ctx.beginPath();
+  ctx.ellipse(2.5, 3.5, Math.max(Math.abs(cx) * len * 0.5, len * 0.2), Math.max(Math.abs(cy) * len * 0.28, len * 0.11), 0, 0, Math.PI * 2);
+  ctx.fill();
+  const g = windupGlow(e);
+  if (g > 0) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = `rgba(255, 150, 40, ${0.25 + g * 0.45})`;
+    ctx.beginPath(); ctx.ellipse(0, -len * 0.08, len * 0.45 * (0.6 + g * 0.4), len * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.translate(0, Math.sin(t * 2.6 + e.id) * 0.6);
+  drawShipSprite(ctx, ship.hull, h, len, look);
+  ctx.restore();
+  if (ship.fire) {
+    const lit = e.kindled ? 1 : Math.max(0, 1 - (e.kindleTimer ?? 1) / 0.9) * (e.aggro ? 1 : 0);
+    if (lit > 0) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (let k = 0; k < 7; k++) {
+        const ph = (t * 1.6 + k / 7 + e.id * 0.13) % 1;
+        const fx = (Math.sin(k * 2.7) * 0.18 + Math.sin(t * 4 + k) * 0.03) * len;
+        const fy = -len * (0.45 + Math.cos(k * 1.9) * 0.15) - ph * len * 0.35;
+        const r = (1.2 + (1 - ph) * 2.2) * (len / 40);
+        ctx.fillStyle = `rgba(255, ${90 + (1 - ph) * 110}, 20, ${lit * (1 - ph) * 0.7})`;
+        ctx.beginPath(); ctx.arc(fx, fy, r, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+}
+
 export function drawEnemyBody(ctx, enemy, color, t, boat = null) {
   const sk = enemy.sprite || enemy.defId;
+  const ship = ENEMY_SHIP_LOOKS[sk];
+  if (ship && shipSpriteReady(ship.hull)) { drawEnemyShip(ctx, enemy, ship, color, t); return; }
   if (SPRITES[sk]) { SPRITES[sk](ctx, enemy, color, t, boat); return; }
   const r = enemy.radius;
   const h = facingOf(enemy);

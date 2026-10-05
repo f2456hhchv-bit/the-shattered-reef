@@ -10,6 +10,8 @@
 // Hulls with no atlas (the Galleon: its sheet row had no bow-on views) keep
 // the code-drawn art in engine/shipArt.mjs.
 
+import { recolourPixels, lookKey } from './shipRecolour.mjs';
+
 export const SHIP_SPRITE_FRAMES = {
   sloop: [
     [2, 2, 30, 89, 14.1, 67.5],
@@ -133,10 +135,34 @@ export function shipSpriteReady(style) {
   return !!(img && img.complete && img.naturalWidth > 0);
 }
 
-// Draws `style` with its hull centre at the origin. `length` is the
-// on-screen width of the broadside view.
-export function drawShipSprite(ctx, style, heading, length) {
+// A recoloured copy of a hull's atlas for `look` (engine/shipRecolour.mjs),
+// built once and cached. Falls back to the original if pixels can't be read.
+const recoloured = new Map();
+function atlasFor(style, look) {
   const img = images[style];
+  if (!look) return img;
+  const key = `${style}#${lookKey(look)}`;
+  let c = recoloured.get(key);
+  if (c) return c;
+  try {
+    c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const x = c.getContext('2d');
+    x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height);
+    recolourPixels(d.data, style, look);
+    x.putImageData(d, 0, 0);
+  } catch {
+    c = img;
+  }
+  recoloured.set(key, c);
+  return c;
+}
+
+// Draws `style` with its hull centre at the origin. `length` is the
+// on-screen width of the broadside view; `look` recolours it.
+export function drawShipSprite(ctx, style, heading, length, look = null) {
+  const img = atlasFor(style, look);
   const { view, flip } = spriteViewFor(heading);
   const [sx, sy, sw, sh, ax, ay] = SHIP_SPRITE_FRAMES[style][view];
   const s = length / spriteRefWidth(style);

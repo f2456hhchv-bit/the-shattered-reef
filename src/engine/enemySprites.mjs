@@ -5,7 +5,7 @@ import { drawSeal } from './armamentArt.mjs';
 // sighting line, glowing gunports, a charge lane. renderer.mjs delegates
 // here by enemy id (SPRITES).
 
-function facingOf(e) {
+export function facingOf(e) {
   const sp = Math.hypot(e.vx || 0, e.vy || 0);
   if (e.sharkState === 'windup' || e.sharkState === 'charging' || e.submergedState === 'surfaced') return e.heading || 0;
   if (sp > 4) e._facing = Math.atan2(e.vy, e.vx);
@@ -53,7 +53,7 @@ function gunports(ctx, L, B, n, glowSide, glow) {
   }
 }
 
-function windupGlow(e) {
+export function windupGlow(e) {
   return e.gunWindup > 0 && e.gunWindupMax ? 1 - e.gunWindup / e.gunWindupMax : 0;
 }
 

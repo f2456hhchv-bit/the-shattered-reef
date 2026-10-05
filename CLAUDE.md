@@ -2548,6 +2548,35 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - **Next up:** a Galleon set with bow views; enemy ships in the same
   style (they're still top-down code art, which now clashes); liveries.
 
+- **Phase:** enemy ships in the painted style + liveries back (project
+  owner: "create the galleon that way… update the enemies to match").
+- **Just shipped:**
+  - `engine/shipRecolour.mjs` (pure, tested): classifies atlas pixels as
+    sail / flag / hull per hull (cream, teal and red cloth by hue, chroma
+    and lightness) and recolours them keeping the shading; `ghost` looks
+    go pale and see-through. `shipSprites.mjs` builds one recoloured atlas
+    per look on first use and caches it.
+  - `data/enemyShipLooks.mjs`: 14 enemy ship sprite keys now draw as
+    recoloured painted hulls with 16 headings: pirate cutter (sloop,
+    black sails), brig and Black Gale (junk), horde longboats (sails in
+    the enemy's colour), fire ship (skiff, flames when lit), mortar boat
+    and ironclad (steamer), skimmer/rigger/dune raider (skiff), ghost
+    ship and Drowned Admiral (ghost look), drowned skiff and obsidian
+    galley (longboat). Shadow, gunport glow during a gun wind-up, bob.
+  - Liveries recolour the painted ships again (sail + flag).
+  - `facingOf`/`windupGlow` exported from `enemySprites.mjs`; the
+    renderer's duplicate `facingOf` was removed.
+- **Not done, and why:**
+  - **Galleon:** the sheet's galleon row has no bow-quarter views (every
+    frame shows the stern), and AI image tools couldn't rotate it: Flux
+    Kontext returned the same angle or mirrored broadsides, and the Qwen
+    multi-angle edit hit the free GPU quota (resets ~24h). Still code art.
+  - **Creatures** (sharks, serpents, harpies, golems, bats… ~30 sprite
+    keys) keep code art. They need painted art; one 3/4 view each,
+    mirrored left/right, would do.
+- Tests: 3 new in `tests/shipSprites.test.mjs`. Playtested stages 1 and 4
+  portrait, no console errors.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -3255,6 +3284,10 @@ Starting fresh below for the new game.)*
   code art, reversing the 2026-09-28 code-art call for ships only. 16
   headings from 9 views plus mirroring; the sprite never rotates, the
   heading picks the view, which is what makes the 3/4 angle read.
+
+- 2026-10-05: Enemy ships reuse the painted player hulls, recoloured,
+  rather than new art per enemy: one hull set gives every ship the same
+  style and 16 headings, and the same recolour brings liveries back.
 
 
 ## Known open questions (do not silently resolve — ask)
