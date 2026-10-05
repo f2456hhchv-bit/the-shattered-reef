@@ -2665,6 +2665,18 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     splash, lightning and ash sprites. Usable as particle textures for the
     weather overlay later; not wired in.
 
+- **Phase:** "BIG UPDATE FINAL" art pack (414 PNGs) vetted, **not used**.
+  Real transparency throughout, but the bosses, creatures, harbour,
+  landmarks, pickups and towers are re-renders of the game's own code
+  art (the inventory page's pictures redrawn); the 168 ship frames are
+  the old top-down code ships rotated (a regression from the painted
+  3/4 sprites); effects and weather are flat placeholder shapes, weaker
+  than what's in the game. Only ~10 icons (anchor, chest, coin, gem, orb,
+  scroll, stone, spyglass, wheel, wood) are painted, and they carry
+  semi-transparent rectangular halos and neighbour slivers from being cut
+  off a sheet. Whatever tool makes these packs redraws references rather
+  than painting new art; new art needs a real image generator, per asset.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
