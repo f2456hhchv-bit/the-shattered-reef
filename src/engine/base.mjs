@@ -103,7 +103,8 @@ export function buildBaseWorld(layout = BASE_LAYOUT, buildingsData = BASE_BUILDI
 
 // Harbour life: jetties into the lagoon with ships moored alongside,
 // buoys marking the channels, rock clusters and wrecks out at sea.
-const MOORED = ['junk', 'steamer', 'longboat', 'galleon', 'sloop', 'catamaran'];
+// Painted hulls only (the galleon has no painted sprite yet).
+const MOORED = ['junk', 'steamer', 'longboat', 'skiff', 'sloop', 'catamaran'];
 function buildDecor(tiles, W, c, buildings, islets, channels, layout, rng) {
   const water = (x, y) => { const tx = Math.floor(x / TILE); const ty = Math.floor(y / TILE); return tx >= 0 && ty >= 0 && tx < W && ty < W && tiles[ty][tx] === 0; };
   const decor = [];

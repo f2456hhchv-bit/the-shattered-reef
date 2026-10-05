@@ -2624,6 +2624,26 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     auto-advance is 8.6s of scene time.
   - 469/469. Checked at 390×844 and 844×390; no console errors.
 
+- **Phase:** harbour art toward V3 (project owner: "match the graphics up
+  for the main landing screen").
+- **Just shipped:**
+  - `engine/buildingSprites.mjs` + `assets/buildings/`: painted 3/4-view
+    Shipyard, Tower Yard lighthouse and Charm Shrine (AI-generated with
+    Z-Image Turbo, white background keyed out, 300px). Code art stays as
+    the fallback per building, and the animated bits sit on top (lamp
+    pulse + beam, portal glow and motes).
+  - Moored harbour ships are all painted hulls now (the galleon slot is a
+    skiff).
+- **Not done:** Armory, Workshop and Faction Hall are still code-drawn,
+  because the free image-generation GPU quota ran out after 3 buildings.
+  To finish, generate each with Z-Image Turbo (1024², random seed) and
+  this prompt pattern, then rerun the keying script and add an entry to
+  `BUILDING_SPRITES`: "Single isometric three-quarter view game asset:
+  <building>. Stylised painted 2D mobile game art, clean bold shapes, soft
+  shading, lit from top-left, vibrant colours, like a casual strategy
+  game building sprite. Isolated, centred, on a plain flat pure white
+  background, no water, no shadow, no text."
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in

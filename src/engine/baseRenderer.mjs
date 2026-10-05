@@ -10,6 +10,7 @@
 
 import { FACTIONS } from '../data/factions.mjs';
 import { drawTower } from './tdArt.mjs';
+import { drawBuildingSprite } from './buildingSprites.mjs';
 
 const TAU = Math.PI * 2;
 
@@ -89,6 +90,7 @@ function drawShipyard(ctx, b, t) {
   for (let py = y + 28; py < y + 116; py += 6) { ctx.beginPath(); ctx.moveTo(x - 12, py); ctx.lineTo(x + 12, py); ctx.stroke(); }
   ctx.fillStyle = '#4a2c12';
   for (let py = y + 36; py <= y + 116; py += 20) { ctx.beginPath(); ctx.arc(x - 13, py, 2.6, 0, TAU); ctx.arc(x + 13, py, 2.6, 0, TAU); ctx.fill(); }
+  if (drawBuildingSprite(ctx, 'shipyard', x - 4, y + 4)) return;
   // A hull on the slipway, ribs showing.
   ctx.save(); ctx.translate(x + 30, y + 8);
   ctx.fillStyle = '#b07a3e';
@@ -162,6 +164,8 @@ function drawLighthouseBeam(ctx, b, t) {
 
 function drawShrine(ctx, b, t) {
   const { x, y } = b;
+  const r = drawBuildingSprite(ctx, 'shrine', x, y);
+  if (r) { shrineGlow(ctx, r.x + r.w * 0.6, r.y + r.h * 0.55, r.h * 0.3, t); return; }
   shadow(ctx, x, y + 4, 30, 11);
   ctx.fillStyle = '#6d6f6c'; ctx.beginPath(); ctx.ellipse(x, y + 2, 30, 11, 0, 0, TAU); ctx.fill();
   ctx.fillStyle = '#8e8f88'; ctx.beginPath(); ctx.ellipse(x - 2, y, 26, 8, 0, 0, TAU); ctx.fill();
@@ -196,6 +200,21 @@ function drawShrine(ctx, b, t) {
     ctx.fillStyle = `rgba(220, 180, 255, ${0.9 * (1 - ph)})`;
     ctx.beginPath(); ctx.arc(px + Math.sin(k * 2.3 + t) * 14, py + 14 - ph * 46, 1.4, 0, TAU); ctx.fill();
   }
+}
+
+// The painted shrine's portal pulses and sheds motes.
+function shrineGlow(ctx, px, py, R, t) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const p = 0.75 + 0.25 * Math.sin(t * 2.4);
+  const g = ctx.createRadialGradient(px, py, 0, px, py, R);
+  g.addColorStop(0, `rgba(200, 130, 255, ${0.35 * p})`); g.addColorStop(1, 'rgba(120, 50, 220, 0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, R, 0, TAU); ctx.fill();
+  for (let k = 0; k < 7; k++) {
+    const ph = (t * 0.35 + k / 7) % 1;
+    ctx.fillStyle = `rgba(225, 185, 255, ${0.85 * (1 - ph)})`;
+    ctx.beginPath(); ctx.arc(px + Math.sin(k * 2.3 + t) * R * 0.5, py + R * 0.4 - ph * R * 2.2, 1.3, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
 }
 
 function drawArmory(ctx, b, t) {
@@ -302,7 +321,9 @@ function drawTowerYard(ctx, b, t) {
   ctx.fillStyle = '#8a8478'; ctx.fillRect(x + 12, y + 2, 38, 8);
   ctx.fillStyle = '#a7a194'; ctx.fillRect(x + 12, y - 1, 38, 4);
   ctx.fillStyle = '#77736a'; for (let k = 0; k < 5; k++) ctx.fillRect(x + 13 + k * 8, y - 4, 4, 3);
-  drawLighthouse(ctx, { x, y }, t, { cottage: false });
+  const lr = drawBuildingSprite(ctx, 'lighthouse', x, y);
+  if (lr) lampGlow(ctx, x, lr.y + lr.h * 0.25, t);
+  else drawLighthouse(ctx, { x, y }, t, { cottage: false });
   const show = [
     { towerId: 'cannon', x: x + 22, y: y + 14, level: 3, angle: 0.6 + Math.sin(t * 0.6) * 0.5, id: 1 },
     { towerId: 'flame', x: x + 42, y: y + 8, level: 2, angle: 0, id: 3 },
@@ -313,6 +334,15 @@ function drawTowerYard(ctx, b, t) {
     drawTower(ctx, { ...T, spec: null, recoil: 0, stunT: 0, slowT: 0, fireT: 0, inkT: 0, poisonT: 0 }, t);
     ctx.restore();
   }
+}
+
+function lampGlow(ctx, x, y, t) {
+  const pulse = 0.75 + Math.sin(t * 3) * 0.25;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(x, y, 0, x, y, 28);
+  g.addColorStop(0, `rgba(255, 236, 160, ${0.7 * pulse})`); g.addColorStop(1, 'rgba(255, 236, 160, 0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 28, 0, TAU); ctx.fill();
+  ctx.restore();
 }
 
 const DRAWERS = {

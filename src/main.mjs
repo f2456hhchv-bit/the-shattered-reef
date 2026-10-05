@@ -19,6 +19,7 @@ import { drawDarkness, drawGlows, drawEyes, drawAmbientScreen } from './engine/l
 import { glowingDecorations } from './engine/terrainRenderer.mjs';
 import { BASE_BUILDINGS } from './data/base.mjs';
 import { buildBaseWorld, computeBaseView, boatOrbitPoint } from './engine/base.mjs';
+import { loadBuildingSprites } from './engine/buildingSprites.mjs';
 import { drawBaseBuildings, drawGulls, BUILDING_SCALE, drawHarbourDecor } from './engine/baseRenderer.mjs';
 import { drawLandmarkKind } from './engine/islandArt.mjs';
 import { sampleField } from './engine/terrain.mjs';
@@ -84,6 +85,7 @@ export function startApp(root) {
   installViewportFix();
   loadShipSprites();
   loadCreatureSprites();
+  loadBuildingSprites();
   root.innerHTML = '';
   const canvas = document.createElement('canvas');
   canvas.id = 'game-canvas';

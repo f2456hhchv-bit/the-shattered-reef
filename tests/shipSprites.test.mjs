@@ -110,3 +110,19 @@ test('creature art: turning art points along the heading', () => {
   assert.ok(Math.abs(creatureRotation({ forward: 'up' }, 0) - Math.PI / 2) < 1e-9);
   assert.equal(creatureRotation({ forward: 'right' }, 1.2), 1.2);
 });
+
+import { BUILDING_SPRITES, buildingSpriteRect } from '../src/engine/buildingSprites.mjs';
+import { BASE_BUILDINGS } from '../src/data/base.mjs';
+
+test('building sprites: files exist, ids are real buildings, art stands on its ground point', () => {
+  const ids = new Set(BASE_BUILDINGS.map((b) => b.id));
+  for (const [id, s] of Object.entries(BUILDING_SPRITES)) {
+    assert.ok(ids.has(id), `${id} is a harbour building`);
+    const path = new URL(`../assets/buildings/${s.file}.png`, import.meta.url);
+    assert.ok(existsSync(path), `${s.file}.png`);
+    const { w, h } = pngSize(path);
+    const r = buildingSpriteRect(id, 0, 0, { w, h });
+    assert.ok(Math.abs(r.x + r.w / 2) < 1e-9 && r.y + r.h > 0 && r.y < -40, `${id} drawn upright on its ground point`);
+    assert.ok(r.h < 120 && r.w < 100, `${id} fits the building footprint`);
+  }
+});
