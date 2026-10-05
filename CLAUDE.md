@@ -2599,6 +2599,31 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     no clear bow-on view).
   - 2 new tests. 468/468. Playtested stage 2 portrait; no console errors.
 
+- **Phase:** opening scene redone in the new art direction (project owner:
+  "address the opening animation scene to reflect the more improved art").
+- **Just shipped:**
+  - `ui/introScene.mjs` (new): the intro is now a chase drawn entirely
+    with game art:
+    - the real Tropical terrain renderer on a small fixed-seed arena (84
+      tiles)
+    - your painted Sloop running a diagonal channel down the screen,
+      chased by a pirate cutter and the brig (recoloured painted hulls)
+    - scripted cannon volleys both ways with real splash and explosion
+      particles; the cutter takes three hits and sinks at 4.25s
+    - the reef shark sprite circling, and a sea serpent surfacing at 4.4s
+    - camera eases in from a wider shot, a night-to-morning grade, a
+      vignette, and lasting foam wakes
+  - The seed (`SEED`) was searched so the run has a ±56px clear lane for
+    9.5s heading diagonally down-screen (bows to camera). If the arena
+    generator ever changes, re-search it: `tests/intro.test.mjs` fails if
+    any ship's lane comes within a hull of the shore.
+  - `ui/intro.mjs` keeps the title (now timed on the scene clock), gulls,
+    loading bar, skip and the exit wave. The old side-on galleon,
+    tentacle, sky and spires are gone. The scene builds after the first
+    frame (~190ms desktop) with a dark-sea fallback until then; the
+    auto-advance is 8.6s of scene time.
+  - 469/469. Checked at 390×844 and 844×390; no console errors.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
