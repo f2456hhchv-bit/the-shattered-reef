@@ -1,0 +1,260 @@
+<title>Shattered Reef Art Inventory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout: a chart-room ledger. A sticky tab strip of asset types (with a status filter under it), an overview of what's left and how to brief art, then one section per type. Single dark look in the colour of the game's sea. */
+:root {
+  --bg: #0a1820; --panel: #10242f; --edge: #1d3a49; --fg: #e9f0ef; --muted: #93aab3;
+  --gold: #f2c867; --high: #ff7d6b; --med: #ffb36b; --low: #e8d27a; --keep: #8fc3d9; --done: #74d3a6;
+  --display: 'Alegreya SC', Georgia, serif; --body: 'Alegreya Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--bg); color: var(--fg); font: 16px/1.45 var(--body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 56px; }
+h1 { font: 700 clamp(26px, 5vw, 40px)/1.1 var(--display); color: var(--gold); margin: 0 0 6px; text-wrap: balance; }
+h2 { font: 700 26px var(--display); margin: 0 0 4px; color: var(--gold); }
+h3 { font: 700 19px var(--display); margin: 0 0 4px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+h3 small { font: 400 14px var(--body); color: var(--muted); }
+.lede { color: var(--muted); max-width: 66ch; margin: 0 0 16px; }
+/* Sticky navigation */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--edge); margin-inline: -16px; padding: 8px 16px 8px; display: grid; gap: 8px; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { flex: none; font: 600 14px var(--body); color: var(--fg); background: var(--panel); border: 1px solid var(--edge); border-radius: 999px; padding: 7px 12px; min-height: 36px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tab .n { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tab .n.hot { color: var(--high); }
+.tab[aria-current="true"] { background: var(--gold); color: #1a1408; border-color: var(--gold); }
+.tab[aria-current="true"] .n { color: #4a3a10; }
+.filters { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.filters::-webkit-scrollbar { display: none; }
+.chip { flex: none; }
+.chip { font: 500 13px var(--body); color: var(--muted); background: transparent; border: 1px solid var(--edge); border-radius: 8px; padding: 5px 10px; min-height: 32px; cursor: pointer; }
+.chip[aria-pressed="true"] { color: var(--fg); border-color: var(--gold); background: var(--panel); }
+.tab:focus-visible, .chip:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* Overview */
+.tally { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin: 16px 0; font-variant-numeric: tabular-nums; }
+.tally div { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.tally b { font: 700 28px var(--display); line-height: 1; }
+.tally span { color: var(--muted); font-size: 14px; }
+.p-high b { color: var(--high); } .p-medium b { color: var(--med); } .p-low b { color: var(--low); } .p-keep b { color: var(--keep); } .p-done b { color: var(--done); }
+.brief { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.box { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.box h3 { font-size: 18px; }
+.box ul, .box ol { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.box li { overflow-wrap: anywhere; }
+.box.do h3 { color: var(--done); } .box.dont h3 { color: var(--high); } .box.todo h3 { color: var(--gold); } .box.also h3 { color: var(--keep); }
+/* Type sections */
+.type { margin-top: 34px; scroll-margin-top: 120px; }
+.type > p { color: var(--muted); margin: 0 0 6px; max-width: 72ch; }
+.cat { margin-top: 18px; }
+.cat .note { color: var(--muted); margin: 0 0 10px; max-width: 72ch; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.grid.wide { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.card { margin: 0; background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+.card img { display: block; width: 100%; aspect-ratio: 1; max-width: 100%; }
+.card.ui img { aspect-ratio: auto; object-fit: contain; background: #061520; padding: 10px; }
+.card.screen img { aspect-ratio: auto; }
+.card figcaption { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.card b { font-size: 15px; line-height: 1.25; }
+.card.done img { opacity: .75; }
+.tag { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.t-high { color: var(--high); } .t-medium { color: var(--med); } .t-low { color: var(--low); } .t-keep { color: var(--keep); } .t-done { color: var(--done); }
+.empty { color: var(--muted); font-style: italic; }
+/* Icons */
+.igrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.icon { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.icon .g { font-size: 38px; line-height: 1.1; text-align: center; background: #061520; border-radius: 8px; padding: 10px 0; }
+.icon .u { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.icon .u b { color: var(--fg); font-variant-numeric: tabular-nums; }
+/* Fonts and sound */
+.spec { display: grid; gap: 4px; border-bottom: 1px solid var(--edge); padding-bottom: 14px; min-width: 0; }
+.spec:last-child { border-bottom: 0; padding-bottom: 0; }
+.spec .k { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.spec .sample { overflow-wrap: anywhere; }
+.spec .where { color: var(--muted); font-size: 14px; }
+.stack { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 16px; display: grid; gap: 16px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--gold); overflow-wrap: anywhere; }
+.cues { display: flex; flex-wrap: wrap; gap: 6px; }
+.cues code { background: #061520; border-radius: 6px; padding: 2px 6px; }
+@media (prefers-reduced-motion: no-preference) { .tab, .chip { transition: background .15s, color .15s; } }
+</style>
+<div class="wrap">
+  <h1>Shattered Reef Art Inventory</h1>
+  <p class="lede">Every piece of art in the game that isn't a painted image yet, grouped by type, with a verdict on each: needs painted art (and how urgently), keep as code, or already replaced. Use the tabs to jump between types; the filter narrows every section.</p>
+  <nav class="nav" aria-label="Asset types">
+    <div class="tabs" id="tabs"></div>
+    <div class="filters" role="group" aria-label="Filter">
+      <button class="chip" id="f-need" data-f="need" aria-pressed="true">Needs work</button>
+      <button class="chip" id="f-keep" data-f="keep" aria-pressed="false">Keep as code</button>
+      <button class="chip" id="f-done" data-f="done" aria-pressed="false">Replaced</button>
+      <button class="chip" id="f-all" data-f="all" aria-pressed="false">Everything</button>
+    </div>
+  </nav>
+
+  <section class="type" id="overview">
+    <h2>Overview</h2>
+    <div class="tally" id="tally"></div>
+    <div class="brief">
+      <div class="box todo"><h3>Still needs changing, in order</h3><ol>
+        <li><b>Icons</b>: 92 emoji used as icons in 326 places. They render differently on iPhone and Android and clash with the V3 style. A painted set of about 40 covers them all.</li>
+        <li><b>8 bosses</b> and the Warding Seal: one painted top-down image each; two for bosses that change form.</li>
+        <li><b>Armory, Workshop, Faction Hall</b>: painted 3/4-view buildings to match the Shipyard and Charm Shrine.</li>
+        <li><b>A display font</b> for titles and headings.</li>
+        <li><b>Explosion, splash and smoke sprite sheets</b> for combat.</li>
+        <li><b>Weather overlays</b> from the Weather V2 sheet (code work; art already supplied).</li>
+        <li><b>UI restyle</b> against the V3 UI style guide (CSS work, not images).</li>
+        <li><b>Landmarks and Reef Defence towers</b>: painted 3/4-view versions.</li>
+        <li><b>Sound</b>: every effect and all music is synthesised. Not art, but the same "finished" gap.</li>
+      </ol></div>
+      <div class="box do"><h3>Do</h3><ul>
+        <li>Send <b>newly painted art</b> in the V3/V4 style: clean shapes, controlled shading, teal, sand and dark-blue palette.</li>
+        <li>Use <b>real transparency</b>: PNG with alpha, nothing behind the subject.</li>
+        <li>Paint creatures and bosses <b>top-down, facing up or right</b>. One image is enough; the game turns it smoothly to any angle.</li>
+        <li>Paint buildings, landmarks and towers in <b>3/4 view, lit from the top-left</b>, like the Shipyard and Charm Shrine.</li>
+        <li>For ships, send a <b>full 24-frame turn</b> including bow-on and stern-on views. The V5 Galleon sheet is the template.</li>
+        <li>For icons, send a <b>matching set</b> on one grid (e.g. 128px each), same outline weight and lighting.</li>
+        <li>For effects, send <b>frame strips</b> (e.g. 8 frames of an explosion), evenly spaced.</li>
+        <li>Send <b>one file per asset</b>, around 256–512px, the subject filling most of the frame, named after the game id (e.g. <code>enemy-caldera_wyrm.png</code>).</li>
+      </ul></div>
+      <div class="box dont"><h3>Don't</h3><ul>
+        <li>Don't send <b>exports or screenshots of the current game art</b>. Most of the V5 <code>assets/</code> folder was this, so it changed nothing.</li>
+        <li>Don't <b>pre-rotate</b> sprites into 8 directions. The game rotates smoothly, and fixed steps look worse.</li>
+        <li>Don't <b>bake in</b> shadows, water, glows, backgrounds or labels. The game draws its own, and baked edges leave coloured fringes.</li>
+        <li>Don't send <b>terrain as island tiles</b>. Levels are generated from a shape; send colour and texture direction instead.</li>
+        <li>Don't use <b>painterly concept art</b> for gameplay sprites. It doesn't read at phone size.</li>
+        <li>Don't put <b>text in images</b>. All UI text is live.</li>
+        <li>Don't send sheets with <b>overlapping or unevenly spaced frames</b>.</li>
+      </ul></div>
+      <div class="box also"><h3>Also checked, nothing needed</h3><ul>
+        <li><b>App icon</b>: your own art, already in.</li>
+        <li><b>Liveries</b>: recolours of the painted ships, so they follow any new ship art automatically.</li>
+        <li><b>Bestiary</b>: shows each enemy's in-game art, so it improves as sprites land.</li>
+        <li><b>Darkness, lantern light, vignette, lighthouse beam</b>: lighting, not objects. Keep as code.</li>
+        <li><b>Chart sea and routes, loading bar, tutorial arrows</b>: covered by the UI restyle.</li>
+        <li><b>Old maze-mode art</b> (exits, lair currents): no longer used in play.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <div id="list"></div>
+
+  <section class="type" id="icons">
+    <h2>Icons</h2>
+    <p>Every icon in the game is an emoji, drawn by the phone's own emoji font. Each card shows the emoji, how many times it appears in the code, and where. <span class="t-high tag">Needs art · high</span></p>
+    <div class="igrid" id="igrid"></div>
+  </section>
+
+  <section class="type" id="fonts">
+    <h2>Fonts</h2>
+    <p>Three typefaces, all built into the device. The display face is the one to replace. <span class="t-high tag">Needs work · high</span></p>
+    <div class="stack">
+      <div class="spec"><span class="k">Interface text · system UI font · keep</span>
+        <div class="sample" style="font: 700 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">Set Sail · Level 1 · 400 Salvage</div>
+        <div class="sample" style="font: 400 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">Pirate cutters, brigs, fire ships and mortar boats. Cannonballs sink them all.</div>
+        <div class="where">Buttons, chips, panels, shop rows, cards, HUD numbers, toasts, Reef Defence. SF Pro on iPhone, Roboto on Android. <code>-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif</code></div></div>
+      <div class="spec"><span class="k">Display · Georgia · replace</span>
+        <div class="sample" style="font: 900 34px Georgia, 'Times New Roman', serif; color: var(--gold)">THE SHATTERED REEF</div>
+        <div class="sample" style="font: 700 22px Georgia, 'Times New Roman', serif; color: var(--gold)">The Corsair Keys · Ironjaw, Warlord Reef Shark</div>
+        <div class="where">Title, chart and stage names, stage sheet, warlord banner. Swap for a chunkier display face matching the V3 guide (one Google Font). <code>Georgia, 'Times New Roman', serif</code></div></div>
+      <div class="spec"><span class="k">Codes · monospace · keep</span>
+        <div class="sample" style="font: 400 16px ui-monospace, SFMono-Regular, Menlo, monospace">TR2-0K3F9ZA</div>
+        <div class="where">Shareable level codes only.</div></div>
+      <div class="spec"><span class="k">Text painted on the game canvas · keep</span>
+        <div class="sample" style="font: 800 15px system-ui, sans-serif">-12 · 35 ▲ · LV 3</div>
+        <div class="where">Damage numbers, boss names, tower marks and level badges, in the system font (weights 600–900, 8–13px). Boss names would follow the new display font.</div></div>
+    </div>
+  </section>
+
+  <section class="type" id="sound">
+    <h2>Sound</h2>
+    <p>Every sound effect and all music is synthesised in code from note data; there are no audio files. Recorded effects for the most frequent sounds (cannon fire, hits, kills, explosions, pickups) would add the most. <span class="t-medium tag">Needs work · medium</span></p>
+    <div class="stack">
+      <div class="spec"><span class="k">31 sound effects</span><div class="cues" id="cues"></div></div>
+      <div class="spec"><span class="k">21 music themes</span><div class="where">A sea theme and a boss-lair theme for each of the 10 biomes, plus the harbour theme. These are original compositions played by a built-in synth; real instrument samples would be the upgrade, keeping the same tunes.</div></div>
+    </div>
+  </section>
+</div>
+<script>
+const DATA = __DATA__;
+const NOTES = __NOTES__;
+const TYPES = __TYPES__;
+const EMOJI = __EMOJI__;
+const CUES = 'Fire Hit Kill Explosion WallImpact PickupWeapon PickupSalvage Treasure EnemyFire Dash Evolve Synergy Achievement ReefCleared Victory Sunk Revive LockedWeapon BossPhaseChange BossDefeated WardClink Zap Thunder StrikeMark WeatherWarning Build Upgrade Sell Leak WaveHorn Tap'.split(' ');
+const LABEL = { high: 'Needs art · high', medium: 'Needs work · medium', low: 'Needs art · low', keep: 'Keep as code', done: 'Replaced by painted art' };
+const $ = (s) => document.querySelector(s);
+const NEED = ['high', 'medium', 'low'];
+const count = (p) => DATA.filter((d) => d.pri === p).length;
+$('#tally').innerHTML = [['high', 'need art · high', EMOJI.length + 1], ['medium', 'need work · medium', 1], ['low', 'need art · low', 0], ['keep', 'keep as code', 0], ['done', 'replaced', 0]]
+  .map(([p, l, extra]) => `<div class="p-${p}"><b>${count(p) + extra}</b><span>${l}</span></div>`).join('');
+$('#igrid').innerHTML = EMOJI.map((e) => `<div class="icon"><div class="g" aria-hidden="true">${e.e}</div><div class="u"><b>${e.n}×</b> · ${e.where.join(', ')}${e.ctx.length ? `<br>e.g. ${e.ctx.join(', ')}` : ''}</div></div>`).join('');
+$('#cues').innerHTML = CUES.map((c) => `<code>${c}</code>`).join('');
+const match = (d, f) => f === 'all' || (f === 'need' ? NEED.includes(d.pri) : d.pri === f);
+const rank = { high: 0, medium: 1, low: 2, keep: 3, done: 4 };
+let filter = 'need';
+function render() {
+  const list = $('#list');
+  for (const id of ['icons', 'fonts', 'sound']) $('.wrap').appendChild(document.getElementById(id));
+  list.innerHTML = '';
+  const tabs = [['overview', 'Overview', null]];
+  for (const [id, title, cats] of TYPES) {
+    if (!cats.length) { tabs.push([id, title, id === 'icons' ? EMOJI.length : null, id === 'icons' || id === 'fonts']); continue; }
+    const all = DATA.filter((d) => cats.includes(d.cat));
+    const needN = all.filter((d) => NEED.includes(d.pri)).length;
+    const hot = all.some((d) => d.pri === 'high');
+    tabs.push([id, title, needN, hot]);
+    const s = document.createElement('section'); s.className = 'type'; s.id = id;
+    s.innerHTML = `<h2>${title}</h2>`;
+    let shown = 0;
+    for (const c of cats) {
+      const items = all.filter((d) => d.cat === c && match(d, filter)).sort((a, b) => rank[a.pri] - rank[b.pri]);
+      if (!items.length) continue;
+      shown += items.length;
+      const cat = document.createElement('div'); cat.className = 'cat';
+      const label = c.replace(/^UI · /, '');
+      cat.innerHTML = `<h3>${label} <small>${items.length}</small></h3>` + (NOTES[c] ? `<p class="note">${NOTES[c]}</p>` : '');
+      const g = document.createElement('div'); g.className = 'grid' + (c.startsWith('UI') ? ' wide' : '');
+      for (const d of items) {
+        const fig = document.createElement('figure'); fig.className = 'card ' + d.pri + (d.kind ? ' ' + d.kind : '');
+        fig.innerHTML = `<img alt="${d.name}" loading="lazy" src="${d.img}"><figcaption><b>${d.name}</b><span class="tag t-${d.pri}">${LABEL[d.pri]}</span></figcaption>`;
+        g.appendChild(fig);
+      }
+      cat.appendChild(g); s.appendChild(cat);
+    }
+    if (!shown) s.insertAdjacentHTML('beforeend', `<p class="empty">Nothing here under this filter.</p>`);
+    list.appendChild(s);
+  }
+  // Fixed sections (icons, fonts, sound) sit after the list; move them into TYPES order.
+  for (const id of ['icons', 'fonts', 'sound']) {
+    const sec = document.getElementById(id);
+    const idx = TYPES.findIndex((t) => t[0] === id);
+    const nextId = TYPES.slice(idx + 1).map((t) => t[0]).find((n) => n !== id && document.getElementById(n) && document.getElementById(n).parentElement === list);
+    if (nextId) list.insertBefore(sec, document.getElementById(nextId)); else list.appendChild(sec);
+    sec.hidden = filter === 'keep' || filter === 'done';
+  }
+  $('#tabs').innerHTML = tabs.map(([id, title, n, hot]) => `<a class="tab" href="#${id}" data-id="${id}">${title}${n != null ? ` <span class="n${hot ? ' hot' : ''}">${n}</span>` : ''}</a>`).join('');
+  watch();
+}
+let io = null;
+function watch() {
+  if (io) io.disconnect();
+  const set = (id) => document.querySelectorAll('.tab').forEach((t) => {
+    const on = t.dataset.id === id; t.setAttribute('aria-current', String(on));
+    if (on) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+  const visible = new Map();
+  io = new IntersectionObserver((entries) => {
+    for (const e of entries) visible.set(e.target.id, e.isIntersecting);
+    const first = [...document.querySelectorAll('section.type')].find((s) => !s.hidden && visible.get(s.id));
+    if (first) set(first.id);
+  }, { rootMargin: '-120px 0px -55% 0px' });
+  document.querySelectorAll('section.type').forEach((s) => io.observe(s));
+  set('overview');
+}
+document.querySelectorAll('.chip').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('.chip').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  filter = b.dataset.f; render();
+}));
+render();
+</script>

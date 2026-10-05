@@ -26,6 +26,10 @@ import { drawLords } from '../src/engine/warlordArt.mjs';
 import { drawTower, drawHeart, drawSpot, drawMine } from '../src/engine/tdArt.mjs';
 import { drawWeatherWorld, drawWeatherAbove } from '../src/engine/weatherArt.mjs';
 import { WEATHER } from '../src/data/weather.mjs';
+import { createParticlePool, spawnHitSpark, spawnKillBurst, spawnExplosion, spawnSplash, spawnMuzzleFlash, updateParticles, createDamageNumberPool, spawnDamageNumber, updateDamageNumbers } from '../src/engine/juice.mjs';
+import { drawParticles, drawDamageNumbers, drawTargetReticle, drawWake, drawBoatStatus, drawDiveTelegraph } from '../src/engine/renderer.mjs';
+import { drawHullBar, drawRings, drawSinkers } from '../src/engine/survivalArt.mjs';
+import { drawGulls } from '../src/engine/baseRenderer.mjs';
 
 const T = 1.3; // animation time frozen at a flattering frame
 const VIEW = { left: -1e4, top: -1e4, right: 1e4, bottom: 1e4, x: -1e4, y: -1e4, w: 2e4, h: 2e4 };
@@ -138,6 +142,31 @@ add('Weather', 'Ghost light', IN_USE, wx('ghost_lights', { lights: [{ x: 0, y: 0
 add('Weather', 'Lightning strike mark', IN_USE, wx('thunderstorm', { strikes: [{ x: 0, y: 0, warn: 1.2, max: 3, r: WEATHER.thunderstorm.strikeRadius }] }), 1.5);
 add('Weather', 'Rockfall', IN_USE, wx('rockfall', { drops: [{ x: 0, y: 10, warn: 0.6, max: 2.2, r: WEATHER.rockfall.radius, spin: 0.5 }] }), 1.6);
 add('Weather', 'Icefall', IN_USE, wx('icefall', { drops: [{ x: 0, y: 10, warn: 0.6, max: 2.2, r: WEATHER.icefall.radius, spin: 0.5 }] }), 1.6);
+
+
+// --- Effects (particles and one-shot effects), frozen mid-animation -------------
+const seeded = (n) => { let v = n; return () => { v = (v * 16807) % 2147483647; return v / 2147483647; }; };
+const fx = (spawn, age) => (ctx) => { const pool = createParticlePool(); spawn(pool, seeded(7)); updateParticles(pool, age); drawParticles(ctx, pool.particles || pool); };
+add('Effects', 'Hit spark', IN_USE, fx((p, r) => spawnHitSpark(p, 0, 0, '#ffd27a', r, 12), 0.08));
+add('Effects', 'Kill burst', IN_USE, fx((p, r) => spawnKillBurst(p, 0, 0, '#c0392b', r), 0.12));
+add('Effects', 'Explosion', IN_USE, fx((p, r) => spawnExplosion(p, 0, 0, 40, r), 0.15));
+add('Effects', 'Splash', IN_USE, fx((p, r) => spawnSplash(p, 0, 0, r, 14), 0.12));
+add('Effects', 'Muzzle flash', IN_USE, fx((p, r) => spawnMuzzleFlash(p, 0, 0, -0.4, '#ffd27a', r), 0.03));
+add('Effects', 'Shockwave rings', IN_USE, (ctx) => drawRings(ctx, [{ x: 0, y: 0, life: 0.35, maxLife: 0.6, r: 60, color: '255, 214, 92' }, { x: 0, y: 0, life: 0.2, maxLife: 0.6, r: 60, color: '150, 230, 255' }]));
+add('Effects', 'Ship wake', IN_USE, (ctx) => drawWake(ctx, Array.from({ length: 9 }, (_, k) => ({ x: -k * 9, y: k * 3, heading: 0.3, life: 1.1 - k * 0.11, maxLife: 1.1 }))));
+add('Effects', 'Sinking enemy', IN_USE, (ctx) => { const e = createEnemy('pirate_cutter', 0, 0, () => 0.5); Object.assign(e, { x: 0, y: 0, id: 3, heading: 0.3, vx: 20, vy: 5 }); drawSinkers(ctx, [{ e, life: 0.25, maxLife: 0.5 }], T, () => '#c0392b'); });
+add('Effects', 'Damage numbers', IN_USE, (ctx) => { const pool = createDamageNumberPool(); spawnDamageNumber(pool, -20, 0, 12, {}); spawnDamageNumber(pool, 18, -6, 35, { crit: true }); spawnDamageNumber(pool, 0, 18, 9, { incoming: true }); updateDamageNumbers(pool, 0.15); drawDamageNumbers(ctx, pool.numbers || pool); });
+for (const [k, name] of [['burn', 'Burning'], ['poison', 'Poisoned'], ['chill', 'Chilled'], ['shock', 'Shocked'], ['ink', 'Inked']]) {
+  add('Effects', `Status on ship: ${name}`, IN_USE, (ctx) => { ctx.fillStyle = 'rgba(80,50,30,.9)'; ctx.beginPath(); ctx.ellipse(0, 0, 16, 7, 0, 0, Math.PI * 2); ctx.fill(); drawBoatStatus(ctx, { x: 0, y: 0, afflictions: { [k]: 2 }, chillRemaining: k === 'chill' ? 2 : 0 }, 11, T); });
+}
+
+// --- In-world HUD ------------------------------------------------------------------
+add('In-world HUD', 'Hull bar under the ship', IN_USE, (ctx) => drawHullBar(ctx, { x: 0, y: 0, health: 62, maxHull: 100 }, 11, 0), 3);
+add('In-world HUD', 'Lock-on reticle', IN_USE, (ctx) => drawTargetReticle(ctx, { x: 0, y: 0, radius: 12, id: 1 }, T, true));
+add('In-world HUD', 'Dive / charge telegraph', IN_USE, (ctx) => { const e = createEnemy('gullswarm_harpy', 0, 0, () => 0.5); Object.assign(e, { x: -30, y: -20, id: 4, diveTimer: 0.3, diveTargetX: 30, diveTargetY: 25 }); drawDiveTelegraph(ctx, e, T); });
+
+// --- Ambient life -------------------------------------------------------------------
+add('Ambient life', 'Gulls (harbour and intro)', IN_USE, (ctx) => { ctx.scale(3, 3); ctx.translate(-180, 0); drawGulls(ctx, { x: 0, y: 0 }, 0); });
 
 // --- Render ------------------------------------------------------------------------
 const SIZE = 168; const DPR = 2;
