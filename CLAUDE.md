@@ -2644,6 +2644,27 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   game building sprite. Isolated, centred, on a plain flat pure white
   background, no water, no shadow, no text."
 
+- **Phase:** owner's V5 art pack + Terrain/Weather V2 sheets reviewed.
+- **Just shipped:** the Galleon is a painted sprite at last
+  (`assets/ships/galleon.png`), cut from the V5 24-frame Galleon sheet,
+  which has real bow views. Views 4, 6 and 7 are mirrored frames; the
+  sheet's warm alpha fringe was keyed out. The galleon is back among the
+  harbour's moored ships.
+- **Reviewed, not used:**
+  - V5 `assets/` (bosses, harbour, landmarks, pickups, towers, shots,
+    enemies, effects) are PNG renders of the game's own code art, not new
+    art. Swapping them in would freeze the animation for no visual gain.
+  - V5 8-way enemy rotations are those sprites rotated in 45° steps; the
+    game already rotates smoothly at any angle.
+  - Terrain V2 sheet: painted tropical islands and rock clusters on
+    transparent ground. The arena is generated, not tiled, so these can't
+    replace the terrain renderer; at most they could be dropped in as
+    decoration props. Only tropical/rock pieces, despite the manifest
+    listing other biomes.
+  - Weather V2 sheet: semi-transparent painted rain, cloud, wind, snow,
+    splash, lightning and ash sprites. Usable as particle textures for the
+    weather overlay later; not wired in.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
