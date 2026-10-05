@@ -150,6 +150,7 @@ for (const tile of tiles) {
     groups.set(tile.cat, grid);
   }
   const card = document.createElement('figure'); card.className = `tile ${tile.status}`;
+  card.dataset.i = String(tiles.indexOf(tile));
   const cv = document.createElement('canvas'); cv.width = SIZE * DPR; cv.height = SIZE * DPR; cv.style.width = cv.style.height = `${SIZE}px`;
   const ctx = cv.getContext('2d');
   const sea = ctx.createRadialGradient(SIZE, SIZE, 10, SIZE, SIZE, SIZE * 1.4);
