@@ -17,7 +17,8 @@ import { drawEnemy, drawProjectile, drawPickup } from '../src/engine/renderer.mj
 import { drawShipArt } from '../src/engine/shipArt.mjs';
 import { drawEnemyProjectiles } from '../src/engine/enemySprites.mjs';
 import { drawBaseBuildings, drawHarbourDecor } from '../src/engine/baseRenderer.mjs';
-import { drawLandmarkKind } from '../src/engine/islandArt.mjs';
+import { drawLandmarkKind, drawIsland } from '../src/engine/islandArt.mjs';
+import { STAGES } from '../src/data/stages.mjs';
 import { drawDecoration } from '../src/engine/terrainRenderer.mjs';
 import { drawSurvivalPickups, drawFirePools, drawOrbitBlades } from '../src/engine/survivalArt.mjs';
 import { drawChest, drawSpirits, drawLightning, drawEliteAura, drawWard, drawEnrage } from '../src/engine/armamentArt.mjs';
@@ -73,6 +74,13 @@ add('Harbour props', 'Rowboat', IN_USE, (ctx) => drawHarbourDecor(ctx, [{ kind: 
 // --- Landmarks ----------------------------------------------------------------
 const LM = { fort: 'Pirate fort', lighthouse: 'Lighthouse', ice: 'Ice spires', wreck: 'Shipwreck', volcano: 'Volcano', cave: 'Cave mouth', hut: 'Stilt hut', rift: 'Drowned temple rift', skull: 'Giant skull', crystal: 'Crystal spire' };
 for (const [kind, name] of Object.entries(LM)) add('Landmarks', name, IN_USE, (ctx) => drawLandmarkKind(ctx, kind, 0, 18, T, 1, 0), 2.2);
+
+// --- Terrain: each biome's ground, water, shore and decor, as the chart
+// island painted by the same terrain renderer the levels use.
+STAGES.slice(0, 10).forEach((st, i) => {
+  const biome = BIOMES[st.biome];
+  add('Terrain (biome islands)', `${biome.name} (Stage ${i + 1})`, IN_USE, (ctx) => { ctx.translate(-100, -80); drawIsland(ctx, 200, 160, st.biome, i + 1); }, 0.8);
+});
 
 // --- Terrain decorations (baked into the island art) --------------------------
 const seen = new Set();
