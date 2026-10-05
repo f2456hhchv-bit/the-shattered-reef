@@ -2637,7 +2637,7 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - **Not done:** Armory, Workshop and Faction Hall are still code-drawn,
   because the free image-generation GPU quota ran out after 3 buildings.
   To finish, generate each with Z-Image Turbo (1024², random seed) and
-  this prompt pattern, then rerun the keying script and add an entry to
+  this prompt pattern, then run `python3 tools/key-building.py <id> <image>` and add an entry to
   `BUILDING_SPRITES`: "Single isometric three-quarter view game asset:
   <building>. Stylised painted 2D mobile game art, clean bold shapes, soft
   shading, lit from top-left, vibrant colours, like a casual strategy
