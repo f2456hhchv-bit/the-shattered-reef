@@ -5,6 +5,7 @@
 // art is engine/islandArt.mjs.
 
 import { drawIsland } from '../engine/islandArt.mjs';
+import { shipSpriteReady } from '../engine/shipSprites.mjs';
 
 const SPACING = 190; // px between islands along the route
 const ISLAND_W = 150;
@@ -136,8 +137,14 @@ export function createWorldMap(root, deps) {
     ship.style.left = `${cur.x + side * 96 - 24}px`; ship.style.top = `${cur.y - 30}px`;
     const sc = ship.querySelector('canvas').getContext('2d');
     sc.clearRect(0, 0, 96, 96);
-    sc.save(); sc.translate(48, 48); sc.scale(2, 2);
-    drawBoat(sc, { x: 0, y: 0, heading: -Math.PI / 2, style: getBoatStyle() }, boatRadius, 0.3);
+    const st = getBoatStyle();
+    if (shipSpriteReady(st)) {
+      sc.save(); sc.translate(48, 62); sc.scale(1.25, 1.25);
+      drawBoat(sc, { x: 0, y: 0, heading: side > 0 ? Math.PI * 0.75 : Math.PI * 0.25, style: st }, boatRadius, 0.3);
+    } else {
+      sc.save(); sc.translate(48, 48); sc.scale(2, 2);
+      drawBoat(sc, { x: 0, y: 0, heading: -Math.PI / 2, style: st }, boatRadius, 0.3);
+    }
     sc.restore();
   }
 

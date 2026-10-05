@@ -58,6 +58,7 @@ import {
   drawSurvivalPickups, drawFirePools, drawOrbitBlades, drawHullBar, drawRings, drawSinkers, drawLandmarks, drawEdgeArrows, drawVignette,
 } from './engine/survivalArt.mjs';
 import { drawLords } from './engine/warlordArt.mjs';
+import { loadShipSprites, shipSpriteReady, hasShipSprite, whenShipSpriteReady } from './engine/shipSprites.mjs';
 import {
   lockedPool, levelsWonTotal, newlyUnlocked, nextPoolUnlock, purchaseLivery, selectLivery, liveryColours, dailyVoyage, dailyReward,
   ensureContracts, contractText, contractReward, recordProgress, bestiaryByStage, bestiaryFraction, checkAchievements,
@@ -80,6 +81,7 @@ const WEAPON_SHORT_LABEL = {
 
 export function startApp(root) {
   installViewportFix();
+  loadShipSprites();
   root.innerHTML = '';
   const canvas = document.createElement('canvas');
   canvas.id = 'game-canvas';
@@ -831,8 +833,15 @@ export function startApp(root) {
     const c = cv.getContext('2d');
     c.clearRect(0, 0, cv.width, cv.height);
     c.fillStyle = '#1f7fa0'; c.beginPath(); c.arc(56, 56, 54, 0, Math.PI * 2); c.fill();
-    c.save(); c.translate(56, 56); c.scale(2.3, 2.3);
-    drawBoat(c, { x: 0, y: 0, heading: -Math.PI / 2, style: hullId, livery }, BOAT_RADIUS, 0.4);
+    if (hasShipSprite(hullId) && !shipSpriteReady(hullId)) whenShipSpriteReady(hullId, () => drawHullPreview(cv, hullId, livery));
+    if (shipSpriteReady(hullId)) {
+      // Painted ships face the viewer three-quarters on (bow to lower left).
+      c.save(); c.translate(58, 72); c.scale(1.45, 1.45);
+      drawBoat(c, { x: 0, y: 0, heading: Math.PI * 0.75, style: hullId, livery }, BOAT_RADIUS, 0.4);
+    } else {
+      c.save(); c.translate(56, 56); c.scale(2.3, 2.3);
+      drawBoat(c, { x: 0, y: 0, heading: -Math.PI / 2, style: hullId, livery }, BOAT_RADIUS, 0.4);
+    }
     c.restore();
   }
 

@@ -6,6 +6,7 @@
 import { drawArmamentProjectile, drawChest, drawEliteAura } from './armamentArt.mjs';
 import { SPRITES, drawAttackTelegraphs, drawEnemyProjectiles } from './enemySprites.mjs';
 import { drawShipArt, SHIP_ART_SCALE } from './shipArt.mjs';
+import { shipSpriteReady, drawShipSprite } from './shipSprites.mjs';
 export { drawEnemyProjectiles };
 import { damageNumberStyle, DAMAGE_NUMBER_COLORS } from './juice.mjs';
 import { isRevealed } from './enemies.mjs';
@@ -148,6 +149,10 @@ export function drawBoat(ctx, boat, radius, t = 0) {
   const L = radius * 1.5 * k;
   const B = radius * 0.72 * k;
   const speed = Math.hypot(boat.vx || 0, boat.vy || 0);
+  if (shipSpriteReady(style)) {
+    drawSpriteBoat(ctx, boat, style, radius, k, speed, t);
+    return;
+  }
   ctx.save();
   ctx.translate(boat.x, boat.y);
   // Soft drop shadow on the water, offset with the world light.
@@ -160,6 +165,46 @@ export function drawBoat(ctx, boat, radius, t = 0) {
   ctx.rotate(boat.heading);
   ctx.scale(k, k);
   drawShipArt(ctx, style, radius, t, boat.heading, speed, boat.livery || null);
+  ctx.restore();
+}
+
+// A painted 3/4-view ship (engine/shipSprites.mjs): a wake and a soft
+// shadow on the water in world space, then the sprite upright (it never
+// rotates; the heading picks the view).
+export const SPRITE_SHIP_LENGTH = 3.3; // broadside width, in collision radii
+function drawSpriteBoat(ctx, boat, style, radius, k, speed, t) {
+  const h = boat.heading || 0;
+  const cx = Math.cos(h), cy = Math.sin(h);
+  const len = radius * SPRITE_SHIP_LENGTH * k;
+  ctx.save();
+  ctx.translate(boat.x, boat.y);
+  // Wake: foam chevrons trailing astern, stronger with speed.
+  const w = Math.min(1, speed / 110);
+  if (w > 0.08) {
+    ctx.strokeStyle = `rgba(235, 248, 250, ${0.35 * w})`;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const d = len * (0.35 + i * 0.28) + ((t * 40) % (len * 0.28));
+      const spread = len * (0.12 + i * 0.1);
+      const bx = -cx * d, by = -cy * d * 0.8;
+      ctx.lineWidth = 2.2 - i * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(bx - cy * spread, by + cx * spread * 0.8);
+      ctx.lineTo(-cx * (d - len * 0.18), -cy * (d - len * 0.18) * 0.8);
+      ctx.lineTo(bx + cy * spread, by - cx * spread * 0.8);
+      ctx.stroke();
+    }
+  }
+  // Shadow: an ellipse along the hull, foreshortened north-south.
+  ctx.fillStyle = 'rgba(2, 22, 32, 0.3)';
+  ctx.beginPath();
+  const along = len * 0.5, across = len * 0.2;
+  const ex = Math.hypot(cx * along, cy * across), ey = Math.hypot(cy * along, cx * across) * 0.55;
+  ctx.ellipse(3, 4, Math.max(ex, across), Math.max(ey, across * 0.5), 0, 0, Math.PI * 2);
+  ctx.fill();
+  // A slight bob.
+  ctx.translate(0, Math.sin(t * 2.4 + boat.x * 0.01) * 0.8);
+  drawShipSprite(ctx, style, h, len);
   ctx.restore();
 }
 

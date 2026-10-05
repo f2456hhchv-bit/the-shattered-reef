@@ -2518,6 +2518,36 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - **Next up:** the V3 art direction call above; then real-phone feel for
   dash timing and the daily/contract numbers.
 
+- **Phase:** painted 3/4-view player ships (project owner supplied a V3-
+  style sheet of all 7 hulls: "it needs to match v3", ships must turn in
+  every direction).
+- **Just shipped:**
+  - `assets/ships/<hull>.png`: atlases for Sloop, Longboat, Skiff,
+    Catamaran, Junk and Steamer, cut from the owner's sheet (kept at
+    `docs/art-reference/v3/ship-rotation-sheet.png`). 9 views per hull,
+    south (bow to camera) round the west side to north (stern to camera);
+    the east half is mirrored, giving 16 headings.
+  - `engine/shipSprites.mjs`: frame table with hull-centre anchors,
+    `spriteViewFor(heading)`, loader, `drawShipSprite`. `drawBoat` uses the
+    sprite once its atlas has loaded (code art until then), with a
+    world-space wake chevron, a foreshortened shadow and a slight bob.
+    Shipyard portraits and the chart ship show the 3/4 bow view.
+  - The sheet's rows weren't a clean 24-frame turn: each had ~22 frames
+    sweeping south → west → north at uneven steps, and neighbouring ships
+    overlapped. Views were picked by measured hull width (broadside = W)
+    plus the sheet's labelled stern views (0/22/45/67°) for the north
+    quarter.
+  - **Galleon stays code-drawn:** its row on the sheet shows the stern in
+    every frame (no bow-on views), so there's nothing to build its south
+    half from.
+  - **Liveries don't recolour painted ships** (only the Galleon's code
+    art). Needs per-livery sprite sets or a sail mask.
+  - `tests/shipSprites.test.mjs` (3). 463/463. Playtested portrait: sailing
+    circles turns smoothly through every view; harbour and Shipyard
+    render; no console errors.
+- **Next up:** a Galleon set with bow views; enemy ships in the same
+  style (they're still top-down code art, which now clashes); liveries.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -3220,6 +3250,11 @@ Starting fresh below for the new game.)*
 - 2026-10-04: Sinking keeps half the level's Salvage (it was all lost in
   the voyage). Survivor games keep your haul, and with unlimited retries
   a total loss read as punishing rather than tense.
+
+- 2026-10-05: Player ships are painted sprites (owner's V3 sheet), not
+  code art, reversing the 2026-09-28 code-art call for ships only. 16
+  headings from 9 views plus mirroring; the sprite never rotates, the
+  heading picks the view, which is what makes the 3/4 angle read.
 
 
 ## Known open questions (do not silently resolve — ask)
