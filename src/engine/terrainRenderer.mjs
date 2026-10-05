@@ -243,7 +243,7 @@ export function glowingDecorations(terrain, biome) {
   return out;
 }
 
-function drawDecoration(g, d, biome) {
+export function drawDecoration(g, d, biome) {
   const s = d.size;
   const style = styleOf(d, biome);
   if (style !== d.kind && drawStyled(g, d, biome, style)) return;

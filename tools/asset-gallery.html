@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Code-drawn asset gallery</title>
+<style>
+  body { margin: 0; padding: 16px; background: #0b1a24; color: #eef3f5; font: 14px system-ui, sans-serif; }
+  h2 { margin: 24px 0 10px; font-size: 16px; color: #ffd27a; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 10px; }
+  .tile { margin: 0; background: #12293a; border-radius: 10px; padding: 4px; }
+  .tile canvas { display: block; border-radius: 7px; margin: 0 auto; }
+  .tile figcaption { padding: 6px 4px 2px; display: flex; flex-direction: column; gap: 2px; }
+  .tile span { font-size: 12px; color: #9fb4c0; }
+  .tile.code span { color: #ffb38a; }
+</style></head>
+<body><div id="gallery"></div><script type="module" src="./asset-gallery.mjs"></script></body></html>
