@@ -1896,7 +1896,7 @@ export function startApp(root) {
     enemyCount: run.enemies.filter((e) => e.health > 0).length,
     projectileCount: run.weapons.projectiles.length,
     enemies: run.enemies.filter((e) => e.health > 0).map((e) => ({
-      id: e.id, defId: e.defId, x: e.x, y: e.y, health: e.health, maxHealth: e.maxHealth, isBoss: e.isBoss, elite: !!e.elite, warlord: !!e.warlord, invulnerable: e.invulnerable,
+      id: e.id, defId: e.defId, x: e.x, y: e.y, health: e.health, maxHealth: e.maxHealth, isBoss: e.isBoss, elite: !!e.elite, warlord: !!e.warlord, invulnerable: e.invulnerable, archetype: e.archetype,
     })),
     weather: run.weather && run.weather.active ? { id: run.weather.active.id } : null,
     armaments: { ...(run.armaments || {}) },
