@@ -8,7 +8,7 @@ import { DEV } from './devTuning.mjs';
 import { DASH, SYNERGIES, FINAL_STRETCH } from '../data/survival.mjs';
 import {
   SURVIVAL, SV_WEAPONS, SV_WEAPON_IDS, SV_WEAPON_MAX, PASSIVES, PASSIVE_BY_ID, PASSIVE_MAX,
-  WAVES, waveScaling, HORDE_FOR_BIOME, LOOT, GEMS, GEM_CAP, xpToNext, crowdMult, spawnPaceMult,
+  WAVES, waveScaling, HORDE_FOR_BIOME, LOOT, GEMS, GEM_CAP, xpToNext, crowdMult, spawnPaceMult, hordeCoinChance,
 } from '../data/survival.mjs';
 import { ARMAMENTS, ARMAMENT_BY_ID, ARMAMENT_MAX_LEVEL } from '../data/armaments.mjs';
 import { getEnemy, ARCHETYPES } from '../data/enemies.mjs';
@@ -35,7 +35,7 @@ export function createSurvivalState({ stage = 1, levelIndex = 0, biomeId = 'trop
     time: 0,
     spawnTimer: 1.2,
     eventsDone: {},
-    xp: 0, shipLevel: 1, xpNeed: xpToNext(1), pendingLevelUps: 0,
+    xp: 0, shipLevel: 1, xpNeed: xpToNext(1, stage), pendingLevelUps: 0,
     weapons: {}, // core weapon id -> level
     evolved: {}, // core weapon id -> true
     passives: {}, // passive id -> level
@@ -114,7 +114,7 @@ export function addXp(run, amount) {
   while (sv.xp >= sv.xpNeed) {
     sv.xp -= sv.xpNeed;
     sv.shipLevel += 1;
-    sv.xpNeed = xpToNext(sv.shipLevel);
+    sv.xpNeed = xpToNext(sv.shipLevel, sv.stage);
     sv.pendingLevelUps += 1;
     ups += 1;
   }
@@ -315,7 +315,7 @@ function runEvent(run, event, ctx, rng, out) {
   const ws = waveScaling(sv.stage, sv.levelIndex, sv.wave);
   if (event === 'encircle') {
     // A ring of the horde closes in from every side at once.
-    const n = Math.round((12 + sv.wave * 1.5) * ws.count * DEV.enemyCount * crowdMult(sv.wave));
+    const n = Math.round((12 + sv.wave * 1.5) * ws.count * DEV.enemyCount * crowdMult(sv.wave, sv.stage));
     const def = getEnemy(sv.hordeId);
     const R = ctx.spawnDist * 0.9;
     for (let i = 0; i < n; i++) {
@@ -388,12 +388,12 @@ export function stepDirector(run, dt, ctx, rng = Math.random) {
 
   // Steady spawns.
   const ws = waveScaling(sv.stage, sv.levelIndex, sv.wave);
-  sv.spawnTimer -= dt * ws.rate * DEV.spawnRate * spawnPaceMult(sv.wave);
+  sv.spawnTimer -= dt * ws.rate * DEV.spawnRate * spawnPaceMult(sv.wave, sv.stage);
   if (sv.spawnTimer <= 0) {
     sv.spawnTimer += W.every;
     let alive = 0;
     for (const e of run.enemies) if (e.health > 0) alive++;
-    const cm = (sv.countMult || 1) * DEV.enemyCount * crowdMult(sv.wave);
+    const cm = (sv.countMult || 1) * DEV.enemyCount * crowdMult(sv.wave, sv.stage);
     const cap = Math.round(W.alive * ws.count * cm);
     const want = Math.min(cap - alive, Math.max(1, Math.round(W.batch * ws.count * cm)));
     // A batch arrives together from one direction, so you can read it.
@@ -538,7 +538,7 @@ export function dropLoot(run, enemy, rng = Math.random) {
     coin(enemy.salvageDrop);
     run.pickups.push({ id: nextPickupId++, kind: 'chest', x: enemy.x, y: enemy.y, amount: 1, collected: false, age: 0 });
   } else if (def.horde) {
-    if (rng() < LOOT.hordeCoin) coin(1);
+    if (rng() < hordeCoinChance(run.sv.stage)) coin(1);
   } else if (rng() < LOOT.specialCoin) {
     coin(Math.max(1, Math.round(enemy.salvageDrop / 3)));
   }

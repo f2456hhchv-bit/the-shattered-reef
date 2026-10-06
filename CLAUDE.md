@@ -2714,6 +2714,29 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - **Next up:** the other four hulls the same way (Catamaran,
   Junk, Ironclad Steamer, Galleon) once the owner has their 5-view sets.
 
+- **Phase:** the crowd (owner playtest 2026-10-06 with shop upgrades: dev
+  sliders at ×4 enemies and ×4 spawn speed "felt good", stage 1 won
+  easily, and the phone ran it with no glitches).
+- **Just shipped:**
+  - `SURVIVAL.crowdByStage` [2, 2.75, 3.5, 4]: enemies afloat and spawn
+    speed both scale by it (`crowdMult`/`spawnPaceMult`, encircle rings
+    too), reached over the first 4 waves of a level (`crowdRamp`). Stage 1
+    is ×2, not ×4: at ×4 a fresh starter-ship bot sank in ~35s on 4 of 6
+    runs of 1-1.
+  - Rewards scaled to match, per the owner: later ship levels need up to
+    0.7 × crowd more XP (`xpToNext(lv, stage)`; the first levels stay
+    quick), and horde coins drop at 1/√crowd the old rate
+    (`hordeCoinChance`).
+  - DEV sliders now multiply on top of this new normal.
+  - `tools/survival-sim.mjs` takes `DEV='{"enemyCount":4}'` to sim tuning.
+  - The 1-1 bot test now needs 2 clears from 4 seeds (one seed sinks).
+  - Bot, starter loadout, 8 runs, before → after: 1-1 6/6 → 6/8; 1-3 5/6
+    → 3/8; 1-5 4/6 → 4/8; 2-1 5/6 → 1/8; 4-1 2/6 → 0/8. The bot has no
+    upgrades and dodges badly; the owner had upgrades. Stage 4 live: 194
+    afloat at 17ms/frame headless. 472/472.
+- **Next up:** the owner plays stages 2-4 with real upgrades. If they're
+  too hard, lower `crowdByStage` there.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -3463,8 +3486,8 @@ Starting fresh below for the new game.)*
 - **Survival balance is bot-derived** (2026-10-04): wave counts, the
   gunner cap, XP curve and boss HP multipliers are first-pass. Judge by
   real play, especially stages 3+.
-- **Real-phone frame rate with 100+ enemies** is unverified (see the
-  survival entry). The caverns/abyss darkness layer and fire pools are
+- **Real-phone frame rate:** the owner ran ~4× the old crowd on his
+  phone with no glitches (2026-10-06). The caverns/abyss darkness layer and fire pools are
   the heaviest effects.
 - **The enemy matchup pips add clutter to Skimmer packs** (one pip per
   Skimmer, 3-5 per pack). Fine at current densities; revisit with real

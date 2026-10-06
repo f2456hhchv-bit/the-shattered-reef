@@ -34,24 +34,33 @@ export const SURVIVAL = Object.freeze({
   // The crowd (owner playtest 2026-10-06: ×4 enemies and ×4 spawn speed
   // "felt good" and ran smoothly on the phone). Reached by wave 4; the
   // first waves build up to it so a fresh build isn't swamped at once.
-  crowd: 4,
-  spawnPace: 4,
+  // Full crowd per stage: a fresh captain on stage 1 meets ×2, and it
+  // reaches the owner's ×4 by stage 4 (stage 5+ stays at ×4).
+  crowdByStage: [2, 2.75, 3.5, 4],
   crowdRampWaves: 4,
   // Four times the kills would mean four times the XP, so later ship
   // levels need up to this much more (the first few stay quick, so the
   // opening build comes together before the crowd peaks).
-  xpScale: 2.8,
+  xpPerCrowd: 0.7, // later levels need up to crowd × this much more XP
 });
 
 // How much of the full crowd a wave gets (0-based wave index).
 export function crowdRamp(waveIndex) {
   return Math.min(1, waveIndex / SURVIVAL.crowdRampWaves);
 }
-export function crowdMult(waveIndex) {
-  return 1 + (SURVIVAL.crowd - 1) * crowdRamp(waveIndex);
+export function stageCrowd(stage) {
+  const t = SURVIVAL.crowdByStage;
+  return t[Math.min(t.length, Math.max(1, stage)) - 1];
 }
-export function spawnPaceMult(waveIndex) {
-  return 1 + (SURVIVAL.spawnPace - 1) * crowdRamp(waveIndex);
+// Enemies afloat and spawn speed both scale by the crowd.
+export function crowdMult(waveIndex, stage = 1) {
+  return 1 + (stageCrowd(stage) - 1) * crowdRamp(waveIndex);
+}
+export const spawnPaceMult = crowdMult;
+// Horde coins thin out as the crowd grows (by its square root: the owner
+// asked for rewards scaled down, not held flat).
+export function hordeCoinChance(stage = 1) {
+  return LOOT.hordeCoin / Math.sqrt(stageCrowd(stage));
 }
 
 // The dash (2026-10-04): a short burst of speed you can't be hurt during.
@@ -59,8 +68,8 @@ export function spawnPaceMult(waveIndex) {
 export const DASH = Object.freeze({ speed: 390, time: 0.2, iframes: 0.34, cooldown: 3.6, minCooldown: 1.6 });
 
 // XP to reach the next ship level from `lv` (1-based).
-export function xpToNext(lv) {
-  const scale = Math.min(SURVIVAL.xpScale, 1 + (lv - 1) * 0.3);
+export function xpToNext(lv, stage = 1) {
+  const scale = Math.max(1, Math.min(stageCrowd(stage) * SURVIVAL.xpPerCrowd, 1 + (lv - 1) * 0.3));
   return Math.round((5 + 3.4 * (lv - 1) + Math.pow(lv - 1, 1.55)) * scale);
 }
 
@@ -243,7 +252,7 @@ export const HORDE_FOR_BIOME = Object.freeze({
 
 // Loot odds (per kill).
 export const LOOT = Object.freeze({
-  hordeCoin: 0.025, // a 1-Salvage coin (was 0.07 before the ×4 crowd)
+  hordeCoin: 0.07, // a 1-Salvage coin, before dividing by the crowd (hordeCoinChance)
   specialCoin: 0.5, // a coin worth a third of the enemy's salvage drop
   repair: 0.012, // a life ring
   magnet: 0.004, // a lodestone: pulls in every gem on the water
