@@ -17,9 +17,14 @@ core = ndimage.binary_erosion(A > 240, iterations=2)
 fringe = (~core) & (A < 250) & (((r > 170) & (g < 80) & (b < 80)) | ((r > 200) & (g > 190) & (b < 70)))
 src[..., 3] = np.where(fringe | (A < 24), 0, A)
 m = src[..., 3] > 128
-l, k = ndimage.label(ndimage.binary_dilation(m, iterations=8))
-sz = ndimage.sum(m, l, range(1, k + 1))
-objs = sorted([i + 1 for i in range(k) if sz[i] > 0.2 * sz.max()], key=lambda i: ndimage.find_objects(l)[i - 1][1].start)
+# Group each view's pieces (flag, mast) by dilating; views drawn close
+# together need less dilation, so try progressively smaller amounts.
+for it in (8, 5, 3, 1):
+    l, k = ndimage.label(ndimage.binary_dilation(m, iterations=it))
+    sz = ndimage.sum(m, l, range(1, k + 1))
+    objs = sorted([i + 1 for i in range(k) if sz[i] > 0.2 * sz.max()], key=lambda i: ndimage.find_objects(l)[i - 1][1].start)
+    if len(objs) == 5:
+        break
 assert len(objs) == 5, f'expected 5 views, found {len(objs)}'
 sl = ndimage.find_objects(l)
 views = []

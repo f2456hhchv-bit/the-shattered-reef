@@ -2710,9 +2710,10 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   through the recolour. Fixed a creature-art test that rejected
   `<id>_flying` keys (the previous commit went out with it failing).
   472/472.
-- Skiff done the same way (same day).
-- **Next up:** the other four hulls the same way (Catamaran,
-  Junk, Ironclad Steamer, Galleon) once the owner has their 5-view sets.
+- Skiff, Junk and Catamaran done the same way (same day). The cutter
+  now retries smaller dilations when two views sit close together.
+- **Next up:** the last two hulls the same way (Ironclad Steamer,
+  Galleon) once the owner has their 5-view sets.
 
 - **Phase:** the crowd (owner playtest 2026-10-06 with shop upgrades: dev
   sliders at ×4 enemies and ×4 spawn speed "felt good", stage 1 won
