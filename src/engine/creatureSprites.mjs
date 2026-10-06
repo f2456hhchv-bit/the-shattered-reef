@@ -17,7 +17,9 @@ export function loadCreatureSprites(base = 'assets/creatures/') {
 
 // The art entry for an enemy, if its image has loaded.
 export function creatureArtFor(enemy) {
-  const art = CREATURE_ART[enemy.defId] || CREATURE_ART[enemy.sprite];
+  // A boss in a flying phase uses its '<id>_flying' art when there is one.
+  const flying = enemy.archetype === 'flyer' && CREATURE_ART[`${enemy.defId}_flying`];
+  const art = flying || CREATURE_ART[enemy.defId] || CREATURE_ART[enemy.sprite];
   if (!art) return null;
   const img = images[art.file];
   return img && img.complete && img.naturalWidth > 0 ? art : null;

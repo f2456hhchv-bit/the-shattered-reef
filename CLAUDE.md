@@ -2677,6 +2677,27 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   off a sheet. Whatever tool makes these packs redraws references rather
   than painting new art; new art needs a real image generator, per asset.
 
+- **Phase:** dev tuning panel + first toy-style bosses (project owner,
+  2026-10-06: "a proper game development tool" to scale spawns, strength,
+  health while testing; new ChatGPT art in the ships' toy-render style).
+- **Just shipped:**
+  - `engine/devTuning.mjs` (pure): one live `DEV` object of multipliers,
+    all ×1, saved to `shatteredReef.dev.v1`. Read where each rule applies:
+    enemy count/spawn speed/health/damage/speed, boss+warlord health
+    (survival.mjs director + `spawnEnemy`), player damage/fire
+    rate/hull/speed/pickup (`recomputeStats`), XP (`addXp`), Salvage
+    (`addLevelSalvage`), wave length; god mode (survivalLoop guard +
+    end-of-frame refill) and a live-stats overlay. Enemy health/damage/
+    speed apply to new spawns; the rest are live.
+  - `ui/devPanel.mjs`: Pause → 🛠 Dev tuning. Sliders with ×1 resets,
+    switches, and actions: next wave, boss wave, +1 ship level, free
+    chest, full repair, sink all (not boss), reset all. A DEV badge shows
+    while anything isn't ×1.
+  - Boss sprites (toy style): Kraken's Anchor (face), Frost Leviathan and
+    Caldera Wyrm (turn). `creatureArtFor` uses `<id>_flying` art in a
+    flyer phase when present (none yet).
+  - `tests/devTuning.test.mjs`. 472/472.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in

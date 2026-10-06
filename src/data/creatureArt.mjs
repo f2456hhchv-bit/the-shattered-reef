@@ -14,6 +14,10 @@
 //   flies    shadow drawn further below (it's in the air)
 
 export const CREATURE_ART = {
+  // Bosses in the toy-render style (2026-10-06, owner's ChatGPT batch A).
+  krakens_anchor: { file: 'krakens_anchor', mode: 'face', size: 3.0 },
+  frost_leviathan: { file: 'frost_leviathan', mode: 'turn', forward: 'up', size: 3.4 },
+  caldera_wyrm: { file: 'caldera_wyrm', mode: 'turn', forward: 'up', size: 3.6 },
   reef_shark: { file: 'reef_shark', mode: 'turn', forward: 'up', size: 3.3 },
   bloodfin_matriarch: { file: 'bloodfin_matriarch', mode: 'turn', forward: 'up', size: 3.0 },
   sea_serpent: { file: 'sea_serpent', mode: 'turn', forward: 'up', size: 3.4 },

@@ -21,6 +21,7 @@ import { addLevelSalvage } from './survivalRun.mjs';
 import { stepLord } from './warlord.mjs';
 import { getEnemy } from '../data/enemies.mjs';
 import { DASH } from '../data/survival.mjs';
+import { DEV } from './devTuning.mjs';
 
 export const BOAT_RADIUS = 11;
 
@@ -134,7 +135,7 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   const incoming = incomingMultiplierFor(run.faction);
   // While dashing nothing touches you: remember the hull and status now and
   // put them back after the hits below.
-  const guard = run.dash.iframes > 0 ? { hp: boat.health, aff: { ...(boat.afflictions || {}) }, chill: boat.chillRemaining || 0, jam: boat.turnJamRemaining || 0 } : null;
+  const guard = run.dash.iframes > 0 || DEV.god ? { hp: boat.health, aff: { ...(boat.afflictions || {}) }, chill: boat.chillRemaining || 0, jam: boat.turnJamRemaining || 0 } : null;
   // Warlords' and bosses' signature moves.
   for (const e of run.enemies) {
     if (!e.lord || e.health <= 0) continue;
@@ -188,6 +189,8 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   if (boat.health < hpStart) sv.hullLost = (sv.hullLost || 0) + (hpStart - boat.health);
   if (ev.pickups.salvage) ev.pickups.salvageGained = addLevelSalvage(run, ev.pickups.salvage);
   if (ev.weather.salvage) addLevelSalvage(run, ev.weather.salvage);
+  // Dev god mode: weather, burns and walls can't sink you either.
+  if (DEV.god) { boat.health = boat.maxHull; boat.afflictions = {}; }
   return ev;
 }
 

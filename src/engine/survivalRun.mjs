@@ -9,6 +9,7 @@
 // run. Clearing a level unlocks the next (engine/meta.mjs).
 
 import { makeSeededRng } from './rng.mjs';
+import { DEV } from './devTuning.mjs';
 import { buildCoastField } from './terrain.mjs';
 import { buildArenaGrid } from './arena.mjs';
 import { encodeLevelCode, mixSeed } from './levels.mjs';
@@ -174,7 +175,7 @@ export function levelClearBonus(run) {
 // Survival Salvage: coins go to the level's tally (bonus charms apply).
 export function addLevelSalvage(run, amount) {
   const first = run.charms.firstHaul && run.reefIndex === 0 ? CHARMS[CHARM_IDS.FIRST_HAUL].firstReefSalvageMultiplier : 1;
-  const v = amount * first * (run.salvageMult ?? 1) * (run.sv?.stats?.salvageMult ?? 1);
+  const v = amount * first * (run.salvageMult ?? 1) * (run.sv?.stats?.salvageMult ?? 1) * DEV.salvage;
   run.reefSalvage += v;
   return v;
 }

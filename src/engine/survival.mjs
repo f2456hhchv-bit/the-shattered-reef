@@ -4,6 +4,7 @@
 // DOM or Canvas. Content lives in data/survival.mjs.
 
 import { initLord } from './warlord.mjs';
+import { DEV } from './devTuning.mjs';
 import { DASH, SYNERGIES, FINAL_STRETCH } from '../data/survival.mjs';
 import {
   SURVIVAL, SV_WEAPONS, SV_WEAPON_IDS, SV_WEAPON_MAX, PASSIVES, PASSIVE_BY_ID, PASSIVE_MAX,
@@ -73,10 +74,10 @@ export function recomputeStats(run) {
   }
   const base = run.baseStats;
   sv.stats = {
-    cooldownMult: Math.max(0.45, (1 + t.cooldown) * (base.cooldownMult ?? 1)),
-    damageMult: (1 + t.damage) * (base.damageMult ?? 1),
+    cooldownMult: Math.max(0.45, (1 + t.cooldown) * (base.cooldownMult ?? 1)) / DEV.fireRate,
+    damageMult: (1 + t.damage) * (base.damageMult ?? 1) * DEV.playerDamage,
     damageTaken: Math.max(0.4, 1 - t.resist) * (base.takenMult ?? 1),
-    pickup: (1 + t.pickup) * (base.pickupMult ?? 1),
+    pickup: (1 + t.pickup) * (base.pickupMult ?? 1) * DEV.pickup,
     salvageMult: 1 + t.salvage,
     projSpeed: 1 + t.projSpeed,
     rangeMult: 1 + t.range,
@@ -89,11 +90,11 @@ export function recomputeStats(run) {
   const tuning = base.tuning;
   run.tuning = {
     ...tuning,
-    maxSpeed: tuning.maxSpeed * (1 + t.speed),
-    acceleration: tuning.acceleration * (1 + t.speed),
+    maxSpeed: tuning.maxSpeed * (1 + t.speed) * DEV.playerSpeed,
+    acceleration: tuning.acceleration * (1 + t.speed) * DEV.playerSpeed,
     turnRate: tuning.turnRate * (1 + t.turn),
   };
-  const newMax = base.maxHull + t.maxHull;
+  const newMax = Math.round((base.maxHull + t.maxHull) * DEV.playerHull);
   if (newMax > run.boat.maxHull) run.boat.health += newMax - run.boat.maxHull; // the new planks are whole
   run.boat.maxHull = newMax;
   run.boat.health = Math.min(run.boat.health, run.boat.maxHull);
@@ -108,7 +109,7 @@ export function recomputeStats(run) {
 
 export function addXp(run, amount) {
   const sv = run.sv;
-  sv.xp += amount * (sv.xpMult || 1);
+  sv.xp += amount * (sv.xpMult || 1) * DEV.xp;
   let ups = 0;
   while (sv.xp >= sv.xpNeed) {
     sv.xp -= sv.xpNeed;
@@ -252,9 +253,9 @@ function spawnEnemy(run, defId, p, rng, { health = 1, radius = 1, damage = 1, el
   // The horde stays one-shot fodder for a fresh build in every stage; the
   // stage's toughness lives in its specialists.
   const hordeDef = getEnemy(defId).horde;
-  const e = createEnemy(defId, p.x, p.y, rng, { scale: { health: (hordeDef ? 1 : ss.health) * ws.health * health, damage: ss.damage * damage * SURVIVAL.enemyDamage } });
+  const e = createEnemy(defId, p.x, p.y, rng, { scale: { health: (hordeDef ? 1 : ss.health) * ws.health * health * DEV.enemyHealth * (warlord || run.sv.bossDefId === defId ? DEV.bossHealth : 1), damage: ss.damage * damage * SURVIVAL.enemyDamage * DEV.enemyDamage } });
   e.hunting = true; e.aggro = true;
-  e.speed *= ws.speed * (sv.enemySpeed || 1);
+  e.speed *= ws.speed * (sv.enemySpeed || 1) * DEV.enemySpeed;
   if (radius !== 1) e.radius *= radius;
   const def = getEnemy(defId);
   e.xp = def.horde ? 1 : Math.max(2, Math.round(def.maxHealth / 10));
@@ -314,7 +315,7 @@ function runEvent(run, event, ctx, rng, out) {
   const ws = waveScaling(sv.stage, sv.levelIndex, sv.wave);
   if (event === 'encircle') {
     // A ring of the horde closes in from every side at once.
-    const n = Math.round((12 + sv.wave * 1.5) * ws.count);
+    const n = Math.round((12 + sv.wave * 1.5) * ws.count * DEV.enemyCount);
     const def = getEnemy(sv.hordeId);
     const R = ctx.spawnDist * 0.9;
     for (let i = 0; i < n; i++) {
@@ -362,7 +363,7 @@ export function stepDirector(run, dt, ctx, rng = Math.random) {
   if (sv.finished) return out;
   sv.time += dt; sv.waveTime += dt;
   const last = WAVES.length - 1;
-  if (sv.wave < last && sv.waveTime >= SURVIVAL.waveSeconds) {
+  if (sv.wave < last && sv.waveTime >= SURVIVAL.waveSeconds * DEV.waveLength) {
     sv.wave += 1; sv.waveTime = 0;
     out.waveStarted = sv.wave;
   }
@@ -387,12 +388,12 @@ export function stepDirector(run, dt, ctx, rng = Math.random) {
 
   // Steady spawns.
   const ws = waveScaling(sv.stage, sv.levelIndex, sv.wave);
-  sv.spawnTimer -= dt * ws.rate;
+  sv.spawnTimer -= dt * ws.rate * DEV.spawnRate;
   if (sv.spawnTimer <= 0) {
     sv.spawnTimer += W.every;
     let alive = 0;
     for (const e of run.enemies) if (e.health > 0) alive++;
-    const cm = sv.countMult || 1;
+    const cm = (sv.countMult || 1) * DEV.enemyCount;
     const cap = Math.round(W.alive * ws.count * cm);
     const want = Math.min(cap - alive, Math.max(1, Math.round(W.batch * ws.count * cm)));
     // A batch arrives together from one direction, so you can read it.
@@ -417,7 +418,7 @@ export function timeToBoss(run) {
   const sv = run.sv;
   const last = WAVES.length - 1;
   if (sv.wave >= last) return 0;
-  return (last - sv.wave) * SURVIVAL.waveSeconds - sv.waveTime;
+  return (last - sv.wave) * SURVIVAL.waveSeconds * DEV.waveLength - sv.waveTime;
 }
 
 // Enemies left far behind are brought back in ahead of you, so the

@@ -53,8 +53,10 @@ import {
   unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact, playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playBossPhaseChange, playBossDefeated, playDash, playEvolve, playSynergy, playAchievement, playTap, playTreasure, playZap, playThunder, playWeatherWarning, playStrikeMark,
 } from './audio/audio.mjs';
 import { createSurvivalRun, buildSurvivalWorld, survivalLevel, completeLevel, sinkLevel, addLevelSalvage } from './engine/survivalRun.mjs';
-import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, orbitBlades, evolutionsUsed, activeSynergies } from './engine/survival.mjs';
+import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, recomputeStats, orbitBlades, evolutionsUsed, activeSynergies } from './engine/survival.mjs';
 import { stepSurvivalFrame } from './engine/survivalLoop.mjs';
+import { DEV, loadDev, devActive } from './engine/devTuning.mjs';
+import { createDevPanel } from './ui/devPanel.mjs';
 import {
   drawSurvivalPickups, drawFirePools, drawOrbitBlades, drawHullBar, drawRings, drawSinkers, drawLandmarks, drawEdgeArrows, drawVignette,
 } from './engine/survivalArt.mjs';
@@ -85,6 +87,7 @@ export function startApp(root) {
   installViewportFix();
   loadShipSprites();
   loadCreatureSprites();
+  loadDev(window.localStorage);
   loadBuildingSprites();
   root.innerHTML = '';
   const canvas = document.createElement('canvas');
@@ -195,6 +198,7 @@ export function startApp(root) {
       <div id="pm-kit"></div>
       <button type="button" id="pm-resume" class="pm-primary">▶ Resume</button>
       <button type="button" id="pm-sound" class="pm-btn"></button>
+      <button type="button" id="pm-dev" class="pm-btn">🛠 Dev tuning</button>
       <button type="button" id="pm-harbour" class="pm-btn">⚓ Save &amp; return to harbour</button>
       <p class="pm-note">Your level is saved. Continue it from the harbour any time.</p>
       <button type="button" id="pm-abandon" class="pm-btn pm-danger">Abandon level</button>
@@ -1724,6 +1728,45 @@ export function startApp(root) {
     voyageActive = false; paused = false; pauseMenu.hidden = true;
     openHub();
   });
+  // Dev tuning (2026-10-06): sliders + test actions, opened from the pause
+  // menu. A DEV badge shows whenever anything differs from normal play.
+  const devBadge = document.createElement('div');
+  devBadge.id = 'dev-badge'; devBadge.textContent = 'DEV'; devBadge.hidden = !devActive();
+  const devStats = document.createElement('div');
+  devStats.id = 'dev-stats'; devStats.hidden = true;
+  root.append(devBadge, devStats);
+  const devToWave = (n) => { run.sv.wave = Math.max(0, Math.min(9, n - 1)); run.sv.waveTime = 0; };
+  const devPanel = createDevPanel(root, {
+    storage: window.localStorage,
+    actions: [
+      { label: '⏭ Next wave', run: () => devToWave(run.sv.wave + 2) },
+      { label: '☠ Boss wave', run: () => devToWave(10) },
+      { label: '⬆ +1 ship level', run: () => { run.sv.xp = run.sv.xpNeed; addXp(run, 0); } },
+      { label: '💰 Free chest', run: () => { run.sv.pendingChests += 1; } },
+      { label: '❤ Full repair', run: () => { run.boat.health = run.boat.maxHull; run.boat.afflictions = {}; updateHullBar(); } },
+      { label: '💥 Sink all (not boss)', danger: true, run: () => { for (const e of run.enemies) if (e.health > 0 && e.id !== run.sv.bossId) e.health = 0; } },
+    ],
+    onChange: () => {
+      if (run.sv) { recomputeStats(run); updateHullBar(); }
+      devBadge.hidden = !devActive();
+    },
+    onClose: () => { pauseMenu.hidden = false; },
+  });
+  pauseMenu.querySelector('#pm-dev').addEventListener('click', () => { pauseMenu.hidden = true; devPanel.open(); });
+  let devStatsT = 0;
+  function updateDevStats(dt) {
+    devStatsT -= dt;
+    if (devStatsT > 0) return;
+    devStatsT = 0.25;
+    devBadge.style.top = `${hudInsets.top + 6}px`;
+    if (!DEV.showStats || !sailing || !run.sv) { devStats.hidden = true; return; }
+    let alive = 0; for (const e of run.enemies) if (e.health > 0) alive++;
+    const sv = run.sv;
+    devStats.style.top = `${hudInsets.top + (devBadge.hidden ? 6 : 32)}px`;
+    devStats.textContent = `wave ${sv.wave + 1}/10  ${Math.floor(sv.waveTime)}s\nafloat ${alive}  kills ${sv.kills}\nship Lv ${sv.shipLevel}  xp ${Math.floor(sv.xp)}/${sv.xpNeed}\nhull ${Math.ceil(run.boat.health)}/${run.boat.maxHull}\n${Math.round(1000 / Math.max(1, perf.avg))} fps  ${perf.avg.toFixed(1)}ms`;
+    devStats.hidden = false;
+  }
+
   // Leaving the app (home button, a call, switching apps) pauses and saves.
   const onHide = () => { if (document.visibilityState === 'hidden') { if (sailing && !run.over && upgradeOverlay.hidden) pauseGame(); saveCurrentVoyage(); } };
   document.addEventListener('visibilitychange', onHide);
@@ -2136,6 +2179,7 @@ export function startApp(root) {
     smoothDt += (realDt - smoothDt) * 0.3;
     const rawDt = Math.abs(realDt - smoothDt) > 0.012 ? realDt : smoothDt;
     perf.avg += (realDt * 1000 - perf.avg) * 0.05; perf.max = Math.max(perf.max * 0.995, realDt * 1000);
+    updateDevStats(realDt);
     // Reef Defence (td/tdMode.mjs) owns the canvas while it's running.
     if (defence.active) { defence.frame(now, rawDt); requestAnimationFrame(frame); return; }
     if (resumeIn > 0 && !paused) {
