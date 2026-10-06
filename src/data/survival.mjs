@@ -31,7 +31,28 @@ export const SURVIVAL = Object.freeze({
   levelClearSalvage: [24, 8], // base + per level index, × stage multiplier
   sinkKeepsSalvage: 0.5, // fraction of the level's Salvage kept when you sink
   choices: 3,
+  // The crowd (owner playtest 2026-10-06: ×4 enemies and ×4 spawn speed
+  // "felt good" and ran smoothly on the phone). Reached by wave 4; the
+  // first waves build up to it so a fresh build isn't swamped at once.
+  crowd: 4,
+  spawnPace: 4,
+  crowdRampWaves: 4,
+  // Four times the kills would mean four times the XP, so later ship
+  // levels need up to this much more (the first few stay quick, so the
+  // opening build comes together before the crowd peaks).
+  xpScale: 2.8,
 });
+
+// How much of the full crowd a wave gets (0-based wave index).
+export function crowdRamp(waveIndex) {
+  return Math.min(1, waveIndex / SURVIVAL.crowdRampWaves);
+}
+export function crowdMult(waveIndex) {
+  return 1 + (SURVIVAL.crowd - 1) * crowdRamp(waveIndex);
+}
+export function spawnPaceMult(waveIndex) {
+  return 1 + (SURVIVAL.spawnPace - 1) * crowdRamp(waveIndex);
+}
 
 // The dash (2026-10-04): a short burst of speed you can't be hurt during.
 // Swift Sails also shortens its cooldown.
@@ -39,7 +60,8 @@ export const DASH = Object.freeze({ speed: 390, time: 0.2, iframes: 0.34, cooldo
 
 // XP to reach the next ship level from `lv` (1-based).
 export function xpToNext(lv) {
-  return Math.round(5 + 3.4 * (lv - 1) + Math.pow(lv - 1, 1.55));
+  const scale = Math.min(SURVIVAL.xpScale, 1 + (lv - 1) * 0.3);
+  return Math.round((5 + 3.4 * (lv - 1) + Math.pow(lv - 1, 1.55)) * scale);
 }
 
 // Sea glass: XP gems by value. Many small gems merge into bigger ones
@@ -221,7 +243,7 @@ export const HORDE_FOR_BIOME = Object.freeze({
 
 // Loot odds (per kill).
 export const LOOT = Object.freeze({
-  hordeCoin: 0.07, // a 1-Salvage coin
+  hordeCoin: 0.025, // a 1-Salvage coin (was 0.07 before the ×4 crowd)
   specialCoin: 0.5, // a coin worth a third of the enemy's salvage drop
   repair: 0.012, // a life ring
   magnet: 0.004, // a lodestone: pulls in every gem on the water

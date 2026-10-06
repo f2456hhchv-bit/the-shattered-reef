@@ -8,7 +8,7 @@ import { DEV } from './devTuning.mjs';
 import { DASH, SYNERGIES, FINAL_STRETCH } from '../data/survival.mjs';
 import {
   SURVIVAL, SV_WEAPONS, SV_WEAPON_IDS, SV_WEAPON_MAX, PASSIVES, PASSIVE_BY_ID, PASSIVE_MAX,
-  WAVES, waveScaling, HORDE_FOR_BIOME, LOOT, GEMS, GEM_CAP, xpToNext,
+  WAVES, waveScaling, HORDE_FOR_BIOME, LOOT, GEMS, GEM_CAP, xpToNext, crowdMult, spawnPaceMult,
 } from '../data/survival.mjs';
 import { ARMAMENTS, ARMAMENT_BY_ID, ARMAMENT_MAX_LEVEL } from '../data/armaments.mjs';
 import { getEnemy, ARCHETYPES } from '../data/enemies.mjs';
@@ -315,7 +315,7 @@ function runEvent(run, event, ctx, rng, out) {
   const ws = waveScaling(sv.stage, sv.levelIndex, sv.wave);
   if (event === 'encircle') {
     // A ring of the horde closes in from every side at once.
-    const n = Math.round((12 + sv.wave * 1.5) * ws.count * DEV.enemyCount);
+    const n = Math.round((12 + sv.wave * 1.5) * ws.count * DEV.enemyCount * crowdMult(sv.wave));
     const def = getEnemy(sv.hordeId);
     const R = ctx.spawnDist * 0.9;
     for (let i = 0; i < n; i++) {
@@ -388,12 +388,12 @@ export function stepDirector(run, dt, ctx, rng = Math.random) {
 
   // Steady spawns.
   const ws = waveScaling(sv.stage, sv.levelIndex, sv.wave);
-  sv.spawnTimer -= dt * ws.rate * DEV.spawnRate;
+  sv.spawnTimer -= dt * ws.rate * DEV.spawnRate * spawnPaceMult(sv.wave);
   if (sv.spawnTimer <= 0) {
     sv.spawnTimer += W.every;
     let alive = 0;
     for (const e of run.enemies) if (e.health > 0) alive++;
-    const cm = (sv.countMult || 1) * DEV.enemyCount;
+    const cm = (sv.countMult || 1) * DEV.enemyCount * crowdMult(sv.wave);
     const cap = Math.round(W.alive * ws.count * cm);
     const want = Math.min(cap - alive, Math.max(1, Math.round(W.batch * ws.count * cm)));
     // A batch arrives together from one direction, so you can read it.

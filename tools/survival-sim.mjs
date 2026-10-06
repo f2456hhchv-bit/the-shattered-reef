@@ -15,6 +15,10 @@ import { sampleField } from '../src/engine/terrain.mjs';
 import { makeSeededRng } from '../src/engine/rng.mjs';
 import { getBiome } from '../src/data/biomes.mjs';
 import { SV_WEAPONS } from '../src/data/survival.mjs';
+import { setDev } from '../src/engine/devTuning.mjs';
+
+// DEV='{"enemyCount":4}' applies dev-tuning multipliers to the sim.
+for (const [k, v] of Object.entries(JSON.parse(process.env.DEV || '{}'))) setDev(k, v);
 
 
 export function botInput(run) {
