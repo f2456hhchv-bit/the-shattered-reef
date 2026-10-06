@@ -2277,7 +2277,14 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   On a 375×553 screen the harbour labels overlapped once Continue showed;
   now, if any two labels overlap, they all shrink to 44px icon chips
   (checked live after each layout). Restored the missing
-  "## Decisions log" heading in this file. Short landscape: Continue
+  "- **Art inventory updated to the toy standard** (2026-10-06): the
+  inventory artifact now marks every asset toy / older painted / code and
+  ranks the restyle (bosses → stage 2-4 creatures → harbour buildings →
+  weapon/upgrade icons → pickups → other creatures → towers/landmarks). It
+  holds the ChatGPT prompt kit (master header, ship 5-view brief, batches
+  A-G with views built in, drift fixes). Tool: `tools/art-inventory/`.
+
+## Decisions log" heading in this file. Short landscape: Continue
   no longer wraps, and the mini-map hides while a voyage is saved so the
   New Voyage / Defend row fits.
 

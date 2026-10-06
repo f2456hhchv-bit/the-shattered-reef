@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+import { writeFileSync } from 'node:fs';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const p = await (await b.newContext()).newPage();
+p.on('pageerror', (e) => console.error(e.message));
+await p.goto('http://localhost:8940/tools/art-inventory/sprites.html');
+await p.waitForFunction(() => window.__spriteTiles, null, { timeout: 20000 });
+const d = await p.evaluate(() => window.__spriteTiles);
+writeFileSync('sprite-data.json', JSON.stringify(d)); console.log(d.length, 'sprite tiles');
+await b.close();

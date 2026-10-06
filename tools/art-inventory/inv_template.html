@@ -6,7 +6,7 @@
 :root {
   --bg: #0a1820; --panel: #10242f; --edge: #1d3a49; --fg: #e9f0ef; --muted: #93aab3;
   --gold: #f2c867; --high: #ff7d6b; --med: #ffb36b; --low: #e8d27a; --keep: #8fc3d9; --done: #74d3a6;
-  --display: 'Alegreya SC', Georgia, serif; --body: 'Alegreya Sans', system-ui, sans-serif;
+  --ink: #061520; --display: 'Alegreya SC', Georgia, serif; --body: 'Alegreya Sans', system-ui, sans-serif;
   color-scheme: dark;
 }
 html { scroll-behavior: smooth; }
@@ -45,6 +45,29 @@ h3 small { font: 400 14px var(--body); color: var(--muted); }
 .box ul, .box ol { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 6px; }
 .box li { overflow-wrap: anywhere; }
 .box.do h3 { color: var(--done); } .box.dont h3 { color: var(--high); } .box.todo h3 { color: var(--gold); } .box.also h3 { color: var(--keep); }
+/* Standard + kit */
+.mut { color: var(--muted); }
+.standard { display: grid; grid-template-columns: minmax(0, 180px) minmax(0, 1fr); gap: 16px; align-items: center; background: var(--panel); border: 1px solid var(--gold); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+.standard img { display: block; width: 100%; max-width: 180px; border-radius: 8px; }
+.standard p { margin: 4px 0 0; max-width: 68ch; }
+.standard .k, .ph .k { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--gold); font-weight: 700; }
+@media (max-width: 520px) { .standard { grid-template-columns: minmax(0, 1fr); } .standard img { max-width: 140px; } }
+.kit { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.prompt { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.ph { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ph h3 { margin: 0; font-size: 18px; }
+.prompt pre { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--ink); border-radius: 8px; padding: 10px 12px; color: var(--fg); }
+.prompt p { margin: 8px 0 0; font-size: 14px; }
+.copy { font: 600 13px var(--body); color: #1a1408; background: var(--gold); border: 0; border-radius: 8px; padding: 6px 12px; min-height: 32px; cursor: pointer; flex: none; }
+.copy.ok { background: var(--done); }
+.copy:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.bh { margin: 20px 0 8px; font-size: 20px; color: var(--gold); }
+.batches { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.batches .prompt pre { max-height: 340px; overflow: auto; }
+.pri { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; border-radius: 6px; padding: 2px 7px; border: 1px solid currentColor; }
+.handoff { margin-top: 12px; } .handoff h3 { color: var(--keep); }
+.style { font-size: 12px; color: var(--muted); }
+.style.s-toy { color: var(--done); } .style.s-old { color: var(--med); } .style.s-code { color: var(--keep); }
 /* Type sections */
 .type { margin-top: 34px; scroll-margin-top: 120px; }
 .type > p { color: var(--muted); margin: 0 0 6px; max-width: 72ch; }
@@ -58,7 +81,7 @@ h3 small { font: 400 14px var(--body); color: var(--muted); }
 .card.screen img { aspect-ratio: auto; }
 .card figcaption { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .card b { font-size: 15px; line-height: 1.25; }
-.card.done img { opacity: .75; }
+
 .tag { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .t-high { color: var(--high); } .t-medium { color: var(--med); } .t-low { color: var(--low); } .t-keep { color: var(--keep); } .t-done { color: var(--done); }
 .empty { color: var(--muted); font-style: italic; }
@@ -82,13 +105,14 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
 </style>
 <div class="wrap">
   <h1>Shattered Reef Art Inventory</h1>
-  <p class="lede">Every piece of art in the game that isn't a painted image yet, grouped by type, with a verdict on each: needs painted art (and how urgently), keep as code, or already replaced. Use the tabs to jump between types; the filter narrows every section.</p>
+  <p class="lede">Every piece of art in the game, checked against the new standard: <b>the toy-render ships</b>. Each asset shows how it draws in the game today, its style (toy, older painted, or code) and how urgently it needs restyling. The prompt kit below is everything you need to brief ChatGPT, in one place.</p>
   <nav class="nav" aria-label="Asset types">
     <div class="tabs" id="tabs"></div>
     <div class="filters" role="group" aria-label="Filter">
-      <button class="chip" id="f-need" data-f="need" aria-pressed="true">Needs work</button>
+      <button class="chip" id="f-need" data-f="need" aria-pressed="true">Needs restyle</button>
+      <button class="chip" id="f-high" data-f="high" aria-pressed="false">High only</button>
       <button class="chip" id="f-keep" data-f="keep" aria-pressed="false">Keep as code</button>
-      <button class="chip" id="f-done" data-f="done" aria-pressed="false">Replaced</button>
+      <button class="chip" id="f-done" data-f="done" aria-pressed="false">Toy style done</button>
       <button class="chip" id="f-all" data-f="all" aria-pressed="false">Everything</button>
     </div>
   </nav>
@@ -96,59 +120,76 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
   <section class="type" id="overview">
     <h2>Overview</h2>
     <div class="tally" id="tally"></div>
+    <div class="standard">
+      <div class="std-art"><img id="std-img" alt="The Sloop, toy style, the reference for every asset"></div>
+      <div class="std-txt"><span class="k">The standard</span>
+        <p><b>A smooth 3D toy, like a plastic board-game piece.</b> Rounded chunky shapes, matte colours, soft light from the top-left. Four main colours at most. No scales, rivets, cracks, patterns, text or surface texture. Smooth, not faceted. It must read at 64px on a phone.</p>
+        <p class="mut">The 7 player ships set this standard. Every new asset is briefed with one of them attached. Never use the word "painted" in a prompt: it pulls ChatGPT back to the old illustrated look.</p></div>
+    </div>
     <div class="brief">
-      <div class="box todo"><h3>Still needs changing, in order</h3><ol>
-        <li><b>Icons</b>: 92 emoji used as icons in 326 places. They render differently on iPhone and Android and clash with the V3 style. A painted set of about 40 covers them all.</li>
-        <li><b>8 bosses</b> and the Warding Seal: one painted top-down image each; two for bosses that change form.</li>
-        <li><b>Armory, Workshop, Faction Hall</b>: painted 3/4-view buildings to match the Shipyard and Charm Shrine.</li>
-        <li><b>A display font</b> for titles and headings.</li>
-        <li><b>Explosion, splash and smoke sprite sheets</b> for combat.</li>
-        <li><b>Weather overlays</b> from the Weather V2 sheet (code work; art already supplied).</li>
-        <li><b>UI restyle</b> against the V3 UI style guide (CSS work, not images).</li>
-        <li><b>Landmarks and Reef Defence towers</b>: painted 3/4-view versions.</li>
-        <li><b>Sound</b>: every effect and all music is synthesised. Not art, but the same "finished" gap.</li>
+      <div class="box todo"><h3>Restyle priority, in order</h3><ol>
+        <li><b>Bosses</b> (batch A): 5 code bosses, Bloodfin Matriarch and the Warding Seal. A boss fills the screen on every level 5, so a mismatch there is the most visible.</li>
+        <li><b>Stage 2-4 creatures</b> (batch G, first 8): shark, harpy, serpent, crawler, narwhal, ice golem, frost wisp, siren. Players meet them right after stage 1's toy ships, so the change in style shows straight away.</li>
+        <li><b>Harbour buildings</b> (batch B1-B6): all six together. It's the first screen, and three painted plus three code buildings don't read as one set.</li>
+        <li><b>Weapon and upgrade icons</b> (batches D, E): they replace emoji on the level-up cards, which are seen dozens of times a level.</li>
+        <li><b>Pickups</b> (batch C): sea glass and coins are on screen all the time.</li>
+        <li><b>Remaining creatures</b> (batch G, stages 5-10).</li>
+        <li><b>Reef Defence towers</b> (B7-B13) and <b>landmarks</b> (batch F).</li>
+        <li>Then the non-sprite gaps: a display font, explosion and splash sheets, weather overlays, a UI restyle, recorded sound.</li>
       </ol></div>
       <div class="box do"><h3>Do</h3><ul>
-        <li>Send <b>newly painted art</b> in the V3/V4 style: clean shapes, controlled shading, teal, sand and dark-blue palette.</li>
-        <li>Use <b>real transparency</b>: PNG with alpha, nothing behind the subject.</li>
-        <li>Paint creatures and bosses <b>top-down, facing up or right</b>. One image is enough; the game turns it smoothly to any angle.</li>
-        <li>Paint buildings, landmarks and towers in <b>3/4 view, lit from the top-left</b>, like the Shipyard and Charm Shrine.</li>
-        <li>For ships, send a <b>full 24-frame turn</b> including bow-on and stern-on views. The V5 Galleon sheet is the template.</li>
-        <li>For icons, send a <b>matching set</b> on one grid (e.g. 128px each), same outline weight and lighting.</li>
-        <li>For effects, send <b>frame strips</b> (e.g. 8 frames of an explosion), evenly spaced.</li>
-        <li>Send <b>one file per asset</b>, around 256–512px, the subject filling most of the frame, named after the game id (e.g. <code>enemy-caldera_wyrm.png</code>).</li>
+        <li>Attach <b>an approved toy ship image</b> to every request. The style follows the picture far more than the words.</li>
+        <li>Ask for <b>one asset per message</b>, on a <b>flat #FF00FF magenta background</b> (or real transparency).</li>
+        <li><b>TOP view</b> for anything that swims or flies: straight down, front pointing to the top of the image. The game turns it to any heading.</li>
+        <li><b>FRONT view</b> for upright things (golems, sirens, buildings, towers, landmarks, pickups, icons): front three-quarter, slightly from above. The game mirrors it left and right.</li>
+        <li>Ships only: <b>one image with 5 views</b> in a row (see the prompt kit).</li>
+        <li>Fill most of the frame; around 1024px is fine. The game trims and scales it.</li>
       </ul></div>
       <div class="box dont"><h3>Don't</h3><ul>
-        <li>Don't send <b>exports or screenshots of the current game art</b>. Most of the V5 <code>assets/</code> folder was this, so it changed nothing.</li>
-        <li>Don't <b>pre-rotate</b> sprites into 8 directions. The game rotates smoothly, and fixed steps look worse.</li>
-        <li>Don't <b>bake in</b> shadows, water, glows, backgrounds or labels. The game draws its own, and baked edges leave coloured fringes.</li>
-        <li>Don't send <b>terrain as island tiles</b>. Levels are generated from a shape; send colour and texture direction instead.</li>
-        <li>Don't use <b>painterly concept art</b> for gameplay sprites. It doesn't read at phone size.</li>
-        <li>Don't put <b>text in images</b>. All UI text is live.</li>
-        <li>Don't send sheets with <b>overlapping or unevenly spaced frames</b>.</li>
+        <li>Don't accept <b>painterly, textured or detailed</b> results. Reply with the fix line below rather than starting again.</li>
+        <li>Don't send <b>24-frame turn sheets</b>. They came back mostly stern-side and unusable; the 5-view set works.</li>
+        <li>Don't send <b>8-direction pre-rotations</b>, or re-renders of the game's current art. Both changed nothing last time.</li>
+        <li>Don't <b>bake in</b> shadows, water, glows or text. The game draws its own.</li>
+        <li>Don't send <b>terrain tiles</b>. Levels are generated, so terrain stays code.</li>
       </ul></div>
-      <div class="box also"><h3>Also checked, nothing needed</h3><ul>
-        <li><b>App icon</b>: your own art, already in.</li>
-        <li><b>Liveries</b>: recolours of the painted ships, so they follow any new ship art automatically.</li>
-        <li><b>Bestiary</b>: shows each enemy's in-game art, so it improves as sprites land.</li>
-        <li><b>Darkness, lantern light, vignette, lighthouse beam</b>: lighting, not objects. Keep as code.</li>
-        <li><b>Chart sea and routes, loading bar, tutorial arrows</b>: covered by the UI restyle.</li>
-        <li><b>Old maze-mode art</b> (exits, lair currents): no longer used in play.</li>
+      <div class="box also"><h3>When ChatGPT drifts</h3><ul>
+        <li>It holds the style for 3-4 images, then slips. <b>Start a fresh chat</b> every batch, or every 3-4 images.</li>
+        <li>If it <b>writes code</b> or describes the image instead of making it, start a fresh chat. Arguing doesn't fix it.</li>
+        <li>Too busy? Reply: <code>Too many parts. Remove [X]. Keep everything else identical.</code></li>
+        <li>Too detailed or textured? Reply: <code>Simpler. Smooth plastic toy, no texture, fewer details. Same pose.</code></li>
+        <li>The header makes it restate the asset, view and style before each image. If that line is missing or wrong, the image will be too.</li>
       </ul></div>
     </div>
+  </section>
+
+  <section class="type" id="kit">
+    <h2>Prompt kit</h2>
+    <p class="mut">Paste the header with one batch list into a fresh chat, attach a toy ship image, then just say <b>next</b> for each item. Every line already carries its view, so there's nothing to swap by hand.</p>
+    <div class="kit">
+      <div class="prompt"><div class="ph"><h3>Master header</h3><button class="copy" data-copy="header">Copy</button></div><pre id="p-header"></pre></div>
+      <div class="prompt"><div class="ph"><h3>Ships: 5-view set</h3><button class="copy" data-copy="ships">Copy</button></div><pre id="p-ships"></pre><p class="mut">Done for all 7 hulls. Kept for new hulls. Cut with <code>python3 tools/cut-ship-views.py &lt;hull&gt; &lt;image&gt;</code>.</p></div>
+    </div>
+    <h3 class="bh">Batches</h3>
+    <div class="batches" id="batches"></div>
+    <div class="box handoff"><h3>Sending art back to me</h3><ul>
+      <li>Send the images as they are; I key out the magenta, trim and scale them.</li>
+      <li>Creatures and bosses go in <code>src/data/creatureArt.mjs</code> (TOP art turns, FRONT art mirrors). A boss's flying form is a second image named <code>&lt;id&gt;_flying</code>.</li>
+      <li>Buildings go in <code>src/engine/buildingSprites.mjs</code>; ships through <code>tools/cut-ship-views.py</code>.</li>
+      <li>Every sprite keeps its code art as a fallback until the image loads, so nothing breaks while a batch is half done.</li>
+    </ul></div>
   </section>
 
   <div id="list"></div>
 
   <section class="type" id="icons">
     <h2>Icons</h2>
-    <p>Every icon in the game is an emoji, drawn by the phone's own emoji font. Each card shows the emoji, how many times it appears in the code, and where. <span class="t-high tag">Needs art · high</span></p>
+    <p>Every icon in the game is an emoji, drawn by the phone's own emoji font. Each card shows the emoji, how many times it appears in the code, and where. Batches D and E (weapons, armaments, upgrades) and C (pickups) replace the most-seen ones in toy style; the rest follow as one matching set. <span class="t-high tag">Restyle · high</span></p>
     <div class="igrid" id="igrid"></div>
   </section>
 
   <section class="type" id="fonts">
     <h2>Fonts</h2>
-    <p>Three typefaces, all built into the device. The display face is the one to replace. <span class="t-high tag">Needs work · high</span></p>
+    <p>Three typefaces, all built into the device. The display face is the one to replace. <span class="t-medium tag">Restyle · medium</span></p>
     <div class="stack">
       <div class="spec"><span class="k">Interface text · system UI font · keep</span>
         <div class="sample" style="font: 700 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">Set Sail · Level 1 · 400 Salvage</div>
@@ -157,7 +198,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
       <div class="spec"><span class="k">Display · Georgia · replace</span>
         <div class="sample" style="font: 900 34px Georgia, 'Times New Roman', serif; color: var(--gold)">THE SHATTERED REEF</div>
         <div class="sample" style="font: 700 22px Georgia, 'Times New Roman', serif; color: var(--gold)">The Corsair Keys · Ironjaw, Warlord Reef Shark</div>
-        <div class="where">Title, chart and stage names, stage sheet, warlord banner. Swap for a chunkier display face matching the V3 guide (one Google Font). <code>Georgia, 'Times New Roman', serif</code></div></div>
+        <div class="where">Title, chart and stage names, stage sheet, warlord banner. Swap for a rounder, chunkier display face that matches the toy look (one Google Font). <code>Georgia, 'Times New Roman', serif</code></div></div>
       <div class="spec"><span class="k">Codes · monospace · keep</span>
         <div class="sample" style="font: 400 16px ui-monospace, SFMono-Regular, Menlo, monospace">TR2-0K3F9ZA</div>
         <div class="where">Shareable level codes only.</div></div>
@@ -169,7 +210,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
 
   <section class="type" id="sound">
     <h2>Sound</h2>
-    <p>Every sound effect and all music is synthesised in code from note data; there are no audio files. Recorded effects for the most frequent sounds (cannon fire, hits, kills, explosions, pickups) would add the most. <span class="t-medium tag">Needs work · medium</span></p>
+    <p>Every sound effect and all music is synthesised in code from note data; there are no audio files. Recorded effects for the most frequent sounds (cannon fire, hits, kills, explosions, pickups) would add the most. <span class="t-low tag">Later · not art</span></p>
     <div class="stack">
       <div class="spec"><span class="k">31 sound effects</span><div class="cues" id="cues"></div></div>
       <div class="spec"><span class="k">21 music themes</span><div class="where">A sea theme and a boss-lair theme for each of the 10 biomes, plus the harbour theme. These are original compositions played by a built-in synth; real instrument samples would be the upgrade, keeping the same tunes.</div></div>
@@ -181,12 +222,138 @@ const DATA = __DATA__;
 const NOTES = __NOTES__;
 const TYPES = __TYPES__;
 const EMOJI = __EMOJI__;
+
 const CUES = 'Fire Hit Kill Explosion WallImpact PickupWeapon PickupSalvage Treasure EnemyFire Dash Evolve Synergy Achievement ReefCleared Victory Sunk Revive LockedWeapon BossPhaseChange BossDefeated WardClink Zap Thunder StrikeMark WeatherWarning Build Upgrade Sell Leak WaveHorn Tap'.split(' ');
-const LABEL = { high: 'Needs art · high', medium: 'Needs work · medium', low: 'Needs art · low', keep: 'Keep as code', done: 'Replaced by painted art' };
+const LABEL = { high: 'Restyle · high', medium: 'Restyle · medium', low: 'Restyle · low', keep: 'Keep as code', done: 'Toy style ✓' };
+const STYLE = { toy: 'Toy style', old: 'Older painted art', code: 'Code-drawn' };
 const $ = (s) => document.querySelector(s);
 const NEED = ['high', 'medium', 'low'];
+const HEADER = `Use the image generator. No code. One image per reply.
+Match the attached ship's style exactly: a smooth 3D toy, like a plastic board-game piece. Rounded chunky shapes, smooth matte colours, soft light from the top-left. 4 main colours at most. No scales, rivets, cracks, patterns, text or texture. Smooth, not faceted. It must read clearly at 64px.
+One subject only, centred, filling most of the image. No shadow, no water, no ground. Flat #FF00FF magenta background.
+Views: TOP = straight top-down, the front pointing to the top of the image. FRONT = front three-quarter view, slightly from above.
+Before each image, write one line: the item code, its name, its view, and "toy style, magenta background".
+Work through the list below. Make the first item now. When I say "next", make the next one.`;
+const SHIPS = `Make: [HULL NAME], one image with 5 views of the same ship in a row, same size, evenly spaced, not touching:
+1 bow (front towards the camera)
+2 bow-quarter (bow pointing down-left)
+3 side (bow pointing left)
+4 stern-quarter (bow pointing up-left)
+5 stern (back towards the camera)`;
+const BATCHES = [
+ ['A', 'Bosses', 'high', [
+  'A1 The Hollow King (TOP): a huge stone-crowned cave beast half sunk in water, glowing pale eyes',
+  'A2 Old Mother Mire (FRONT): a hulking moss-and-mud swamp hag rising from the bog, lantern-green eyes',
+  'A3 The Deep Mother (TOP): a giant abyssal squid, dark violet with glowing spots, curled tentacles',
+  'A4 The Dunemaw (TOP): a giant sand worm with a round toothed maw, sandy armour bands',
+  'A5 The Prism Colossus (FRONT): a crystal giant rooted in rock, lilac and white crystal body',
+  'A6 Bloodfin Matriarch (TOP): a huge red-finned shark with scars, mouth slightly open',
+  'A7 Warding Seal (FRONT): a dark rune stone on a small rock with a glowing blue rune',
+  'A8 The Black Gale (TOP): a big pirate flagship with black sails and red trim, seen from above',
+  'A9 The Drowned Admiral (TOP): a pale green ghost galleon with torn sails, seen from above']],
+ ['G', 'Creatures (restyle)', 'high', [
+  'G1 Reef Shark (TOP): a grey reef shark',
+  'G2 Gullswarm Harpy (TOP): a gull-winged harpy bird, wings spread',
+  'G3 Sea Serpent (TOP): a green sea serpent in an S-curve',
+  'G4 Deep Crawler (TOP): a dark crab-like deep-sea crawler',
+  'G5 Frost Narwhal (TOP): an icy white narwhal with a long tusk',
+  'G6 Ice Golem (FRONT): a chunky golem made of ice blocks',
+  'G7 Frost Wisp (FRONT): a small floating ice spirit, round and glowing',
+  'G8 Siren (FRONT): a mermaid siren sitting on a small rock, singing',
+  'G9 Cinder Bat (TOP): a lava-orange bat, wings spread',
+  'G10 Magma Golem (FRONT): a golem of dark rock with glowing lava cracks',
+  'G11 Cave Bats (TOP): three purple cave bats flying together',
+  'G12 Stalker Eel (TOP): a long dark eel with glowing yellow spots',
+  'G13 Deep Troll (FRONT): a squat cave troll holding a boulder',
+  'G14 Bayou Gator (TOP): a green swamp alligator',
+  'G15 Bog Witch (TOP): a hooded witch flying on a broom',
+  'G16 Leech Swarm (TOP): a cluster of fat red-brown leeches',
+  'G17 Anglerfish (TOP): a dark anglerfish with a glowing lure',
+  'G18 Jelly Bloom (FRONT): a glowing pink-violet jellyfish',
+  'G19 Ink Squid (TOP): a red squid, tentacles trailing',
+  'G20 Bone Vulture (TOP): a dark vulture with a bone-white head, wings spread',
+  'G21 Sand Wyrm (TOP): a sandy worm with armour bands',
+  'G22 Prism Sprite (TOP): a small crystal fairy with pink crystal wings',
+  'G23 Mirror Tortoise (TOP): a sea turtle with a mirrored crystal shell',
+  'G24 Crystal Crab (TOP): a crab with lilac crystal claws']],
+ ['B', 'Buildings and towers', 'high', [
+  'B1 Armory (FRONT): a small harbour armory with a cannon outside and crossed-anchor sign',
+  'B2 Workshop (FRONT): a harbour workshop with a forge chimney and anvil',
+  'B3 Faction Hall (FRONT): a grand harbour hall with three coloured banners',
+  'B4 Shipyard (FRONT): a harbour shipyard with a crane and a hull on the slipway',
+  'B5 Tower Yard (FRONT): a red and white striped lighthouse on a rock',
+  'B6 Charm Shrine (FRONT): a mossy stone shrine with a glowing purple doorway',
+  'B7 Cannon Battery (FRONT): a stone gun tower with one big cannon',
+  'B8 Grapeshot Nest (FRONT): a wooden platform with a wide-mouthed blunderbuss gun',
+  'B9 Chain Mast (FRONT): a tall mast tower with chains on a launcher',
+  'B10 Depth Charge Post (FRONT): a dock post with a barrel launcher and stacked charges',
+  'B11 Fire Brazier (FRONT): a stone tower topped with a big iron fire bowl',
+  'B12 Lighthouse Tower (FRONT): a small squat lighthouse with a bright lamp',
+  'B13 Heart of the Reef (FRONT): a glowing teal crystal on a coral base']],
+ ['D', 'Weapon and armament icons', 'high', [
+  'D1 Cannonballs (FRONT): a stack of three iron cannonballs',
+  'D2 Chain Shot (FRONT): two iron balls joined by a chain',
+  'D3 Grapeshot (FRONT): a cloth bag spilling small iron balls',
+  'D4 Depth Charges (FRONT): a round barrel bomb with a fuse',
+  'D5 Flame Barrels (FRONT): a wooden barrel with flames on top',
+  'D6 Swivel Gun (FRONT): a small swivel cannon on a post',
+  'D7 Harpoon (FRONT): a harpoon with a rope coil',
+  'D8 Deck Mortar (FRONT): a short fat mortar pointing up',
+  'D9 Powder Kegs (FRONT): two gunpowder kegs',
+  'D10 Stern Chaser (FRONT): a long cannon pointing back',
+  'D11 Broadside Battery (FRONT): three cannons side by side',
+  'D12 Sea Spirit (FRONT): a small blue water spirit',
+  "D13 St Elmo's Fire (FRONT): a blue electric flame"]],
+ ['E', 'Upgrade icons', 'high', [
+  'E1 Gun Crew (FRONT): a stopwatch with a cannon fuse',
+  'E2 Heavy Shot (FRONT): a big heavy cannonball with a target',
+  'E3 Armour Plating (FRONT): an iron shield plate',
+  'E4 Reinforced Hull (FRONT): stacked wooden planks with iron bands',
+  'E5 Swift Sails (FRONT): a full white sail',
+  'E6 Fine Rigging (FRONT): a coil of rope with a knot',
+  'E7 Lodestone (FRONT): a dark magnet stone',
+  'E8 Plunderer (FRONT): an open bag of gold coins',
+  'E9 Fine Powder (FRONT): a powder horn',
+  'E10 Spyglass (FRONT): a brass spyglass',
+  'E11 Bilge Pumps (FRONT): a wooden hand pump',
+  'E12 Iron Ram (FRONT): an iron ram head']],
+ ['C', 'Pickups', 'medium', [
+  'C1 Sea glass, small (FRONT): a small teal glass gem',
+  'C2 Sea glass, medium (FRONT): a blue glass gem',
+  'C3 Sea glass, large (FRONT): a big purple glass gem',
+  'C4 Anchor coin (FRONT): a gold coin stamped with an anchor',
+  'C5 Lodestone (FRONT): a dark stone with a glowing blue core',
+  'C6 Life ring (FRONT): a red and white life ring',
+  'C7 Treasure chest (FRONT): a wooden chest with gold bands, lid shut']],
+ ['F', 'Landmarks', 'medium', [
+  'F1 Pirate fort (FRONT): a small stone fort with a black flag',
+  'F2 Lighthouse (FRONT): a tall white lighthouse on cliffs',
+  'F3 Ice spires (FRONT): three ice spires with a trapped ship mast',
+  'F4 Shipwreck (FRONT): a broken ship hull split in two',
+  'F5 Volcano (FRONT): a small volcano with a glowing crater',
+  'F6 Cave mouth (FRONT): a rocky cave entrance',
+  'F7 Stilt hut (FRONT): a wooden swamp hut on stilts',
+  'F8 Drowned temple rift (FRONT): a sunken stone temple ruin',
+  'F9 Giant skull (FRONT): a huge bleached skull half in sand',
+  'F10 Crystal spire (FRONT): a tall lilac crystal spire']],
+];
+$('#p-header').textContent = HEADER;
+$('#p-ships').textContent = SHIPS;
+const bText = (b) => b[3].join('\n');
+$('#batches').innerHTML = BATCHES.map((b, i) => `<div class="prompt"><div class="ph"><h3>${b[0]} · ${b[1]} <span class="pri t-${b[2]}">${b[2]}</span></h3><button class="copy" data-copy="b${i}">Copy with header</button></div><pre>${bText(b).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre></div>`).join('');
+const TEXTS = { header: HEADER, ships: HEADER + '\n\n' + SHIPS };
+BATCHES.forEach((b, i) => { TEXTS['b' + i] = HEADER + '\n\nList:\n' + bText(b); });
+document.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('.copy'); if (!btn) return;
+  const text = TEXTS[btn.dataset.copy]; const was = btn.textContent;
+  try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied'; btn.classList.add('ok'); }
+  catch { const pre = btn.closest('.prompt').querySelector('pre'); const r = document.createRange(); r.selectNodeContents(pre); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); btn.textContent = 'Selected, copy it'; }
+  setTimeout(() => { btn.textContent = was; btn.classList.remove('ok'); }, 1600);
+});
+const sloop = DATA.find((d) => d.name === 'Sloop'); if (sloop) $('#std-img').src = sloop.img;
+
 const count = (p) => DATA.filter((d) => d.pri === p).length;
-$('#tally').innerHTML = [['high', 'need art · high', EMOJI.length + 1], ['medium', 'need work · medium', 1], ['low', 'need art · low', 0], ['keep', 'keep as code', 0], ['done', 'replaced', 0]]
+$('#tally').innerHTML = [['done', 'toy style done', 0], ['high', 'restyle · high (incl. emoji icons)', EMOJI.length + 1], ['medium', 'restyle · medium', 1], ['low', 'restyle · low', 0], ['keep', 'keep as code', 0]]
   .map(([p, l, extra]) => `<div class="p-${p}"><b>${count(p) + extra}</b><span>${l}</span></div>`).join('');
 $('#igrid').innerHTML = EMOJI.map((e) => `<div class="icon"><div class="g" aria-hidden="true">${e.e}</div><div class="u"><b>${e.n}×</b> · ${e.where.join(', ')}${e.ctx.length ? `<br>e.g. ${e.ctx.join(', ')}` : ''}</div></div>`).join('');
 $('#cues').innerHTML = CUES.map((c) => `<code>${c}</code>`).join('');
@@ -197,7 +364,7 @@ function render() {
   const list = $('#list');
   for (const id of ['icons', 'fonts', 'sound']) $('.wrap').appendChild(document.getElementById(id));
   list.innerHTML = '';
-  const tabs = [['overview', 'Overview', null]];
+  const tabs = [['overview', 'Overview', null], ['kit', 'Prompt kit', null]];
   for (const [id, title, cats] of TYPES) {
     if (!cats.length) { tabs.push([id, title, id === 'icons' ? EMOJI.length : null, id === 'icons' || id === 'fonts']); continue; }
     const all = DATA.filter((d) => cats.includes(d.cat));
@@ -217,7 +384,7 @@ function render() {
       const g = document.createElement('div'); g.className = 'grid' + (c.startsWith('UI') ? ' wide' : '');
       for (const d of items) {
         const fig = document.createElement('figure'); fig.className = 'card ' + d.pri + (d.kind ? ' ' + d.kind : '');
-        fig.innerHTML = `<img alt="${d.name}" loading="lazy" src="${d.img}"><figcaption><b>${d.name}</b><span class="tag t-${d.pri}">${LABEL[d.pri]}</span></figcaption>`;
+        fig.innerHTML = `<img alt="${d.name}" loading="lazy" src="${d.img}"><figcaption><b>${d.name}</b><span class="tag t-${d.pri}">${LABEL[d.pri]}</span>${d.style ? `<span class="style s-${d.style}">${STYLE[d.style]}</span>` : ''}</figcaption>`;
         g.appendChild(fig);
       }
       cat.appendChild(g); s.appendChild(cat);
@@ -231,7 +398,7 @@ function render() {
     const idx = TYPES.findIndex((t) => t[0] === id);
     const nextId = TYPES.slice(idx + 1).map((t) => t[0]).find((n) => n !== id && document.getElementById(n) && document.getElementById(n).parentElement === list);
     if (nextId) list.insertBefore(sec, document.getElementById(nextId)); else list.appendChild(sec);
-    sec.hidden = filter === 'keep' || filter === 'done';
+    sec.hidden = filter === 'keep' || filter === 'done' || (filter === 'high' && id === 'sound');
   }
   $('#tabs').innerHTML = tabs.map(([id, title, n, hot]) => `<a class="tab" href="#${id}" data-id="${id}">${title}${n != null ? ` <span class="n${hot ? ' hot' : ''}">${n}</span>` : ''}</a>`).join('');
   watch();
