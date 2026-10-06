@@ -99,7 +99,7 @@ test('creature art: every file exists and every key is a real enemy id or sprite
   const keys = new Set(Object.values(ENEMIES).flatMap((d) => [d.id, d.sprite].filter(Boolean)));
   for (const f of CREATURE_FILES) assert.ok(existsSync(new URL(`../assets/creatures/${f}.png`, import.meta.url)), `${f}.png`);
   for (const [k, a] of Object.entries(CREATURE_ART)) {
-    assert.ok(keys.has(k), `${k} is an enemy`);
+    assert.ok(keys.has(k.replace(/_flying$/, '')), `${k} is an enemy`);
     assert.ok(a.mode === 'turn' || a.mode === 'face');
     assert.ok(a.size > 1.5 && a.size < 5);
   }

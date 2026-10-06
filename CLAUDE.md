@@ -2698,6 +2698,21 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     flyer phase when present (none yet).
   - `tests/devTuning.test.mjs`. 472/472.
 
+- **Phase:** toy-style ships, first two hulls (owner's 5-view sets).
+- **Just shipped:** Sloop and Longboat atlases rebuilt from the owner's
+  5-view images (bow, bow-quarter, side with bow left, stern-quarter,
+  stern). Each view covers two of the 9 headings, mirrored for the east
+  half. `tools/cut-ship-views.py <hull> <image>` does the whole job:
+  strips the red/yellow keying fringe, finds the 5 views, scales to 90px
+  tall, writes `assets/ships/<hull>.png` and patches that hull's frame
+  table in `shipSprites.mjs`. Enemy looks built on these hulls (horde
+  longboats, cutters, drowned skiffs, galleys) pick up the new art
+  through the recolour. Fixed a creature-art test that rejected
+  `<id>_flying` keys (the previous commit went out with it failing).
+  472/472.
+- **Next up:** the other five hulls the same way (Skiff, Catamaran,
+  Junk, Ironclad Steamer, Galleon) once the owner has their 5-view sets.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
