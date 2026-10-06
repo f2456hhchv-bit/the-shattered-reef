@@ -2712,8 +2712,12 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   472/472.
 - Skiff, Junk and Catamaran done the same way (same day). The cutter
   now retries smaller dilations when two views sit close together.
-- **Next up:** the last two hulls the same way (Ironclad Steamer,
-  Galleon) once the owner has their 5-view sets.
+- Ironclad Steamer and Galleon done the same way: all 7 player hulls
+  (and every enemy ship built on them) are now the toy-render style.
+- **Next up:** creatures and bosses in the same style (3 of ~10 bosses
+  done), then buildings and icons, per the batch brief given to the
+  owner (A bosses, B buildings/towers, C pickups, D weapon icons, E
+  upgrade icons, F landmarks).
 
 - **Phase:** the crowd (owner playtest 2026-10-06 with shop upgrades: dev
   sliders at ×4 enemies and ×4 spawn speed "felt good", stage 1 won
