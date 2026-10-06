@@ -2710,7 +2710,8 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   through the recolour. Fixed a creature-art test that rejected
   `<id>_flying` keys (the previous commit went out with it failing).
   472/472.
-- **Next up:** the other five hulls the same way (Skiff, Catamaran,
+- Skiff done the same way (same day).
+- **Next up:** the other four hulls the same way (Catamaran,
   Junk, Ironclad Steamer, Galleon) once the owner has their 5-view sets.
 
 ## Decisions log
