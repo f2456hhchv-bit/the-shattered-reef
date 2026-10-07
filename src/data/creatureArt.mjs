@@ -18,6 +18,7 @@ export const CREATURE_ART = {
   krakens_anchor: { file: 'krakens_anchor', mode: 'face', size: 3.0 },
   hollow_king: { file: 'hollow_king', mode: 'face', size: 3.2 },
   mire_mother: { file: 'mire_mother', mode: 'face', size: 3.2 },
+  deep_mother: { file: 'deep_mother', mode: 'turn', forward: 'up', size: 3.4 },
   frost_leviathan: { file: 'frost_leviathan', mode: 'turn', forward: 'up', size: 3.4 },
   caldera_wyrm: { file: 'caldera_wyrm', mode: 'turn', forward: 'up', size: 3.6 },
   caldera_wyrm_flying: { file: 'caldera_wyrm_flying', mode: 'turn', forward: 'up', size: 4.2, flies: true },
