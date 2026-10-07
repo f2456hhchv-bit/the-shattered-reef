@@ -2761,8 +2761,8 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   its mouth leads), Jelly Bloom, Ink Squid, Bone Vulture.
 - **Batch 3:** Crystal Crab (and Shard Crab), Mirror Tortoise, Prism
   Sprite (now top-down, `mode: 'turn'`), Sand Wyrm. Every regular creature
-  is now toy style. Boss: The Hollow King (`face`, 170px). Left: 4 code
-  bosses (Mire Mother,
+  is now toy style. Bosses: The Hollow King and Old Mother Mire (`face`, 170px). Left: 3
+  code bosses (
   Deep Mother, Dunemaw, Prism Colossus), Bloodfin Matriarch, the Warding
   Seal, then buildings, icons, pickups, towers and landmarks.
 
