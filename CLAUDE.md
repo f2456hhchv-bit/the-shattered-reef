@@ -2763,7 +2763,7 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   Sprite (now top-down, `mode: 'turn'`), Sand Wyrm. Every regular creature
   is now toy style. Bosses: The Hollow King and Old Mother Mire (`face`, 170px), The Deep
   Mother (`turn`, keyed from a painted checkerboard; the prompt now asks
-  for true alpha). Left: Dunemaw, Prism Colossus, Bloodfin Matriarch, the
+  for true alpha). The Dunemaw (`turn`, real alpha). Left: Prism Colossus, Bloodfin Matriarch, the
   Warding Seal, then buildings, icons, pickups, towers and landmarks.
 
 ## Decisions log
