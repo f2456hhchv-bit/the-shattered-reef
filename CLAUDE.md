@@ -2749,6 +2749,13 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - **Next up:** the owner plays stages 2-4 with real upgrades. If they're
   too hard, lower `crowdByStage` there.
 
+- **Toy-style creatures, batch 1** (2026-10-07): Reef Shark, Gullswarm
+  Harpy, Sea Serpent, Deep Crawler, Frost Narwhal, Ice Golem replaced in
+  `assets/creatures/` (128px, keyed from the owner's PNGs; the serpent's
+  baked glow was cut by keeping only near-opaque pixels). Harpy and
+  crawler art now faces up (`forward: 'up'`). That's the stage 2-4
+  priority creatures done except the Frost Wisp and Siren.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in

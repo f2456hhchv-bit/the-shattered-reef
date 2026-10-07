@@ -8,7 +8,7 @@ SPR={**SPR, **{k.lower():v for k,v in SPR.items()}}
 # Style status per asset (2026-10-06): toy = matches the toy-render ships;
 # old = painted in the earlier V3 style, needs restyling; code = drawn in code.
 TOY_SHIP_LOOKS={'Reef Skimmer','Ironclad Brigand','Rigger','Pirate Cutter','Pirate Brig','The Black Gale','Fire Ship','Mortar Gunboat','Ghost Ship','Drowned Skiff','The Drowned Admiral','Obsidian Galley','Dune Raider','Raider Longboat','Skimmer Raider','Ice Skiff','Drowned Rower','Sand Skiff'}
-TOY={"The Kraken's Anchor",'The Frost Leviathan','The Caldera Wyrm'}|TOY_SHIP_LOOKS
+TOY={"The Kraken's Anchor",'The Frost Leviathan','The Caldera Wyrm','Reef Shark','Gullswarm Harpy','Sea Serpent','Deep Crawler','Frost Narwhal','Ice Golem'}|TOY_SHIP_LOOKS
 EARLY={'Reef Shark','Gullswarm Harpy','Sea Serpent','Deep Crawler','Frost Narwhal','Ice Golem','Frost Wisp','Siren'}
 for o in gal:
     if o['cat']=='Weather': o['cat']='Weather objects'
