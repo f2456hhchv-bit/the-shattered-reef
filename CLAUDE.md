@@ -2755,6 +2755,13 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   baked glow was cut by keeping only near-opaque pixels). Harpy and
   crawler art now faces up (`forward: 'up'`). That's the stage 2-4
   priority creatures done except the Frost Wisp and Siren.
+- **Batch 2, same day:** Frost Wisp, Siren, Cinder Bat, Magma Golem, Cave
+  Bats (plus a single-bat crop for the horde Cave Bat), Stalker Eel, Deep
+  Troll, Bayou Gator, Bog Witch, Leech Swarm, Anglerfish (rotated 180° so
+  its mouth leads), Jelly Bloom, Ink Squid, Bone Vulture. Left in the old
+  style: Sand Wyrm, Prism Sprite, Mirror Tortoise, Crystal Crab (and Shard
+  Crab, which shares its art), plus the 5 code bosses, Bloodfin and the
+  Warding Seal.
 
 ## Decisions log
 
