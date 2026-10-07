@@ -139,7 +139,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
       </ol></div>
       <div class="box do"><h3>Do</h3><ul>
         <li>Attach <b>an approved toy ship image</b> to every request. The style follows the picture far more than the words.</li>
-        <li>Ask for <b>one asset per message</b>, on a <b>flat #FF00FF magenta background</b> (or real transparency).</li>
+        <li>Ask for <b>one asset per message</b>, on a <b>transparent background</b> (flat #FF00FF magenta if it can't).</li>
         <li><b>TOP view</b> for anything that swims or flies: straight down, front pointing to the top of the image. The game turns it to any heading.</li>
         <li><b>FRONT view</b> for upright things (golems, sirens, buildings, towers, landmarks, pickups, icons): front three-quarter, slightly from above. The game mirrors it left and right.</li>
         <li>Ships only: <b>one image with 5 views</b> in a row (see the prompt kit).</li>
@@ -172,7 +172,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     <h3 class="bh">Batches</h3>
     <div class="batches" id="batches"></div>
     <div class="box handoff"><h3>Sending art back to me</h3><ul>
-      <li>Send the images as they are; I key out the magenta, trim and scale them.</li>
+      <li>Send the images as they are; I key out any background, trim and scale them.</li>
       <li>Creatures and bosses go in <code>src/data/creatureArt.mjs</code> (TOP art turns, FRONT art mirrors). A boss's flying form is a second image named <code>&lt;id&gt;_flying</code>.</li>
       <li>Buildings go in <code>src/engine/buildingSprites.mjs</code>; ships through <code>tools/cut-ship-views.py</code>.</li>
       <li>Every sprite keeps its code art as a fallback until the image loads, so nothing breaks while a batch is half done.</li>
@@ -230,9 +230,9 @@ const $ = (s) => document.querySelector(s);
 const NEED = ['high', 'medium', 'low'];
 const HEADER = `Use the image generator. No code. One image per reply.
 Match the attached ship's style exactly: a smooth 3D toy, like a plastic board-game piece. Rounded chunky shapes, smooth matte colours, soft light from the top-left. 4 main colours at most. No scales, rivets, cracks, patterns, text or texture. Smooth, not faceted. It must read clearly at 64px.
-One subject only, centred, filling most of the image. No shadow, no water, no ground. Flat #FF00FF magenta background.
+One subject only, centred, filling most of the image. No shadow, no water, no ground. Transparent background (only if you can't do transparent, use flat #FF00FF magenta).
 Views: TOP = straight top-down, the front pointing to the top of the image. FRONT = front three-quarter view, slightly from above.
-Before each image, write one line: the item code, its name, its view, and "toy style, magenta background".
+Before each image, write one line: the item code, its name, its view, and "toy style, transparent background".
 Work through the list below. Make the first item now. When I say "next", make the next one.`;
 const SHIPS = `Make: [HULL NAME], one image with 5 views of the same ship in a row, same size, evenly spaced, not touching:
 1 bow (front towards the camera)
