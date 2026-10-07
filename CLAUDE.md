@@ -2758,10 +2758,12 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
 - **Batch 2, same day:** Frost Wisp, Siren, Cinder Bat, Magma Golem, Cave
   Bats (plus a single-bat crop for the horde Cave Bat), Stalker Eel, Deep
   Troll, Bayou Gator, Bog Witch, Leech Swarm, Anglerfish (rotated 180° so
-  its mouth leads), Jelly Bloom, Ink Squid, Bone Vulture. Left in the old
-  style: Sand Wyrm, Prism Sprite, Mirror Tortoise, Crystal Crab (and Shard
-  Crab, which shares its art), plus the 5 code bosses, Bloodfin and the
-  Warding Seal.
+  its mouth leads), Jelly Bloom, Ink Squid, Bone Vulture.
+- **Batch 3:** Crystal Crab (and Shard Crab), Mirror Tortoise, Prism
+  Sprite (now top-down, `mode: 'turn'`), Sand Wyrm. Every regular creature
+  is now toy style. Left: the 5 code bosses (Hollow King, Mire Mother,
+  Deep Mother, Dunemaw, Prism Colossus), Bloodfin Matriarch, the Warding
+  Seal, then buildings, icons, pickups, towers and landmarks.
 
 ## Decisions log
 

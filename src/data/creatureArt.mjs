@@ -41,7 +41,7 @@ export const CREATURE_ART = {
   cinder_bat: { file: 'cinder_bat', mode: 'turn', forward: 'up', size: 3.6, flies: true },
   bog_witch: { file: 'bog_witch', mode: 'turn', forward: 'up', size: 3.0, flies: true },
   frost_wisp: { file: 'frost_wisp', mode: 'face', size: 2.8, flies: true },
-  prism_sprite: { file: 'prism_sprite', mode: 'face', size: 2.8, flies: true },
+  prism_sprite: { file: 'prism_sprite', mode: 'turn', forward: 'up', size: 3.0, flies: true },
   jelly_bloom: { file: 'jelly_bloom', mode: 'face', size: 3.0 },
   drift_jelly: { file: 'jelly_bloom', mode: 'face', size: 3.0 },
   ice_golem: { file: 'ice_golem', mode: 'face', size: 2.7 },
