@@ -2763,8 +2763,15 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   Sprite (now top-down, `mode: 'turn'`), Sand Wyrm. Every regular creature
   is now toy style. Bosses: The Hollow King and Old Mother Mire (`face`, 170px), The Deep
   Mother (`turn`, keyed from a painted checkerboard; the prompt now asks
-  for true alpha). The Dunemaw (`turn`, real alpha). Left: Prism Colossus, Bloodfin Matriarch, the
-  Warding Seal, then buildings, icons, pickups, towers and landmarks.
+  for true alpha). The Dunemaw (`turn`, real alpha).
+- **All bosses toy style** (2026-10-08): Prism Colossus and Warding Seal
+  (`face`), Bloodfin Matriarch (new art, `turn`), and the two boss ships,
+  The Black Gale and The Drowned Admiral, now bespoke top-down art
+  (`turn`, rotated 180° so the ram leads) instead of recoloured hulls;
+  their `ENEMY_SHIP_LOOKS` entries were removed (ghost fade still comes
+  from `drawEnemy`'s invulnerable alpha). The two ships' sheets were a
+  painted checkerboard, keyed by colour. Next: buildings (B), icons
+  (D/E), pickups (C), towers and landmarks (F).
 
 ## Decisions log
 

@@ -2,8 +2,7 @@
 // owner's 30-creature pack, cleaned into assets/creatures/<file>.png).
 // Looked up by enemy id first, then sprite key, so a horde can have its own
 // picture (cave_bat, shard_crab) while sharing its parent's code art as a
-// fallback. Anything not listed (most bosses, the warding seal) keeps its
-// code-drawn sprite.
+// fallback. Anything not listed keeps its code-drawn sprite.
 //
 //   file     image in assets/creatures/
 //   mode     'turn'  top-down art, rotated to the heading
@@ -20,11 +19,16 @@ export const CREATURE_ART = {
   mire_mother: { file: 'mire_mother', mode: 'face', size: 3.2 },
   deep_mother: { file: 'deep_mother', mode: 'turn', forward: 'up', size: 3.4 },
   dunemaw: { file: 'dunemaw', mode: 'turn', forward: 'up', size: 3.8 },
+  prism_colossus: { file: 'prism_colossus', mode: 'face', size: 3.2 },
+  warding_seal: { file: 'warding_seal', mode: 'face', size: 2.8 },
+  // Boss ships: bespoke top-down toy art instead of a recoloured hull.
+  pirate_flagship: { file: 'black_gale', mode: 'turn', forward: 'up', size: 4.3 },
+  drowned_admiral: { file: 'drowned_admiral', mode: 'turn', forward: 'up', size: 4.3 },
   frost_leviathan: { file: 'frost_leviathan', mode: 'turn', forward: 'up', size: 3.4 },
   caldera_wyrm: { file: 'caldera_wyrm', mode: 'turn', forward: 'up', size: 3.6 },
   caldera_wyrm_flying: { file: 'caldera_wyrm_flying', mode: 'turn', forward: 'up', size: 4.2, flies: true },
   reef_shark: { file: 'reef_shark', mode: 'turn', forward: 'up', size: 3.3 },
-  bloodfin_matriarch: { file: 'bloodfin_matriarch', mode: 'turn', forward: 'up', size: 3.0 },
+  bloodfin_matriarch: { file: 'bloodfin_matriarch', mode: 'turn', forward: 'up', size: 3.4 },
   sea_serpent: { file: 'sea_serpent', mode: 'turn', forward: 'up', size: 3.4 },
   sand_wyrm: { file: 'sand_wyrm', mode: 'turn', forward: 'up', size: 3.4 },
   frost_narwhal: { file: 'frost_narwhal', mode: 'turn', forward: 'up', size: 3.6 },
