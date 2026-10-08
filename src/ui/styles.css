@@ -1509,3 +1509,16 @@ body.in-hub #tutorial { display: none; }
 .base-chip .bc-text { display: none; }
 .base-chip .bc-icon { font-size: 22px !important; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, .4)); }
 .bc-badge { width: 16px; height: 16px; top: -6px; right: -6px; font-size: 0; background: #ef3b36; border: 2.5px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
+
+/* Toy icons in place of emoji (src/ui/emojiIcons.mjs). The glyph stays inside, hidden,
+   so textContent is unchanged. */
+.emo {
+  display: inline-block;
+  width: 1.25em;
+  height: 1.25em;
+  vertical-align: -0.25em;
+  background: center / contain no-repeat;
+  line-height: 1;
+  overflow: hidden;
+}
+.emo-t { display: inline-block; width: 100%; opacity: 0; font-size: 0.8em; }

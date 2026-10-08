@@ -147,3 +147,13 @@ test('pickup sprites: every file exists, and sea glass maps by value', async () 
   for (const s of Object.values(PICKUP_SPRITES)) assert.ok(existsSync(new URL(`../assets/pickups/${s.file}.png`, import.meta.url)), `${s.file}.png`);
   assert.equal(gemSpriteFor(1), 'gem_small'); assert.equal(gemSpriteFor(5), 'gem_medium'); assert.equal(gemSpriteFor(25), 'gem_large');
 });
+
+test('every emoji icon maps to a real file', async () => {
+  const { EMOJI_ICONS, iconUrl } = await import('../src/ui/emojiIcons.mjs');
+  const { existsSync } = await import('node:fs');
+  for (const [e, f] of Object.entries(EMOJI_ICONS)) {
+    const url = iconUrl(e);
+    assert.ok(existsSync(new URL('../' + url, import.meta.url)), `${e} -> ${f}`);
+    assert.equal(iconUrl(e + '️'), url, `${e} with variation selector`);
+  }
+});

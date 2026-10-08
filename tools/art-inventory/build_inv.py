@@ -112,9 +112,27 @@ items.sort(key=lambda o:(order.get(o['cat'],99), [c for t in TYPES for c in t[2]
 notes={k:v[1] for k,v in CAT.items()}
 FILEN={'main':'harbour and HUD','survival':'level-up cards','tdMode':'Reef Defence','towerYard':'Tower Yard','progression':'achievements','worldMap':'voyage chart','upgrades':'upgrade cards','armaments':'armament cards','towers':'tower list','weather':'weather chip','tdArt':'Reef Defence map','meta':'shops','stages':'stage list','introScene':'intro','base':'harbour'}
 for e in emoji: e['where']=sorted({FILEN.get(f,f) for f in e['files']})
+# Emoji that now draw as toy icons (src/ui/emojiIcons.mjs). Canvas-only emoji stay as glyphs.
+import re as _re, base64 as _b64, io as _io
+from PIL import Image as _Im
+_ICON_SRC=open('/home/claude/the-shattered-reef/src/ui/emojiIcons.mjs').read()
+_MAP=dict(_re.findall(r"'([^']+)': '([^']+)'", _ICON_SRC.split('EMOJI_ICONS = {')[1].split('};')[0]))
+_STANDIN={'⚔':'cutlass (wants crossed swords)','🔧':'gear (wants a wrench)','⚫':'cannon (wants cannonballs)','✈':'wing','⛓':'chain link'}
+_CANVAS={'♪','♫','🪶','🐂'}
+for e in emoji:
+    k=e['e'].replace('\ufe0f','')
+    if k in _MAP:
+        im=_Im.open('/home/claude/the-shattered-reef/assets/icons/ui/'+_MAP[k]+'.png').convert('RGBA'); im.thumbnail((56,56))
+        b=_io.BytesIO(); im.save(b,'PNG',optimize=True); e['img']='data:image/png;base64,'+_b64.b64encode(b.getvalue()).decode()
+        e['state']='standin' if k in _STANDIN else 'done'
+        if k in _STANDIN: e['note']='Stand-in: '+_STANDIN[k]
+    elif k in ('★','☆','❚'): e['state']='keep'; e['note']='Text glyph, kept (rating stars / pause bars)'
+    else: e['state']='need'; e['note']='Canvas mark' if k in _CANVAS else ''
+_rk={'need':0,'standin':1,'keep':2,'done':3}
+emoji.sort(key=lambda e:(_rk[e['state']],-e['n']))
 from collections import Counter
 cnt=Counter(o['pri'] for o in items)
-cnt['high']+=len(emoji)
+cnt['high']+=sum(e['state']!='done' and e['state']!='keep' for e in emoji)
 print(Counter(o['style'] for o in items if o['cat'] in ('Player ships','Enemies','Bosses','Harbour buildings')))
 print(cnt, len(items))
 tpl=open('inv_template.html').read()

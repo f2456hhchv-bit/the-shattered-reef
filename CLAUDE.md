@@ -2857,6 +2857,20 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   - **Redo, medium:** 9 bosses, 16 creatures, 6 towers.
   - **Redo, low:** the Heart, Siren, Bone Vulture, Prism Sprite, and the
     enemy ships (they follow the hulls).
+- **Toy UI icons replace emoji** (2026-10-08, owner's two icon sheets +
+  an anchor). 72 icons cut by alpha components into `assets/icons/ui/`
+  (96px, 256-colour, 312KB). `src/ui/emojiIcons.mjs` (`EMOJI_ICONS`,
+  started from `startApp`) wraps each mapped emoji in the DOM as
+  `<span class="emo"><span class="emo-t">⚓</span></span>`: the icon is
+  the background, the glyph stays inside at opacity 0, so `textContent`
+  is unchanged. A MutationObserver re-wraps changed nodes (skips inputs,
+  `.selectable`, `.no-emo`). 74 of the 92 emoji are covered, 5 of them by
+  stand-ins (cutlass for ⚔, gear for 🔧, cannon for ⚫, wing for ✈, link
+  for ⛓); 🛟 uses the pickup ring. Not covered: 💥 💫 🐏 🪝 🛢 💨 🎖 🏁 👁
+  🔪, ★/☆/❚ (kept as text: ratings and pause), and every emoji drawn on
+  the canvas (tdArt, enemy/warlord marks). The inventory's Icons tab now
+  shows each emoji's state; batch D lists the 12 missing icons, E the 5
+  stand-ins.
 
 ## Decisions log
 

@@ -89,6 +89,11 @@ h3 small { font: 400 14px var(--body); color: var(--muted); }
 .igrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
 .icon { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .icon .g { font-size: 38px; line-height: 1.1; text-align: center; background: #061520; border-radius: 8px; padding: 10px 0; }
+.icon .g { position: relative; height: 62px; display: flex; align-items: center; justify-content: center; }
+.icon .g img { width: 48px; height: 48px; object-fit: contain; }
+.icon .ge { position: absolute; right: 6px; bottom: 4px; font-size: 15px; opacity: 0.8; }
+.icon .tag { align-self: flex-start; }
+.icon.is-done { opacity: 0.8; }
 .icon .u { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .icon .u b { color: var(--fg); font-variant-numeric: tabular-nums; }
 /* Fonts and sound */
@@ -131,7 +136,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
         <li><b>Harbour buildings</b> (batch B): the first screen, and the harbour itself is already in the simple style, so the busy buildings clash most.</li>
         <li><b>Player ships</b> (batch S): your ship is on screen the whole game, and every enemy ship is recoloured from these hulls.</li>
-        <li><b>Weapon and upgrade icons</b> (batches D, E): not started; brief them in the simple style from the start.</li>
+        <li><b>Icons</b> (batches D, E): 72 toy icons are in (74 emoji covered); 15 emoji still need art (batch D, 12 icons) and 5 are stand-ins (batch E). See Icons.</li>
         <li><b>Bosses</b> (batch A): the busy ones only; Kraken's Anchor, Frost Leviathan and the Warding Seal already pass.</li>
         <li><b>Creatures</b> (batch G): the busy ones only; sharks, jellies, squid, wisps, bats, serpent and troll already pass.</li>
         <li><b>Reef Defence towers</b> (batch T) and <b>landmarks</b> (batch F).</li>
@@ -184,7 +189,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
 
   <section class="type" id="icons">
     <h2>Icons</h2>
-    <p>Every icon in the game is an emoji, drawn by the phone's own emoji font. Each card shows the emoji, how many times it appears in the code, and where. Batches D and E (weapons, armaments, upgrades) and C (pickups) replace the most-seen ones in toy style; the rest follow as one matching set. <span class="t-high tag">Restyle · high</span></p>
+    <p>Menus, HUD, cards and the harbour now draw emoji as toy icons from the two icon sheets (<code>assets/icons/ui</code>, swapped in by <code>src/ui/emojiIcons.mjs</code>). Each card shows what the game draws today, how often the emoji appears and where. <b>Needs art</b> come first (batch D), then <b>stand-ins</b>: icons that are close but not right (batch E). Marks drawn on the canvas (Reef Defence map, enemy notes) still use the emoji font. <span class="t-high tag">Remaining · high</span></p>
     <div class="igrid" id="igrid"></div>
   </section>
 
@@ -294,33 +299,25 @@ const BATCHES = [
   'T5 Fire Brazier (FRONT): a stone tower with a fire bowl on top',
   'T6 Lighthouse Tower (FRONT): a small squat red and white lighthouse',
   'T7 Heart of the Reef (FRONT): a glowing teal crystal on a round coral rock']],
- ['D', 'Weapon and armament icons', 'high', [
-  'D1 Cannonballs (FRONT): three iron cannonballs',
-  'D2 Chain Shot (FRONT): two iron balls joined by a chain',
-  'D3 Grapeshot (FRONT): a cloth bag of small iron balls',
-  'D4 Depth Charges (FRONT): a round barrel bomb with a fuse',
-  'D5 Flame Barrels (FRONT): a wooden barrel with a flame on top',
-  'D6 Swivel Gun (FRONT): a small cannon on a post',
-  'D7 Harpoon (FRONT): a harpoon',
-  'D8 Deck Mortar (FRONT): a short fat mortar pointing up',
-  'D9 Powder Kegs (FRONT): two small kegs',
-  'D10 Stern Chaser (FRONT): a long cannon pointing back',
-  'D11 Broadside Battery (FRONT): three cannons side by side',
-  'D12 Sea Spirit (FRONT): a small blue water spirit',
-  "D13 St Elmo's Fire (FRONT): a blue flame"]],
- ['E', 'Upgrade icons', 'high', [
-  'E1 Gun Crew (FRONT): a stopwatch',
-  'E2 Heavy Shot (FRONT): a big cannonball',
-  'E3 Armour Plating (FRONT): an iron shield',
-  'E4 Reinforced Hull (FRONT): two wooden planks with an iron band',
-  'E5 Swift Sails (FRONT): a white sail',
-  'E6 Fine Rigging (FRONT): a coil of rope',
-  'E7 Lodestone (FRONT): a dark magnet stone',
-  'E8 Plunderer (FRONT): a bag of gold coins',
-  'E9 Fine Powder (FRONT): a powder horn',
-  'E10 Spyglass (FRONT): a brass spyglass',
-  'E11 Bilge Pumps (FRONT): a hand pump',
-  'E12 Iron Ram (FRONT): an iron ram head']],
+ ['D', 'Missing icons', 'high', [
+  'D1 Burst (FRONT): a round yellow-orange explosion burst (Grapeshot, Scattershot, ring of shot)',
+  'D2 Shock (FRONT): a small yellow star with a lightning crackle (Shock Shells)',
+  'D3 Ram (FRONT): an iron ram head on a prow (Iron Ram, warlord rams)',
+  'D4 Hook (FRONT): a grappling hook (Rigging Shredder)',
+  'D5 Keg (FRONT): a small black powder keg (Powder Kegs)',
+  'D6 Puff (FRONT): a small grey-white puff of smoke (Fine Powder, Swamp Gas)',
+  'D7 Medal (FRONT): a gold medal on a red ribbon (Seasoned)',
+  'D8 Finish flag (FRONT): a black and white chequered flag (Conqueror)',
+  'D9 Eye (FRONT): a single cartoon eye (Reef Defence reveal)',
+  'D10 Feather (FRONT): a white feather (Reef Defence flyer mark)',
+  'D11 Music note (FRONT): a pair of black music notes (Siren song)',
+  'D12 Dagger (FRONT): a small dagger (Glass Cannon)']],
+ ['E', 'Stand-in icons to replace', 'medium', [
+  'E1 Crossed swords (FRONT): two cutlasses crossed (crew, First Blood; now a single cutlass)',
+  'E2 Wrench (FRONT): a single spanner (Bilge Pumps; now a gear)',
+  'E3 Cannonballs (FRONT): three iron cannonballs in a pile (Cannonballs; now a cannon)',
+  'E4 Chain shot (FRONT): two iron balls joined by a short chain (Chain Shot; now a plain link)',
+  'E5 Wings (FRONT): a pair of small white wings (flyer mark; now one wing)']],
  ['F', 'Landmarks', 'medium', [
   'F1 Pirate fort (FRONT): a small stone fort with a black flag',
   'F2 Lighthouse (FRONT): a white lighthouse on a cliff',
@@ -353,9 +350,10 @@ document.addEventListener('click', async (ev) => {
 $('#std-img').src = '__STD_IMG__';
 
 const count = (p) => DATA.filter((d) => d.pri === p).length;
-$('#tally').innerHTML = [['done', 'simple style done', 0], ['high', 'redo · high (incl. emoji icons)', EMOJI.length + 1], ['medium', 'redo · medium', 1], ['low', 'redo · low', 0], ['keep', 'keep as code', 0]]
+$('#tally').innerHTML = [['done', 'simple style done', EMOJI.filter((e) => e.state === 'done').length], ['high', 'redo · high (incl. icons)', EMOJI.filter((e) => e.state === 'need' || e.state === 'standin').length + 1], ['medium', 'redo · medium', 1], ['low', 'redo · low', 0], ['keep', 'keep as code', 0]]
   .map(([p, l, extra]) => `<div class="p-${p}"><b>${count(p) + extra}</b><span>${l}</span></div>`).join('');
-$('#igrid').innerHTML = EMOJI.map((e) => `<div class="icon"><div class="g" aria-hidden="true">${e.e}</div><div class="u"><b>${e.n}×</b> · ${e.where.join(', ')}${e.ctx.length ? `<br>e.g. ${e.ctx.join(', ')}` : ''}</div></div>`).join('');
+const ISTATE = { need: ['t-high', 'Needs art'], standin: ['t-medium', 'Stand-in'], keep: ['t-keep', 'Keep'], done: ['t-done', 'Toy icon ✓'] };
+$('#igrid').innerHTML = EMOJI.map((e) => `<div class="icon is-${e.state}"><div class="g" aria-hidden="true">${e.img ? `<img src="${e.img}" alt="">` : e.e}<span class="ge">${e.img ? e.e : ''}</span></div><span class="tag ${ISTATE[e.state][0]}">${ISTATE[e.state][1]}</span><div class="u"><b>${e.n}×</b> · ${e.where.join(', ')}${e.ctx.length ? `<br>e.g. ${e.ctx.join(', ')}` : ''}${e.note ? `<br><i>${e.note}</i>` : ''}</div></div>`).join('');
 $('#cues').innerHTML = CUES.map((c) => `<code>${c}</code>`).join('');
 const match = (d, f) => f === 'all' || (f === 'need' ? NEED.includes(d.pri) : d.pri === f);
 const rank = { high: 0, medium: 1, low: 2, keep: 3, done: 4 };
