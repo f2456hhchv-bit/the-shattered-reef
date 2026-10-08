@@ -15,7 +15,7 @@ def _fx_tile(file, frame, cell=192):
     bg = Image.new('RGBA', (cell, cell), (37, 104, 138, 255)); bg.alpha_composite(im)
     b = io.BytesIO(); bg.convert('RGB').save(b, 'WEBP', quality=85)
     return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
-FX_TOY = {'Explosion': ('explosion', 4)}
+FX_TOY = {'Explosion': ('explosion', 4), 'Hit spark': ('hitspark', 0, 160), 'Splash': ('splash', 0, 160)}
 # Style status per asset (2026-10-06): toy = matches the toy-render ships;
 # old = painted in the earlier V3 style, needs restyling; code = drawn in code.
 TOY_SHIP_LOOKS={'Reef Skimmer','Ironclad Brigand','Rigger','Pirate Cutter','Pirate Brig','The Black Gale','Fire Ship','Mortar Gunboat','Ghost Ship','Drowned Skiff','The Drowned Admiral','Obsidian Galley','Dune Raider','Raider Longboat','Skimmer Raider','Ice Skiff','Drowned Rower','Sand Skiff'}
@@ -54,7 +54,7 @@ CAT={
  'Island decorations':('keep','Baked into the terrain at a few pixels across. Painted versions wouldn\'t be visible.'),
  'Weather objects':('low','Animated shapes; fine as code.'),
  'Weather effects (in play)':('medium','The rain, snow, ash and cloud overlays are plain code streaks and dots. The Weather V2 sheet\'s painted textures can replace them (code work; art already supplied).'),
- 'Effects':(None,'Explosions, splashes and smoke are the effects you see most in combat. The explosion is now a 12-frame toy animation (done 2026-10-08); splash, kill burst, hit spark and muzzle flash still need frame strips.'),
+ 'Effects':(None,'Explosions, splashes and smoke are the effects you see most in combat. The explosion is a 12-frame toy animation; hit spark and splash are single toy images that pop in and fade (all done 2026-10-08). Kill burst and muzzle flash are left.'),
  'Player shots':('keep','Tiny, fast and animated. Keep as code.'),
  'Enemy shots':('keep','Tiny, fast and animated. Keep as code.'),
  'In-world HUD':('keep','Readability elements: they must stay crisp at any zoom. Keep as code.'),

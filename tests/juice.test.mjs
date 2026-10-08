@@ -18,7 +18,8 @@ function seeded(seed) {
 test('spawnHitSpark adds the requested particle count, all alive with full life', () => {
   const pool = createParticlePool();
   spawnHitSpark(pool, 10, 20, '#fff', seeded(1), 6);
-  assert.equal(pool.length, 6);
+  assert.equal(pool.filter((p) => !p.sprite).length, 6); // plus one toy spark image
+  assert.equal(pool.length, 7);
   for (const p of pool) {
     assert.equal(p.life, p.maxLife);
     assert.ok(p.life > 0);
@@ -282,4 +283,18 @@ test('spawnExplosion adds one explosion-strip particle that plays every frame', 
   assert.equal(fxFrame(def, 0), 0);
   assert.equal(fxFrame(def, 0.999), def.frames - 1);
   assert.equal(fxFrame(def, 1.5), def.frames - 1);
+});
+
+test('hit sparks and big splashes add one toy pop image; small splashes stay droplets', async () => {
+  const { popShape } = await import('../src/engine/fxSprites.mjs');
+  const hit = createParticlePool();
+  spawnHitSpark(hit, 0, 0, '#fff', seeded(6), 8);
+  assert.equal(hit.filter((p) => p.sprite === 'hitspark').length, 1);
+  const big = createParticlePool(); spawnSplash(big, 0, 0, seeded(7), 12);
+  assert.equal(big.filter((p) => p.sprite === 'splash').length, 1);
+  const small = createParticlePool(); spawnSplash(small, 0, 0, seeded(7), 4);
+  assert.equal(small.filter((p) => p.sprite).length, 0);
+  assert.ok(popShape(0).scale < popShape(0.4).scale);
+  assert.equal(popShape(0.2).alpha, 1);
+  assert.equal(popShape(1).alpha, 0);
 });

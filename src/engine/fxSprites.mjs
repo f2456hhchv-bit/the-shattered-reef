@@ -5,7 +5,19 @@
 
 export const FX_SPRITES = {
   explosion: { file: 'explosion', frames: 12, cell: 192 },
+  // Single toy images played as a 'pop': grow fast, hold, fade out.
+  hitspark: { file: 'hitspark', frames: 1, cell: 160, mode: 'pop' },
+  splash: { file: 'splash', frames: 1, cell: 160, mode: 'pop' },
 };
+
+// Scale and opacity of a 'pop' at `t` (0..1 of its life): grows from 35%
+// to 110% over the first third, then fades through the second half.
+export function popShape(t) {
+  const g = Math.min(1, t / 0.33);
+  const scale = 0.35 + 0.75 * (1 - (1 - g) * (1 - g));
+  const alpha = t < 0.5 ? 1 : Math.max(0, 1 - (t - 0.5) / 0.5);
+  return { scale, alpha };
+}
 
 const images = {};
 export function loadFxSprites(base = 'assets/fx/') {
@@ -29,9 +41,15 @@ export function drawFxSprite(ctx, p) {
   const def = FX_SPRITES[p.sprite];
   const img = def && images[def.file];
   if (!img || !img.complete || !img.naturalWidth) return false;
-  const f = fxFrame(def, 1 - p.life / p.maxLife);
-  const d = p.size * 2;
+  const t = 1 - p.life / p.maxLife;
+  const f = fxFrame(def, t);
+  let d = p.size * 2;
   ctx.save();
+  if (def.mode === 'pop') {
+    const s = popShape(t);
+    d *= s.scale;
+    ctx.globalAlpha = s.alpha;
+  }
   ctx.translate(p.x, p.y);
   if (p.rot) ctx.rotate(p.rot);
   ctx.drawImage(img, f * def.cell, 0, def.cell, def.cell, -d / 2, -d / 2, d, d);

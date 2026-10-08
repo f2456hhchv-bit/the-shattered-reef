@@ -2782,6 +2782,21 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   strip, so every explosion in survival, Reef Defence and the intro uses
   it. The inventory's prompt kit has batch H (splash, kill burst, hit
   spark, muzzle flash) in the same 2-rows-of-6 format.
+- **Toy hit spark and splash** (same day): single images
+  (`assets/fx/hitspark.png`, `splash.png`, 160px) played as a `pop`
+  (`popShape` in `fxSprites.mjs`: grow 35%→110% over the first third, fade
+  over the second half). Every `spawnHitSpark` adds one (random rotation,
+  0.24s); `spawnSplash` adds one only for 8+ droplets, so wake and
+  near-miss splashes stay plain droplets. The owner also sent an 8-frame
+  GIF explosion; kept the 12-frame PNG strip (soft edges, more frames).
+  Left in batch H: kill burst and muzzle flash.
+- **Toy hit spark and splash** (same day): single images
+  (`assets/fx/hitspark.png`, `splash.png`, 160px) played as a `pop`
+  (`popShape` in `fxSprites.mjs`: grow 35%→110% over the first third, fade
+  over the second half). Every `spawnHitSpark` adds one (random rotation,
+  0.24s); `spawnSplash` adds one only for 8+ droplets, so wake and
+  near-miss splashes stay plain droplets. Left in batch H: kill burst and
+  muzzle flash.
 
 ## Decisions log
 

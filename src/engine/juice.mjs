@@ -26,9 +26,15 @@ function spawnParticle(pool, opts) {
   });
 }
 
+// One effect-image particle (engine/fxSprites.mjs draws it from its strip).
+function pushFx(pool, sprite, x, y, size, life, rot) {
+  pool.push({ id: nextParticleId++, sprite, x, y, vx: 0, vy: 0, life, maxLife: life, size, rot, color: '#fff', drag: 0 });
+}
+
 // A weapon-colored burst on a non-kill hit — the everyday "that landed"
 // feedback for every shot, direct or AoE.
 export function spawnHitSpark(pool, x, y, color, rng = Math.random, count = 8) {
+  pushFx(pool, 'hitspark', x, y, 7 + count * 0.5, 0.24, rng() * Math.PI * 2);
   for (let i = 0; i < count; i++) {
     const angle = rng() * Math.PI * 2;
     const speed = 40 + rng() * 90;
@@ -81,6 +87,9 @@ export function spawnExplosion(pool, x, y, radius, rng = Math.random) {
 
 // A small pale splash — wall impacts and the boat's idle wake trail.
 export function spawnSplash(pool, x, y, rng = Math.random, count = 6) {
+  // Bigger splashes (impacts, landings) get the toy splash image; the small
+  // wake and near-miss splashes stay as droplets.
+  if (count >= 8) pushFx(pool, 'splash', x, y, 6 + count * 1.1, 0.45, 0);
   for (let i = 0; i < count; i++) {
     const angle = rng() * Math.PI * 2;
     const speed = 15 + rng() * 45;
