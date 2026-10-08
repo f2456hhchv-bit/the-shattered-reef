@@ -2821,6 +2821,15 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   (Faction Hall: a pulsing gold glow on the banner of the selected
   faction, replacing the old raise-the-selected-banner animation). All
   six harbour buildings now match.
+- **Batch C, pickups** (same day): `assets/pickups/` (sea glass small/
+  medium/large, anchor coin, lodestone, life ring, chest; 128px, real
+  alpha) drawn by `engine/pickupSprites.mjs` (`PICKUP_SPRITES` heights
+  in world px, `gemSpriteFor(value)`). `survivalArt.mjs` (gems, coins,
+  lodestone), `renderer.mjs` (life ring) and `armamentArt.mjs` (chest)
+  use the sprite once loaded, keeping their code bob, glow, coin spin
+  and the chest's light beam and glints; code art is the fallback. Gem
+  tier colours in `data/survival.mjs` now match the art: 1 teal, 5
+  blue, 25 purple (5 was green).
 
 ## Decisions log
 

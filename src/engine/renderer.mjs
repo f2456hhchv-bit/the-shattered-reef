@@ -7,6 +7,7 @@ import { drawArmamentProjectile, drawChest, drawEliteAura } from './armamentArt.
 import { SPRITES, drawAttackTelegraphs, drawEnemyProjectiles, facingOf, windupGlow } from './enemySprites.mjs';
 import { ENEMY_SHIP_LOOKS, ENEMY_SHIP_LENGTH } from '../data/enemyShipLooks.mjs';
 import { creatureArtFor, drawCreature } from './creatureSprites.mjs';
+import { drawPickupSprite } from './pickupSprites.mjs';
 import { drawFxSprite } from './fxSprites.mjs';
 import { drawShipArt, SHIP_ART_SCALE } from './shipArt.mjs';
 import { shipSpriteReady, drawShipSprite } from './shipSprites.mjs';
@@ -673,6 +674,7 @@ export function drawPickup(ctx, pickup, label, t) {
     drawChest(ctx, pickup, t);
     return;
   }
+  if (pickup.kind === 'repair' && drawPickupSprite(ctx, 'ring')) { ctx.restore(); return; }
   if (pickup.kind === 'repair') {
     // A life ring with a green cross: reads as "help" at a glance, and
     // green is the one colour nothing hostile uses.

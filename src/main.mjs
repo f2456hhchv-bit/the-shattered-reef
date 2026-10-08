@@ -20,6 +20,7 @@ import { glowingDecorations } from './engine/terrainRenderer.mjs';
 import { BASE_BUILDINGS } from './data/base.mjs';
 import { buildBaseWorld, computeBaseView, boatOrbitPoint } from './engine/base.mjs';
 import { loadBuildingSprites } from './engine/buildingSprites.mjs';
+import { loadPickupSprites } from './engine/pickupSprites.mjs';
 import { loadTowerSprites } from './engine/towerSprites.mjs';
 import { drawBaseBuildings, drawGulls, BUILDING_SCALE, drawHarbourDecor } from './engine/baseRenderer.mjs';
 import { drawLandmarkKind } from './engine/islandArt.mjs';
@@ -92,7 +93,7 @@ export function startApp(root) {
   loadFxSprites();
   loadDev(window.localStorage);
   loadBuildingSprites();
-  loadTowerSprites();
+  loadTowerSprites(); loadPickupSprites();
   root.innerHTML = '';
   const canvas = document.createElement('canvas');
   canvas.id = 'game-canvas';

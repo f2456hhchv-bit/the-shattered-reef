@@ -5,6 +5,7 @@
 
 import { drawEnemyBody, drawPickup } from './renderer.mjs';
 import { drawLandmarkKind } from './islandArt.mjs';
+import { drawPickupSprite, pickupSpriteReady, gemSpriteFor } from './pickupSprites.mjs';
 
 const TAU = Math.PI * 2;
 const inView = (v, x, y, m = 30) => x > v.left - m && x < v.right + m && y > v.top - m && y < v.bottom + m;
@@ -29,6 +30,7 @@ function drawGem(ctx, p, t) {
   ctx.beginPath(); ctx.arc(0, 0, s * 2.1, 0, TAU); ctx.fill();
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
   ctx.rotate(Math.sin(t * 1.5 + p.id) * 0.3);
+  if (drawPickupSprite(ctx, gemSpriteFor(p.value))) { ctx.restore(); return; }
   ctx.fillStyle = tier.color; ctx.strokeStyle = 'rgba(10, 30, 40, 0.85)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, -s * 1.25); ctx.lineTo(s, 0); ctx.lineTo(0, s * 1.25); ctx.lineTo(-s, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.fillStyle = tier.glow;
@@ -43,6 +45,11 @@ function drawCoin(ctx, p, t) {
   ctx.save(); ctx.translate(p.x, p.y + bob);
   ctx.fillStyle = 'rgba(4, 30, 40, 0.3)'; ctx.beginPath(); ctx.ellipse(1.5, 3, R, R * 0.6, 0, 0, TAU); ctx.fill();
   ctx.scale(squash, 1);
+  if (drawPickupSprite(ctx, big ? 'coin_big' : 'coin')) {
+    const gl2 = (Math.sin(t * 4 + p.id) + 1) / 2;
+    ctx.fillStyle = `rgba(255, 250, 220, ${0.25 + gl2 * 0.6})`; ctx.beginPath(); ctx.arc(-R * 0.45, -R * 0.45, 1.2, 0, TAU); ctx.fill();
+    ctx.restore(); return;
+  }
   ctx.fillStyle = '#b7811f'; ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
   ctx.fillStyle = '#f2c14e'; ctx.beginPath(); ctx.arc(-0.4, -0.4, R - 1.2, 0, TAU); ctx.fill();
   // An anchor stamped on the face.
@@ -59,6 +66,14 @@ function drawMagnet(ctx, p, t) {
   const pulse = 0.5 + 0.5 * Math.sin(t * 6);
   ctx.strokeStyle = `rgba(160, 220, 255, ${0.3 + pulse * 0.4})`; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(0, 0, 11 + pulse * 3, 0, TAU); ctx.stroke();
+  if (pickupSpriteReady('lodestone')) {
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 14);
+    g.addColorStop(0, `rgba(120, 190, 255, ${0.25 + pulse * 0.25})`); g.addColorStop(1, 'rgba(120, 190, 255, 0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 14, 0, TAU); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    drawPickupSprite(ctx, 'lodestone'); ctx.restore(); return;
+  }
   ctx.lineWidth = 4.5; ctx.lineCap = 'butt';
   ctx.strokeStyle = '#c0392b'; ctx.beginPath(); ctx.arc(0, -1, 5, Math.PI, 0); ctx.stroke();
   ctx.strokeStyle = '#d8dde2';

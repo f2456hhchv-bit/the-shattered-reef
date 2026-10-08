@@ -141,3 +141,9 @@ test('tower sprites: every tower and the Heart has an image, upright on its grou
   }
   assert.ok(towerSpriteScale(3) > towerSpriteScale(1));
 });
+
+test('pickup sprites: every file exists, and sea glass maps by value', async () => {
+  const { PICKUP_SPRITES, gemSpriteFor } = await import('../src/engine/pickupSprites.mjs');
+  for (const s of Object.values(PICKUP_SPRITES)) assert.ok(existsSync(new URL(`../assets/pickups/${s.file}.png`, import.meta.url)), `${s.file}.png`);
+  assert.equal(gemSpriteFor(1), 'gem_small'); assert.equal(gemSpriteFor(5), 'gem_medium'); assert.equal(gemSpriteFor(25), 'gem_large');
+});

@@ -24,7 +24,7 @@ def _asset_tile(rel, size=160):
     b = io.BytesIO(); bg.convert('RGB').save(b, 'WEBP', quality=85)
     return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
 # Toy art supplied as plain images (batch B): name -> asset path.
-ASSET_TOY = {'Cannon Battery': 'towers/cannon', 'Grapeshot Nest': 'towers/grapeshot', 'Chain Mast': 'towers/chain', 'Depth Charge Post': 'towers/depth', 'Fire Brazier': 'towers/flame', 'Lighthouse tower': 'towers/lighthouse', 'Heart of the Reef': 'towers/heart', 'Charm Shrine': 'buildings/shrine', 'Tower Yard': 'buildings/lighthouse', 'Shipyard': 'buildings/shipyard', 'Armory': 'buildings/armory', 'Workshop': 'buildings/workshop', 'Faction Hall': 'buildings/hall'}
+ASSET_TOY = {'Cannon Battery': 'towers/cannon', 'Grapeshot Nest': 'towers/grapeshot', 'Chain Mast': 'towers/chain', 'Depth Charge Post': 'towers/depth', 'Fire Brazier': 'towers/flame', 'Lighthouse tower': 'towers/lighthouse', 'Heart of the Reef': 'towers/heart', 'Charm Shrine': 'buildings/shrine', 'Tower Yard': 'buildings/lighthouse', 'Shipyard': 'buildings/shipyard', 'Armory': 'buildings/armory', 'Workshop': 'buildings/workshop', 'Faction Hall': 'buildings/hall', 'Sea-glass gem (1 XP)': 'pickups/gem_small', 'Sea-glass gem (5 XP)': 'pickups/gem_medium', 'Sea-glass gem (25 XP)': 'pickups/gem_large', 'Anchor coin (Salvage)': 'pickups/coin', 'Lodestone (pull all)': 'pickups/lodestone', 'Life ring (repair)': 'pickups/ring', 'Treasure chest': 'pickups/chest'}
 FX_TOY = {'Explosion': ('explosion', 4), 'Hit spark': ('hitspark', 0, 160), 'Splash': ('splash', 5), 'Kill burst': ('killburst', 4), 'Muzzle flash': ('muzzle', 4, 192, 152)}
 # Style status per asset (2026-10-06): toy = matches the toy-render ships;
 # old = painted in the earlier V3 style, needs restyling; code = drawn in code.
@@ -69,7 +69,7 @@ CAT={
  'Enemy shots':('keep','Tiny, fast and animated. Keep as code.'),
  'In-world HUD':('keep','Readability elements: they must stay crisp at any zoom. Keep as code.'),
  'Ambient life':('low','Gulls drawn as two strokes. A small painted, flapping gull would be a nice touch, not a need.'),
- 'Pickups':('medium','Sea glass and coins are on screen constantly in survival. Toy versions (batch C) keep the code bob and glow on top.'),
+ 'Pickups':('done','All seven pickups are toy style (batch C, done 2026-10-08). The bob, glow, coin spin and chest light beam stay code. Sea glass is now teal (1), blue (5) and purple (25) to match the art.'),
  'UI · Screens':('medium','UI is built from CSS, so it\'s restyled in code, not swapped for images. A pass against the V3 UI style guide ties it to the new art.'),
  'UI · Harbour HUD':('medium','Restyle in code against the V3 UI guide; the icons inside are emoji (see Icons).'),
  'UI · Voyage card':('medium','Restyle in code against the V3 UI guide.'),

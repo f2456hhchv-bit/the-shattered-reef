@@ -2,6 +2,7 @@
 // Spirit's wisps, St Elmo's lightning, treasure chests, elite auras, the
 // lair's warding seals and the ward they cast over the boss. Canvas only,
 // world space; called from renderer.mjs / main.mjs.
+import { drawPickupSprite } from './pickupSprites.mjs';
 
 const TAU = Math.PI * 2;
 
@@ -129,6 +130,7 @@ export function drawChest(ctx, pickup, t) {
   ctx.fillStyle = 'rgba(4, 30, 40, 0.35)';
   ctx.beginPath(); ctx.ellipse(3, 6, 12, 6, 0, 0, TAU); ctx.fill();
   ctx.translate(0, bob);
+  if (drawPickupSprite(ctx, 'chest')) { chestGlints(ctx, pickup, t); ctx.restore(); return; }
   // Body
   ctx.fillStyle = '#5a3418'; ctx.fillRect(-10, -3, 20, 11);
   ctx.fillStyle = '#7d4a22'; ctx.fillRect(-9, -2, 18, 9);
@@ -144,7 +146,11 @@ export function drawChest(ctx, pickup, t) {
   ctx.fillStyle = '#ffe08a'; ctx.fillRect(-2, -2.5, 4, 4.5);
   ctx.fillStyle = '#4a2a10'; ctx.fillRect(-0.6, -1.2, 1.2, 2);
   ctx.strokeStyle = '#2e1a0a'; ctx.lineWidth = 1; ctx.strokeRect(-10, -3, 20, 11);
-  // Glints
+  chestGlints(ctx, pickup, t);
+  ctx.restore();
+}
+
+function chestGlints(ctx, pickup, t) {
   for (let i = 0; i < 3; i++) {
     const ph = (t * 0.9 + i / 3 + pickup.id * 0.13) % 1;
     const a = i * 2.1 + pickup.id;
@@ -153,7 +159,6 @@ export function drawChest(ctx, pickup, t) {
     const x = Math.cos(a) * r; const y = -6 + Math.sin(a) * r * 0.6 - ph * 6;
     ctx.fillRect(x - 0.6, y - 2, 1.2, 4); ctx.fillRect(x - 2, y - 0.6, 4, 1.2);
   }
-  ctx.restore();
 }
 
 // Elite: a rotating gold crown of light under the enemy.

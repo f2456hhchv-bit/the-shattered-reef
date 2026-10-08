@@ -76,8 +76,8 @@ export function xpToNext(lv, stage = 1) {
 // Sea glass: XP gems by value. Many small gems merge into bigger ones
 // when there are too many on the water.
 export const GEMS = Object.freeze([
-  { value: 1, color: '#6fd3ff', glow: '#bff0ff' },
-  { value: 5, color: '#5fe08a', glow: '#c8ffd8' },
+  { value: 1, color: '#4fe0cf', glow: '#c4fff4' },
+  { value: 5, color: '#4aa3ff', glow: '#c6e4ff' },
   { value: 25, color: '#c77dff', glow: '#f0d6ff' },
 ]);
 export const GEM_CAP = 220;
