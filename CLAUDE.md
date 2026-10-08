@@ -2814,6 +2814,13 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   lighthouse images were replaced; `buildingSprites.mjs` now carries the
   shrine portal and lighthouse lamp positions, read by `baseRenderer.mjs`.
   Left in batch B: Armory, Workshop, Faction Hall, Shipyard (B1-B4).
+- **Batch B complete** (same day): Shipyard (replaced), Armory, Workshop
+  and Faction Hall are toy sprites in `assets/buildings/` (real alpha; a
+  red keying fringe was stripped). `BUILDING_SPRITES` gained `forge`
+  (Workshop: a flickering forge glow drawn over it) and `banners`
+  (Faction Hall: a pulsing gold glow on the banner of the selected
+  faction, replacing the old raise-the-selected-banner animation). All
+  six harbour buildings now match.
 
 ## Decisions log
 

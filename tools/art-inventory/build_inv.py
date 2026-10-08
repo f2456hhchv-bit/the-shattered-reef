@@ -24,7 +24,7 @@ def _asset_tile(rel, size=160):
     b = io.BytesIO(); bg.convert('RGB').save(b, 'WEBP', quality=85)
     return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
 # Toy art supplied as plain images (batch B): name -> asset path.
-ASSET_TOY = {'Cannon Battery': 'towers/cannon', 'Grapeshot Nest': 'towers/grapeshot', 'Chain Mast': 'towers/chain', 'Depth Charge Post': 'towers/depth', 'Fire Brazier': 'towers/flame', 'Lighthouse tower': 'towers/lighthouse', 'Heart of the Reef': 'towers/heart', 'Charm Shrine': 'buildings/shrine', 'Tower Yard': 'buildings/lighthouse'}
+ASSET_TOY = {'Cannon Battery': 'towers/cannon', 'Grapeshot Nest': 'towers/grapeshot', 'Chain Mast': 'towers/chain', 'Depth Charge Post': 'towers/depth', 'Fire Brazier': 'towers/flame', 'Lighthouse tower': 'towers/lighthouse', 'Heart of the Reef': 'towers/heart', 'Charm Shrine': 'buildings/shrine', 'Tower Yard': 'buildings/lighthouse', 'Shipyard': 'buildings/shipyard', 'Armory': 'buildings/armory', 'Workshop': 'buildings/workshop', 'Faction Hall': 'buildings/hall'}
 FX_TOY = {'Explosion': ('explosion', 4), 'Hit spark': ('hitspark', 0, 160), 'Splash': ('splash', 5), 'Kill burst': ('killburst', 4), 'Muzzle flash': ('muzzle', 4, 192, 152)}
 # Style status per asset (2026-10-06): toy = matches the toy-render ships;
 # old = painted in the earlier V3 style, needs restyling; code = drawn in code.
@@ -55,7 +55,7 @@ CAT={
  'Enemies':('done','Enemy ships are the toy hulls recoloured, and every creature is now toy-style art (batch G, done 2026-10-07).'),
  'Bosses':('done','All ten bosses and the Warding Seal are toy style (batch A, done 2026-10-08). Black Gale and Drowned Admiral are now bespoke top-down ships rather than recoloured hulls.'),
  'Boss effects':('keep','Rings, auras and the ward are animated effects drawn over the sprite. Keep as code.'),
- 'Harbour buildings':('high','First screen anyone sees. Tower Yard and Charm Shrine are toy style (batch B, 2026-10-08); Shipyard is older painted art and Armory, Workshop and Faction Hall are code. Those four are next (B1-B4).'),
+ 'Harbour buildings':('done','All six harbour buildings are toy style (batch B, done 2026-10-08). The lighthouse beam, shrine portal, forge glow and the gold glow on your faction\'s banner are code overlays.'),
  'Harbour props':('low','Small and animated (blinking buoys, foam). Fine as code.'),
  'Landmarks':('medium','Set pieces on arena islands and the chart. Toy FRONT-view versions, batch F.'),
  'Reef Defence':('keep','All six towers and the Heart of the Reef are toy style (batch B, done 2026-10-08). Level pips, the specialisation ring and status marks stay code overlays, as do the build spot and mine; the cannon barrels no longer swivel to aim.'),
@@ -94,7 +94,6 @@ for o in items:
     if o['style']=='toy': o['pri']='done'
     elif o['cat']=='Enemies' and o['style']=='old': o['pri']='high' if n in EARLY else 'medium'
     elif o['cat']=='Effects': o['pri']=FX.get(o['name'],'keep')
-    elif o['cat']=='Harbour buildings': o['pri']='high'
     else: o['pri']=pr or 'keep'
     o.pop('status',None)
 order={c:i for i,(_,_,cs) in enumerate(TYPES) for c in cs}

@@ -219,6 +219,7 @@ function shrineGlow(ctx, px, py, R, t) {
 
 function drawArmory(ctx, b, t) {
   const { x, y } = b;
+  if (drawBuildingSprite(ctx, 'armory', x, y + 4)) return;
   shadow(ctx, x, y + 2, 34, 12);
   // Stone blockhouse with a flat, crenellated roof.
   const w = 46; const h = 26;
@@ -258,6 +259,17 @@ function drawArmory(ctx, b, t) {
 
 function drawWorkshop(ctx, b, t) {
   const { x, y } = b;
+  const wr = drawBuildingSprite(ctx, 'workshop', x, y + 4);
+  if (wr) {
+    // The forge breathes.
+    const [fx, fy] = BUILDING_SPRITES.workshop.forge;
+    const fl = 0.6 + Math.sin(t * 11) * 0.2 + Math.sin(t * 17) * 0.12;
+    const cx = wr.x + wr.w * fx; const cy = wr.y + wr.h * fy;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, wr.h * 0.3);
+    g.addColorStop(0, `rgba(255, 170, 60, ${0.45 * fl})`); g.addColorStop(1, 'rgba(255, 120, 40, 0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, wr.h * 0.3, 0, TAU); ctx.fill();
+    return;
+  }
   shadow(ctx, x, y + 3, 32, 12);
   box(ctx, x, y, 46, 24, 20, '#8a6040', '#5c3d24', '#5b6068', '#3e4248');
   // Forge mouth with flickering glow.
@@ -289,6 +301,21 @@ function drawWorkshop(ctx, b, t) {
 
 function drawHall(ctx, b, t, state) {
   const { x, y } = b;
+  const hr = drawBuildingSprite(ctx, 'hall', x, y + 4);
+  if (hr) {
+    // A gold glow on the banner of the faction you sail under.
+    const k = ['reavers', 'wyrdtide', 'iron_accord'].indexOf(state.selectedFaction);
+    if (k >= 0) {
+      const [bx, by] = BUILDING_SPRITES.hall.banners[k];
+      const cx = hr.x + hr.w * bx; const cy = hr.y + hr.h * by; const r = hr.h * 0.22;
+      const pulse = 0.55 + Math.sin(t * 3) * 0.2;
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, `rgba(255, 220, 120, ${0.5 * pulse})`); g.addColorStop(1, 'rgba(255, 200, 80, 0)');
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill(); ctx.restore();
+    }
+    return;
+  }
   shadow(ctx, x, y + 3, 36, 12);
   // Keep: a tall stone hall with a steep roof and lit windows.
   box(ctx, x, y, 44, 34, 24, '#a58d6a', '#6e5a3e', '#34546b', '#243c4e');
