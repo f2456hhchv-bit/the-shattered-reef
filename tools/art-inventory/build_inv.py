@@ -51,25 +51,25 @@ TYPES=[
  ('sound','Sound',[]),
 ]
 CAT={
- 'Player ships':('done','All 7 hulls are toy-style 5-view sets (bow, bow-quarter, side, stern-quarter, stern), mirrored to 16 headings. This is the style every other asset must match.'),
- 'Enemies':('done','Enemy ships are the toy hulls recoloured, and every creature is now toy-style art (batch G, done 2026-10-07).'),
- 'Bosses':('done','All ten bosses and the Warding Seal are toy style (batch A, done 2026-10-08). Black Gale and Drowned Admiral are now bespoke top-down ships rather than recoloured hulls.'),
+ 'Player ships':('high','All 7 hulls are first-pass toy art: rigging, ropes, cannons and plank lines make them busier than the simple standard. Redo as simple 5-view sets (batch S); every enemy ship is recoloured from these, so they follow for free.'),
+ 'Enemies':('medium','Sharks, jellies, squid, wisps, bats, the narwhal, serpent and troll already pass. The rest have scales, patterns or too many parts: simplify them (batch G). Enemy ships follow the player hulls.'),
+ 'Bosses':('medium',"Kraken's Anchor, Frost Leviathan and the Warding Seal pass. The other bosses are busy: simplify (batch A)."),
  'Boss effects':('keep','Rings, auras and the ward are animated effects drawn over the sprite. Keep as code.'),
- 'Harbour buildings':('done','All six harbour buildings are toy style (batch B, done 2026-10-08). The lighthouse beam, shrine portal, forge glow and the gold glow on your faction\'s banner are code overlays.'),
+ 'Harbour buildings':('high',"The harbour terrain and UI are already in the simple style (2026-10-08), so these busy buildings clash most. Redo all six (batch B), a few big blocks each. The lamp beam, portal, forge glow and banner glow stay code overlays."),
  'Harbour props':('low','Small and animated (blinking buoys, foam). Fine as code.'),
  'Landmarks':('medium','Set pieces on arena islands and the chart. Toy FRONT-view versions, batch F.'),
- 'Reef Defence':('keep','All six towers and the Heart of the Reef are toy style (batch B, done 2026-10-08). Level pips, the specialisation ring and status marks stay code overlays, as do the build spot and mine; the cannon barrels no longer swivel to aim.'),
+ 'Reef Defence':('keep','The six towers are busy (props, planks, crates): simplify (batch T). The Heart is close; low. Level pips and rings stay code.'),
  'Terrain (biome islands)':('keep','Generated from each level\'s shape, so it can\'t be swapped for painted tiles. Its look changes through colours and textures in code.'),
  'Terrain in play (arena view)':('keep','Same renderer, as seen in play.'),
  'Island decorations':('keep','Baked into the terrain at a few pixels across. Painted versions wouldn\'t be visible.'),
  'Weather objects':('low','Animated shapes; fine as code.'),
  'Weather effects (in play)':('medium','The rain, snow, ash and cloud overlays are plain code streaks and dots. The Weather V2 sheet\'s painted textures can replace them (code work; art already supplied).'),
- 'Effects':(None,'Explosions, splashes and smoke are the effects you see most in combat. The explosion, splash, kill burst and muzzle flash are 12-frame toy animations; the hit spark is a single toy image that pops in and fades (all done 2026-10-08).'),
+ 'Effects':(None,'Already simple. Explosions, splashes and smoke are the effects you see most in combat. The explosion, splash, kill burst and muzzle flash are 12-frame toy animations; the hit spark is a single toy image that pops in and fades (all done 2026-10-08).'),
  'Player shots':('keep','Tiny, fast and animated. Keep as code.'),
  'Enemy shots':('keep','Tiny, fast and animated. Keep as code.'),
  'In-world HUD':('keep','Readability elements: they must stay crisp at any zoom. Keep as code.'),
  'Ambient life':('low','Gulls drawn as two strokes. A small painted, flapping gull would be a nice touch, not a need.'),
- 'Pickups':('done','All seven pickups are toy style (batch C, done 2026-10-08). The bob, glow, coin spin and chest light beam stay code. Sea glass is now teal (1), blue (5) and purple (25) to match the art.'),
+ 'Pickups':('done','Already simple: chunky single objects, flat colours. Keep.'),
  'UI · Screens':('medium','UI is built from CSS, so it\'s restyled in code, not swapped for images. A pass against the V3 UI style guide ties it to the new art.'),
  'UI · Harbour HUD':('medium','Restyle in code against the V3 UI guide; the icons inside are emoji (see Icons).'),
  'UI · Voyage card':('medium','Restyle in code against the V3 UI guide.'),
@@ -82,6 +82,13 @@ CAT={
  'UI · Reef Defence UI':('medium','Restyle in code against the V3 UI guide.'),
 }
 FX={'Explosion':'medium','Splash':'medium','Kill burst':'low','Hit spark':'low','Muzzle flash':'low'}
+# Review against the simple-toy standard (2026-10-08, harbour mockup).
+# 'simple' = already passes; 'toy' = first toy pass, too busy, simplify.
+SIMPLE={'Sea-glass gem (1 XP)','Sea-glass gem (5 XP)','Sea-glass gem (25 XP)','Anchor coin (Salvage)','Lodestone (pull all)','Life ring (repair)','Treasure chest',
+ 'Explosion','Hit spark','Splash','Kill burst','Muzzle flash',
+ 'Jelly Bloom','Drift Jelly','Ink Squid','Frost Narwhal','Reef Shark','Frost Wisp','Cinder Bat','Cave Bat','Warding Seal',"The Kraken's Anchor",'The Frost Leviathan','Sea Serpent','Deep Troll'}
+SIMPLIFY_LOW={'Siren','Heart of the Reef','Bone Vulture','Prism Sprite'}
+TOY_PRI={'Player ships':'high','Harbour buildings':'high','Bosses':'medium','Enemies':'medium','Reef Defence':'medium'}
 for o in items:
     pr=CAT.get(o['cat'],(None,''))[0]
     n=o['name']
@@ -91,7 +98,11 @@ for o in items:
     elif o['status']=='fallback': o['style']='old'
     else: o['style']='code'
     if n in SPR and n not in ASSET_TOY and o['cat'] in ('Player ships','Enemies','Bosses','Harbour buildings'): o['img']=SPR[n]
-    if o['style']=='toy': o['pri']='done'
+    if o['style']=='toy' and n in SIMPLE: o['style']='simple'; o['pri']='done'
+    elif o['style']=='toy':
+        if n in TOY_SHIP_LOOKS and o['cat']!='Bosses': o['pri']='low'  # follows the player hull art once redone
+        elif n in SIMPLIFY_LOW: o['pri']='low'
+        else: o['pri']=TOY_PRI.get(o['cat'],'medium')
     elif o['cat']=='Enemies' and o['style']=='old': o['pri']='high' if n in EARLY else 'medium'
     elif o['cat']=='Effects': o['pri']=FX.get(o['name'],'keep')
     else: o['pri']=pr or 'keep'
@@ -107,6 +118,12 @@ cnt['high']+=len(emoji)
 print(Counter(o['style'] for o in items if o['cat'] in ('Player ships','Enemies','Bosses','Harbour buildings')))
 print(cnt, len(items))
 tpl=open('inv_template.html').read()
-html=tpl.replace('__DATA__',json.dumps(items)).replace('__NOTES__',json.dumps(notes)).replace('__TYPES__',json.dumps([[a,b,c] for a,b,c in TYPES])).replace('__EMOJI__',json.dumps(emoji,ensure_ascii=False))
+def _std_img():
+    import base64, io
+    from PIL import Image
+    im = Image.open('/home/claude/the-shattered-reef/docs/art-reference/toy-simple/harbour-mockup.png').convert('RGB'); im.thumbnail((360, 540))
+    b = io.BytesIO(); im.save(b, 'WEBP', quality=82)
+    return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
+html=tpl.replace('__STD_IMG__', _std_img()).replace('__DATA__',json.dumps(items)).replace('__NOTES__',json.dumps(notes)).replace('__TYPES__',json.dumps([[a,b,c] for a,b,c in TYPES])).replace('__EMOJI__',json.dumps(emoji,ensure_ascii=False))
 open('art-inventory.html','w').write(html)
 print(len(html)//1024,'KB')

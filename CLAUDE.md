@@ -2840,6 +2840,23 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   with a plain red dot (`labelPx` 64×54). The current detailed building
   and ship sprites now look busier than the mockup's simple shapes; next
   is whether the arena terrain/HUD and the art follow (ask the owner).
+- **Art standard changed to "simple toy"** (same day). Owner: keep the
+  game's current art for now, but rewrite the inventory so every new
+  asset is as simple as the harbour mockup, and review everything
+  against it. The mockup is kept at
+  `docs/art-reference/toy-simple/harbour-mockup.png` and is the
+  inventory's standard image. The standard, master header, ship brief,
+  drift fixes and batches (B buildings, S ships, A/G busy bosses and
+  creatures, T towers, D/E icons, F landmarks) are rewritten around "a
+  few big blocks, 3-4 flat colours, no small props". Review result
+  (`SIMPLE` / `SIMPLIFY_LOW` / `TOY_PRI` in `build_inv.py`):
+  - **Pass:** pickups, effects, Reef Shark, Frost Narwhal, Jelly Bloom,
+    Ink Squid, Frost Wisp, the bats, Sea Serpent, Deep Troll, Warding
+    Seal, Kraken's Anchor, Frost Leviathan.
+  - **Redo, high:** all 6 harbour buildings and all 7 player hulls.
+  - **Redo, medium:** 9 bosses, 16 creatures, 6 towers.
+  - **Redo, low:** the Heart, Siren, Bone Vulture, Prism Sprite, and the
+    enemy ships (they follow the hulls).
 
 ## Decisions log
 
