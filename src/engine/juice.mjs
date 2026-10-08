@@ -89,7 +89,7 @@ export function spawnExplosion(pool, x, y, radius, rng = Math.random) {
 export function spawnSplash(pool, x, y, rng = Math.random, count = 6) {
   // Bigger splashes (impacts, landings) get the toy splash image; the small
   // wake and near-miss splashes stay as droplets.
-  if (count >= 8) pushFx(pool, 'splash', x, y, 6 + count * 1.1, 0.45, 0);
+  if (count >= 8) pushFx(pool, 'splash', x, y, 7 + count * 1.25, 0.55, 0);
   for (let i = 0; i < count; i++) {
     const angle = rng() * Math.PI * 2;
     const speed = 15 + rng() * 45;

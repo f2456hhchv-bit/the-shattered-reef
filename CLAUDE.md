@@ -2790,6 +2790,10 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   near-miss splashes stay plain droplets. The owner also sent an 8-frame
   GIF explosion; kept the 12-frame PNG strip (soft edges, more frames).
   Left in batch H: kill burst and muzzle flash.
+- **Splash is now 12 frames** (same day): the owner's 3×4 sheet, cut to
+  `assets/fx/splash.png` (192px cells, anchored on each frame's base so
+  the crown rises from one spot), replacing the single-image pop. Size
+  7 + count × 1.25, 0.55s.
 - **Toy hit spark and splash** (same day): single images
   (`assets/fx/hitspark.png`, `splash.png`, 160px) played as a `pop`
   (`popShape` in `fxSprites.mjs`: grow 35%→110% over the first third, fade

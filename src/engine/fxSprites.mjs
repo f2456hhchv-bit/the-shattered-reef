@@ -5,9 +5,9 @@
 
 export const FX_SPRITES = {
   explosion: { file: 'explosion', frames: 12, cell: 192 },
-  // Single toy images played as a 'pop': grow fast, hold, fade out.
+  splash: { file: 'splash', frames: 12, cell: 192 },
+  // Single toy image played as a 'pop': grow fast, hold, fade out.
   hitspark: { file: 'hitspark', frames: 1, cell: 160, mode: 'pop' },
-  splash: { file: 'splash', frames: 1, cell: 160, mode: 'pop' },
 };
 
 // Scale and opacity of a 'pop' at `t` (0..1 of its life): grows from 35%
