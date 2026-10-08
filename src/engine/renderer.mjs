@@ -7,6 +7,7 @@ import { drawArmamentProjectile, drawChest, drawEliteAura } from './armamentArt.
 import { SPRITES, drawAttackTelegraphs, drawEnemyProjectiles, facingOf, windupGlow } from './enemySprites.mjs';
 import { ENEMY_SHIP_LOOKS, ENEMY_SHIP_LENGTH } from '../data/enemyShipLooks.mjs';
 import { creatureArtFor, drawCreature } from './creatureSprites.mjs';
+import { drawFxSprite } from './fxSprites.mjs';
 import { drawShipArt, SHIP_ART_SCALE } from './shipArt.mjs';
 import { shipSpriteReady, drawShipSprite } from './shipSprites.mjs';
 export { drawEnemyProjectiles };
@@ -733,6 +734,11 @@ export function drawPickups(ctx, pickups, labelFor, t) {
 // transformed block as everything else above, not as a screen-space overlay.
 export function drawParticles(ctx, particles) {
   for (const p of particles) {
+    if (p.sprite) {
+      ctx.globalAlpha = 1;
+      drawFxSprite(ctx, p); // nothing until the strip loads; embers still show
+      continue;
+    }
     ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
     ctx.fillStyle = p.color;
     ctx.beginPath();

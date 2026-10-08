@@ -58,7 +58,16 @@ export function spawnKillBurst(pool, x, y, color, rng = Math.random) {
 // A fiery ring for Depth Charges' AoE detonation — bigger radius, bigger
 // burst, so an off-screen-ish blast still reads clearly.
 export function spawnExplosion(pool, x, y, radius, rng = Math.random) {
-  const count = Math.max(10, Math.round(radius / 1.6));
+  // The toy explosion strip (engine/fxSprites.mjs) is the blast itself; its
+  // frames grow, so `size` is the half-width of the whole animation. A few
+  // embers fly out on top.
+  pool.push({
+    id: nextParticleId++, sprite: 'explosion', x, y, vx: 0, vy: 0,
+    life: 0.42 + Math.min(0.2, radius / 250), maxLife: 0, size: Math.max(14, radius * 1.25),
+    rot: rng() * Math.PI * 2, color: '#e8b54b', drag: 0,
+  });
+  pool[pool.length - 1].maxLife = pool[pool.length - 1].life;
+  const count = Math.max(4, Math.round(radius / 4));
   for (let i = 0; i < count; i++) {
     const angle = rng() * Math.PI * 2;
     const speed = radius * (1.3 + rng() * 1.2);

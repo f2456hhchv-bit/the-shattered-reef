@@ -5,6 +5,17 @@ emoji=json.load(open('emoji.json'))
 # Real sprites as they draw in game (spritedata.mjs), keyed by name.
 SPR={o['name']:o['img'] for o in json.load(open('sprite-data.json'))}
 SPR={**SPR, **{k.lower():v for k,v in SPR.items()}}
+# Frame-animated toy effects (assets/fx): show the peak frame on a sea tile.
+def _fx_tile(file, frame, cell=192):
+    import base64, io, os
+    from PIL import Image
+    src = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'assets', 'fx', file + '.png')
+    if not os.path.exists(src): src = '/home/claude/the-shattered-reef/assets/fx/' + file + '.png'
+    im = Image.open(src).crop((frame * cell, 0, frame * cell + cell, cell))
+    bg = Image.new('RGBA', (cell, cell), (37, 104, 138, 255)); bg.alpha_composite(im)
+    b = io.BytesIO(); bg.convert('RGB').save(b, 'WEBP', quality=85)
+    return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
+FX_TOY = {'Explosion': ('explosion', 4)}
 # Style status per asset (2026-10-06): toy = matches the toy-render ships;
 # old = painted in the earlier V3 style, needs restyling; code = drawn in code.
 TOY_SHIP_LOOKS={'Reef Skimmer','Ironclad Brigand','Rigger','Pirate Cutter','Pirate Brig','The Black Gale','Fire Ship','Mortar Gunboat','Ghost Ship','Drowned Skiff','The Drowned Admiral','Obsidian Galley','Dune Raider','Raider Longboat','Skimmer Raider','Ice Skiff','Drowned Rower','Sand Skiff'}
@@ -43,7 +54,7 @@ CAT={
  'Island decorations':('keep','Baked into the terrain at a few pixels across. Painted versions wouldn\'t be visible.'),
  'Weather objects':('low','Animated shapes; fine as code.'),
  'Weather effects (in play)':('medium','The rain, snow, ash and cloud overlays are plain code streaks and dots. The Weather V2 sheet\'s painted textures can replace them (code work; art already supplied).'),
- 'Effects':(None,'Explosions, splashes and smoke are the effects you see most in combat. Painted sprite sheets for those would lift the feel of every fight; the rest are fine as code.'),
+ 'Effects':(None,'Explosions, splashes and smoke are the effects you see most in combat. The explosion is now a 12-frame toy animation (done 2026-10-08); splash, kill burst, hit spark and muzzle flash still need frame strips.'),
  'Player shots':('keep','Tiny, fast and animated. Keep as code.'),
  'Enemy shots':('keep','Tiny, fast and animated. Keep as code.'),
  'In-world HUD':('keep','Readability elements: they must stay crisp at any zoom. Keep as code.'),
@@ -64,7 +75,8 @@ FX={'Explosion':'medium','Splash':'medium','Kill burst':'low','Hit spark':'low',
 for o in items:
     pr=CAT.get(o['cat'],(None,''))[0]
     n=o['name']
-    if o['cat']=='Player ships' or n in TOY: o['style']='toy'
+    if n in FX_TOY: o['style']='toy'; o['img']=_fx_tile(*FX_TOY[n])
+    elif o['cat']=='Player ships' or n in TOY: o['style']='toy'
     elif o['status']=='fallback': o['style']='old'
     else: o['style']='code'
     if n in SPR and o['cat'] in ('Player ships','Enemies','Bosses','Harbour buildings'): o['img']=SPR[n]

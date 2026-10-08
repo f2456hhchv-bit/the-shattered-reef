@@ -270,3 +270,16 @@ test('triangle-tagged numbers stay on screen longer than plain ones', () => {
   spawnDamageNumber(pool, 0, 0, 5, { triangle: 'advantage' });
   assert.ok(pool[1].maxLife > pool[0].maxLife);
 });
+
+test('spawnExplosion adds one explosion-strip particle that plays every frame', async () => {
+  const { FX_SPRITES, fxFrame } = await import('../src/engine/fxSprites.mjs');
+  const pool = createParticlePool();
+  spawnExplosion(pool, 3, 4, 40, seeded(5));
+  const s = pool.filter((p) => p.sprite === 'explosion');
+  assert.equal(s.length, 1);
+  assert.ok(s[0].size >= 40 && s[0].maxLife === s[0].life);
+  const def = FX_SPRITES.explosion;
+  assert.equal(fxFrame(def, 0), 0);
+  assert.equal(fxFrame(def, 0.999), def.frames - 1);
+  assert.equal(fxFrame(def, 1.5), def.frames - 1);
+});

@@ -62,6 +62,7 @@ import {
 } from './engine/survivalArt.mjs';
 import { drawLords } from './engine/warlordArt.mjs';
 import { loadCreatureSprites } from './engine/creatureSprites.mjs';
+import { loadFxSprites } from './engine/fxSprites.mjs';
 import { loadShipSprites, shipSpriteReady, hasShipSprite, whenShipSpriteReady } from './engine/shipSprites.mjs';
 import {
   lockedPool, levelsWonTotal, newlyUnlocked, nextPoolUnlock, purchaseLivery, selectLivery, liveryColours, dailyVoyage, dailyReward,
@@ -87,6 +88,7 @@ export function startApp(root) {
   installViewportFix();
   loadShipSprites();
   loadCreatureSprites();
+  loadFxSprites();
   loadDev(window.localStorage);
   loadBuildingSprites();
   root.innerHTML = '';

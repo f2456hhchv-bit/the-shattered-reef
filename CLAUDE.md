@@ -2772,6 +2772,16 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   from `drawEnemy`'s invulnerable alpha). The two ships' sheets were a
   painted checkerboard, keyed by colour. Next: buildings (B), icons
   (D/E), pickups (C), towers and landmarks (F).
+- **Toy explosion, frame by frame** (2026-10-08): `assets/fx/explosion.png`
+  is a 12-frame strip (192px cells, one shared scale so the growth is in
+  the art) cut from the owner's 2×6 sheet. `engine/fxSprites.mjs`
+  (`FX_SPRITES`, `loadFxSprites`, `fxFrame`, `drawFxSprite`) plays any
+  strip over a particle's life: `spawnExplosion` now pushes one
+  `sprite: 'explosion'` particle (half-width radius × 1.25, ~0.45-0.6s)
+  plus a few embers, and `drawParticles` draws sprite particles from their
+  strip, so every explosion in survival, Reef Defence and the intro uses
+  it. The inventory's prompt kit has batch H (splash, kill burst, hit
+  spark, muzzle flash) in the same 2-rows-of-6 format.
 
 ## Decisions log
 
