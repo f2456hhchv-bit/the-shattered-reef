@@ -126,3 +126,18 @@ test('building sprites: files exist, ids are real buildings, art stands on its g
     assert.ok(r.h < 120 && r.w < 100, `${id} fits the building footprint`);
   }
 });
+
+test('tower sprites: every tower and the Heart has an image, upright on its ground point', async () => {
+  const { TOWER_SPRITES, towerSpriteRect, towerSpriteScale } = await import('../src/engine/towerSprites.mjs');
+  const { TOWERS } = await import('../src/data/towers.mjs');
+  for (const id of [...Object.keys(TOWERS), 'heart']) {
+    const s = TOWER_SPRITES[id];
+    assert.ok(s, `${id} has a sprite entry`);
+    const path = new URL(`../assets/towers/${s.file}.png`, import.meta.url);
+    assert.ok(existsSync(path), `${s.file}.png`);
+    const { w, h } = pngSize(path);
+    const r = towerSpriteRect(id, 0, 0, 1, { w, h });
+    assert.ok(Math.abs(r.x + r.w / 2) < 1e-9 && r.y < -10 && r.y + r.h > 0, `${id} upright`);
+  }
+  assert.ok(towerSpriteScale(3) > towerSpriteScale(1));
+});

@@ -6,6 +6,7 @@
 // view so they read as buildings standing on the island.
 
 import { shadow } from './baseRenderer.mjs';
+import { drawTowerSprite, towerSpriteReady, towerSpriteScale, towerLampPoint, towerSpriteRect, TOWER_SPRITES } from './towerSprites.mjs';
 
 const TAU = Math.PI * 2;
 
@@ -197,7 +198,7 @@ export function drawLighthouseBeams(ctx, towers, rangeOf, t) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const T of towers) {
     if (T.towerId !== 'lighthouse') continue;
-    const r = rangeOf(T); const ly = T.y - 24 - T.level * 5 - 5;
+    const r = rangeOf(T); const lp = towerLampPoint(T); const ly = lp ? lp.y : T.y - 24 - T.level * 5 - 5;
     const a = t * 0.8 + T.id;
     const blind = T.spec === 'blinding_lamp';
     for (const off of blind ? [0, Math.PI * 2 / 3, Math.PI * 4 / 3] : [0, Math.PI]) {
@@ -213,12 +214,25 @@ export function drawLighthouseBeams(ctx, towers, rangeOf, t) {
 const DRAW = { cannon: drawCannon, grapeshot: drawGrape, chain: drawChain, depth: drawDepth, flame: drawFlame, lighthouse: drawLightTower };
 
 export function drawTower(ctx, T, t) {
-  stonePad(ctx, T.x, T.y + 3, 13, !!T.spec);
+  const toy = towerSpriteReady(T.towerId);
+  if (!toy) stonePad(ctx, T.x, T.y + 3, 13, !!T.spec);
   // A fresh tower rises out of the ground.
   const age = T.builtAge ?? 1;
   ctx.save();
   if (age < 1) { const k = 0.4 + 0.6 * easeOutBack(age); ctx.translate(T.x, T.y); ctx.scale(k, k); ctx.translate(-T.x, -T.y); }
-  DRAW[T.towerId](ctx, T, t);
+  if (toy) {
+    // Toy art: a gold ring under a specialised tower; a recoil bob on firing.
+    if (T.spec) { ctx.strokeStyle = 'rgba(217, 179, 74, 0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(T.x, T.y + 4, 15, 6.5, 0, 0, TAU); ctx.stroke(); }
+    drawTowerSprite(ctx, T.towerId, T.x, T.y + (T.recoil || 0) * 1.2, towerSpriteScale(T.level));
+    if (T.towerId === 'lighthouse') {
+      const p = towerLampPoint(T);
+      const pulse = 0.8 + Math.sin(t * 3 + (T.id || 0)) * 0.2;
+      const lamp = T.spec === 'blinding_lamp' ? '255, 250, 230' : '255, 236, 160';
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 14);
+      g.addColorStop(0, `rgba(${lamp}, ${0.75 * pulse})`); g.addColorStop(1, `rgba(${lamp}, 0)`);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, TAU); ctx.fill(); ctx.restore();
+    }
+  } else DRAW[T.towerId](ctx, T, t);
   ctx.restore();
   // Rattled by enemy fire: a status mark over the tower.
   const mark = T.stunT > 0 ? '💫' : T.slowT > 0 ? '❄' : T.fireT > 0 ? '🔥' : T.inkT > 0 ? '🌑' : T.poisonT > 0 ? '☠' : null;
@@ -271,6 +285,7 @@ export function drawRange(ctx, x, y, r, t, color = '255, 236, 160') {
 export function drawHeart(ctx, heart, t, { lives, maxLives, hurt = 0 }) {
   const { x, y } = heart;
   const f = Math.max(0, lives / maxLives);
+  if (towerSpriteReady('heart')) { drawHeartSprite(ctx, x, y, t, f, hurt); return; }
   // A ring of coral around a glowing pearl.
   ctx.save();
   for (let k = 0; k < 14; k++) {
@@ -408,4 +423,32 @@ export function drawAirRoutes(ctx, map, lanesUsed, t) {
     ctx.beginPath(); l.air.pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke();
   }
   ctx.restore();
+}
+
+// The toy Heart: the crystal on its coral base, glowing teal (red when low),
+// swelling when hit, with motes circling the crystal.
+function drawHeartSprite(ctx, x, y, t, f, hurt) {
+  const low = f < 0.35;
+  const pulse = 0.75 + Math.sin(t * (low ? 7 : 2.4)) * 0.25;
+  const glowC = low ? '255, 110, 110' : '140, 245, 255';
+  const r0 = towerSpriteRect('heart', x, y, 1 + hurt * 0.06, { w: 220, h: 216 });
+  const [gx, gy] = TOWER_SPRITES.heart.glow;
+  const cx = r0.x + r0.w * gx; const cy = r0.y + r0.h * gy;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 50);
+  g.addColorStop(0, `rgba(${glowC}, ${0.5 * pulse + hurt * 0.4})`); g.addColorStop(1, `rgba(${glowC}, 0)`);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, 50, 0, TAU); ctx.fill();
+  ctx.restore();
+  drawTowerSprite(ctx, 'heart', x, y, 1 + hurt * 0.06);
+  if (low) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, 20);
+    rg.addColorStop(0, `rgba(255, 90, 90, ${0.45 * pulse})`); rg.addColorStop(1, 'rgba(255, 90, 90, 0)');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(cx, cy, 20, 0, TAU); ctx.fill(); ctx.restore();
+  }
+  for (let k = 0; k < 5; k++) {
+    const a = t * 0.9 + (k / 5) * TAU;
+    ctx.fillStyle = `rgba(${glowC}, 0.8)`; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * 18, cy + Math.sin(a) * 10, 1.4, 0, TAU); ctx.fill();
+  }
 }

@@ -2801,13 +2801,19 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   and is drawn rotated to the shot, with an `anchor` field so the flash
   core sits on the muzzle (`drawFxSprite` now takes `cellW`/`cellH`/
   `anchor`). Batch H is complete.
-- **Toy hit spark and splash** (same day): single images
-  (`assets/fx/hitspark.png`, `splash.png`, 160px) played as a `pop`
-  (`popShape` in `fxSprites.mjs`: grow 35%→110% over the first third, fade
-  over the second half). Every `spawnHitSpark` adds one (random rotation,
-  0.24s); `spawnSplash` adds one only for 8+ droplets, so wake and
-  near-miss splashes stay plain droplets. Left in batch H: kill burst and
-  muzzle flash.
+- **Toy towers, Heart, Charm Shrine and Tower Yard** (batch B5-B13, same
+  day). `assets/towers/` holds all six Reef Defence towers and the Heart
+  of the Reef; `engine/towerSprites.mjs` (`TOWER_SPRITES`: draw width,
+  ground `foot`, lamp/glow points) draws them upright on their spot, 7%
+  bigger per level. `tdArt.mjs` uses the sprite when loaded (code art as
+  fallback): a gold ring marks a specialisation, firing gives a recoil
+  bob, the lighthouse lamp glows and its beams start at the lamp, and the
+  Heart's crystal glows, swells when hit and turns red below 35%. Level
+  pips and status marks are unchanged. Trade-off: the cannon barrels no
+  longer swivel to aim. The harbour's Charm Shrine and Tower Yard
+  lighthouse images were replaced; `buildingSprites.mjs` now carries the
+  shrine portal and lighthouse lamp positions, read by `baseRenderer.mjs`.
+  Left in batch B: Armory, Workshop, Faction Hall, Shipyard (B1-B4).
 
 ## Decisions log
 

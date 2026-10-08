@@ -10,7 +10,7 @@
 
 import { FACTIONS } from '../data/factions.mjs';
 import { drawTower } from './tdArt.mjs';
-import { drawBuildingSprite } from './buildingSprites.mjs';
+import { drawBuildingSprite, BUILDING_SPRITES } from './buildingSprites.mjs';
 
 const TAU = Math.PI * 2;
 
@@ -165,7 +165,7 @@ function drawLighthouseBeam(ctx, b, t) {
 function drawShrine(ctx, b, t) {
   const { x, y } = b;
   const r = drawBuildingSprite(ctx, 'shrine', x, y);
-  if (r) { shrineGlow(ctx, r.x + r.w * 0.6, r.y + r.h * 0.55, r.h * 0.3, t); return; }
+  if (r) { const [px, py] = BUILDING_SPRITES.shrine.portal; shrineGlow(ctx, r.x + r.w * px, r.y + r.h * py, r.h * 0.26, t); return; }
   shadow(ctx, x, y + 4, 30, 11);
   ctx.fillStyle = '#6d6f6c'; ctx.beginPath(); ctx.ellipse(x, y + 2, 30, 11, 0, 0, TAU); ctx.fill();
   ctx.fillStyle = '#8e8f88'; ctx.beginPath(); ctx.ellipse(x - 2, y, 26, 8, 0, 0, TAU); ctx.fill();
@@ -322,7 +322,7 @@ function drawTowerYard(ctx, b, t) {
   ctx.fillStyle = '#a7a194'; ctx.fillRect(x + 12, y - 1, 38, 4);
   ctx.fillStyle = '#77736a'; for (let k = 0; k < 5; k++) ctx.fillRect(x + 13 + k * 8, y - 4, 4, 3);
   const lr = drawBuildingSprite(ctx, 'lighthouse', x, y);
-  if (lr) lampGlow(ctx, x, lr.y + lr.h * 0.25, t);
+  if (lr) lampGlow(ctx, x, lr.y + lr.h * BUILDING_SPRITES.lighthouse.lampY, t);
   else drawLighthouse(ctx, { x, y }, t, { cottage: false });
   const show = [
     { towerId: 'cannon', x: x + 22, y: y + 14, level: 3, angle: 0.6 + Math.sin(t * 0.6) * 0.5, id: 1 },

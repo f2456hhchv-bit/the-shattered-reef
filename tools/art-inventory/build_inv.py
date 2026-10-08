@@ -16,6 +16,15 @@ def _fx_tile(file, frame, cell=192, cellH=None):
     bg = Image.new('RGBA', (cell, cell), (37, 104, 138, 255)); bg.alpha_composite(im, (0, (cell - ch) // 2))
     b = io.BytesIO(); bg.convert('RGB').save(b, 'WEBP', quality=85)
     return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
+def _asset_tile(rel, size=160):
+    import base64, io
+    from PIL import Image
+    im = Image.open('/home/claude/the-shattered-reef/assets/' + rel + '.png').convert('RGBA'); im.thumbnail((size - 16, size - 16))
+    bg = Image.new('RGBA', (size, size), (37, 104, 138, 255)); bg.alpha_composite(im, ((size - im.width) // 2, (size - im.height) // 2))
+    b = io.BytesIO(); bg.convert('RGB').save(b, 'WEBP', quality=85)
+    return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
+# Toy art supplied as plain images (batch B): name -> asset path.
+ASSET_TOY = {'Cannon Battery': 'towers/cannon', 'Grapeshot Nest': 'towers/grapeshot', 'Chain Mast': 'towers/chain', 'Depth Charge Post': 'towers/depth', 'Fire Brazier': 'towers/flame', 'Lighthouse tower': 'towers/lighthouse', 'Heart of the Reef': 'towers/heart', 'Charm Shrine': 'buildings/shrine', 'Tower Yard': 'buildings/lighthouse'}
 FX_TOY = {'Explosion': ('explosion', 4), 'Hit spark': ('hitspark', 0, 160), 'Splash': ('splash', 5), 'Kill burst': ('killburst', 4), 'Muzzle flash': ('muzzle', 4, 192, 152)}
 # Style status per asset (2026-10-06): toy = matches the toy-render ships;
 # old = painted in the earlier V3 style, needs restyling; code = drawn in code.
@@ -46,10 +55,10 @@ CAT={
  'Enemies':('done','Enemy ships are the toy hulls recoloured, and every creature is now toy-style art (batch G, done 2026-10-07).'),
  'Bosses':('done','All ten bosses and the Warding Seal are toy style (batch A, done 2026-10-08). Black Gale and Drowned Admiral are now bespoke top-down ships rather than recoloured hulls.'),
  'Boss effects':('keep','Rings, auras and the ward are animated effects drawn over the sprite. Keep as code.'),
- 'Harbour buildings':('high','First screen anyone sees, and none of the six match the ships: Shipyard, Tower Yard and Charm Shrine are older painted art, the other three are code. Do all six together so the harbour reads as one set.'),
+ 'Harbour buildings':('high','First screen anyone sees. Tower Yard and Charm Shrine are toy style (batch B, 2026-10-08); Shipyard is older painted art and Armory, Workshop and Faction Hall are code. Those four are next (B1-B4).'),
  'Harbour props':('low','Small and animated (blinking buoys, foam). Fine as code.'),
  'Landmarks':('medium','Set pieces on arena islands and the chart. Toy FRONT-view versions, batch F.'),
- 'Reef Defence':('medium','Towers are seen up close in Reef Defence. One toy FRONT-view image per tower (batch B); levels and specialisations can stay code overlays.'),
+ 'Reef Defence':('keep','All six towers and the Heart of the Reef are toy style (batch B, done 2026-10-08). Level pips, the specialisation ring and status marks stay code overlays, as do the build spot and mine; the cannon barrels no longer swivel to aim.'),
  'Terrain (biome islands)':('keep','Generated from each level\'s shape, so it can\'t be swapped for painted tiles. Its look changes through colours and textures in code.'),
  'Terrain in play (arena view)':('keep','Same renderer, as seen in play.'),
  'Island decorations':('keep','Baked into the terrain at a few pixels across. Painted versions wouldn\'t be visible.'),
@@ -77,10 +86,11 @@ for o in items:
     pr=CAT.get(o['cat'],(None,''))[0]
     n=o['name']
     if n in FX_TOY: o['style']='toy'; o['img']=_fx_tile(*FX_TOY[n])
+    elif n in ASSET_TOY: o['style']='toy'; o['img']=_asset_tile(ASSET_TOY[n])
     elif o['cat']=='Player ships' or n in TOY: o['style']='toy'
     elif o['status']=='fallback': o['style']='old'
     else: o['style']='code'
-    if n in SPR and o['cat'] in ('Player ships','Enemies','Bosses','Harbour buildings'): o['img']=SPR[n]
+    if n in SPR and n not in ASSET_TOY and o['cat'] in ('Player ships','Enemies','Bosses','Harbour buildings'): o['img']=SPR[n]
     if o['style']=='toy': o['pri']='done'
     elif o['cat']=='Enemies' and o['style']=='old': o['pri']='high' if n in EARLY else 'medium'
     elif o['cat']=='Effects': o['pri']=FX.get(o['name'],'keep')

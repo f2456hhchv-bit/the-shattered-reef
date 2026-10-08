@@ -8,8 +8,8 @@
 
 export const BUILDING_SPRITES = Object.freeze({
   shipyard: { file: 'shipyard', width: 88, foot: 12, shadow: [40, 13] },
-  lighthouse: { file: 'lighthouse', height: 105, foot: 8, shadow: [22, 9], lampY: 0.25 },
-  shrine: { file: 'shrine', width: 66, foot: 10, shadow: [32, 11], portal: [0.6, 0.55] },
+  lighthouse: { file: 'lighthouse', height: 100, foot: 8, shadow: [26, 9], lampY: 0.228 },
+  shrine: { file: 'shrine', width: 70, foot: 10, shadow: [34, 11], portal: [0.534, 0.592] },
 });
 
 const images = {};
