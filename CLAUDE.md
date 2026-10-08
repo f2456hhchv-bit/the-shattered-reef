@@ -2830,6 +2830,16 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   and the chest's light beam and glints; code art is the fallback. Gem
   tier colours in `data/survival.mjs` now match the art: 1 teal, 5
   blue, 25 purple (5 was green).
+- **Toy harbour pilot** (same day, owner's "simple toy" harbour mockup,
+  "I like this ALOT… may need to reconfigure EVERYTHING to this"):
+  the harbour terrain uses `HARBOUR_BIOME_OVERRIDES` (`data/base.mjs`:
+  bright plastic water, clean sand ring, flat grass, no rock; decor
+  styles `toybush`/`toyrock`/`none` in `terrainRenderer.mjs`). A "Toy
+  harbour" CSS block at the end of `styles.css` gives every harbour
+  control navy rounded panels with a 3D lip. Building chips are icon-only
+  with a plain red dot (`labelPx` 64×54). The current detailed building
+  and ship sprites now look busier than the mockup's simple shapes; next
+  is whether the arena terrain/HUD and the art follow (ask the owner).
 
 ## Decisions log
 

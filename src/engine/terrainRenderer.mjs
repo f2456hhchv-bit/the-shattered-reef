@@ -310,6 +310,24 @@ function drawStyled(g, d, biome, style) {
   const s = d.size; const x = d.x; const y = d.y; const v = d.variant;
   const TAU = Math.PI * 2;
   switch (style) {
+    case 'none': return true;
+    case 'toybush': { // chunky round toy shrub: shadow, body, glossy top
+      const r = s * (d.kind === 'palm' ? 0.75 : 0.85);
+      g.fillStyle = 'rgba(20, 70, 40, 0.28)'; g.beginPath(); g.ellipse(x + r * 0.25, y + r * 0.55, r * 1.25, r * 0.55, 0, 0, TAU); g.fill();
+      const [dark, light] = biome.bush;
+      g.fillStyle = dark;
+      for (const [ox, oy, k] of [[-0.55, 0, 0.75], [0.55, 0.05, 0.7], [0, -0.35, 0.85]]) { g.beginPath(); g.arc(x + ox * r, y + oy * r, r * k, 0, TAU); g.fill(); }
+      g.fillStyle = light;
+      for (const [ox, oy, k] of [[-0.7, -0.2, 0.3], [0.35, -0.15, 0.3], [-0.15, -0.6, 0.38]]) { g.beginPath(); g.arc(x + ox * r, y + oy * r, r * k, 0, TAU); g.fill(); }
+      return true;
+    }
+    case 'toyrock': {
+      const [light, dark] = biome.boulder;
+      g.fillStyle = 'rgba(10, 60, 80, 0.25)'; g.beginPath(); g.ellipse(x + s * 0.2, y + s * 0.5, s * 1.1, s * 0.5, 0, 0, TAU); g.fill();
+      g.fillStyle = dark; g.beginPath(); g.ellipse(x, y, s, s * 0.82, 0, 0, TAU); g.fill();
+      g.fillStyle = light; g.beginPath(); g.ellipse(x - s * 0.18, y - s * 0.22, s * 0.68, s * 0.5, 0, 0, TAU); g.fill();
+      return true;
+    }
     case 'charred': { // a dead, burnt tree
       g.strokeStyle = biome.palm.trunk; g.lineCap = 'round';
       g.lineWidth = Math.max(1, s * 0.2);

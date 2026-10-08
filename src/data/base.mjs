@@ -37,5 +37,33 @@ export const BASE_LAYOUT = Object.freeze({
   spriteAbove: 95, // building art reaches this far above its anchor
   spriteHalfWidth: 75,
   labelOffset: 38, // label anchor below the building (26 × BUILDING_SCALE)
-  labelPx: { w: 136, h: 48 }, // a label chip, screen px incl. its badge
+  labelPx: { w: 64, h: 54 }, // an icon chip, screen px incl. its badge
+});
+
+// The harbour's own look (2026-10-08, owner's toy mockup): bright plastic
+// water, a clean sand ring, flat saturated grass and chunky round bushes.
+// Built on the tropical biome, so anything not listed here is unchanged.
+export const HARBOUR_BIOME_OVERRIDES = Object.freeze({
+  water: [
+    [0, '#a6f4ee'],
+    [4, '#6fe2ea'],
+    [12, '#3fc6e6'],
+    [30, '#25a9de'],
+    [70, '#1b8fd0'],
+  ],
+  foam: '#f4fffd',
+  foamWidth: 3.2,
+  land: [
+    [0, '#f2dca0'],
+    [5.5, '#f6e3a8'],
+    [7.5, '#6cc04f'],
+    [12, '#56ae43'],
+    [40, '#4aa23c'],
+  ],
+  jungleDark: '#4b9e3d',
+  rockStart: 9999,
+  outside: '#1b8fd0',
+  bush: ['#3f9a37', '#7fd45a'],
+  boulder: ['#a9aebb', '#6f7686'],
+  decor: { palm: 'toybush', bush: 'toybush', coral: 'none', shell: 'none', boulder: 'toyrock' },
 });

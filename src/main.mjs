@@ -18,6 +18,7 @@ import { ambientLight } from './engine/ambient.mjs';
 import { drawDarkness, drawGlows, drawEyes, drawAmbientScreen } from './engine/lightArt.mjs';
 import { glowingDecorations } from './engine/terrainRenderer.mjs';
 import { BASE_BUILDINGS } from './data/base.mjs';
+import { HARBOUR_BIOME_OVERRIDES } from './data/base.mjs';
 import { buildBaseWorld, computeBaseView, boatOrbitPoint } from './engine/base.mjs';
 import { loadBuildingSprites } from './engine/buildingSprites.mjs';
 import { loadPickupSprites } from './engine/pickupSprites.mjs';
@@ -1440,13 +1441,14 @@ export function startApp(root) {
   function ensureBase() {
     if (base) return base;
     const world = buildBaseWorld();
-    const terrain = buildTerrain(world.grid, world.tileSize, world.coastSeed, biome, world.coast);
+    const hbiome = { ...biome, ...HARBOUR_BIOME_OVERRIDES };
+    const terrain = buildTerrain(world.grid, world.tileSize, world.coastSeed, hbiome, world.coast);
     // Keep palms and boulders out from under the buildings and the dock.
     terrain.decorations = terrain.decorations.filter((d) => !world.buildings.some((b) => Math.hypot(d.x - b.x, d.y - (b.y - 10)) < 64
       || (b.id === 'shipyard' && Math.abs(d.x - b.x) < 30 && d.y > b.y && d.y < b.y + 190)));
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const renderer = createTerrainRenderer(terrain, biome, { res: Math.min(1.25, dpr * 0.8) });
-    base = { world, renderer, wake: [], wakeTimer: 0, view: null, fresh: true };
+    const renderer = createTerrainRenderer(terrain, hbiome, { res: Math.min(1.25, dpr * 0.8) });
+    base = { hbiome, world, renderer, wake: [], wakeTimer: 0, view: null, fresh: true };
     return base;
   }
   // The screen region the harbour can use: below the top bar, and above
@@ -1484,7 +1486,7 @@ export function startApp(root) {
     const b = ensureBase();
     if (!b.view) layoutBase();
     const t = now / 1000; const v = b.view;
-    ctx.fillStyle = biome.outside;
+    ctx.fillStyle = b.hbiome.outside;
     ctx.fillRect(0, 0, window.innerWidth, viewH());
     ctx.save();
     ctx.translate(v.tx, v.ty); ctx.scale(v.scale, v.scale);
