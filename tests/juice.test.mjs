@@ -298,3 +298,15 @@ test('hit sparks and big splashes add one toy pop image; small splashes stay dro
   assert.equal(popShape(0.2).alpha, 1);
   assert.equal(popShape(1).alpha, 0);
 });
+
+test('kill bursts and muzzle flashes use their toy strips (no extra spark image on a kill)', async () => {
+  const { spawnMuzzleFlash } = await import('../src/engine/juice.mjs');
+  const kill = createParticlePool();
+  spawnKillBurst(kill, 0, 0, '#fff', seeded(8));
+  assert.deepEqual(kill.filter((p) => p.sprite).map((p) => p.sprite), ['killburst']);
+  const flash = createParticlePool();
+  spawnMuzzleFlash(flash, 0, 0, 1.2, '#fff', seeded(9));
+  const m = flash.filter((p) => p.sprite === 'muzzle');
+  assert.equal(m.length, 1);
+  assert.equal(m[0].rot, 1.2);
+});

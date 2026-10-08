@@ -33,8 +33,8 @@ function pushFx(pool, sprite, x, y, size, life, rot) {
 
 // A weapon-colored burst on a non-kill hit — the everyday "that landed"
 // feedback for every shot, direct or AoE.
-export function spawnHitSpark(pool, x, y, color, rng = Math.random, count = 8) {
-  pushFx(pool, 'hitspark', x, y, 7 + count * 0.5, 0.24, rng() * Math.PI * 2);
+export function spawnHitSpark(pool, x, y, color, rng = Math.random, count = 8, image = true) {
+  if (image) pushFx(pool, 'hitspark', x, y, 7 + count * 0.5, 0.24, rng() * Math.PI * 2);
   for (let i = 0; i < count; i++) {
     const angle = rng() * Math.PI * 2;
     const speed = 40 + rng() * 90;
@@ -49,7 +49,9 @@ export function spawnHitSpark(pool, x, y, color, rng = Math.random, count = 8) {
 // A bigger, two-tone burst (weapon color + a bright flash tone) on a kill —
 // meant to read as distinctly more satisfying than a regular hit.
 export function spawnKillBurst(pool, x, y, color, rng = Math.random) {
-  spawnHitSpark(pool, x, y, color, rng, 14);
+  // The toy kill-burst strip is the pop; a few weapon-coloured sparks on top.
+  pushFx(pool, 'killburst', x, y, 20, 0.5, rng() * Math.PI * 2);
+  spawnHitSpark(pool, x, y, color, rng, 14, false);
   for (let i = 0; i < 8; i++) {
     const angle = rng() * Math.PI * 2;
     const speed = 15 + rng() * 35;
@@ -252,7 +254,9 @@ export function damageNumberStyle(d) {
 // A cannon's bark: a short cone of hot sparks and a puff of smoke out of
 // the muzzle, along the firing direction.
 export function spawnMuzzleFlash(pool, x, y, angle, color, rng = Math.random) {
-  for (let i = 0; i < 6; i++) {
+  // The toy flash strip points along the shot; a couple of sparks and smoke.
+  pushFx(pool, 'muzzle', x, y, 13, 0.24, angle);
+  for (let i = 0; i < 3; i++) {
     const a = angle + (rng() - 0.5) * 0.7;
     const sp = 60 + rng() * 90;
     pool.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.12 + rng() * 0.08, maxLife: 0.2, size: 1.2 + rng() * 1.3, color: i < 3 ? '#ffd27a' : '#ff8a3d', drag: 6 });

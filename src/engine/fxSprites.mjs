@@ -6,6 +6,9 @@
 export const FX_SPRITES = {
   explosion: { file: 'explosion', frames: 12, cell: 192 },
   splash: { file: 'splash', frames: 12, cell: 192 },
+  killburst: { file: 'killburst', frames: 12, cell: 192 },
+  // Points along +x; `anchor` is the muzzle point within a (non-square) cell.
+  muzzle: { file: 'muzzle', frames: 12, cellW: 192, cellH: 152, anchor: [0.476, 0.592] },
   // Single toy image played as a 'pop': grow fast, hold, fade out.
   hitspark: { file: 'hitspark', frames: 1, cell: 160, mode: 'pop' },
 };
@@ -43,7 +46,9 @@ export function drawFxSprite(ctx, p) {
   if (!img || !img.complete || !img.naturalWidth) return false;
   const t = 1 - p.life / p.maxLife;
   const f = fxFrame(def, t);
-  let d = p.size * 2;
+  const cw = def.cellW || def.cell, ch = def.cellH || def.cell;
+  const [ax, ay] = def.anchor || [0.5, 0.5];
+  let d = p.size * 2; // the cell's longer side, in world px
   ctx.save();
   if (def.mode === 'pop') {
     const s = popShape(t);
@@ -52,7 +57,8 @@ export function drawFxSprite(ctx, p) {
   }
   ctx.translate(p.x, p.y);
   if (p.rot) ctx.rotate(p.rot);
-  ctx.drawImage(img, f * def.cell, 0, def.cell, def.cell, -d / 2, -d / 2, d, d);
+  const k = d / Math.max(cw, ch), w = cw * k, h = ch * k;
+  ctx.drawImage(img, f * cw, 0, cw, ch, -w * ax, -h * ay, w, h);
   ctx.restore();
   return true;
 }

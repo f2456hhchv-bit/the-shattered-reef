@@ -2794,6 +2794,13 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   `assets/fx/splash.png` (192px cells, anchored on each frame's base so
   the crown rises from one spot), replacing the single-image pop. Size
   7 + count × 1.25, 0.55s.
+- **Kill burst and muzzle flash as 12-frame strips** (same day), cut by
+  the scratch tool's generic 3×4 sheet cutter (drops the sheets' red
+  speckle noise by component colour). `killburst` (192px, 0.5s) replaces
+  the kill's spark image; `muzzle` (192×152 cells, 0.24s) points along +x
+  and is drawn rotated to the shot, with an `anchor` field so the flash
+  core sits on the muzzle (`drawFxSprite` now takes `cellW`/`cellH`/
+  `anchor`). Batch H is complete.
 - **Toy hit spark and splash** (same day): single images
   (`assets/fx/hitspark.png`, `splash.png`, 160px) played as a `pop`
   (`popShape` in `fxSprites.mjs`: grow 35%→110% over the first third, fade
