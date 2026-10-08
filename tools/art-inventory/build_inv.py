@@ -51,7 +51,7 @@ TYPES=[
  ('sound','Sound',[]),
 ]
 CAT={
- 'Player ships':('high','All 7 hulls are first-pass toy art: rigging, ropes, cannons and plank lines make them busier than the simple standard. Redo as simple 5-view sets (batch S); every enemy ship is recoloured from these, so they follow for free.'),
+ 'Player ships':('done','All 7 hulls are simple-toy 5-view sets (2026-10-08). Every enemy ship is recoloured from these, so they match too.'),
  'Enemies':('medium','Sharks, jellies, squid, wisps, bats, the narwhal, serpent and troll already pass. The rest have scales, patterns or too many parts: simplify them (batch G). Enemy ships follow the player hulls.'),
  'Bosses':('medium',"Kraken's Anchor, Frost Leviathan and the Warding Seal pass. The other bosses are busy: simplify (batch A)."),
  'Boss effects':('keep','Rings, auras and the ward are animated effects drawn over the sprite. Keep as code.'),
@@ -98,7 +98,7 @@ for o in items:
     elif o['status']=='fallback': o['style']='old'
     else: o['style']='code'
     if n in SPR and n not in ASSET_TOY and o['cat'] in ('Player ships','Enemies','Bosses','Harbour buildings'): o['img']=SPR[n]
-    if o['style']=='toy' and n in SIMPLE: o['style']='simple'; o['pri']='done'
+    if o['style']=='toy' and (n in SIMPLE or o['cat']=='Player ships' or (n in TOY_SHIP_LOOKS and o['cat']!='Bosses')): o['style']='simple'; o['pri']='done'
     elif o['style']=='toy':
         if n in TOY_SHIP_LOOKS and o['cat']!='Bosses': o['pri']='low'  # follows the player hull art once redone
         elif n in SIMPLIFY_LOW: o['pri']='low'

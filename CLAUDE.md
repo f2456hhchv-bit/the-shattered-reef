@@ -2871,6 +2871,12 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   the canvas (tdArt, enemy/warlord marks). The inventory's Icons tab now
   shows each emoji's state; batch D lists the 12 missing icons, E the 5
   stand-ins.
+- **Batch S done: all 7 hulls in the simple-toy style** (2026-10-08).
+  The owner's new 5-view sets for Sloop, Longboat, Skiff, Catamaran,
+  Junk, Steamer and Galleon were cut with `tools/cut-ship-views.py`
+  (atlases and frame tables replaced). Every enemy ship recolours from
+  these hulls, so they match too. The inventory marks player ships and
+  hull-based enemy ships as done.
 
 ## Decisions log
 

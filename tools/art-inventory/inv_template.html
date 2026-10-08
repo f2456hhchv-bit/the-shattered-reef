@@ -135,12 +135,11 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
         <li><b>Harbour buildings</b> (batch B): the first screen, and the harbour itself is already in the simple style, so the busy buildings clash most.</li>
-        <li><b>Player ships</b> (batch S): your ship is on screen the whole game, and every enemy ship is recoloured from these hulls.</li>
         <li><b>Icons</b> (batches D, E): 72 toy icons are in (74 emoji covered); 15 emoji still need art (batch D, 12 icons) and 5 are stand-ins (batch E). See Icons.</li>
         <li><b>Bosses</b> (batch A): the busy ones only; Kraken's Anchor, Frost Leviathan and the Warding Seal already pass.</li>
         <li><b>Creatures</b> (batch G): the busy ones only; sharks, jellies, squid, wisps, bats, serpent and troll already pass.</li>
         <li><b>Reef Defence towers</b> (batch T) and <b>landmarks</b> (batch F).</li>
-        <li>Already simple, keep: <b>pickups</b> (C) and <b>effects</b> (H). Code to follow the harbour later: arena terrain, HUD, cards and menus.</li>
+        <li>Already simple, keep: <b>pickups</b> (C), <b>effects</b> (H) and now <b>player ships</b> (S, all 7 hulls; enemy ships follow). Code to follow the harbour later: arena terrain, HUD, cards and menus.</li>
       </ol></div>
       <div class="box do"><h3>Do</h3><ul>
         <li>Attach <b>the harbour mockup</b> to every request (and, when redoing an asset, its current image so the shape carries over). The style follows the picture far more than the words.</li>
@@ -256,7 +255,7 @@ const BATCHES = [
   'B4 Faction Hall (FRONT): a wide hall with a blue roof and three coloured banners',
   'B5 Tower Yard (FRONT): a red and white striped lighthouse on a round rock',
   'B6 Charm Shrine (FRONT): a stone archway with a glowing purple portal, a little moss']],
- ['S', 'Player ships (5-view sets)', 'high', [
+ ['S', 'Player ships (5-view sets)', 'done', [
   'S1 Sloop: wooden hull, one big cream sail, red flag',
   'S2 Longboat: long low hull, one square red-striped sail, dragon-head prow',
   'S3 Skiff: small light hull, one triangular sail',
