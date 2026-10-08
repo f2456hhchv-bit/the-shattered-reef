@@ -128,12 +128,11 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     </div>
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
-        <li><b>Bosses</b> (batch A): 5 code bosses, Bloodfin Matriarch and the Warding Seal. A boss fills the screen on every level 5, so a mismatch there is the most visible.</li>
-        <li><b>Stage 2-4 creatures</b> (batch G, first 8): shark, harpy, serpent, crawler, narwhal, ice golem, frost wisp, siren. Players meet them right after stage 1's toy ships, so the change in style shows straight away.</li>
+        <li><s><b>Bosses</b> (batch A)</s> ✓ done 2026-10-08: all ten bosses and the Warding Seal.</li>
+        <li><s><b>Creatures</b> (batch G)</s> ✓ done 2026-10-07: every regular creature, stages 2-10.</li>
         <li><b>Harbour buildings</b> (batch B1-B6): all six together. It's the first screen, and three painted plus three code buildings don't read as one set.</li>
         <li><b>Weapon and upgrade icons</b> (batches D, E): they replace emoji on the level-up cards, which are seen dozens of times a level.</li>
         <li><b>Pickups</b> (batch C): sea glass and coins are on screen all the time.</li>
-        <li><b>Remaining creatures</b> (batch G, stages 5-10).</li>
         <li><b>Reef Defence towers</b> (B7-B13) and <b>landmarks</b> (batch F).</li>
         <li>Then the non-sprite gaps: a display font, explosion and splash sheets, weather overlays, a UI restyle, recorded sound.</li>
       </ol></div>
@@ -230,7 +229,7 @@ const $ = (s) => document.querySelector(s);
 const NEED = ['high', 'medium', 'low'];
 const HEADER = `Use the image generator. No code. One image per reply.
 Match the attached ship's style exactly: a smooth 3D toy, like a plastic board-game piece. Rounded chunky shapes, smooth matte colours, soft light from the top-left. 4 main colours at most. No scales, rivets, cracks, patterns, text or texture. Smooth, not faceted. It must read clearly at 64px.
-One subject only, centred, filling most of the image. No shadow, no water, no ground. Real transparent PNG background (true alpha, NOT a drawn grey-and-white checkerboard). If you can't do true transparency, use flat #FF00FF magenta.
+One subject only, centred, filling most of the image. No shadow, no water, no ground. Transparent background (only if you can't do transparent, use flat #FF00FF magenta).
 Views: TOP = straight top-down, the front pointing to the top of the image. FRONT = front three-quarter view, slightly from above.
 Before each image, write one line: the item code, its name, its view, and "toy style, transparent background".
 Work through the list below. Make the first item now. When I say "next", make the next one.`;
@@ -241,7 +240,7 @@ const SHIPS = `Make: [HULL NAME], one image with 5 views of the same ship in a r
 4 stern-quarter (bow pointing up-left)
 5 stern (back towards the camera)`;
 const BATCHES = [
- ['A', 'Bosses', 'high', [
+ ['A', 'Bosses', 'done', [
   'A1 The Hollow King (TOP): a huge stone-crowned cave beast half sunk in water, glowing pale eyes',
   'A2 Old Mother Mire (FRONT): a hulking moss-and-mud swamp hag rising from the bog, lantern-green eyes',
   'A3 The Deep Mother (TOP): a giant abyssal squid, dark violet with glowing spots, curled tentacles',
@@ -251,7 +250,7 @@ const BATCHES = [
   'A7 Warding Seal (FRONT): a dark rune stone on a small rock with a glowing blue rune',
   'A8 The Black Gale (TOP): a big pirate flagship with black sails and red trim, seen from above',
   'A9 The Drowned Admiral (TOP): a pale green ghost galleon with torn sails, seen from above']],
- ['G', 'Creatures (restyle)', 'high', [
+ ['G', 'Creatures (restyle)', 'done', [
   'G1 Reef Shark (TOP): a grey reef shark',
   'G2 Gullswarm Harpy (TOP): a gull-winged harpy bird, wings spread',
   'G3 Sea Serpent (TOP): a green sea serpent in an S-curve',

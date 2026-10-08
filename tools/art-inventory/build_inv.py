@@ -31,8 +31,8 @@ TYPES=[
 ]
 CAT={
  'Player ships':('done','All 7 hulls are toy-style 5-view sets (bow, bow-quarter, side, stern-quarter, stern), mirrored to 16 headings. This is the style every other asset must match.'),
- 'Enemies':('medium','Enemy ships are the toy hulls recoloured, so they already match. The creatures are the older painted pack: right shapes, wrong finish (textured, detailed, painterly). Stage 2-4 creatures are seen first, so they go first.'),
- 'Bosses':('high','Three bosses are toy style. Five are still code shapes and Bloodfin is old painted art, and a boss fills the screen on every level 5. Black Gale and Drowned Admiral are recoloured toy hulls: they match, but bespoke art would make them feel like bosses.'),
+ 'Enemies':('done','Enemy ships are the toy hulls recoloured, and every creature is now toy-style art (batch G, done 2026-10-07).'),
+ 'Bosses':('done','All ten bosses and the Warding Seal are toy style (batch A, done 2026-10-08). Black Gale and Drowned Admiral are now bespoke top-down ships rather than recoloured hulls.'),
  'Boss effects':('keep','Rings, auras and the ward are animated effects drawn over the sprite. Keep as code.'),
  'Harbour buildings':('high','First screen anyone sees, and none of the six match the ships: Shipyard, Tower Yard and Charm Shrine are older painted art, the other three are code. Do all six together so the harbour reads as one set.'),
  'Harbour props':('low','Small and animated (blinking buoys, foam). Fine as code.'),
@@ -68,12 +68,11 @@ for o in items:
     elif o['status']=='fallback': o['style']='old'
     else: o['style']='code'
     if n in SPR and o['cat'] in ('Player ships','Enemies','Bosses','Harbour buildings'): o['img']=SPR[n]
-    if o['style']=='toy': o['pri']='low' if n in ('The Black Gale','The Drowned Admiral') else 'done'
+    if o['style']=='toy': o['pri']='done'
     elif o['cat']=='Enemies' and o['style']=='old': o['pri']='high' if n in EARLY else 'medium'
     elif o['cat']=='Effects': o['pri']=FX.get(o['name'],'keep')
     elif o['cat']=='Harbour buildings': o['pri']='high'
     else: o['pri']=pr or 'keep'
-    if n=='Warding Seal': o['pri']='high'
     o.pop('status',None)
 order={c:i for i,(_,_,cs) in enumerate(TYPES) for c in cs}
 items.sort(key=lambda o:(order.get(o['cat'],99), [c for t in TYPES for c in t[2]].index(o['cat']) if o['cat'] in order else 0))
