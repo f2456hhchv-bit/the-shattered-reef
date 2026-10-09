@@ -25,6 +25,7 @@ def _asset_tile(rel, size=160):
     return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
 # Toy art supplied as plain images (batch B): name -> asset path.
 ASSET_TOY = {'Cannon Battery': 'towers/cannon', 'Grapeshot Nest': 'towers/grapeshot', 'Chain Mast': 'towers/chain', 'Depth Charge Post': 'towers/depth', 'Fire Brazier': 'towers/flame', 'Lighthouse tower': 'towers/lighthouse', 'Heart of the Reef': 'towers/heart', 'Charm Shrine': 'buildings/shrine', 'Tower Yard': 'buildings/lighthouse', 'Shipyard': 'buildings/shipyard', 'Armory': 'buildings/armory', 'Workshop': 'buildings/workshop', 'Faction Hall': 'buildings/hall', 'Sea-glass gem (1 XP)': 'pickups/gem_small', 'Sea-glass gem (5 XP)': 'pickups/gem_medium', 'Sea-glass gem (25 XP)': 'pickups/gem_large', 'Anchor coin (Salvage)': 'pickups/coin', 'Lodestone (pull all)': 'pickups/lodestone', 'Life ring (repair)': 'pickups/ring', 'Treasure chest': 'pickups/chest'}
+ISLAND_TOY = {'Tropical':'tropical','Cliff':'cliff_cove','Glacial':'glacial','Shipwreck':'shipwreck','Volcanic':'volcanic','Mangrove':'mangrove','Abyssal':'abyss','Bone Sands':'bone_sands'}
 FX_TOY = {'Explosion': ('explosion', 4), 'Hit spark': ('hitspark', 0, 160), 'Splash': ('splash', 5), 'Kill burst': ('killburst', 4), 'Muzzle flash': ('muzzle', 4, 192, 152)}
 # Style status per asset (2026-10-06): toy = matches the toy-render ships;
 # old = painted in the earlier V3 style, needs restyling; code = drawn in code.
@@ -59,8 +60,8 @@ CAT={
  'Harbour props':('low','Redesign as toy props (batch P): jetty, rock cluster, buoy, rowboat. Blinking lights and foam stay code overlays.'),
  'Landmarks':('medium','Set pieces on arena islands and the chart. Toy FRONT-view versions, batch F.'),
  'Reef Defence':('low','The six towers are busy (props, planks, crates): simplify (batch T). The Heart is close; low. Build spot and mine can take toy images too (batch X). Level pips and rings stay code.'),
- 'Terrain (biome islands)':('high','Redesignable without losing the generated shapes. Chart islands: one toy island image per biome, a direct swap (batch I). Arena land: the renderer fills land and shore with seamless toy textures per biome instead of shaded code colours (batch I), and water goes flat toy blue like the harbour. Needs texture sampling added to the terrain renderer once the art arrives.'),
- 'Terrain in play (arena view)':('high','Same renderer, as seen in play: takes the batch I land and shore textures and the batch P props.'),
+ 'Terrain (biome islands)':('high','Chart islands: 8 of 10 are toy images (2026-10-09); Caverns and Crystal still needed (batch I). Tropical and Cliff & Cove are side-on while the rest are top-down pads; redo those two as pads to match. The land/shore "tiles" that came back are shaped pads, not seamless textures, so the arena land will be restyled in code using their colours and soft bumps instead.'),
+ 'Terrain in play (arena view)':('high','Restyle in code to the toy look: flat land colours sampled from the supplied pads, a rounded rim at the coast, soft bumps, flat toy water. Props from batch P on top.'),
  'Island decorations':('medium','Redesign as chunky toy props (batch P), stamped bigger than now so they read, like the harbour bushes. One set per biome.'),
  'Weather objects':('low','Can take toy images (batch W): floes, wreckage, rocks, ghost lights. Spinning whirlpools and spouts stay code-animated over a toy base.'),
  'Weather effects (in play)':('medium','The rain, snow, ash and cloud overlays are plain code streaks and dots. The Weather V2 sheet\'s painted textures can replace them (code work; art already supplied).'),
@@ -106,6 +107,9 @@ for o in items:
     elif o['cat']=='Enemies' and o['style']=='old': o['pri']='high' if n in EARLY else 'medium'
     elif o['cat']=='Effects': o['pri']=FX.get(o['name'],'low')
     else: o['pri']=pr or 'keep'
+    if o['cat']=='Terrain (biome islands)':
+        for pre,bid in ISLAND_TOY.items():
+            if o['name'].startswith(pre): o['style']='simple'; o['pri']='done'; o['img']=_asset_tile('islands/'+bid)
     o.pop('status',None)
 order={c:i for i,(_,_,cs) in enumerate(TYPES) for c in cs}
 items.sort(key=lambda o:(order.get(o['cat'],99), [c for t in TYPES for c in t[2]].index(o['cat']) if o['cat'] in order else 0))

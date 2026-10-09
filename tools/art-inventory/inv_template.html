@@ -134,7 +134,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     </div>
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
-        <li><b>Terrain</b> (batch I): the island you sail round fills most of the screen. One toy island per biome for the chart, plus a land and a shore texture per biome for the arena. Start with Tropical (stage 1).</li>
+        <li><b>Terrain</b> (batch I): 8 chart islands are in; Caverns and Crystal are left, and Tropical and Cliff & Cove want redoing top-down to match. No more land/shore tiles needed: the image tool makes shaped pads, not seamless textures, so the arena is restyled in code from their colours.</li>
         <li><b>Island props</b> (batch P): palms, rocks and the rest, chunky enough to read at play size. Tropical first.</li>
         <li><b>Icons</b> (batches D, E): 72 toy icons are in (74 emoji covered); 15 emoji still need art (batch D, 12 icons) and 5 are stand-ins (batch E). See Icons.</li>
         <li><b>Bosses</b> (batch A): the busy ones only; Kraken's Anchor, Frost Leviathan and the Warding Seal already pass.</li>
@@ -149,7 +149,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
         <li><b>FRONT view</b> for upright things (golems, sirens, buildings, towers, landmarks, pickups, icons): front three-quarter, slightly from above. The game mirrors it left and right.</li>
         <li>Ships only: <b>one image with 5 views</b> in a row (see the prompt kit).</li>
         <li><b>ISLAND view</b> (chart islands): one small round island seen from high above at a slight angle, its landmark on top, transparent sea around it.</li>
-        <li><b>TILE</b> (terrain textures): a square, seamless texture seen straight down, flat even light, no shadows from one side, so it repeats in every direction without seams. Opaque, no transparency.</li>
         <li>Fill most of the frame; around 1024px is fine. The game trims and scales it.</li>
       </ul></div>
       <div class="box dont"><h3>Don't</h3><ul>
@@ -251,37 +250,11 @@ One image with 5 views of the same ship in a row, same size, evenly spaced, not 
 4 stern-quarter (bow pointing up-left)
 5 stern (back towards the camera)`;
 const BATCHES = [
- ['I', 'Terrain: chart islands and arena textures (start with Tropical)', 'high', [
-  'I1 Tropical (stage 1) island (ISLAND): a small round island, green jungle grass with a few rounded leaf clumps on top, a warm golden sand beach ring, a little stone fort with a black flag in the middle',
-  'I1a Tropical (stage 1) land (TILE): green jungle grass with a few rounded leaf clumps',
-  'I1b Tropical (stage 1) shore (TILE): warm golden sand',
-  'I2 Cliff & Cove (stage 2) island (ISLAND): a small round island, short green clifftop grass on top, a grey pebbles beach ring, a red and white lighthouse in the middle',
-  'I2a Cliff & Cove (stage 2) land (TILE): short green clifftop grass',
-  'I2b Cliff & Cove (stage 2) shore (TILE): grey pebbles',
-  'I3 Glacial (stage 3) island (ISLAND): a small round island, smooth white snow on top, a pale blue ice beach ring, three ice spires in the middle',
-  'I3a Glacial (stage 3) land (TILE): smooth white snow',
-  'I3b Glacial (stage 3) shore (TILE): pale blue ice',
-  'I4 Shipwreck (stage 4) island (ISLAND): a small round island, dull grey-green grass on top, a grey sand beach ring, a broken boat hull in the middle',
-  'I4a Shipwreck (stage 4) land (TILE): dull grey-green grass',
-  'I4b Shipwreck (stage 4) shore (TILE): grey sand',
-  'I5 Volcanic (stage 5) island (ISLAND): a small round island, black rock with thin glowing orange cracks on top, a dark grey ash beach ring, a small volcano with a glowing top in the middle',
-  'I5a Volcanic (stage 5) land (TILE): black rock with thin glowing orange cracks',
-  'I5b Volcanic (stage 5) shore (TILE): dark grey ash',
-  'I6 Caverns (stage 6) island (ISLAND): a small round island, dark purple-grey rock on top, a wet dark slate beach ring, a round rocky cave mouth in the middle',
-  'I6a Caverns (stage 6) land (TILE): dark purple-grey rock',
-  'I6b Caverns (stage 6) shore (TILE): wet dark slate',
-  'I7 Mangrove (stage 7) island (ISLAND): a small round island, mossy green mud on top, a dark brown mud beach ring, a swamp hut on stilts in the middle',
-  'I7a Mangrove (stage 7) land (TILE): mossy green mud',
-  'I7b Mangrove (stage 7) shore (TILE): dark brown mud',
-  'I8 Abyss (stage 8) island (ISLAND): a small round island, dark navy seabed rock on top, a pale grey sand beach ring, a sunken stone arch in the middle',
-  'I8a Abyss (stage 8) land (TILE): dark navy seabed rock',
-  'I8b Abyss (stage 8) shore (TILE): pale grey sand',
-  'I9 Bone Sands (stage 9) island (ISLAND): a small round island, orange dune sand with soft ripples on top, a pale cream sand beach ring, a big skull half buried in sand in the middle',
-  'I9a Bone Sands (stage 9) land (TILE): orange dune sand with soft ripples',
-  'I9b Bone Sands (stage 9) shore (TILE): pale cream sand',
-  'I10 Crystal (stage 10) island (ISLAND): a small round island, lilac stone on top, a pale pink sand beach ring, a tall lilac crystal in the middle',
-  'I10a Crystal (stage 10) land (TILE): lilac stone',
-  'I10b Crystal (stage 10) shore (TILE): pale pink sand']],
+ ['I', 'Chart islands (8 of 10 done)', 'high', [
+  'I6 Caverns (stage 6) island (ISLAND): a small round pad island seen from straight above, dark purple-grey rock top, a wet dark slate rim, a round rocky cave mouth in the middle',
+  'I10 Crystal (stage 10) island (ISLAND): a small round pad island seen from straight above, lilac stone top, a pale pink sand rim, a tall lilac crystal in the middle',
+  'I1r Tropical redo (ISLAND): same as the current one but seen from straight above like the others: a round pad, sand rim, green top, the little stone fort with a black flag',
+  'I2r Cliff & Cove redo (ISLAND): seen from straight above: a round pad, grey pebble rim, green top, a red and white lighthouse']],
  ['P', 'Island props (one set per biome)', 'medium', [
   'P1 Tropical (FRONT): palm tree, round green bush, grey boulder, pink coral; one image each, chunky and simple',
   'P2 Cliff & Cove (FRONT): grey boulder, tuft of grass, rock stack, white shell; one image each, chunky and simple',

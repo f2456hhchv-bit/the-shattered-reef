@@ -25,7 +25,7 @@ import { loadPickupSprites } from './engine/pickupSprites.mjs';
 import { startEmojiIcons } from './ui/emojiIcons.mjs';
 import { loadTowerSprites } from './engine/towerSprites.mjs';
 import { drawBaseBuildings, drawGulls, BUILDING_SCALE, drawHarbourDecor } from './engine/baseRenderer.mjs';
-import { drawLandmarkKind } from './engine/islandArt.mjs';
+import { drawLandmarkKind, loadIslandSprites } from './engine/islandArt.mjs';
 import { sampleField } from './engine/terrain.mjs';
 import { buildTerrain } from './engine/terrain.mjs';
 import { createTerrainRenderer } from './engine/terrainRenderer.mjs';
@@ -95,7 +95,7 @@ export function startApp(root) {
   loadFxSprites();
   loadDev(window.localStorage);
   loadBuildingSprites();
-  loadTowerSprites(); loadPickupSprites(); startEmojiIcons();
+  loadTowerSprites(); loadPickupSprites(); loadIslandSprites(); startEmojiIcons();
   root.innerHTML = '';
   const canvas = document.createElement('canvas');
   canvas.id = 'game-canvas';

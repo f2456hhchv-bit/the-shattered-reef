@@ -310,9 +310,35 @@ function portrait(biomeId, stage, res) {
   return cv;
 }
 
+// Toy island images (art batch I) replace the rendered portrait per biome
+// once loaded; biomes without one keep the terrain-renderer portrait.
+export const ISLAND_SPRITES = ['tropical', 'cliff_cove', 'glacial', 'shipwreck', 'volcanic', 'mangrove', 'abyss', 'bone_sands'];
+const islandImgs = new Map();
+export function loadIslandSprites() { for (const b of ISLAND_SPRITES) islandSpriteReady(b); }
+export function islandSpriteReady(biomeId) {
+  if (!ISLAND_SPRITES.includes(biomeId) || typeof Image === 'undefined') return null;
+  let im = islandImgs.get(biomeId);
+  if (!im) { im = new Image(); im.src = `assets/islands/${biomeId}.png`; islandImgs.set(biomeId, im); }
+  return im.complete && im.naturalWidth ? im : null;
+}
+
 // Draws the island for `stage` in `biomeId` into a w×h box. `locked`
 // sinks it into the fog.
 export function drawIsland(ctx, w, h, biomeId, stage, { locked = false } = {}) {
+  const sp = islandSpriteReady(biomeId);
+  if (sp) {
+    const s = Math.min(w / sp.naturalWidth, h / sp.naturalHeight) * 0.9;
+    const dw = sp.naturalWidth * s; const dh = sp.naturalHeight * s;
+    ctx.save();
+    ctx.drawImage(sp, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    if (locked) {
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.fillStyle = 'rgba(34, 52, 68, 0.66)';
+      ctx.fillRect(0, 0, w, h);
+    }
+    ctx.restore();
+    return;
+  }
   const tr = ctx.getTransform();
   const devicePerWorld = (Math.hypot(tr.a, tr.b) * w) / PW;
   const res = Math.min(3, Math.max(0.5, Math.ceil(devicePerWorld * 2) / 2));

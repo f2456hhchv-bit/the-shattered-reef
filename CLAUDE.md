@@ -2888,6 +2888,14 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   water to go flat toy blue like the harbour). New batches P (props per
   biome + harbour props + gull), W (weather objects), X (shots, build
   spot, mine). Overlays, bars, rings and UI are routed to code restyles.
+- **Toy chart islands** (2026-10-09): 8 of 10 biomes' voyage-chart
+  islands are the owner's toy images (`assets/islands/<biome>.png`,
+  `ISLAND_SPRITES`/`loadIslandSprites` in `islandArt.mjs`; `drawIsland`
+  uses the image, the rendered portrait stays the fallback). Caverns and
+  Crystal still render. Tropical and Cliff & Cove are side-on while the
+  rest are top-down pads (redo asked for). The land/shore "TILE" images
+  came back as shaped pads, not seamless textures, so they aren't used;
+  the arena's toy restyle will be done in code from their colours.
 
 ## Decisions log
 

@@ -157,3 +157,9 @@ test('every emoji icon maps to a real file', async () => {
     assert.equal(iconUrl(e + '️'), url, `${e} with variation selector`);
   }
 });
+
+test('every toy island sprite exists', async () => {
+  const { ISLAND_SPRITES } = await import('../src/engine/islandArt.mjs');
+  const { existsSync } = await import('node:fs');
+  for (const b of ISLAND_SPRITES) assert.ok(existsSync(new URL(`../assets/islands/${b}.png`, import.meta.url)), b);
+});
