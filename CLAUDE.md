@@ -2284,6 +2284,14 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   holds the ChatGPT prompt kit (master header, ship 5-view brief, batches
   A-G with views built in, drift fixes). Tool: `tools/art-inventory/`.
 
+- **Creatures and bosses: all redo, even simpler** (2026-10-09). Owner:
+  the current creature/boss art doesn't match the simple ships and
+  buildings. Inventory now marks every creature and boss high (none count
+  as passing); batches A (12 bosses incl. Warding Seal) and G (28
+  creatures) are rewritten as 2-3 big rounded shapes, 2-3 flat colours,
+  and moved to the top of the priority list. Current art stays in play
+  until each replacement arrives.
+
 ## Decisions log" heading in this file. Short landscape: Continue
   no longer wraps, and the mini-map hides while a voyage is saved so the
   New Voyage / Defend row fits.

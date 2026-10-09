@@ -53,8 +53,8 @@ TYPES=[
 ]
 CAT={
  'Player ships':('done','All 7 hulls are simple-toy 5-view sets (2026-10-08). Every enemy ship is recoloured from these, so they match too.'),
- 'Enemies':('medium','Sharks, jellies, squid, wisps, bats, the narwhal, serpent and troll already pass. The rest have scales, patterns or too many parts: simplify them (batch G). Enemy ships follow the player hulls.'),
- 'Bosses':('medium',"Kraken's Anchor, Frost Leviathan and the Warding Seal pass. The other bosses are busy: simplify (batch A)."),
+ 'Enemies':('high','Every creature is redone even simpler to match the ships and buildings (batch G): 2-3 big rounded shapes, 2-3 flat colours. Enemy ships follow the player hulls and are done.'),
+ 'Bosses':('high',"Every boss is redone even simpler to match the ships and buildings (batch A). The current art stays in play until each replacement arrives."),
  'Boss effects':('low','Animated overlays: restyled in code to toy colours (flat fills, thick rounded outlines). No images needed.'),
  'Harbour buildings':('done',"All six are simple-toy sprites (2026-10-09). The lamp beam, portal, forge glow and banner glow stay code overlays on top."),
  'Harbour props':('low','Redesign as toy props (batch P): jetty, rock cluster, buoy, rowboat. Blinking lights and foam stay code overlays.'),
@@ -87,9 +87,10 @@ FX={'Explosion':'medium','Splash':'medium','Kill burst':'low','Hit spark':'low',
 # 'simple' = already passes; 'toy' = first toy pass, too busy, simplify.
 SIMPLE={'Sea-glass gem (1 XP)','Sea-glass gem (5 XP)','Sea-glass gem (25 XP)','Anchor coin (Salvage)','Lodestone (pull all)','Life ring (repair)','Treasure chest',
  'Explosion','Hit spark','Splash','Kill burst','Muzzle flash',
- 'Jelly Bloom','Drift Jelly','Ink Squid','Frost Narwhal','Reef Shark','Frost Wisp','Cinder Bat','Cave Bat','Warding Seal',"The Kraken's Anchor",'Charm Shrine','Tower Yard','Shipyard','Armory','Workshop','Faction Hall','The Frost Leviathan','Sea Serpent','Deep Troll'}
-SIMPLIFY_LOW={'Siren','Heart of the Reef','Bone Vulture','Prism Sprite'}
-TOY_PRI={'Player ships':'high','Harbour buildings':'high','Bosses':'medium','Enemies':'medium','Reef Defence':'medium'}
+ 'Charm Shrine','Tower Yard','Shipyard','Armory','Workshop','Faction Hall'}
+# 2026-10-09: owner judged every creature and boss too detailed next to the simple ships/buildings: all redo.
+SIMPLIFY_LOW={'Heart of the Reef'}
+TOY_PRI={'Player ships':'high','Harbour buildings':'high','Bosses':'high','Enemies':'high','Reef Defence':'medium'}
 for o in items:
     pr=CAT.get(o['cat'],(None,''))[0]
     n=o['name']

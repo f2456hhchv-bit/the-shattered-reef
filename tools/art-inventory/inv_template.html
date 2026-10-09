@@ -134,11 +134,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     </div>
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
+        <li><b>Creatures and bosses</b> (batches G, A): all of them, even simpler, to match the ships and buildings: 2-3 big rounded shapes and 2-3 flat colours each. Stage 1-4 creatures first (G1-G8), then bosses. Current art stays in play until each arrives.</li>
         <li><b>Terrain</b> (batch I): 8 chart islands are in; Caverns and Crystal are left, and Tropical and Cliff & Cove want redoing top-down to match. No more land/shore tiles needed: the image tool makes shaped pads, not seamless textures, so the arena is restyled in code from their colours.</li>
         <li><b>Island props</b> (batch P): palms, rocks and the rest, chunky enough to read at play size. Tropical first.</li>
         <li><b>Icons</b> (batches D, E): 72 toy icons are in (74 emoji covered); 15 emoji still need art (batch D, 12 icons) and 5 are stand-ins (batch E). See Icons.</li>
-        <li><b>Bosses</b> (batch A): the busy ones only; Kraken's Anchor, Frost Leviathan and the Warding Seal already pass.</li>
-        <li><b>Creatures</b> (batch G): the busy ones only; sharks, jellies, squid, wisps, bats, serpent and troll already pass.</li>
         <li><b>Reef Defence towers</b> (batch T) and <b>landmarks</b> (batch F).</li>
         <li>Low, when there's time: <b>weather objects</b> (W) and <b>shots</b> (X). Animated overlays, bars, rings and the UI are restyled in code, not drawn.</li>
         <li>Already simple, keep: <b>harbour buildings</b> (B), <b>player ships</b> (S, enemy ships follow), <b>pickups</b> (C) and <b>effects</b> (H).</ol></div>
@@ -283,33 +282,48 @@ const BATCHES = [
   'S5 Junk: round hull, red battened sails',
   'S6 Ironclad Steamer: dark iron hull, one funnel, a paddle wheel each side',
   'S7 Galleon: big hull, three cream sails, red flags']],
- ['A', 'Bosses (busy ones)', 'medium', [
-  'A1 The Black Gale (TOP): a big pirate ship, black sails, red trim',
-  'A2 The Drowned Admiral (TOP): a pale green ghost ship with torn sails',
-  'A3 Bloodfin Matriarch (TOP): a big red-finned shark',
-  'A4 The Hollow King (TOP): a round stone beast with a crown and two glowing eyes',
-  'A5 Old Mother Mire (FRONT): a round mossy swamp hag with glowing green eyes',
-  'A6 The Deep Mother (TOP): a big violet squid, a few thick tentacles',
-  'A7 The Dunemaw (TOP): a fat sand worm with a round mouth',
-  'A8 The Prism Colossus (FRONT): a chunky giant made of a few big lilac crystals',
-  'A9 The Caldera Wyrm (TOP): a dark red dragon-serpent with orange belly, wings folded']],
- ['G', 'Creatures (busy ones)', 'medium', [
-  'G1 Gullswarm Harpy (TOP): a white gull bird, wings spread',
-  'G2 Deep Crawler (TOP): a dark round crab',
-  'G3 Ice Golem (FRONT): a squat golem of a few big ice blocks',
-  'G4 Magma Golem (FRONT): a squat dark rock golem with a few orange glow spots',
-  'G5 Stalker Eel (TOP): a long dark eel with yellow eyes',
-  'G6 Bayou Gator (TOP): a smooth green alligator',
-  'G7 Bog Witch (TOP): a witch in a green hood on a broom',
-  'G8 Leech Swarm (TOP): three fat red leeches',
-  'G9 Anglerfish (TOP): a round dark fish with a glowing lure',
-  'G10 Bone Vulture (TOP): a dark bird with a white head, wings spread',
-  'G11 Sand Wyrm (TOP): a fat sandy worm',
-  'G12 Mirror Tortoise (TOP): a turtle with a smooth silver shell',
-  'G13 Crystal Crab (TOP): a round crab with lilac crystal claws',
-  'G14 Prism Sprite (TOP): a small round fairy with pink crystal wings',
-  'G15 Cave Bats (TOP): two purple bats side by side',
-  'G16 Siren (FRONT): a mermaid sitting on a round rock']],
+ ['A', 'Bosses (all, even simpler)', 'high', [
+  'A1 The Black Gale (TOP): a big pirate ship: a dark hull, two big black sails, one red flag; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'A2 The Drowned Admiral (TOP): a pale green see-through ghost ship, two ragged sails; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'A3 Bloodfin Matriarch (TOP): a big grey shark with red fins, a smooth bean body; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'A4 The Kraken\'s Anchor (FRONT): a big rusty anchor with two thick purple tentacles wrapped round it; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'A5 The Frost Leviathan (TOP): a long pale blue sea serpent, an icy white belly, two small ice horns; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'A6 The Caldera Wyrm (TOP): a dark red dragon-serpent, an orange belly, two folded wings; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'A7 The Hollow King (FRONT): a round grey stone blob with a gold crown and two glowing yellow eyes; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'A8 Old Mother Mire (FRONT): a round green mossy blob with a pointed hood and two glowing eyes; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'A9 The Deep Mother (TOP): a big violet squid: a round head and four thick tentacles; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'A10 The Dunemaw (TOP): a fat sandy worm with one big round open mouth; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'A11 The Prism Colossus (FRONT): a chunky giant made of four big lilac crystals, two glowing eyes; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'A12 Warding Seal (FRONT): a round stone disc on a short post with one glowing teal rune; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts']],
+ ['G', 'Creatures (all, even simpler)', 'high', [
+  'G1 Gullswarm Harpy (TOP): a white gull with wings spread, a yellow beak; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G2 Deep Crawler (TOP): a dark round crab with two big claws; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G3 Reef Shark (TOP): a grey shark, a smooth bean body, one fin; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G4 Sea Serpent (TOP): a green sea serpent in an S curve, a pale belly; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G5 Frost Narwhal (TOP): a pale blue whale with one long white tusk; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G6 Ice Golem (FRONT): a squat golem of three big ice blocks; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G7 Frost Wisp (FRONT): a round pale blue ghost flame with two eyes; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G8 Siren (FRONT): a mermaid with teal hair sitting on a round rock; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G9 Cinder Bat (TOP): a dark bat with orange wing tips; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G10 Magma Golem (FRONT): a squat black rock golem with orange glowing cracks; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G11 Ember Imp (FRONT): a small round orange fire imp; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G12 Cave Bat (TOP): a purple bat with wings spread; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G13 Stalker Eel (TOP): a long dark eel with yellow eyes; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G14 Deep Troll (FRONT): a round grey troll with long arms; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G15 Bayou Gator (TOP): a smooth green alligator; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G16 Bog Witch (TOP): a green hooded witch on a broom; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G17 Leech Swarm (TOP): three fat red leeches together; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G18 Bog Leech (TOP): one fat red leech; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G19 Anglerfish (TOP): a round dark fish with a glowing yellow lure; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G20 Jelly Bloom (TOP): three pink glowing jellyfish together; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G21 Drift Jelly (TOP): one pink glowing jellyfish; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G22 Ink Squid (TOP): a small purple squid, round head, four short arms; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G23 Bone Vulture (TOP): a brown bird with a white head, wings spread; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G24 Sand Wyrm (TOP): a fat sandy worm with a round mouth; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G25 Prism Sprite (TOP): a small round fairy with pink crystal wings; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G26 Mirror Tortoise (TOP): a turtle with a smooth silver shell; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G27 Crystal Crab (TOP): a round crab with lilac crystal claws; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
+  'G28 Shard Crab (TOP): a small round crab with one crystal on its back; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts']],
  ['T', 'Reef Defence towers', 'medium', [
   'T1 Cannon Battery (FRONT): a round stone tower with one big cannon on top',
   'T2 Grapeshot Nest (FRONT): a wooden platform with one wide-mouthed gun',
