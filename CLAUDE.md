@@ -2877,6 +2877,17 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   (atlases and frame tables replaced). Every enemy ship recolours from
   these hulls, so they match too. The inventory marks player ships and
   hull-based enemy ships as done.
+- **Simple-toy harbour buildings + every code asset given a redesign
+  route** (2026-10-09). All six buildings replaced from the owner's new
+  images (shipyard's baked glow cut by alpha); glow points in
+  `BUILDING_SPRITES` re-measured. Inventory: nothing is "keep as code"
+  any more. Terrain is now high: batch I = one toy ISLAND image per
+  biome for the chart (direct swap of `islandArt` portraits) plus a
+  seamless land TILE and shore TILE per biome for the arena (needs
+  texture sampling added to `terrainRenderer` when the art arrives;
+  water to go flat toy blue like the harbour). New batches P (props per
+  biome + harbour props + gull), W (weather objects), X (shots, build
+  spot, mine). Overlays, bars, rings and UI are routed to code restyles.
 
 ## Decisions log
 

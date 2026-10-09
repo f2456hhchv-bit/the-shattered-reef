@@ -8,12 +8,12 @@
 
 export const BUILDING_SPRITES = Object.freeze({
   shipyard: { file: 'shipyard', width: 88, foot: 12, shadow: [40, 13] },
-  lighthouse: { file: 'lighthouse', height: 100, foot: 8, shadow: [26, 9], lampY: 0.228 },
-  shrine: { file: 'shrine', width: 70, foot: 10, shadow: [34, 11], portal: [0.534, 0.592] },
+  lighthouse: { file: 'lighthouse', height: 100, foot: 8, shadow: [26, 9], lampY: 0.241 },
+  shrine: { file: 'shrine', width: 70, foot: 10, shadow: [34, 11], portal: [0.496, 0.519] },
   armory: { file: 'armory', width: 86, foot: 8, shadow: [38, 12] },
-  workshop: { file: 'workshop', width: 86, foot: 8, shadow: [38, 12], forge: [0.48, 0.74] },
+  workshop: { file: 'workshop', width: 86, foot: 8, shadow: [38, 12], forge: [0.476, 0.745] },
   // Banner centres left to right: Reavers, Wyrdtide, Iron Accord.
-  hall: { file: 'hall', width: 90, foot: 8, shadow: [40, 12], banners: [[0.355, 0.5], [0.5, 0.5], [0.645, 0.5]] },
+  hall: { file: 'hall', width: 90, foot: 8, shadow: [40, 12], banners: [[0.273, 0.575], [0.431, 0.591], [0.607, 0.615]] },
 });
 
 const images = {};

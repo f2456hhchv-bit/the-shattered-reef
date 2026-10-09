@@ -54,21 +54,21 @@ CAT={
  'Player ships':('done','All 7 hulls are simple-toy 5-view sets (2026-10-08). Every enemy ship is recoloured from these, so they match too.'),
  'Enemies':('medium','Sharks, jellies, squid, wisps, bats, the narwhal, serpent and troll already pass. The rest have scales, patterns or too many parts: simplify them (batch G). Enemy ships follow the player hulls.'),
  'Bosses':('medium',"Kraken's Anchor, Frost Leviathan and the Warding Seal pass. The other bosses are busy: simplify (batch A)."),
- 'Boss effects':('keep','Rings, auras and the ward are animated effects drawn over the sprite. Keep as code.'),
- 'Harbour buildings':('high',"The harbour terrain and UI are already in the simple style (2026-10-08), so these busy buildings clash most. Redo all six (batch B), a few big blocks each. The lamp beam, portal, forge glow and banner glow stay code overlays."),
- 'Harbour props':('low','Small and animated (blinking buoys, foam). Fine as code.'),
+ 'Boss effects':('low','Animated overlays: restyled in code to toy colours (flat fills, thick rounded outlines). No images needed.'),
+ 'Harbour buildings':('done',"All six are simple-toy sprites (2026-10-09). The lamp beam, portal, forge glow and banner glow stay code overlays on top."),
+ 'Harbour props':('low','Redesign as toy props (batch P): jetty, rock cluster, buoy, rowboat. Blinking lights and foam stay code overlays.'),
  'Landmarks':('medium','Set pieces on arena islands and the chart. Toy FRONT-view versions, batch F.'),
- 'Reef Defence':('keep','The six towers are busy (props, planks, crates): simplify (batch T). The Heart is close; low. Level pips and rings stay code.'),
- 'Terrain (biome islands)':('keep','Generated from each level\'s shape, so it can\'t be swapped for painted tiles. Its look changes through colours and textures in code.'),
- 'Terrain in play (arena view)':('keep','Same renderer, as seen in play.'),
- 'Island decorations':('keep','Baked into the terrain at a few pixels across. Painted versions wouldn\'t be visible.'),
- 'Weather objects':('low','Animated shapes; fine as code.'),
+ 'Reef Defence':('low','The six towers are busy (props, planks, crates): simplify (batch T). The Heart is close; low. Build spot and mine can take toy images too (batch X). Level pips and rings stay code.'),
+ 'Terrain (biome islands)':('high','Redesignable without losing the generated shapes. Chart islands: one toy island image per biome, a direct swap (batch I). Arena land: the renderer fills land and shore with seamless toy textures per biome instead of shaded code colours (batch I), and water goes flat toy blue like the harbour. Needs texture sampling added to the terrain renderer once the art arrives.'),
+ 'Terrain in play (arena view)':('high','Same renderer, as seen in play: takes the batch I land and shore textures and the batch P props.'),
+ 'Island decorations':('medium','Redesign as chunky toy props (batch P), stamped bigger than now so they read, like the harbour bushes. One set per biome.'),
+ 'Weather objects':('low','Can take toy images (batch W): floes, wreckage, rocks, ghost lights. Spinning whirlpools and spouts stay code-animated over a toy base.'),
  'Weather effects (in play)':('medium','The rain, snow, ash and cloud overlays are plain code streaks and dots. The Weather V2 sheet\'s painted textures can replace them (code work; art already supplied).'),
  'Effects':(None,'Already simple. Explosions, splashes and smoke are the effects you see most in combat. The explosion, splash, kill burst and muzzle flash are 12-frame toy animations; the hit spark is a single toy image that pops in and fades (all done 2026-10-08).'),
- 'Player shots':('keep','Tiny, fast and animated. Keep as code.'),
- 'Enemy shots':('keep','Tiny, fast and animated. Keep as code.'),
- 'In-world HUD':('keep','Readability elements: they must stay crisp at any zoom. Keep as code.'),
- 'Ambient life':('low','Gulls drawn as two strokes. A small painted, flapping gull would be a nice touch, not a need.'),
+ 'Player shots':('low','Can take small toy images (batch X); trails, spin and glow stay code.'),
+ 'Enemy shots':('low','Can take small toy images (batch X); trails and telegraph rings stay code.'),
+ 'In-world HUD':('low','Must stay crisp, so restyled in code to toy colours rather than swapped for images.'),
+ 'Ambient life':('low','Gulls drawn as two strokes. A toy gull (batch P) would be a nice touch.'),
  'Pickups':('done','Already simple: chunky single objects, flat colours. Keep.'),
  'UI · Screens':('medium','UI is built from CSS, so it\'s restyled in code, not swapped for images. A pass against the V3 UI style guide ties it to the new art.'),
  'UI · Harbour HUD':('medium','Restyle in code against the V3 UI guide; the icons inside are emoji (see Icons).'),
@@ -86,7 +86,7 @@ FX={'Explosion':'medium','Splash':'medium','Kill burst':'low','Hit spark':'low',
 # 'simple' = already passes; 'toy' = first toy pass, too busy, simplify.
 SIMPLE={'Sea-glass gem (1 XP)','Sea-glass gem (5 XP)','Sea-glass gem (25 XP)','Anchor coin (Salvage)','Lodestone (pull all)','Life ring (repair)','Treasure chest',
  'Explosion','Hit spark','Splash','Kill burst','Muzzle flash',
- 'Jelly Bloom','Drift Jelly','Ink Squid','Frost Narwhal','Reef Shark','Frost Wisp','Cinder Bat','Cave Bat','Warding Seal',"The Kraken's Anchor",'The Frost Leviathan','Sea Serpent','Deep Troll'}
+ 'Jelly Bloom','Drift Jelly','Ink Squid','Frost Narwhal','Reef Shark','Frost Wisp','Cinder Bat','Cave Bat','Warding Seal',"The Kraken's Anchor",'Charm Shrine','Tower Yard','Shipyard','Armory','Workshop','Faction Hall','The Frost Leviathan','Sea Serpent','Deep Troll'}
 SIMPLIFY_LOW={'Siren','Heart of the Reef','Bone Vulture','Prism Sprite'}
 TOY_PRI={'Player ships':'high','Harbour buildings':'high','Bosses':'medium','Enemies':'medium','Reef Defence':'medium'}
 for o in items:
@@ -104,7 +104,7 @@ for o in items:
         elif n in SIMPLIFY_LOW: o['pri']='low'
         else: o['pri']=TOY_PRI.get(o['cat'],'medium')
     elif o['cat']=='Enemies' and o['style']=='old': o['pri']='high' if n in EARLY else 'medium'
-    elif o['cat']=='Effects': o['pri']=FX.get(o['name'],'keep')
+    elif o['cat']=='Effects': o['pri']=FX.get(o['name'],'low')
     else: o['pri']=pr or 'keep'
     o.pop('status',None)
 order={c:i for i,(_,_,cs) in enumerate(TYPES) for c in cs}

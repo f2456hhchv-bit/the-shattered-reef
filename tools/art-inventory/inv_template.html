@@ -134,19 +134,22 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     </div>
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
-        <li><b>Harbour buildings</b> (batch B): the first screen, and the harbour itself is already in the simple style, so the busy buildings clash most.</li>
+        <li><b>Terrain</b> (batch I): the island you sail round fills most of the screen. One toy island per biome for the chart, plus a land and a shore texture per biome for the arena. Start with Tropical (stage 1).</li>
+        <li><b>Island props</b> (batch P): palms, rocks and the rest, chunky enough to read at play size. Tropical first.</li>
         <li><b>Icons</b> (batches D, E): 72 toy icons are in (74 emoji covered); 15 emoji still need art (batch D, 12 icons) and 5 are stand-ins (batch E). See Icons.</li>
         <li><b>Bosses</b> (batch A): the busy ones only; Kraken's Anchor, Frost Leviathan and the Warding Seal already pass.</li>
         <li><b>Creatures</b> (batch G): the busy ones only; sharks, jellies, squid, wisps, bats, serpent and troll already pass.</li>
         <li><b>Reef Defence towers</b> (batch T) and <b>landmarks</b> (batch F).</li>
-        <li>Already simple, keep: <b>pickups</b> (C), <b>effects</b> (H) and now <b>player ships</b> (S, all 7 hulls; enemy ships follow). Code to follow the harbour later: arena terrain, HUD, cards and menus.</li>
-      </ol></div>
+        <li>Low, when there's time: <b>weather objects</b> (W) and <b>shots</b> (X). Animated overlays, bars, rings and the UI are restyled in code, not drawn.</li>
+        <li>Already simple, keep: <b>harbour buildings</b> (B), <b>player ships</b> (S, enemy ships follow), <b>pickups</b> (C) and <b>effects</b> (H).</ol></div>
       <div class="box do"><h3>Do</h3><ul>
         <li>Attach <b>the harbour mockup</b> to every request (and, when redoing an asset, its current image so the shape carries over). The style follows the picture far more than the words.</li>
         <li>Ask for <b>one asset per message</b>, on a <b>transparent background</b> (flat #FF00FF magenta if it can't).</li>
         <li><b>TOP view</b> for anything that swims or flies: straight down, front pointing to the top of the image. The game turns it to any heading.</li>
         <li><b>FRONT view</b> for upright things (golems, sirens, buildings, towers, landmarks, pickups, icons): front three-quarter, slightly from above. The game mirrors it left and right.</li>
         <li>Ships only: <b>one image with 5 views</b> in a row (see the prompt kit).</li>
+        <li><b>ISLAND view</b> (chart islands): one small round island seen from high above at a slight angle, its landmark on top, transparent sea around it.</li>
+        <li><b>TILE</b> (terrain textures): a square, seamless texture seen straight down, flat even light, no shadows from one side, so it repeats in every direction without seams. Opaque, no transparency.</li>
         <li>Fill most of the frame; around 1024px is fine. The game trims and scales it.</li>
       </ul></div>
       <div class="box dont"><h3>Don't</h3><ul>
@@ -248,7 +251,51 @@ One image with 5 views of the same ship in a row, same size, evenly spaced, not 
 4 stern-quarter (bow pointing up-left)
 5 stern (back towards the camera)`;
 const BATCHES = [
- ['B', 'Harbour buildings', 'high', [
+ ['I', 'Terrain: chart islands and arena textures (start with Tropical)', 'high', [
+  'I1 Tropical (stage 1) island (ISLAND): a small round island, green jungle grass with a few rounded leaf clumps on top, a warm golden sand beach ring, a little stone fort with a black flag in the middle',
+  'I1a Tropical (stage 1) land (TILE): green jungle grass with a few rounded leaf clumps',
+  'I1b Tropical (stage 1) shore (TILE): warm golden sand',
+  'I2 Cliff & Cove (stage 2) island (ISLAND): a small round island, short green clifftop grass on top, a grey pebbles beach ring, a red and white lighthouse in the middle',
+  'I2a Cliff & Cove (stage 2) land (TILE): short green clifftop grass',
+  'I2b Cliff & Cove (stage 2) shore (TILE): grey pebbles',
+  'I3 Glacial (stage 3) island (ISLAND): a small round island, smooth white snow on top, a pale blue ice beach ring, three ice spires in the middle',
+  'I3a Glacial (stage 3) land (TILE): smooth white snow',
+  'I3b Glacial (stage 3) shore (TILE): pale blue ice',
+  'I4 Shipwreck (stage 4) island (ISLAND): a small round island, dull grey-green grass on top, a grey sand beach ring, a broken boat hull in the middle',
+  'I4a Shipwreck (stage 4) land (TILE): dull grey-green grass',
+  'I4b Shipwreck (stage 4) shore (TILE): grey sand',
+  'I5 Volcanic (stage 5) island (ISLAND): a small round island, black rock with thin glowing orange cracks on top, a dark grey ash beach ring, a small volcano with a glowing top in the middle',
+  'I5a Volcanic (stage 5) land (TILE): black rock with thin glowing orange cracks',
+  'I5b Volcanic (stage 5) shore (TILE): dark grey ash',
+  'I6 Caverns (stage 6) island (ISLAND): a small round island, dark purple-grey rock on top, a wet dark slate beach ring, a round rocky cave mouth in the middle',
+  'I6a Caverns (stage 6) land (TILE): dark purple-grey rock',
+  'I6b Caverns (stage 6) shore (TILE): wet dark slate',
+  'I7 Mangrove (stage 7) island (ISLAND): a small round island, mossy green mud on top, a dark brown mud beach ring, a swamp hut on stilts in the middle',
+  'I7a Mangrove (stage 7) land (TILE): mossy green mud',
+  'I7b Mangrove (stage 7) shore (TILE): dark brown mud',
+  'I8 Abyss (stage 8) island (ISLAND): a small round island, dark navy seabed rock on top, a pale grey sand beach ring, a sunken stone arch in the middle',
+  'I8a Abyss (stage 8) land (TILE): dark navy seabed rock',
+  'I8b Abyss (stage 8) shore (TILE): pale grey sand',
+  'I9 Bone Sands (stage 9) island (ISLAND): a small round island, orange dune sand with soft ripples on top, a pale cream sand beach ring, a big skull half buried in sand in the middle',
+  'I9a Bone Sands (stage 9) land (TILE): orange dune sand with soft ripples',
+  'I9b Bone Sands (stage 9) shore (TILE): pale cream sand',
+  'I10 Crystal (stage 10) island (ISLAND): a small round island, lilac stone on top, a pale pink sand beach ring, a tall lilac crystal in the middle',
+  'I10a Crystal (stage 10) land (TILE): lilac stone',
+  'I10b Crystal (stage 10) shore (TILE): pale pink sand']],
+ ['P', 'Island props (one set per biome)', 'medium', [
+  'P1 Tropical (FRONT): palm tree, round green bush, grey boulder, pink coral; one image each, chunky and simple',
+  'P2 Cliff & Cove (FRONT): grey boulder, tuft of grass, rock stack, white shell; one image each, chunky and simple',
+  'P3 Glacial (FRONT): snowy pine, ice boulder, snow drift, ice shard; one image each, chunky and simple',
+  'P4 Shipwreck (FRONT): broken mast, barrel, grey boulder, tangled net; one image each, chunky and simple',
+  'P5 Volcanic (FRONT): charred tree stump, glowing ember rock, black boulder, smoke vent; one image each, chunky and simple',
+  'P6 Caverns (FRONT): stalagmite, glowing mushroom, glowing coral, purple boulder; one image each, chunky and simple',
+  'P7 Mangrove (FRONT): mangrove tree, lily pad, reed clump, mossy log; one image each, chunky and simple',
+  'P8 Abyss (FRONT): tube worms, anemone, dark boulder, glowing coral; one image each, chunky and simple',
+  'P9 Bone Sands (FRONT): cactus, rib bones, small skull, sandstone rock; one image each, chunky and simple',
+  'P10 Crystal (FRONT): crystal cluster, pink boulder, lilac shrub, crystal shard; one image each, chunky and simple',
+  'P11 Harbour (FRONT): wooden jetty with a lantern, rock cluster, red buoy, green buoy, rowboat; one image each',
+  'P12 Gull (TOP): a white seagull with wings spread']],
+ ['B', 'Harbour buildings', 'done', [
   'B1 Shipyard (FRONT): a small hut with a blue roof, a simple crane and a little boat on a slipway',
   'B2 Armory (FRONT): a small stone hut with one cannon in front and a gold anchor sign',
   'B3 Workshop (FRONT): a small hut with a chimney and a glowing forge door, one anvil',
@@ -328,6 +375,27 @@ const BATCHES = [
   'F8 Drowned temple (FRONT): a sunken stone arch',
   'F9 Giant skull (FRONT): a big skull half in sand',
   'F10 Crystal spire (FRONT): a tall lilac crystal']],
+ ['W', 'Weather objects', 'low', [
+  'W1 Ice floe (TOP): a flat white ice slab',
+  'W2 Wreckage (TOP): a few floating planks and a barrel',
+  'W3 Falling rock (FRONT): one chunky grey rock',
+  'W4 Falling ice (FRONT): one chunky ice block',
+  'W5 Ghost light (FRONT): a soft glowing blue orb',
+  'W6 Whirlpool base (TOP): a round dark-blue swirl of water',
+  'W7 Waterspout (FRONT): a grey-blue water funnel']],
+ ['X', 'Shots and small markers', 'low', [
+  'X1 Cannonball (TOP): a black iron ball',
+  'X2 Chain shot (TOP): two iron balls on a short chain',
+  'X3 Grapeshot pellet (TOP): a small grey ball',
+  'X4 Depth charge (TOP): a round barrel bomb',
+  'X5 Flame barrel (TOP): a small barrel with a flame',
+  'X6 Harpoon (TOP): a harpoon pointing up',
+  'X7 Powder keg (TOP): a small black keg',
+  'X8 Enemy fire bolt (TOP): an orange fireball',
+  'X9 Frost shard (TOP): a blue ice shard pointing up',
+  'X10 Boulder (TOP): a round grey boulder',
+  'X11 Build spot (TOP): a round stone platform',
+  'X12 Mine (TOP): a round spiked sea mine']],
  ['C', 'Pickups', 'done', [
   'C1-C7 Sea glass, coin, lodestone, life ring, chest: already simple, keep']],
  ['H', 'Effects (frame animations)', 'done', [
