@@ -61,6 +61,8 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
     const aa = inv; // one output pixel of coast anti-aliasing, in world px
     const fwMax = FW - 1.001; const fhMax = FH - 1.001;
     const foamW = biome.foamWidth;
+    // Toy biomes (data/toyTerrain.mjs) flatten land relief and grain.
+    const relief = biome.relief ?? 1; const grainAmt = biome.grain ?? 7;
     for (let y = job.row; y < rowEnd; y++) {
       const wy = y0 + (y - PAD + 0.5) * inv;
       let fy = wy / C - 0.5; fy = fy < 0 ? 0 : (fy > fhMax ? fhMax : fy);
@@ -104,7 +106,7 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
             const cr = rockD[0] + (rockC[0] - rockD[0]) * tex; const cg = rockD[1] + (rockC[1] - rockD[1]) * tex; const cb = rockD[2] + (rockC[2] - rockD[2]) * tex;
             r += (cr - r) * rk; gg += (cg - gg) * rk; b += (cb - b) * rk;
           }
-          const sh = (SD[i] * w00 + SD[i + 1] * w10 + SD[j] * w01 + SD[j + 1] * w11) * (1 - shadow);
+          const sh = (1 + ((SD[i] * w00 + SD[i + 1] * w10 + SD[j] * w01 + SD[j + 1] * w11) - 1) * relief) * (1 - shadow * relief);
           r *= sh; gg *= sh; b *= sh;
           if (lava && s > lava.start) {
             // Molten pools: unshaded, so they glow; a dark crust at the rim.
@@ -121,7 +123,7 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
             r = wr + (r - wr) * t; gg = wg + (gg - wg) * t; b = wb + (b - wb) * t;
           }
         }
-        const gr = grain * 7;
+        const gr = grain * grainAmt;
         const o = (y * W + x) * 4;
         px[o] = r + gr; px[o + 1] = gg + gr; px[o + 2] = b + gr; px[o + 3] = 255;
       }
@@ -142,7 +144,7 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
     }
     list.sort((a, b2) => a.y - b2.y);
     const flat = (d) => d.kind === 'coral' || d.kind === 'shell' || styleOf(d, biome) === 'lilypad';
-    for (const d of list) if (!flat(d)) drawShadowOf(g, d);
+    for (const d of list) if (!flat(d) && styleOf(d, biome) !== 'none') drawShadowOf(g, d);
     for (const d of list) drawDecoration(g, d, biome);
     return { canvas: job.canvas, x0, y0, cw, ch };
   }
@@ -238,6 +240,7 @@ export function glowingDecorations(terrain, biome) {
   const out = [];
   for (const d of terrain.decorations) {
     const rgb = biome.glow[d.kind];
+    if (styleOf(d, biome) === 'none') continue; // hidden decoration: no light either
     if (rgb) out.push({ x: d.x, y: d.y - (d.kind === 'palm' ? d.size * 0.4 : 0), r: 10 + d.size * 2.2, rgb, phase: d.variant * 6.28 });
   }
   return out;

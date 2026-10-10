@@ -19,6 +19,7 @@ import { drawDarkness, drawGlows, drawEyes, drawAmbientScreen } from './engine/l
 import { glowingDecorations } from './engine/terrainRenderer.mjs';
 import { BASE_BUILDINGS } from './data/base.mjs';
 import { HARBOUR_BIOME_OVERRIDES } from './data/base.mjs';
+import { toyArenaBiome } from './data/toyTerrain.mjs';
 import { buildBaseWorld, computeBaseView, boatOrbitPoint } from './engine/base.mjs';
 import { loadBuildingSprites } from './engine/buildingSprites.mjs';
 import { loadPickupSprites } from './engine/pickupSprites.mjs';
@@ -581,9 +582,12 @@ export function startApp(root) {
     if (terrainGrid === run.grid) return;
     terrainGrid = run.grid;
     runBiome = getBiome(run.level?.biomeId || BIOME_IDS.TROPICAL);
+    if (run.mode === 'survival') runBiome = toyArenaBiome(runBiome); // toy board-piece look (2026-10-10)
     terrain = buildTerrain(run.grid, run.tileSize, run.coastSeed, runBiome, run.coast, { shoals: run.mode === 'survival' });
     terrainRenderer = createTerrainRenderer(terrain, runBiome, { res: Math.min(window.devicePixelRatio || 1, 1.5) });
-    terrainGlows = glowingDecorations(terrain, runBiome);
+    // No glows from land hidden under a toy island image.
+    terrainGlows = glowingDecorations(terrain, runBiome)
+      .filter((g) => !(run.seaIslands || []).some((l) => Math.hypot(g.x - l.x, g.y - l.y) < l.size * 0.5));
     terrainFresh = true; // first draw renders every visible chunk at once
     wake.length = 0; // the boat just teleported to a new spawn
   }

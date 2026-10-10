@@ -2317,6 +2317,18 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   arrival. Swatch batch J removed. Header gained the ISLAND view; owner
   names each image by its code.
 
+- **Toy arena terrain** (2026-10-10). Survival arenas now draw land in
+  the island art's board-piece look: `data/toyTerrain.mjs`
+  (`TOY_PALETTES` sampled from `assets/islands`, `toyArenaBiome`) gives
+  every coast a dark lip, a lit rounded rim, a groove and a flat top
+  (`toyLandStops`), turns rock outcrops off, and sets `relief: 0.3` /
+  `grain: 2.5`, which `terrainRenderer` now reads (other modes stay ×1).
+  Decorations are hidden except toy rocks and the glowing kinds dark
+  biomes need; hidden decor casts no shadow and no glow, and no glow comes
+  from land under a sea-island image. Tropical uses the harbour's water.
+  Applied in main.mjs only when `run.mode === 'survival'`. Screenshotted
+  all 10 biomes at 390×844. Next: biome props as toy images (batch P).
+
 ## Decisions log" heading in this file. Short landscape: Continue
   no longer wraps, and the mini-map hides while a voyage is saved so the
   New Voyage / Defend row fits.

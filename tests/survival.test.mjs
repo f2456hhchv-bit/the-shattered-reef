@@ -448,3 +448,16 @@ test('toy island obstacles: placed from the biome pool, land stamped under each'
   }
   assert.deepEqual(seaIslandPool('caverns'), []);
 });
+
+test('toy arena terrain: every biome has a palette, flat tops, toy rocks', async () => {
+  const { toyArenaBiome, TOY_PALETTES } = await import('../src/data/toyTerrain.mjs');
+  const { getBiome, BIOME_IDS } = await import('../src/data/biomes.mjs');
+  for (const id of Object.values(BIOME_IDS)) {
+    assert.ok(TOY_PALETTES[id], id);
+    const t = toyArenaBiome(getBiome(id));
+    assert.equal(t.rockStart, 9999);
+    assert.ok(t.relief < 1);
+    assert.equal(t.decor.boulder, 'toyrock');
+    assert.equal(t.land.at(-1)[1], TOY_PALETTES[id].top);
+  }
+});
