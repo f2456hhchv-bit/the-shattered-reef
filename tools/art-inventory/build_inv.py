@@ -61,7 +61,7 @@ CAT={
  'Landmarks':('medium','Set pieces on arena islands and the chart. Toy FRONT-view versions, batch F.'),
  'Reef Defence':('low','The six towers are busy (props, planks, crates): simplify (batch T). The Heart is close; low. Build spot and mine can take toy images too (batch X). Level pips and rings stay code.'),
  'Terrain (biome islands)':('high','Chart islands: 8 of 10 are toy images (2026-10-09); Caverns and Crystal still needed (batch I). Tropical and Cliff & Cove are side-on while the rest are top-down pads; redo those two as pads to match. The land/shore "tiles" that came back are shaped pads, not seamless textures, so the arena land will be restyled in code using their colours and soft bumps instead.'),
- 'Terrain in play (arena view)':('high','Restyle in code to the toy look: flat land colours sampled from the supplied pads, a rounded rim at the coast, soft bumps, flat toy water. Props from batch P on top.'),
+ 'Terrain in play (arena view)':('high','Ground texture from one SWATCH image per biome (batch J), sampled as a repeating pattern; coastline, rounded beach rim and flat toy water stay code-drawn because they follow the generated map. Props from batch P on top.'),
  'Island decorations':('medium','Redesign as chunky toy props (batch P), stamped bigger than now so they read, like the harbour bushes. One set per biome.'),
  'Weather objects':('low','Can take toy images (batch W): floes, wreckage, rocks, ghost lights. Spinning whirlpools and spouts stay code-animated over a toy base.'),
  'Weather effects (in play)':('medium','The rain, snow, ash and cloud overlays are plain code streaks and dots. The Weather V2 sheet\'s painted textures can replace them (code work; art already supplied).'),

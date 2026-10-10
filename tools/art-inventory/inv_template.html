@@ -135,7 +135,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
         <li><b>Creatures and bosses</b> (batches G, A): all of them, even simpler, to match the ships and buildings: 2-3 big rounded shapes and 2-3 flat colours each. Stage 1-4 creatures first (G1-G8), then bosses. Current art stays in play until each arrives.</li>
-        <li><b>Terrain</b> (batch I): 8 chart islands are in; Caverns and Crystal are left, and Tropical and Cliff & Cove want redoing top-down to match. No more land/shore tiles needed: the image tool makes shaped pads, not seamless textures, so the arena is restyled in code from their colours.</li>
+        <li><b>Terrain</b> (batch I): 8 chart islands are in; Caverns and Crystal are left, and Tropical and Cliff & Cove want redoing top-down to match. For the arena: one ground SWATCH per biome (batch J). The last tiles came back as islands because the prompt said "tile"; the SWATCH prompt asks for a zoomed-in square of ground only. Coastline, beach rim and water stay code-drawn (they follow the generated map).</li>
         <li><b>Island props</b> (batch P): palms, rocks and the rest, chunky enough to read at play size. Tropical first.</li>
         <li><b>Icons</b> (batches D, E): 72 toy icons are in (74 emoji covered); 15 emoji still need art (batch D, 12 icons) and 5 are stand-ins (batch E). See Icons.</li>
         <li><b>Reef Defence towers</b> (batch T) and <b>landmarks</b> (batch F).</li>
@@ -147,6 +147,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
         <li><b>TOP view</b> for anything that swims or flies: straight down, front pointing to the top of the image. The game turns it to any heading.</li>
         <li><b>FRONT view</b> for upright things (golems, sirens, buildings, towers, landmarks, pickups, icons): front three-quarter, slightly from above. The game mirrors it left and right.</li>
         <li>Ships only: <b>one image with 5 views</b> in a row (see the prompt kit).</li>
+        <li><b>SWATCH view</b> (arena ground): a square of ground surface filling the image edge to edge, like a floor tile. It must not be an island: if the reply shows a coastline, water or a rim, say "No. Zoom right in: ground only, filling all four edges, no coast, no water, no rim." Seams are fixed in code, so it doesn't need to tile perfectly.</li>
         <li><b>ISLAND view</b> (chart islands): one small round island seen from high above at a slight angle, its landmark on top, transparent sea around it.</li>
         <li>Fill most of the frame; around 1024px is fine. The game trims and scales it.</li>
       </ul></div>
@@ -238,7 +239,7 @@ const HEADER = `Use the image generator. No code. One image per reply.
 Match the attached harbour image's style exactly: a simple chunky toy, like a child's wooden or plastic playset piece. A few big rounded blocks (about 3-6 parts), thick silhouette, slightly squat cute proportions. 3-4 flat matte colours, soft light from the top-left, smooth, no texture.
 No clutter: no small props (barrels, crates, cannonball piles, ropes, chains, ladders, lanterns), no brick or plank lines, no rivets, scales, cracks, patterns, window grids or text. If a detail would vanish at 48px, leave it out.
 One subject only, centred, filling most of the image. No shadow, no water, no ground. Transparent background (only if you can't do transparent, use flat #FF00FF magenta).
-Views: TOP = straight top-down, the front pointing to the top of the image. FRONT = front three-quarter view, slightly from above.
+Views: TOP = straight top-down, the front pointing to the top of the image. FRONT = front three-quarter view, slightly from above. SWATCH = a square close-up of ground surface only, seen from straight above, filling the whole image to all four edges like a floor tile: NOT an island, no coastline, no water, no rim, no border, no darker edges, nothing bigger than a pebble, even detail everywhere with no centre, so it can repeat; ignore the transparent-background rule for SWATCH.
 Before each image, write one line: the item code, its name, its view, and "simple toy, transparent background".
 Work through the list below. Make the first item now. When I say "next", make the next one.`;
 const SHIPS = `Make: [HULL NAME], one simple toy ship: a rounded hull, one or two big sails, a small flag. No ropes, rigging, cannons, windows or plank lines.
@@ -254,6 +255,17 @@ const BATCHES = [
   'I10 Crystal (stage 10) island (ISLAND): a small round pad island seen from straight above, lilac stone top, a pale pink sand rim, a tall lilac crystal in the middle',
   'I1r Tropical redo (ISLAND): same as the current one but seen from straight above like the others: a round pad, sand rim, green top, the little stone fort with a black flag',
   'I2r Cliff & Cove redo (ISLAND): seen from straight above: a round pad, grey pebble rim, green top, a red and white lighthouse']],
+ ['J', 'Arena ground swatches (one per biome)', 'medium', [
+  'J1 Tropical ground (SWATCH): flat green grass, two shades of green, a few tiny lighter tufts',
+  'J2 Cliff & Cove ground (SWATCH): short green turf with a few small grey pebbles',
+  'J3 Glacial ground (SWATCH): smooth white snow, pale blue soft dips',
+  'J4 Shipwreck ground (SWATCH): grey-brown damp sand, a few tiny dark pebbles',
+  'J5 Volcanic ground (SWATCH): dark charcoal ash, a few tiny orange ember dots',
+  'J6 Caverns ground (SWATCH): dark purple-grey stone floor, soft rounded slabs',
+  'J7 Mangrove ground (SWATCH): dark olive mud with small moss patches',
+  'J8 Abyss ground (SWATCH): deep navy rock with a few tiny glowing teal specks',
+  'J9 Bone Sands ground (SWATCH): warm orange sand with soft ripple lines',
+  'J10 Crystal ground (SWATCH): pale lilac stone with a few tiny pink crystal chips']],
  ['P', 'Island props (one set per biome)', 'medium', [
   'P1 Tropical (FRONT): palm tree, round green bush, grey boulder, pink coral; one image each, chunky and simple',
   'P2 Cliff & Cove (FRONT): grey boulder, tuft of grass, rock stack, white shell; one image each, chunky and simple',
