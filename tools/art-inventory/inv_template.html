@@ -135,7 +135,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
         <li><b>Creatures and bosses</b> (batches G, A): all of them, even simpler, to match the ships and buildings: 2-3 big rounded shapes and 2-3 flat colours each. Stage 1-4 creatures first (G1-G8), then bosses. Current art stays in play until each arrives.</li>
-        <li><b>Terrain</b> (batch I): 8 chart islands are in; Caverns and Crystal are left, and Tropical and Cliff & Cove want redoing top-down to match. For the arena: one ground SWATCH per biome (batch J). The last tiles came back as islands because the prompt said "tile"; the SWATCH prompt asks for a zoomed-in square of ground only. Coastline, beach rim and water stay code-drawn (they follow the generated map).</li>
+        <li><b>Terrain</b> (batch I): 9 chart islands are in (they double as sea obstacles in the arenas); Caverns is left, and Tropical and Cliff & Cove want redoing top-down to match. For the arena: one ground SWATCH per biome (batch J). The last tiles came back as islands because the prompt said "tile"; the SWATCH prompt asks for a zoomed-in square of ground only. Coastline, beach rim and water stay code-drawn (they follow the generated map).</li>
         <li><b>Island props</b> (batch P): palms, rocks and the rest, chunky enough to read at play size. Tropical first.</li>
         <li><b>Icons</b> (batches D, E): 72 toy icons are in (74 emoji covered); 15 emoji still need art (batch D, 12 icons) and 5 are stand-ins (batch E). See Icons.</li>
         <li><b>Reef Defence towers</b> (batch T) and <b>landmarks</b> (batch F).</li>
@@ -250,9 +250,8 @@ One image with 5 views of the same ship in a row, same size, evenly spaced, not 
 4 stern-quarter (bow pointing up-left)
 5 stern (back towards the camera)`;
 const BATCHES = [
- ['I', 'Chart islands (8 of 10 done)', 'high', [
+ ['I', 'Chart islands (9 of 10 done)', 'high', [
   'I6 Caverns (stage 6) island (ISLAND): a small round pad island seen from straight above, dark purple-grey rock top, a wet dark slate rim, a round rocky cave mouth in the middle',
-  'I10 Crystal (stage 10) island (ISLAND): a small round pad island seen from straight above, lilac stone top, a pale pink sand rim, a tall lilac crystal in the middle',
   'I1r Tropical redo (ISLAND): same as the current one but seen from straight above like the others: a round pad, sand rim, green top, the little stone fort with a black flag',
   'I2r Cliff & Cove redo (ISLAND): seen from straight above: a round pad, grey pebble rim, green top, a red and white lighthouse']],
  ['J', 'Arena ground swatches (one per biome)', 'medium', [
