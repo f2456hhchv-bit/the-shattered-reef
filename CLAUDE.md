@@ -2308,6 +2308,15 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   Swatch batch J stays in the inventory but isn't needed: the islands'
   flat look can be drawn in code.
 
+- **Art inventory: more assets to commission** (2026-10-10). New
+  batches: O (plain sea-obstacle pads, 3 per biome + rock islets; drop
+  straight into the arenas via `key-island.py`), X2 (fire pool, reaper
+  blade, biome enemy shots, mortar shell), U (title logo, 3 faction
+  crests, Kraken Scale, rating stars, elite chest, warlord crown), R
+  (defence sea gate, spec badge). X2/U/R need a small code hook each on
+  arrival. Swatch batch J removed. Header gained the ISLAND view; owner
+  names each image by its code.
+
 ## Decisions log" heading in this file. Short landscape: Continue
   no longer wraps, and the mini-map hides while a voyage is saved so the
   New Voyage / Defend row fits.

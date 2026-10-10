@@ -135,11 +135,13 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
         <li><b>Creatures and bosses</b> (batches G, A): all of them, even simpler, to match the ships and buildings: 2-3 big rounded shapes and 2-3 flat colours each. Stage 1-4 creatures first (G1-G8), then bosses. Current art stays in play until each arrives.</li>
-        <li><b>Terrain</b> (batch I): 9 chart islands are in (they double as sea obstacles in the arenas); Caverns is left, and Tropical and Cliff & Cove want redoing top-down to match. For the arena: one ground SWATCH per biome (batch J). The last tiles came back as islands because the prompt said "tile"; the SWATCH prompt asks for a zoomed-in square of ground only. Coastline, beach rim and water stay code-drawn (they follow the generated map).</li>
+        <li><b>Sea obstacle islands</b> (batch O): plain pads in every biome's colours. Each one goes straight into that biome's arenas with no code work, so more outlines mean more varied maps.</li>
+        <li><b>Terrain</b> (batch I): 9 chart islands are in (they double as sea obstacles in the arenas); Caverns is left, and Tropical and Cliff & Cove want redoing top-down to match. Ground swatches dropped: the islands' flat look is drawn in code for the coastline.</li>
         <li><b>Island props</b> (batch P): palms, rocks and the rest, chunky enough to read at play size. Tropical first.</li>
         <li><b>Icons</b> (batches D, E): 72 toy icons are in (74 emoji covered); 15 emoji still need art (batch D, 12 icons) and 5 are stand-ins (batch E). See Icons.</li>
         <li><b>Reef Defence towers</b> (batch T) and <b>landmarks</b> (batch F).</li>
-        <li>Low, when there's time: <b>weather objects</b> (W) and <b>shots</b> (X). Animated overlays, bars, rings and the UI are restyled in code, not drawn.</li>
+        <li><b>Title, crests and UI pieces</b> (U) and <b>more shots</b> (X2). These each need a small code hook when they arrive.</li>
+        <li>Low, when there's time: <b>weather objects</b> (W), <b>shots</b> (X) and <b>Reef Defence extras</b> (R). Animated overlays, bars, rings and the UI are restyled in code, not drawn.</li>
         <li>Already simple, keep: <b>harbour buildings</b> (B), <b>player ships</b> (S, enemy ships follow), <b>pickups</b> (C) and <b>effects</b> (H).</ol></div>
       <div class="box do"><h3>Do</h3><ul>
         <li>Attach <b>the harbour mockup</b> to every request (and, when redoing an asset, its current image so the shape carries over). The style follows the picture far more than the words.</li>
@@ -147,7 +149,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
         <li><b>TOP view</b> for anything that swims or flies: straight down, front pointing to the top of the image. The game turns it to any heading.</li>
         <li><b>FRONT view</b> for upright things (golems, sirens, buildings, towers, landmarks, pickups, icons): front three-quarter, slightly from above. The game mirrors it left and right.</li>
         <li>Ships only: <b>one image with 5 views</b> in a row (see the prompt kit).</li>
-        <li><b>SWATCH view</b> (arena ground): a square of ground surface filling the image edge to edge, like a floor tile. It must not be an island: if the reply shows a coastline, water or a rim, say "No. Zoom right in: ground only, filling all four edges, no coast, no water, no rim." Seams are fixed in code, so it doesn't need to tile perfectly.</li>
+        <li><b>Name each image by its code</b> (e.g. "G3") when you send it, so it lands in the right slot.</li>
         <li><b>ISLAND view</b> (chart islands): one small round island seen from high above at a slight angle, its landmark on top, transparent sea around it.</li>
         <li>Fill most of the frame; around 1024px is fine. The game trims and scales it.</li>
       </ul></div>
@@ -239,7 +241,7 @@ const HEADER = `Use the image generator. No code. One image per reply.
 Match the attached harbour image's style exactly: a simple chunky toy, like a child's wooden or plastic playset piece. A few big rounded blocks (about 3-6 parts), thick silhouette, slightly squat cute proportions. 3-4 flat matte colours, soft light from the top-left, smooth, no texture.
 No clutter: no small props (barrels, crates, cannonball piles, ropes, chains, ladders, lanterns), no brick or plank lines, no rivets, scales, cracks, patterns, window grids or text. If a detail would vanish at 48px, leave it out.
 One subject only, centred, filling most of the image. No shadow, no water, no ground. Transparent background (only if you can't do transparent, use flat #FF00FF magenta).
-Views: TOP = straight top-down, the front pointing to the top of the image. FRONT = front three-quarter view, slightly from above. SWATCH = a square close-up of ground surface only, seen from straight above, filling the whole image to all four edges like a floor tile: NOT an island, no coastline, no water, no rim, no border, no darker edges, nothing bigger than a pebble, even detail everywhere with no centre, so it can repeat; ignore the transparent-background rule for SWATCH.
+Views: TOP = straight top-down, the front pointing to the top of the image. FRONT = front three-quarter view, slightly from above. ISLAND = one island seen from straight above like a toy board piece: a wavy outline, a raised rounded rim, a flat top, filling most of the image.
 Before each image, write one line: the item code, its name, its view, and "simple toy, transparent background".
 Work through the list below. Make the first item now. When I say "next", make the next one.`;
 const SHIPS = `Make: [HULL NAME], one simple toy ship: a rounded hull, one or two big sails, a small flag. No ropes, rigging, cannons, windows or plank lines.
@@ -254,17 +256,18 @@ const BATCHES = [
   'I6 Caverns (stage 6) island (ISLAND): a small round pad island seen from straight above, dark purple-grey rock top, a wet dark slate rim, a round rocky cave mouth in the middle',
   'I1r Tropical redo (ISLAND): same as the current one but seen from straight above like the others: a round pad, sand rim, green top, the little stone fort with a black flag',
   'I2r Cliff & Cove redo (ISLAND): seen from straight above: a round pad, grey pebble rim, green top, a red and white lighthouse']],
- ['J', 'Arena ground swatches (one per biome)', 'medium', [
-  'J1 Tropical ground (SWATCH): flat green grass, two shades of green, a few tiny lighter tufts',
-  'J2 Cliff & Cove ground (SWATCH): short green turf with a few small grey pebbles',
-  'J3 Glacial ground (SWATCH): smooth white snow, pale blue soft dips',
-  'J4 Shipwreck ground (SWATCH): grey-brown damp sand, a few tiny dark pebbles',
-  'J5 Volcanic ground (SWATCH): dark charcoal ash, a few tiny orange ember dots',
-  'J6 Caverns ground (SWATCH): dark purple-grey stone floor, soft rounded slabs',
-  'J7 Mangrove ground (SWATCH): dark olive mud with small moss patches',
-  'J8 Abyss ground (SWATCH): deep navy rock with a few tiny glowing teal specks',
-  'J9 Bone Sands ground (SWATCH): warm orange sand with soft ripple lines',
-  'J10 Crystal ground (SWATCH): pale lilac stone with a few tiny pink crystal chips']],
+ ['O', 'Sea obstacle islands (plain pads)', 'high', [
+  'O1 Tropical pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), pale sand rim, flat green grass top; nothing on top, the same raised rim as the island set; one image each',
+  'O2 Cliff & Cove pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), grey pebble rim, flat green turf top; nothing on top, the same raised rim as the island set; one image each',
+  'O3 Glacial pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), pale blue ice rim, flat white snow top; nothing on top, the same raised rim as the island set; one image each',
+  'O4 Shipwreck pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), grey stone rim, flat olive moss top; nothing on top, the same raised rim as the island set; one image each',
+  'O5 Volcanic pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), grey ash rim, flat black rock top with one orange crack; nothing on top, the same raised rim as the island set; one image each',
+  'O6 Caverns pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), dark slate rim, flat purple-grey stone top; nothing on top, the same raised rim as the island set; one image each',
+  'O7 Mangrove pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), dark brown mud rim, flat olive top; nothing on top, the same raised rim as the island set; one image each',
+  'O8 Abyss pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), grey rock rim, flat navy rock top; nothing on top, the same raised rim as the island set; one image each',
+  'O9 Bone Sands (one more) pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), cream rim, flat orange sand top; nothing on top, the same raised rim as the island set; one image each',
+  'O10 Crystal (one more) pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), pale pink rim, flat lilac top; nothing on top, the same raised rim as the island set; one image each',
+  'O11 Rock islets (ISLAND): one small cluster of 2-3 smooth round rocks for each biome, in that biome\'s rock colour (grey, white-blue ice, black, purple-grey, navy, sandstone, lilac); one image each']],
  ['P', 'Island props (one set per biome)', 'medium', [
   'P1 Tropical (FRONT): palm tree, round green bush, grey boulder, pink coral; one image each, chunky and simple',
   'P2 Cliff & Cove (FRONT): grey boulder, tuft of grass, rock stack, white shell; one image each, chunky and simple',
@@ -394,6 +397,27 @@ const BATCHES = [
   'X10 Boulder (TOP): a round grey boulder',
   'X11 Build spot (TOP): a round stone platform',
   'X12 Mine (TOP): a round spiked sea mine']],
+ ['X2', 'More shots and markers', 'medium', [
+  'X13 Fire pool (TOP): a flat round puddle of orange flame (Flame Barrels)',
+  'X14 Reaper blade (TOP): a curved iron blade (Reaper Chains, orbits the ship)',
+  'X15 Hex bolt (TOP): a green glowing orb (Bog Witch)',
+  'X16 Ink blob (TOP): a round black-purple ink splat (Ink Squid)',
+  'X17 Spectral shot (TOP): a pale green ghostly ball (Ghost Ship)',
+  'X18 Light orb (TOP): a pink-white glowing orb (Prism Colossus)',
+  'X19 Spore puff (TOP): a round green-yellow puff (Old Mother Mire)',
+  'X20 Mortar shell (TOP): a fat black shell with a lit fuse (Mortar Gunboat)']],
+ ['U', 'Title, crests and UI pieces', 'medium', [
+  'U1 Title logo (FRONT): the words THE SHATTERED REEF in chunky rounded gold letters on a navy banner, spelled exactly; nothing else',
+  'U2 Blacksail Reavers crest (FRONT): a round black shield with a white skull on a sail',
+  'U3 Wyrdtide crest (FRONT): a round teal shield with a white wave curl',
+  'U4 Iron Accord crest (FRONT): a round grey iron shield with a gold anchor',
+  'U5 Kraken Scale (FRONT): one shiny purple fish scale (rare currency)',
+  'U6 Gold star and empty star (FRONT): two images, a filled gold star and an outlined grey star (ratings)',
+  'U7 Elite chest (FRONT): the treasure chest in gold with a red gem (elite drop)',
+  'U8 Warlord crown (FRONT): a small spiky gold crown (worn by wave-10 warlords)']],
+ ['R', 'Reef Defence extras', 'low', [
+  'R1 Sea gate (FRONT): two red and white buoys with a small flag between them (where defence waves enter)',
+  'R2 Specialisation badge (FRONT): a small round gold badge with a star (tower specialised)']],
  ['C', 'Pickups', 'done', [
   'C1-C7 Sea glass, coin, lodestone, life ring, chest: already simple, keep']],
  ['H', 'Effects (frame animations)', 'done', [
