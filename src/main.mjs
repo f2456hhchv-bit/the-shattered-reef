@@ -62,7 +62,7 @@ import { stepSurvivalFrame } from './engine/survivalLoop.mjs';
 import { DEV, loadDev, devActive } from './engine/devTuning.mjs';
 import { createDevPanel } from './ui/devPanel.mjs';
 import {
-  drawSurvivalPickups, drawFirePools, drawOrbitBlades, drawHullBar, drawRings, drawSinkers, drawLandmarks, drawEdgeArrows, drawVignette,
+  drawSurvivalPickups, drawFirePools, drawOrbitBlades, drawHullBar, drawRings, drawSinkers, drawLandmarks, drawSeaIslands, drawEdgeArrows, drawVignette,
 } from './engine/survivalArt.mjs';
 import { drawLords } from './engine/warlordArt.mjs';
 import { loadCreatureSprites } from './engine/creatureSprites.mjs';
@@ -1890,7 +1890,7 @@ export function startApp(root) {
   window.__shatteredReefDebug = () => ({
     boatX: run.boat.x, boatY: run.boat.y, heading: run.boat.heading,
     hull: run.boat.health, maxHull: run.boat.maxHull, chill: run.boat.chillRemaining || 0, afflictions: { ...(run.boat.afflictions || {}) },
-    biome: run.level?.biomeId, cameraX: camera.x, cameraY: camera.y,
+    biome: run.level?.biomeId, seaIslands: (run.seaIslands || []).map((l) => ({ sprite: l.sprite, x: l.x, y: l.y, size: l.size })), cameraX: camera.x, cameraY: camera.y,
     over: run.over, outcome: run.outcome, sailing, paused, hubOpen: hubOverlay.classList.contains('show'),
     stage: run.stage, reefIndex: run.reefIndex, reefCount: run.reefCount, levelCode: run.levelCode,
     highestStageUnlocked: meta.highestStageUnlocked, levelsCleared: { ...meta.levelsCleared },
@@ -2288,6 +2288,7 @@ export function startApp(root) {
     ensureTerrain();
     terrainRenderer.draw(ctx, view.visible, t, { forceVisible: terrainFresh, maxNewChunks: 0 });
     terrainFresh = false;
+    drawSeaIslands(ctx, run.seaIslands || [], view.visible);
     drawLandmarks(ctx, run.landmarks || [], view.visible, t);
     drawWeatherWorld(ctx, run.weather, t);
     drawWake(ctx, wake);

@@ -11,6 +11,7 @@
 // unchanged. Pure and deterministic from the rng.
 
 import { makeValueNoise, fbm } from './maze.mjs';
+import { ISLAND_SHAPES } from '../data/islandShapes.mjs';
 
 export const ARENA_DEFAULTS = Object.freeze({
   size: 122, // tiles per side (16px tiles: 1952px; was 128 until 2026-10-04)
@@ -18,7 +19,27 @@ export const ARENA_DEFAULTS = Object.freeze({
   centreClear: 11, // tiles of open water round the spawn
   islandDensity: 1, // biome data can scale this (arena.islands)
   minGap: 3.5, // tiles of water between islands, so channels fit a ship
+  seaIslands: 7, // toy island images placed as obstacles (2026-10-10)
 });
+
+// Toy island images (assets/islands) usable as sea obstacles in a biome:
+// its chart island plus any plain pads (<biome>_pad<N>).
+export function seaIslandPool(biomeId) {
+  return Object.keys(ISLAND_SHAPES).filter((n) => n === biomeId || n.startsWith(`${biomeId}_pad`));
+}
+
+// Outline radius (tiles) of island image `name` drawn with its longest
+// side 2r tiles, at angle a (radians, +x = 0, +y down), mirrored if flip.
+export function seaIslandRadius(name, r, a, flip = false) {
+  const sh = ISLAND_SHAPES[name]; const n = sh.r.length;
+  let t = flip ? Math.PI - a : a;
+  t = ((t % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const f = (t / (2 * Math.PI)) * n; const i = Math.floor(f) % n; const k = f - Math.floor(f);
+  return (sh.r[i] * (1 - k) + sh.r[(i + 1) % n] * k) * r;
+}
+// Collision sits this far inside the drawn outline, so the terrain's own
+// land (and its shore wobble) stays hidden under the image's rim.
+export const SEA_ISLAND_INSET = 0.84;
 
 // Biome flavour for landmarks: what the 2-3 big set pieces on each map are.
 export const BIOME_LANDMARKS = Object.freeze({
@@ -117,6 +138,27 @@ export function buildArenaGrid(rng, biomeId = 'tropical', opts = {}) {
   const placed = [];
   const fits = (x, y, r) => Math.hypot(x - c, y - c) > o.centreClear + r
     && placed.every((p) => Math.hypot(p.x - x, p.y - y) > p.r + r + o.minGap);
+  // Toy island images first (2026-10-10): obstacles in the open sea, drawn
+  // as sprites over land stamped to their outline.
+  const seaIslands = [];
+  const pool = seaIslandPool(biomeId);
+  for (let tries = 0; pool.length && seaIslands.length < o.seaIslands && tries < o.seaIslands * 40; tries++) {
+    const x = o.border + 12 + rng() * (N - 2 * o.border - 24);
+    const y = o.border + 12 + rng() * (N - 2 * o.border - 24);
+    const r = 5 + rng() * 4;
+    const sprite = pool[Math.floor(rng() * pool.length)];
+    const flip = rng() < 0.5;
+    if (!fits(x, y, r)) continue;
+    const R = Math.ceil(r * 1.6);
+    for (let ty = Math.max(0, Math.floor(y) - R); ty <= Math.min(N - 1, Math.floor(y) + R); ty++) {
+      for (let tx = Math.max(0, Math.floor(x) - R); tx <= Math.min(N - 1, Math.floor(x) + R); tx++) {
+        const dx = tx + 0.5 - x; const dy = ty + 0.5 - y;
+        if (Math.hypot(dx, dy) < seaIslandRadius(sprite, r, Math.atan2(dy, dx), flip) * SEA_ISLAND_INSET) tiles[ty][tx] = 1;
+      }
+    }
+    placed.push({ x, y, r, kind: 'sea' });
+    seaIslands.push({ sprite, tx: x, ty: y, r, flip });
+  }
   const want = Math.round(44 * o.islandDensity * (N / 128) ** 2);
   for (let tries = 0; placed.length < want && tries < want * 40; tries++) {
     const x = o.border + 8 + rng() * (N - 2 * o.border - 16);
@@ -201,7 +243,7 @@ export function buildArenaGrid(rng, biomeId = 'tropical', opts = {}) {
   }
 
   const grid = { width: N, height: N, tiles, unit: 1 };
-  return { grid, spawnTile: { tx: c, ty: c }, landmarks, chestTiles, waterDist: dist };
+  return { grid, spawnTile: { tx: c, ty: c }, landmarks, chestTiles, waterDist: dist, seaIslands };
 }
 
 // True if world point (x, y) is open water at least `clear` tiles from land.

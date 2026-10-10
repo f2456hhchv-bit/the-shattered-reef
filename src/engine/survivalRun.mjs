@@ -42,6 +42,7 @@ export function buildSurvivalWorld(level) {
     widthPx: arena.grid.width * T,
     heightPx: arena.grid.height * T,
     landmarks: arena.landmarks.map((l) => ({ ...l, x: l.tx * T, y: l.ty * T })),
+    seaIslands: arena.seaIslands.map((l) => ({ ...l, x: l.tx * T, y: l.ty * T, size: l.r * 2 * T })),
     chests: arena.chestTiles.map((c) => ({ x: c.tx * T, y: c.ty * T })),
   };
 }
@@ -59,6 +60,7 @@ function applyWorld(run, world) {
   run.widthPx = world.widthPx;
   run.heightPx = world.heightPx;
   run.landmarks = world.landmarks;
+  run.seaIslands = world.seaIslands;
   run.exitWorld = world.spawnWorld; // no exit: kept for code that lights it
   run.maze = null; run.lair = null; run.exitLocked = true;
 }

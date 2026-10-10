@@ -431,3 +431,20 @@ test('a bot clears stage 1 level 1 through the real frame loop', () => {
   assert.ok(r.kills > 300, 'and it faces a horde');
   assert.ok(r.t > 260 && r.t < 400, `about five minutes (${r.t}s)`);
 });
+
+test('toy island obstacles: placed from the biome pool, land stamped under each', async () => {
+  const { seaIslandPool } = await import('../src/engine/arena.mjs');
+  const fs = await import('node:fs');
+  for (const biomeId of ['tropical', 'crystal', 'bone_sands']) {
+    const pool = seaIslandPool(biomeId);
+    assert.ok(pool.length >= 1);
+    for (const n of pool) assert.ok(fs.existsSync(`assets/islands/${n}.png`), n);
+    const a = buildArenaGrid(makeSeededRng(42), biomeId);
+    assert.ok(a.seaIslands.length >= 4, `${biomeId}: ${a.seaIslands.length}`);
+    for (const s of a.seaIslands) {
+      assert.ok(pool.includes(s.sprite));
+      assert.equal(a.grid.tiles[Math.floor(s.ty)][Math.floor(s.tx)], 1, 'centre is land');
+    }
+  }
+  assert.deepEqual(seaIslandPool('caverns'), []);
+});

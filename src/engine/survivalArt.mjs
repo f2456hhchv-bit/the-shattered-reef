@@ -4,7 +4,7 @@
 // to what's off-screen, and the screen vignette. Canvas only, no state.
 
 import { drawEnemyBody, drawPickup } from './renderer.mjs';
-import { drawLandmarkKind } from './islandArt.mjs';
+import { drawLandmarkKind, islandSpriteReady } from './islandArt.mjs';
 import { drawPickupSprite, pickupSpriteReady, gemSpriteFor } from './pickupSprites.mjs';
 
 const TAU = Math.PI * 2;
@@ -167,6 +167,22 @@ export function drawSinkers(ctx, sinkers, t, colorFor) {
     ctx.globalAlpha = 1;
     ctx.strokeStyle = `rgba(230, 250, 255, ${0.6 * f})`; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(e.x, e.y, e.radius * (1.2 + (1 - f) * 1.4), 0, TAU); ctx.stroke();
+  }
+}
+
+// Toy island obstacles (2026-10-10): the image over its stamped land,
+// longest side = size px, mirrored if flip.
+export function drawSeaIslands(ctx, islands, view) {
+  for (const l of islands) {
+    if (!inView(view, l.x, l.y, l.size * 0.8)) continue;
+    const im = islandSpriteReady(l.sprite);
+    if (!im) continue;
+    const s = l.size / Math.max(im.naturalWidth, im.naturalHeight);
+    const w = im.naturalWidth * s; const h = im.naturalHeight * s;
+    ctx.save(); ctx.translate(l.x, l.y);
+    if (l.flip) ctx.scale(-1, 1);
+    ctx.drawImage(im, -w / 2, -h / 2, w, h);
+    ctx.restore();
   }
 }
 

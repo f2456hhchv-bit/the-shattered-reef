@@ -10,6 +10,7 @@
 import { makeSeededRng } from './rng.mjs';
 import { makeValueNoise, fbm } from './maze.mjs';
 import { buildCoastField, buildTerrain, sampleField } from './terrain.mjs';
+import { ISLAND_SHAPES } from '../data/islandShapes.mjs';
 import { createTerrainRenderer } from './terrainRenderer.mjs';
 import { getBiome } from '../data/biomes.mjs';
 import { shadow, box, barrel, drawLighthouse } from './baseRenderer.mjs';
@@ -312,11 +313,12 @@ function portrait(biomeId, stage, res) {
 
 // Toy island images (art batch I) replace the rendered portrait per biome
 // once loaded; biomes without one keep the terrain-renderer portrait.
-export const ISLAND_SPRITES = ['tropical', 'cliff_cove', 'glacial', 'shipwreck', 'volcanic', 'mangrove', 'abyss', 'bone_sands'];
+export const ISLAND_SPRITES = ['tropical', 'cliff_cove', 'glacial', 'shipwreck', 'volcanic', 'mangrove', 'abyss', 'bone_sands', 'crystal'];
 const islandImgs = new Map();
-export function loadIslandSprites() { for (const b of ISLAND_SPRITES) islandSpriteReady(b); }
+export function loadIslandSprites() { for (const b of Object.keys(ISLAND_SHAPES)) islandSpriteReady(b); }
+// Also serves the plain pads (<biome>_pad<N>) used as arena obstacles.
 export function islandSpriteReady(biomeId) {
-  if (!ISLAND_SPRITES.includes(biomeId) || typeof Image === 'undefined') return null;
+  if (!ISLAND_SHAPES[biomeId] || typeof Image === 'undefined') return null;
   let im = islandImgs.get(biomeId);
   if (!im) { im = new Image(); im.src = `assets/islands/${biomeId}.png`; islandImgs.set(biomeId, im); }
   return im.complete && im.naturalWidth ? im : null;

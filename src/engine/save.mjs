@@ -16,7 +16,7 @@ import { ensureEnemyIdsAbove } from './enemies.mjs';
 export const VOYAGE_STORAGE_KEY = 'shatteredReef.voyage.v1';
 const VERSION = 1;
 // Rebuilt from the level seed, or transient: never written.
-const SKIP = new Set(['grid', 'coast', 'maze', 'lair', 'weather', 'enemyProjectiles', 'projectiles', 'arena', 'landmarks']);
+const SKIP = new Set(['grid', 'coast', 'maze', 'lair', 'weather', 'enemyProjectiles', 'projectiles', 'arena', 'landmarks', 'seaIslands']);
 
 function pack(value, depth = 0) {
   if (value instanceof Set) return { __set: [...value].map((v) => pack(v, depth + 1)) };
@@ -61,7 +61,7 @@ export function deserializeRun(data) {
     const w = buildSurvivalWorld(run.level);
     Object.assign(run, {
       arena: w.arena, grid: w.grid, coast: w.coast, coastSeed: w.coastSeed, tileSize: w.tileSize,
-      widthPx: w.widthPx, heightPx: w.heightPx, landmarks: w.landmarks, exitWorld: w.spawnWorld, maze: null, lair: null,
+      widthPx: w.widthPx, heightPx: w.heightPx, landmarks: w.landmarks, seaIslands: w.seaIslands, exitWorld: w.spawnWorld, maze: null, lair: null,
     });
     run.enemyProjectiles = [];
     run.weapons.projectiles = [];

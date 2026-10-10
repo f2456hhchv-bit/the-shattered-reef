@@ -40,7 +40,7 @@ export function buildIntroScene(dpr = 1) {
   let pick = null;
   for (let k = 0; k < 80 && !(pick?.ok && Math.sin(pick.a) > 0.25 && Math.abs(Math.sin(2 * pick.a)) > 0.8); k++) {
     const seed = SEED + k * 7919;
-    const arena = buildArenaGrid(makeSeededRng(seed), BIOME_IDS.TROPICAL, { size: 84, centreClear: 9 });
+    const arena = buildArenaGrid(makeSeededRng(seed), BIOME_IDS.TROPICAL, { size: 84, centreClear: 9, seaIslands: 0 });
     const coast = buildCoastField(arena.grid, TILE, seed >>> 3);
     const c = { x: (arena.grid.width * TILE) / 2, y: (arena.grid.height * TILE) / 2 };
     const clear = (x, y, ang) => [-56, -28, 0, 28, 56].every((o) => sampleField(coast, x - Math.sin(ang) * o, y + Math.cos(ang) * o) < -18);

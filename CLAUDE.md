@@ -2292,6 +2292,22 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   and moved to the top of the priority list. Current art stays in play
   until each replacement arrives.
 
+- **Toy islands as arena obstacles** (2026-10-10). Owner: islands are
+  scenery to sail round in the survival maps; repetition fine for now.
+  New images keyed by `tools/key-island.py` (real alpha, magenta or
+  painted checkerboard), which also regenerates `data/islandShapes.mjs`
+  (each image's outline as 48 radii). `buildArenaGrid` places
+  `seaIslands: 7` per arena from `seaIslandPool(biome)` (the chart island
+  + `<biome>_pad<N>`), size 160-290px, mirrored at random, and stamps land
+  to the outline at 0.84 (`SEA_ISLAND_INSET`) so the terrain's own land
+  hides under the image rim; collision follows the coast field as usual.
+  Drawn by `drawSeaIslands` before landmarks. Intro passes 0. Crystal
+  chart island added; Bone Sands replaced (skull); plain pads for crystal
+  and bone sands. Caverns has no image yet, so no obstacles there. The
+  side-on Tropical/Cliff images collide on their whole silhouette.
+  Swatch batch J stays in the inventory but isn't needed: the islands'
+  flat look can be drawn in code.
+
 ## Decisions log" heading in this file. Short landscape: Continue
   no longer wraps, and the mini-map hides while a voyage is saved so the
   New Voyage / Defend row fits.
