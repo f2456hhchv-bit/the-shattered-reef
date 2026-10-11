@@ -26,7 +26,8 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
   const landLut = lut(biome.land, 60, 0.5);
   const foam = hexToRgb(biome.foam); const jungleDark = hexToRgb(biome.jungleDark);
   const rockC = hexToRgb(biome.rock); const rockD = hexToRgb(biome.rockDark);
-  const lava = biome.lava ? { c: hexToRgb(biome.lava.color), h: hexToRgb(biome.lava.hot), thr: biome.lava.threshold, start: biome.lava.start } : null;
+  // `edge` = how soft a pool's edge is; `flat` = one colour, no hot spots (toy biomes).
+  const lava = biome.lava ? { c: hexToRgb(biome.lava.color), h: hexToRgb(biome.lava.hot), thr: biome.lava.threshold, start: biome.lava.start, edge: biome.lava.edge ?? 0.07, flat: !!biome.lava.flat } : null;
   const cols = Math.ceil(terrain.widthPx / CHUNK); const rows = Math.ceil(terrain.heightPx / CHUNK);
   const chunks = new Array(cols * rows).fill(null);
 
@@ -110,9 +111,9 @@ export function createTerrainRenderer(terrain, biome, { res = 1.5 } = {}) {
           r *= sh; gg *= sh; b *= sh;
           if (lava && s > lava.start) {
             // Molten pools: unshaded, so they glow; a dark crust at the rim.
-            let m = (tex - lava.thr) / 0.07; m = (m < 0 ? 0 : m > 1 ? 1 : m) * Math.min(1, (s - lava.start) / 4);
+            let m = (tex - lava.thr) / lava.edge; m = (m < 0 ? 0 : m > 1 ? 1 : m) * Math.min(1, (s - lava.start) / 4);
             if (m > 0) {
-              const k = m < 0.35 ? 0.55 : 1; const hot = Math.max(0, (tex - lava.thr - 0.08) / 0.12);
+              const k = m < 0.35 ? 0.55 : 1; const hot = lava.flat ? 0.3 : Math.max(0, (tex - lava.thr - 0.08) / 0.12);
               const h = hot > 1 ? 1 : hot;
               const lr = (lava.c[0] + (lava.h[0] - lava.c[0]) * h) * k; const lg = (lava.c[1] + (lava.h[1] - lava.c[1]) * h) * k; const lb = (lava.c[2] + (lava.h[2] - lava.c[2]) * h) * k;
               r += (lr - r) * m; gg += (lg - gg) * m; b += (lb - b) * m;

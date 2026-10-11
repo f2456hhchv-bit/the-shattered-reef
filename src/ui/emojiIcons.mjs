@@ -18,6 +18,7 @@ export const EMOJI_ICONS = {
   '🌪': 'tornado', '🪨': 'rocks', '🧊': 'ice', '🌋': 'volcano', '✨': 'sparkles', '👻': 'ghost',
   '🪵': 'log', '♨': 'vent', '☄': 'comet', '🏜': 'sand', '🌈': 'rainbow', '🌑': 'darkness',
   '🕯': 'candle', '🐟': 'fish', '🐙': 'evo_kraken', '🎇': 'evo_ship_line', '🌨': 'evo_hailstorm',
+  '💀': 'evo_reaper', '🏺': 'evo_greekfire', '⭐': 'star', '↩': 'cannon',
   '🛟': '../../pickups/ring',
 };
 

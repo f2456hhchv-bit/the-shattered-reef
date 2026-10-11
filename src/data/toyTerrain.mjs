@@ -62,6 +62,9 @@ export function toyArenaBiome(biome) {
       return [k, k === 'boulder' ? 'toyrock' : (GLOWING.has(own) ? own : 'none')];
     })),
   };
+  // Molten pools as flat moulded shapes with a dark crust edge, not a
+  // speckled painted texture.
+  if (biome.lava) toy.lava = { ...biome.lava, threshold: Math.max(biome.lava.threshold, 0.6), start: 20, edge: 0.025, flat: true };
   if (biome.id === 'tropical') Object.assign(toy, { water: HARBOUR_BIOME_OVERRIDES.water, foam: HARBOUR_BIOME_OVERRIDES.foam, outside: HARBOUR_BIOME_OVERRIDES.outside });
   return toy;
 }

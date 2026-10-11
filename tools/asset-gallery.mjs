@@ -8,7 +8,8 @@ import { ENEMIES } from '../src/data/enemies.mjs';
 import { ENEMY_SHIP_LOOKS } from '../src/data/enemyShipLooks.mjs';
 import { CREATURE_ART } from '../src/data/creatureArt.mjs';
 import { BIOMES } from '../src/data/biomes.mjs';
-import { BASE_BUILDINGS } from '../src/data/base.mjs';
+import { BASE_BUILDINGS, HARBOUR_BIOME_OVERRIDES } from '../src/data/base.mjs';
+import { toyArenaBiome } from '../src/data/toyTerrain.mjs';
 import { BUILDING_SPRITES } from '../src/engine/buildingSprites.mjs';
 import { SHIP_SPRITE_FRAMES } from '../src/engine/shipSprites.mjs';
 import { GEMS } from '../src/data/survival.mjs';
@@ -86,13 +87,18 @@ STAGES.slice(0, 10).forEach((st, i) => {
   add('Terrain (biome islands)', `${biome.name} (Stage ${i + 1})`, IN_USE, (ctx) => { ctx.translate(-100, -80); drawIsland(ctx, 200, 160, st.biome, i + 1); }, 0.8);
 });
 
-// --- Terrain decorations (baked into the island art) --------------------------
+// --- Terrain decorations still drawn in code (2026-10-11): the toy rock
+// every toy biome uses, the glowing kinds the dark biomes keep for light,
+// and the harbour's toy bush and rock. Palms, shells and the rest are
+// retired from code: toy prop images replace them (art batch P).
+const DECOR_NAMES = { toyrock: 'Toy rock (every biome)', toybush: 'Toy bush (harbour)', mushroom: 'Glowing mushroom (Sunless Caverns)', glowcoral: 'Glow coral (Sunless Caverns)', ember: 'Ember rock (Volcanic Caldera)' };
 const seen = new Set();
-for (const biome of Object.values(BIOMES)) {
+const harbour = { ...BIOMES.tropical, ...HARBOUR_BIOME_OVERRIDES };
+for (const biome of [...Object.values(BIOMES).map(toyArenaBiome), harbour]) {
   for (const kind of ['palm', 'bush', 'boulder', 'coral', 'shell']) {
     const style = biome.decor?.[kind] ?? kind;
-    if (seen.has(style)) continue; seen.add(style);
-    add('Island decorations', style === kind ? `${kind[0].toUpperCase()}${kind.slice(1)}` : `${style[0].toUpperCase()}${style.slice(1)} (${biome.name})`, IN_USE,
+    if (style === 'none' || seen.has(style)) continue; seen.add(style);
+    add('Island decorations', DECOR_NAMES[style] || `${style[0].toUpperCase()}${style.slice(1)} (${biome.name})`, IN_USE,
       (ctx) => drawDecoration(ctx, { x: 0, y: 8, kind, size: 10, variant: 0.45 }, biome), 4);
   }
 }

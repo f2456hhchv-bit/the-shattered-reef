@@ -13,6 +13,8 @@ import { buildArenaGrid } from '../engine/arena.mjs';
 import { buildCoastField, buildTerrain, sampleField } from '../engine/terrain.mjs';
 import { createTerrainRenderer } from '../engine/terrainRenderer.mjs';
 import { getBiome, BIOME_IDS } from '../data/biomes.mjs';
+import { toyArenaBiome } from '../data/toyTerrain.mjs';
+import { drawProps } from '../engine/survivalArt.mjs';
 import { drawBoat, drawEnemyBody, drawParticles } from '../engine/renderer.mjs';
 import { spawnSplash, spawnExplosion, updateParticles } from '../engine/juice.mjs';
 
@@ -32,7 +34,8 @@ const BEATS = {
 };
 
 export function buildIntroScene(dpr = 1) {
-  const biome = getBiome(BIOME_IDS.TROPICAL);
+  // The toy board-piece look the arenas use (2026-10-11).
+  const biome = toyArenaBiome(getBiome(BIOME_IDS.TROPICAL));
   // The chase needs a long clear run out of the centre: ~9.5s of sailing
   // with a lane ±56px wide for the weave and the pursuers. Try a few fixed
   // seeds and keep the first that has one (deterministic either way).
@@ -72,8 +75,9 @@ export function buildIntroScene(dpr = 1) {
   // A gentle weave so headings change and the sprites show their turns.
   const weave = (t, amp = 22, f = 0.55, ph = 0) => Math.sin(t * f + ph) * amp;
 
+  const props = arena.props.map((q) => ({ ...q, x: q.tx * TILE, y: q.ty * TILE }));
   const scene = {
-    renderer, terrain, biome, W, H, dir, side, along, weave,
+    renderer, terrain, biome, W, H, dir, side, along, weave, props,
     particles: [], shots: [], wakes: [], lastT: 0, fired: new Set(),
     sinkT: null, prepared: false,
   };
@@ -112,6 +116,7 @@ export function drawIntroScene(ctx, sc, w, h, t, now) {
   ctx.translate(w / 2, h / 2); ctx.scale(zoom, zoom); ctx.translate(-cx, -cy);
   sc.renderer.draw(ctx, visible, t, { forceVisible: !sc.prepared, maxNewChunks: 2 });
   sc.prepared = true;
+  drawProps(ctx, sc.props, visible);
 
   // Lasting foam wakes behind every hull.
   if (dt > 0) {

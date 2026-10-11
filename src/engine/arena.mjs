@@ -99,19 +99,40 @@ function fillUnreachable(tiles, size, sx, sy) {
 
 // Distance in tiles from each tile to the nearest land (BFS, 8-neighbour).
 // Tiles from each land tile to the nearest water (0 on water), 8-way BFS.
-export function landDistance(tiles, size) {
+// `h` defaults to `w` (square arenas); Reef Defence maps aren't square.
+export function landDistance(tiles, w, h = w) {
   const d = tiles.map((row) => row.map((t) => (t ? Infinity : 0)));
   const q = [];
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!tiles[y][x]) q.push(x, y);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (!tiles[y][x]) q.push(x, y);
   for (let i = 0; i < q.length; i += 2) {
     const x = q[i]; const y = q[i + 1];
     for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
       const nx = x + ox; const ny = y + oy;
-      if (nx < 0 || ny < 0 || nx >= size || ny >= size || d[ny][nx] <= d[y][x] + 1) continue;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h || d[ny][nx] <= d[y][x] + 1) continue;
       d[ny][nx] = d[y][x] + 1; q.push(nx, ny);
     }
   }
   return d;
+}
+
+// Toy props (data/props.mjs) scattered over land at least `minInland`
+// tiles from the water and `spacing` tiles apart, weighted by each kind's
+// `w`. `clear(x, y)` vetoes a spot (tile units). Returned sorted by y so
+// nearer props draw over farther ones. Used by the arenas and Reef Defence.
+export function scatterProps(tiles, w, h, kinds, rng, { count = 0, minInland = 2, spacing = 2.6, clear = () => true } = {}) {
+  const out = [];
+  if (!kinds || !kinds.length || count <= 0) return out;
+  const inland = landDistance(tiles, w, h);
+  const total = kinds.reduce((acc, k) => acc + (k.w || 1), 0);
+  for (let tries = 0; out.length < count && tries < count * 30; tries++) {
+    const x = 1 + rng() * (w - 2); const y = 1 + rng() * (h - 2);
+    if (inland[Math.floor(y)][Math.floor(x)] < minInland || !clear(x, y)
+      || !out.every((p) => Math.hypot(p.tx - x, p.ty - y) > spacing)) continue;
+    let pick = rng() * total; let k = kinds[0];
+    for (const kk of kinds) { pick -= kk.w || 1; if (pick < 0) { k = kk; break; } }
+    out.push({ file: k.file, size: k.size, tx: x, ty: y, flip: rng() < 0.5 });
+  }
+  return out.sort((p, q) => p.ty - q.ty);
 }
 
 export function waterDistance(tiles, size) {
@@ -276,23 +297,11 @@ export function buildArenaGrid(rng, biomeId = 'tropical', opts = {}) {
 
   // 5. Props: toy pieces on land at least 2 tiles in from the shore, clear
   // of the sea-island images (which have their own art) and the landmarks.
-  const props = [];
-  const kinds = PROPS[biomeId];
-  if (kinds && o.props > 0) {
-    const inland = landDistance(tiles, N);
-    const total = kinds.reduce((a, k) => a + (k.w || 1), 0);
-    const clear = (x, y) => seaIslands.every((l) => Math.hypot(l.tx - x, l.ty - y) > l.r * 1.05 + 1)
-      && landmarks.every((l) => Math.hypot(l.tx - x, l.ty - y) > 4.5)
-      && props.every((p) => Math.hypot(p.tx - x, p.ty - y) > 2.6);
-    for (let tries = 0; props.length < o.props && tries < o.props * 30; tries++) {
-      const x = 1 + rng() * (N - 2); const y = 1 + rng() * (N - 2);
-      if (inland[Math.floor(y)][Math.floor(x)] < 2 || !clear(x, y)) continue;
-      let pick = rng() * total; let k = kinds[0];
-      for (const kk of kinds) { pick -= kk.w || 1; if (pick < 0) { k = kk; break; } }
-      props.push({ file: k.file, size: k.size, tx: x, ty: y, flip: rng() < 0.5 });
-    }
-    props.sort((a, b) => a.ty - b.ty);
-  }
+  const props = o.props > 0 ? scatterProps(tiles, N, N, PROPS[biomeId], rng, {
+    count: o.props,
+    clear: (x, y) => seaIslands.every((l) => Math.hypot(l.tx - x, l.ty - y) > l.r * 1.05 + 1)
+      && landmarks.every((l) => Math.hypot(l.tx - x, l.ty - y) > 4.5),
+  }) : [];
 
   const grid = { width: N, height: N, tiles, unit: 1 };
   return { grid, spawnTile: { tx: c, ty: c }, landmarks, chestTiles, waterDist: dist, seaIslands, props };

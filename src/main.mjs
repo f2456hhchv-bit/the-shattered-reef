@@ -509,7 +509,9 @@ export function startApp(root) {
     toast.classList.toggle('dark', dark);
     // The dark briefing is longer-lived, so it sits just below the HUD
     // (the camera's measured inset) rather than over the weapon bar.
-    toast.style.top = (dark || document.body.classList.contains('in-run')) ? `${hudInsets.top + 4}px` : '';
+    // Measured now, not from the cached insets: a boss bar or weather chip
+    // that appeared this same frame would otherwise sit under the toast.
+    toast.style.top = (dark || document.body.classList.contains('in-run')) ? `${Math.round(hud.getBoundingClientRect().bottom) + 12}px` : '';
     toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), ms);
@@ -607,6 +609,9 @@ export function startApp(root) {
     const hasDock = dock.width > 0 && dock.height > 0;
     hudInsets.top = top;
     hudInsets.left = 0;
+    // A toast under the HUD follows it down when a weather chip or boss bar
+    // appears, rather than covering them.
+    if (toast.style.top && document.body.classList.contains('in-run')) toast.style.top = `${top + 4}px`;
     if (landscapeMql && landscapeMql.matches) {
       // Landscape: the dock is a column on the right.
       hudInsets.right = hasDock ? Math.max(0, Math.round(vw - dock.left + margin)) : 0;
@@ -1910,7 +1915,7 @@ export function startApp(root) {
     enemies: run.enemies.filter((e) => e.health > 0).map((e) => ({
       id: e.id, defId: e.defId, x: e.x, y: e.y, health: e.health, maxHealth: e.maxHealth, isBoss: e.isBoss, elite: !!e.elite, warlord: !!e.warlord, invulnerable: e.invulnerable, archetype: e.archetype,
     })),
-    weather: run.weather && run.weather.active ? { id: run.weather.active.id } : null,
+    weather: run.weather && run.weather.active ? { id: run.weather.active.id, whirl: run.weather.whirl ? { x: run.weather.whirl.x, y: run.weather.whirl.y } : null } : null,
     armaments: { ...(run.armaments || {}) },
     choice: upgradeOverlay.hidden ? null : { title: upgradeOverlay.querySelector('#up-title').textContent, cards: [...upgradeOverlay.querySelectorAll('.up-card')].map((c) => c.dataset.card) },
     enemyShots: run.enemyProjectiles.length,

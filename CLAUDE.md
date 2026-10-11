@@ -2987,6 +2987,44 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   view described. Animation plan box added: code-driven flap/wriggle/sway
   from one still each, last build stage.
 
+- **Full art + game review** (2026-10-11, owner: "one run over again of
+  everything within the art inventory artefact while also reviewing the
+  current game"). Every inventory source was regenerated against the live
+  game (it was five days stale: UI screenshots predated the toy harbour and
+  icons, terrain shots predated toy terrain): gallery tiles, sprite tiles,
+  emoji scan, and 102 fresh captures (10 arena views, 35 weather events, 57
+  UI items). The capture scripts now live in `tools/art-inventory/capture/`
+  (see its README) so the next review is one run.
+  - **Fixed, found by the review:**
+    - Reef Defence maps and the opening scene still drew the old painterly
+      terrain (grey rock texture, jungle, speckled lava): both now use
+      `toyArenaBiome`, and Reef Defence maps get toy props
+      (`defenceProps` in tdMode.mjs: off build spots and the Heart, ×0.72
+      size, same props in both orientations). Prop placement is now the
+      shared `scatterProps` in arena.mjs (checked identical to the old
+      inline loop on 96 arenas); `landDistance(tiles, w, h)` takes
+      non-square grids.
+    - Toy lava (volcanic) is flat moulded pools with a dark crust edge
+      (biome `lava.edge`/`lava.flat`, threshold 0.6, start 20px) instead
+      of speckled hot spots that covered half a Reef Defence map.
+    - A toast during a boss fight covered the boss bar: toasts under the
+      HUD now follow it down when the bar or weather chip appears (set in
+      `measureHudInsets`).
+    - Reaper Chains and Greek Fire evolutions use their own toy icons
+      (`💀`/`🏺` glyphs → `evo_reaper`/`evo_greekfire`, which were cut but
+      unused); `⭐` (elite toast) → star icon; `↩` (Stern Chaser) → cannon
+      stand-in.
+  - **Inventory corrections:** Caverns chart island wasn't matched (gallery
+    name is "Sunless Caverns"), so it showed as missing; creature tally is
+    20 of 29 done (G1-G9 left; the Warding Seal is boss A12); 10 sea-pad +
+    rock-islet tiles and 16 prop tiles added; retired code decorations
+    (palms, shells…) removed from the list, the five still drawn in code
+    kept; UI and arena terrain marked "keep as code" where the toy look is
+    done in CSS/code; batch N drops the Sand Wyrm (its new art is already
+    straight) and asks for chunky bodies (a true-scale lineup showed thin
+    serpents, eels and leeches read as squiggles); D13 up arrow and E6
+    stern chaser icons added.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in

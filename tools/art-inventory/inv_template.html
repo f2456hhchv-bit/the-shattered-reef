@@ -110,7 +110,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
 </style>
 <div class="wrap">
   <h1>Shattered Reef Art Inventory</h1>
-  <p class="lede">Every piece of art in the game, checked against the new standard: <b>the simple toy harbour</b> (2026-10-08). Each asset shows how it draws in the game today, its style (simple toy, detailed toy, older painted, or code) and how urgently it needs redoing. Most of the first toy pass is too busy for the new standard, so this is a fresh pass at nearly everything. The prompt kit below is everything you need to brief ChatGPT, in one place.</p>
+  <p class="lede">Every piece of art in the game, checked against the new standard: <b>the simple toy harbour</b> (2026-10-08). Each asset shows how it draws in the game today, its style (simple toy, detailed toy, older painted, or code) and how urgently it needs redoing. Most of the first toy pass is too busy for the new standard, so this is a fresh pass at nearly everything. The prompt kit below is everything you need to brief ChatGPT, in one place. <b>Last full review against the live game: 2026-10-11</b> (every screenshot and tile recaptured).</p>
   <nav class="nav" aria-label="Asset types">
     <div class="tabs" id="tabs"></div>
     <div class="filters" role="group" aria-label="Filter">
@@ -134,14 +134,14 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     </div>
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
-        <li><b>Creatures and bosses</b> (batches G, A): even simpler, to match the ships and buildings. Every prompt now spells out exactly what the creature looks like from its view, because a bare "TOP" kept coming back as side or three-quarter views. Stage 1-4 creatures first (G1-G9), then bosses.</li>
+        <li><b>Creatures and bosses</b> (batches G, A): even simpler, to match the ships and buildings. 20 of 29 creatures are in; the 9 left are G1-G9 (stage 2-4 creatures and the Cinder Bat), then all 12 bosses (the Warding Seal is A12). Every prompt spells out exactly what the creature looks like from its view, because a bare "TOP" kept coming back as side or three-quarter views.</li>
         <li><b>Island outlines</b> (batch O2): 30 islands, each a different named outline (sandbar, crescent, L, clover, comma, hourglass, chain…). Too many of the current pads are round, so the arenas start to look stamped. Each drops straight into its biome with no code work.</li>
         <li><b>Island props</b> (batch P): P1-P4 are in and standing on the arena islands; the other six biomes and the harbour are left.</li>
-        <li><b>Icons</b> (batches D, E): 72 toy icons are in (74 emoji covered); 15 emoji still need art (batch D, 12 icons) and 5 are stand-ins (batch E). See Icons.</li>
+        <li><b>Icons</b> (batches D, E): all 72 toy icons are in use (77 emoji covered, 2026-10-11); 16 emoji still need art (batch D, 13 icons; four of them are marks drawn on the canvas) and 6 are stand-ins (batch E). See Icons.</li>
         <li><b>Reef Defence towers</b> (batch T) and <b>landmarks</b> (batch F).</li>
         <li><b>Title, crests and UI pieces</b> (U) and <b>more shots</b> (X2). These each need a small code hook when they arrive.</li>
-        <li>Low, when there's time: <b>straight-body redraws</b> (N, needed before the animation build), <b>weather objects</b> (W), <b>shots</b> (X) and <b>Reef Defence extras</b> (R).</li>
-        <li>Done: <b>chart islands</b> (I), <b>plain pads and rock islets</b> (O), <b>harbour buildings</b> (B), <b>player ships</b> (S, enemy ships follow), <b>pickups</b> (C) and <b>effects</b> (H).</li></ol></div>
+        <li>Low, when there's time: <b>straight-body redraws</b> (N: the eel and the leeches, needed before the animation build; at play size their curves read as squiggles), <b>weather objects</b> (W), <b>shots</b> (X) and <b>Reef Defence extras</b> (R).</li>
+        <li>Done: <b>chart islands</b> (I), <b>plain pads and rock islets</b> (O), <b>harbour buildings</b> (B), <b>player ships</b> (S, enemy ships follow), <b>pickups</b> (C) and <b>effects</b> (H). The land itself is drawn in code in the toy look everywhere now: arenas, Reef Defence maps and the opening scene.</li></ol></div>
       <div class="box todo"><h3>Animation (the last build stage)</h3><ul>
         <li>Everything should end up feeling alive. The plan is to animate in code from one still image per creature, so the art has to be drawn in a pose code can move.</li>
         <li><b>Flyers</b> (gulls, bats, wisps' flames, the flying wyrm): wings spread flat at their widest. Code squashes them in and out to flap. If that looks thin, a second "wings down" image per flyer is the fallback.</li>
@@ -253,7 +253,7 @@ BACKGROUND: truly transparent. If you can't, flat #FF00FF magenta. Never a paint
 VIEWS (strict, the game depends on them):
 TOP-DOWN = the camera is directly overhead, looking straight down, like looking at a fish in a pond from a bridge. You see its back, never its face, side or belly. Head at the top edge of the image, tail at the bottom, body mirror-symmetrical left to right. The game turns it to face where it's going.
   Wings: spread flat out to both sides at their widest. The game flaps them.
-  Long bodies (snakes, eels, worms, leeches, tentacles): dead straight from top to bottom, no curves or coils. The game wriggles them.
+  Long bodies (snakes, eels, worms, leeches, tentacles): dead straight from top to bottom, no curves or coils, and chunky: about a third as wide as they are long, so they still read at phone size. The game wriggles them.
 FRONT = an upright thing facing us, turned slightly (three-quarter) and seen a little from above, standing on nothing. The game flips it left and right, so no writing or one-sided detail.
 ISLAND = one island seen from straight above like a flat toy board piece: a raised rounded rim, a flat top, filling most of the image. Follow the outline the item describes exactly. Islands are never round unless the item says so.
 Before each image write one line: code, name, view, "simple toy, transparent".
@@ -343,17 +343,16 @@ const BATCHES = [
   'G1 Gullswarm Harpy (TOP-DOWN): a white gull seen from directly above: round white body, head with a yellow beak at the top, both wings spread flat out to the sides at their widest with grey tips, a short fan tail at the bottom',
   'G2 Deep Crawler (TOP-DOWN): a dark blue-black crab seen from directly above: a round shell, two big claws reaching forward at the top, three short legs out each side, two eye stalks between the claws',
   'G3 Reef Shark (TOP-DOWN): a grey shark seen from directly above: a straight bean body, pointed snout at the top, two side fins out to the sides, the back fin seen from above as a thin stripe on the spine, tail fin at the bottom',
-  'G4 Sea Serpent (TOP-DOWN): a green sea serpent seen from directly above, dead straight from head (top) to tail (bottom): a round head with two eyes on top, a pale stripe down the back, a small fin at the tail',
+  'G4 Sea Serpent (TOP-DOWN): a fat green sea serpent seen from directly above, dead straight from head (top) to tail (bottom), about a third as wide as it is long: a round head with two eyes on top, a pale stripe down the back, a small fin at the tail',
   'G5 Frost Narwhal (TOP-DOWN): a pale blue whale seen from directly above: a smooth bean body, one long straight white tusk pointing out of the top, two flippers out to the sides, a tail fluke at the bottom',
   'G6 Ice Golem (FRONT): a squat golem built from big pale blue ice blocks: one body block, one head block, two block fists, two small dark eyes',
   'G7 Frost Wisp (FRONT): a round pale blue flame with a curling tip and two dark eyes',
   'G8 Siren (FRONT): a mermaid sitting on a round grey rock, long teal hair, her green tail curled round the rock',
   'G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above: a small round body and head with two ears at the top, both wings spread flat out to the sides at their widest, orange wing edges']],
  ['N', 'Straight-body redraws (before the animation build)', 'low', [
-  'N1 Stalker Eel (TOP-DOWN): a long dark grey eel seen from directly above, dead straight from head (top) to tail (bottom), two yellow eyes on top of the head',
-  'N2 Bog Leech (TOP-DOWN): one fat dark red leech seen from directly above, dead straight from top to bottom, a round sucker mouth at the top end',
-  'N3 Leech Swarm (TOP-DOWN): three fat red leeches seen from directly above, lying straight and side by side, heads at the top',
-  'N4 Sand Wyrm (TOP-DOWN): a fat sandy worm seen from directly above, dead straight, three spiky orange plates down its back, a blunt head at the top']],
+  'N1 Stalker Eel (TOP-DOWN): a fat dark grey eel seen from directly above, dead straight from head (top) to tail (bottom), about a third as wide as it is long, two yellow eyes on top of the head',
+  'N2 Bog Leech (TOP-DOWN): one fat dark red leech seen from directly above, dead straight from top to bottom, plump like a bean, a round sucker mouth at the top end',
+  'N3 Leech Swarm (TOP-DOWN): three fat red leeches seen from directly above, lying straight and side by side, heads at the top, each plump like a bean']],
  ['T', 'Reef Defence towers', 'medium', [
   'T1 Cannon Battery (FRONT): a round stone tower with one big cannon on top',
   'T2 Grapeshot Nest (FRONT): a wooden platform with one wide-mouthed gun',
@@ -374,13 +373,15 @@ const BATCHES = [
   'D9 Eye (FRONT): a single cartoon eye (Reef Defence reveal)',
   'D10 Feather (FRONT): a white feather (Reef Defence flyer mark)',
   'D11 Music note (FRONT): a pair of black music notes (Siren song)',
-  'D12 Dagger (FRONT): a small dagger (Glass Cannon)']],
+  'D12 Dagger (FRONT): a small dagger (Glass Cannon)',
+  'D13 Up arrow (FRONT): a chunky gold arrow pointing up (Reef Defence upgrade button)']],
  ['E', 'Stand-in icons to replace', 'medium', [
   'E1 Crossed swords (FRONT): two cutlasses crossed (crew, First Blood; now a single cutlass)',
   'E2 Wrench (FRONT): a single spanner (Bilge Pumps; now a gear)',
   'E3 Cannonballs (FRONT): three iron cannonballs in a pile (Cannonballs; now a cannon)',
   'E4 Chain shot (FRONT): two iron balls joined by a short chain (Chain Shot; now a plain link)',
-  'E5 Wings (FRONT): a pair of small white wings (flyer mark; now one wing)']],
+  'E5 Wings (FRONT): a pair of small white wings (flyer mark; now one wing)',
+  'E6 Stern chaser (FRONT): a small cannon pointing backwards over a ship\'s stern rail (Stern Chaser armament; now a plain cannon)']],
  ['F', 'Landmarks', 'medium', [
   'F1 Pirate fort (FRONT): a small stone fort with a black flag',
   'F2 Lighthouse (FRONT): a white lighthouse on a cliff',
@@ -455,7 +456,7 @@ document.addEventListener('click', async (ev) => {
 $('#std-img').src = '__STD_IMG__';
 
 const count = (p) => DATA.filter((d) => d.pri === p).length;
-$('#tally').innerHTML = [['done', 'simple style done', EMOJI.filter((e) => e.state === 'done').length], ['high', 'redo · high (incl. icons)', EMOJI.filter((e) => e.state === 'need' || e.state === 'standin').length + 1], ['medium', 'redo · medium', 1], ['low', 'redo · low', 0], ['keep', 'keep as code', 0]]
+$('#tally').innerHTML = [['done', 'simple style done', EMOJI.filter((e) => e.state === 'done').length], ['high', 'redo · high (incl. icons)', EMOJI.filter((e) => e.state === 'need' || e.state === 'standin').length], ['medium', 'redo · medium', 1], ['low', 'redo · low', 0], ['keep', 'keep as code', 0]]
   .map(([p, l, extra]) => `<div class="p-${p}"><b>${count(p) + extra}</b><span>${l}</span></div>`).join('');
 const ISTATE = { need: ['t-high', 'Needs art'], standin: ['t-medium', 'Stand-in'], keep: ['t-keep', 'Keep'], done: ['t-done', 'Toy icon ✓'] };
 $('#igrid').innerHTML = EMOJI.map((e) => `<div class="icon is-${e.state}"><div class="g" aria-hidden="true">${e.img ? `<img src="${e.img}" alt="">` : e.e}<span class="ge">${e.img ? e.e : ''}</span></div><span class="tag ${ISTATE[e.state][0]}">${ISTATE[e.state][1]}</span><div class="u"><b>${e.n}×</b> · ${e.where.join(', ')}${e.ctx.length ? `<br>e.g. ${e.ctx.join(', ')}` : ''}${e.note ? `<br><i>${e.note}</i>` : ''}</div></div>`).join('');

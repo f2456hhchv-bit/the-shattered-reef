@@ -23,6 +23,11 @@ import { getEnemy, ARCHETYPES as A } from '../data/enemies.mjs';
 import { stageInfo } from '../data/stages.mjs';
 import { getBiome, colorAtStops } from '../data/biomes.mjs';
 import { buildTerrain } from '../engine/terrain.mjs';
+import { scatterProps } from '../engine/arena.mjs';
+import { makeSeededRng } from '../engine/rng.mjs';
+import { PROPS } from '../data/props.mjs';
+import { toyArenaBiome } from '../data/toyTerrain.mjs';
+import { drawProps } from '../engine/survivalArt.mjs';
 import { createTerrainRenderer, glowingDecorations } from '../engine/terrainRenderer.mjs';
 import { drawEnemy, drawParticles, drawDamageNumbers, drawEnemyProjectiles } from '../engine/renderer.mjs';
 import {
@@ -130,6 +135,7 @@ export function createDefenceMode(root, deps) {
   let active = false;
   let s = null; let mapDef = null; let maps = null; let landscape = false;
   let terrain = null; let renderer = null; let glows = []; let fresh = true; let view = null;
+  let props = []; let toyBiome = null;
   let particles = createParticlePool(); let numbers = createDamageNumberPool(); const shake = createShake();
   let coins = []; let breaths = []; let heartHurt = 0; let speed = 1; let paused = false;
   let sel = null; // { type: 'spot'|'tower'|'enemy', id }
@@ -144,7 +150,8 @@ export function createDefenceMode(root, deps) {
   function isLandscape() { return window.innerWidth > viewH() * 1.05; }
   function buildWorld() {
     const m = landscape ? maps.landscape : maps.portrait;
-    const biome = s.biome;
+    // The toy board-piece look the voyage arenas use (2026-10-11).
+    const biome = toyArenaBiome(s.biome); toyBiome = biome;
     terrain = buildTerrain(m.grid, m.tileSize, m.coastSeed, biome, m.coast);
     // Keep palms and boulders off the build spots and the Heart.
     terrain.decorations = terrain.decorations.filter((d) => !m.spots.some((sp) => Math.hypot(d.x - sp.x, d.y - sp.y) < 22)
@@ -152,8 +159,24 @@ export function createDefenceMode(root, deps) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     renderer = createTerrainRenderer(terrain, biome, { res: Math.min(1.5, dpr) });
     glows = biome.glow ? glowingDecorations(terrain, biome) : [];
+    props = defenceProps(m, s.biome.id);
     fresh = true;
     layout();
+  }
+  // Toy props on the defence map's land: clear of build spots, the Heart
+  // and the channels, a little smaller than in the arenas so towers stay
+  // the tallest things on the map. Placed in portrait tiles and swapped
+  // for landscape, so both orientations show the same props.
+  function defenceProps(m, biomeId) {
+    const base = maps.portrait; const T = base.tileSize;
+    const raw = scatterProps(base.grid.tiles, base.grid.width, base.grid.height, PROPS[biomeId], makeSeededRng((base.coastSeed ^ 0x5eed) >>> 0), {
+      count: 24, minInland: 2, spacing: 2.4,
+      clear: (x, y) => base.spots.every((sp) => Math.hypot(sp.x / T - x, sp.y / T - y) > 2.4) && Math.hypot(base.heart.x / T - x, base.heart.y / T - y) > 3.4,
+    });
+    return raw.map((p) => {
+      const x = p.tx * T; const y = p.ty * T;
+      return { ...p, size: p.size * 0.72, x: m.transposed ? y : x, y: m.transposed ? x : y };
+    }).sort((a, b) => a.y - b.y);
   }
   function ensureOrientation() {
     const want = isLandscape();
@@ -639,7 +662,7 @@ export function createDefenceMode(root, deps) {
   function render(t, sh) {
     const vw = window.innerWidth; const vh = viewH();
     const biome = s.biome; const m = s.map;
-    ctx.fillStyle = `rgb(${colorAtStops(biome.land, 40).join(',')})`;
+    ctx.fillStyle = `rgb(${colorAtStops((toyBiome || biome).land, 40).join(',')})`;
     ctx.fillRect(0, 0, vw, vh);
     ctx.save();
     ctx.translate(view.tx + (sh?.x || 0), view.ty + (sh?.y || 0)); ctx.scale(view.scale, view.scale);
@@ -647,6 +670,7 @@ export function createDefenceMode(root, deps) {
     ctx.beginPath(); ctx.rect(0, 0, m.widthPx, m.heightPx); ctx.clip();
     renderer.draw(ctx, { left: 0, top: 0, right: m.widthPx, bottom: m.heightPx }, t, { forceVisible: fresh, maxNewChunks: 0 });
     fresh = false;
+    drawProps(ctx, props, { left: 0, top: 0, right: m.widthPx, bottom: m.heightPx });
     // Where the next wave comes in (between waves and while it arrives).
     const w = s.waves[s.waveIndex + 1];
     if (w && !s.over && (s.nextWaveTimer != null || s.waveIndex < 0 || s.hold)) {

@@ -113,7 +113,7 @@ export const SV_WEAPONS = {
       { damage: 21, cooldown: 0.8, count: 3, pierce: 6, speed: 330, range: 310, desc: '+30% damage, faster throws' },
     ],
     evolve: {
-      with: 'rudder', id: 'reaper_chains', name: 'Reaper Chains', icon: '⚔️',
+      with: 'rudder', id: 'reaper_chains', name: 'Reaper Chains', icon: '💀',
       desc: 'Three chain-blades whirl round your ship, and the bolas keep flying',
       stats: { damage: 21, cooldown: 0.75, count: 3, pierce: 7, speed: 340, range: 320, orbit: { count: 3, radius: 54, damage: 18, spin: 3.4, every: 0.35 } },
     },
@@ -161,7 +161,7 @@ export const SV_WEAPONS = {
       { damage: 12, cooldown: 2.1, count: 3, pool: 48, burn: 11, every: 0.4, duration: 3.8, speed: 230, range: 250, desc: '+1 barrel, hotter fire' },
     ],
     evolve: {
-      with: 'sails', id: 'greek_fire', name: 'Greek Fire', icon: '☄️',
+      with: 'sails', id: 'greek_fire', name: 'Greek Fire', icon: '🏺',
       desc: 'Your wake burns: a trail of fire behind you, and bigger barrels',
       stats: { damage: 14, cooldown: 2.0, count: 3, pool: 54, burn: 12, every: 0.35, duration: 4, speed: 240, range: 260, trail: { every: 0.3, pool: 26, duration: 2.4, burn: 9 } },
     },

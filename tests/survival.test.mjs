@@ -470,3 +470,29 @@ test('toy arena terrain: every biome has a palette, flat tops, toy rocks', async
     assert.equal(t.land.at(-1)[1], TOY_PALETTES[id].top);
   }
 });
+
+test('scatterProps: non-square grids, inland, clear of vetoed spots, spaced', async () => {
+  const { scatterProps, landDistance } = await import('../src/engine/arena.mjs');
+  const { PROPS } = await import('../src/data/props.mjs');
+  const W = 28; const H = 46;
+  // Land everywhere except a channel down the middle.
+  const tiles = Array.from({ length: H }, () => Array.from({ length: W }, (_, x) => (Math.abs(x - 14) < 3 ? 0 : 1)));
+  const veto = { x: 6, y: 20 };
+  const props = scatterProps(tiles, W, H, PROPS.tropical, makeSeededRng(5), { count: 24, minInland: 2, spacing: 2.4, clear: (x, y) => Math.hypot(x - veto.x, y - veto.y) > 3 });
+  assert.ok(props.length >= 12, `${props.length} props`);
+  const inland = landDistance(tiles, W, H);
+  for (const p of props) {
+    assert.ok(inland[Math.floor(p.ty)][Math.floor(p.tx)] >= 2, 'inland');
+    assert.ok(Math.hypot(p.tx - veto.x, p.ty - veto.y) > 3, 'clear of the veto');
+  }
+  for (let i = 1; i < props.length; i++) assert.ok(props[i].ty >= props[i - 1].ty, 'sorted by y');
+  for (const a of props) for (const b of props) if (a !== b) assert.ok(Math.hypot(a.tx - b.tx, a.ty - b.ty) > 2.4, 'spaced');
+});
+
+test('toy volcanic lava is flat, sparse and inland', async () => {
+  const { toyArenaBiome } = await import('../src/data/toyTerrain.mjs');
+  const { getBiome } = await import('../src/data/biomes.mjs');
+  const lava = toyArenaBiome(getBiome('volcanic')).lava;
+  assert.equal(lava.flat, true);
+  assert.ok(lava.threshold >= 0.6 && lava.start >= 20 && lava.edge < 0.07);
+});
