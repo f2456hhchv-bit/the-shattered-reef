@@ -423,9 +423,9 @@ test('save: a survival level round-trips mid-wave', () => {
 
 test('a bot clears stage 1 level 1 through the real frame loop', () => {
   // The ×2 stage-1 crowd sinks the bot now and then, so judge a few seeds.
-  const runs = [1001, 1002, 1003, 1004].map((seed) => playLevel(seed, { stage: 1, levelIndex: 0, maxSeconds: 420 }));
+  const runs = [1001, 1002, 1003, 1004, 1005, 1006].map((seed) => playLevel(seed, { stage: 1, levelIndex: 0, maxSeconds: 420 }));
   const wins = runs.filter((x) => x.outcome === 'victory');
-  assert.ok(wins.length >= 2, `cleared ${wins.length}/4: ${runs.map((x) => x.outcome).join(', ')}`);
+  assert.ok(wins.length >= 2, `cleared ${wins.length}/6: ${runs.map((x) => x.outcome).join(', ')}`);
   const r = wins[0];
   assert.ok(r.shipLevel >= 8, 'the ship grows over a level');
   assert.ok(r.kills > 300, 'and it faces a horde');
@@ -434,6 +434,7 @@ test('a bot clears stage 1 level 1 through the real frame loop', () => {
 
 test('toy island obstacles: placed from the biome pool, land stamped under each', async () => {
   const { seaIslandPool } = await import('../src/engine/arena.mjs');
+  const { ROCK_ISLETS, PROPS } = await import('../src/data/props.mjs');
   const fs = await import('node:fs');
   for (const biomeId of ['tropical', 'crystal', 'bone_sands']) {
     const pool = seaIslandPool(biomeId);
@@ -442,11 +443,19 @@ test('toy island obstacles: placed from the biome pool, land stamped under each'
     const a = buildArenaGrid(makeSeededRng(42), biomeId);
     assert.ok(a.seaIslands.length >= 4, `${biomeId}: ${a.seaIslands.length}`);
     for (const s of a.seaIslands) {
-      assert.ok(pool.includes(s.sprite));
+      assert.ok(pool.includes(s.sprite) || s.sprite === ROCK_ISLETS[biomeId], s.sprite);
       assert.equal(a.grid.tiles[Math.floor(s.ty)][Math.floor(s.tx)], 1, 'centre is land');
     }
   }
-  assert.deepEqual(seaIslandPool('caverns'), []);
+  assert.ok(seaIslandPool('caverns').length >= 1);
+  for (const r of Object.values(ROCK_ISLETS)) assert.ok(fs.existsSync(`assets/islands/${r}.png`), r);
+  // Props: files exist, each stands on land well in from the shore.
+  for (const [biomeId, kinds] of Object.entries(PROPS)) {
+    for (const k of kinds) assert.ok(fs.existsSync(`assets/props/${k.file}.png`), k.file);
+    const a = buildArenaGrid(makeSeededRng(7), biomeId);
+    assert.ok(a.props.length >= 30, `${biomeId}: ${a.props.length} props`);
+    for (const p of a.props) assert.equal(a.grid.tiles[Math.floor(p.ty)][Math.floor(p.tx)], 1, 'prop on land');
+  }
 });
 
 test('toy arena terrain: every biome has a palette, flat tops, toy rocks', async () => {

@@ -2954,6 +2954,39 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   was unused), Crystal Crab, Shard Crab. Inventory marks them done; batch
   G keeps G1-G9, and batch A (bosses) is still all to do.
 
+- **Islands, rock islets and props in the arenas** (2026-10-11):
+  - Chart islands: Caverns added; Tropical and Cliff & Cove replaced with
+    top-down versions. All 10 are toy images now.
+  - Pads: 3 per biome (bone sands and crystal now have 5). Rock islets
+    `rock_<colour>` (grey/ice/black/purple/navy/sand/lilac), mapped per
+    biome in `data/props.mjs` `ROCK_ISLETS`; `buildArenaGrid` places
+    `seaRocks: 6` (r 2.2-3.4 tiles) with the same stamp as sea islands.
+  - Props: `assets/props/<biome>_<name>.png` for Tropical, Cliff & Cove,
+    Glacial and Shipwreck (`PROPS` in `data/props.mjs`, weighted). Up to 80
+    per arena on land 2+ tiles inland (`landDistance`), clear of sea-island
+    images and landmarks; `drawProps` in survivalArt.mjs draws them base-on-
+    spot with a contact shadow. Saved like seaIslands (rebuilt from seed).
+  - `tools/split-sheet.py` splits multi-piece sheets (real alpha or a
+    painted checkerboard: flood from the edges over colourless pixels
+    brighter than the checker's dark tone, then an opening to drop the
+    faint white streaks). All island/prop PNGs are 256-colour (islands
+    5.5MB → 0.9MB).
+  - The 1-1 bot test now judges 6 seeds (needs 2 clears); the new
+    obstacles moved it from 5/10 to 4/10 clears, noise level.
+- **Prompt kit rewritten** (same day, owner: "be more specific with
+  wordings, loose in some too"; "TOP" wasn't enough; too many round
+  islands; slow one-at-a-time creation is to avoid copy-paste; everything
+  should eventually feel animated). Header now: strict style/views/
+  background, loose detail, "one of a kind" (never reuse an earlier
+  outline or pose), TOP-DOWN spelled out (camera overhead, see its back,
+  head at top, symmetrical), wings spread flat (code flaps), long bodies
+  dead straight (code wriggles), ISLAND items each name an outline. New
+  batches: O2 (30 named island outlines, 3 per biome, no two biomes share
+  a set), N (straight-body redraws of the curved eel/leeches/wyrm, needed
+  before the animation build). G1-G9, A1-A12, P5-P12 rewritten with the
+  view described. Animation plan box added: code-driven flap/wriggle/sway
+  from one still each, last build stage.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in

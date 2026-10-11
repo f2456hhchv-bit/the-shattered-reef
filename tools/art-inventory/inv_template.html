@@ -134,23 +134,27 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     </div>
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
-        <li><b>Creatures and bosses</b> (batches G, A): all of them, even simpler, to match the ships and buildings: 2-3 big rounded shapes and 2-3 flat colours each. Stage 1-4 creatures first (G1-G8), then bosses. Current art stays in play until each arrives.</li>
-        <li><b>Sea obstacle islands</b> (batch O): plain pads in every biome's colours. Each one goes straight into that biome's arenas with no code work, so more outlines mean more varied maps.</li>
-        <li><b>Terrain</b> (batch I): 9 chart islands are in (they double as sea obstacles in the arenas); Caverns is left, and Tropical and Cliff & Cove want redoing top-down to match. Ground swatches dropped: the islands' flat look is drawn in code for the coastline.</li>
-        <li><b>Island props</b> (batch P): palms, rocks and the rest, chunky enough to read at play size. Tropical first.</li>
+        <li><b>Creatures and bosses</b> (batches G, A): even simpler, to match the ships and buildings. Every prompt now spells out exactly what the creature looks like from its view, because a bare "TOP" kept coming back as side or three-quarter views. Stage 1-4 creatures first (G1-G9), then bosses.</li>
+        <li><b>Island outlines</b> (batch O2): 30 islands, each a different named outline (sandbar, crescent, L, clover, comma, hourglass, chain…). Too many of the current pads are round, so the arenas start to look stamped. Each drops straight into its biome with no code work.</li>
+        <li><b>Island props</b> (batch P): P1-P4 are in and standing on the arena islands; the other six biomes and the harbour are left.</li>
         <li><b>Icons</b> (batches D, E): 72 toy icons are in (74 emoji covered); 15 emoji still need art (batch D, 12 icons) and 5 are stand-ins (batch E). See Icons.</li>
         <li><b>Reef Defence towers</b> (batch T) and <b>landmarks</b> (batch F).</li>
         <li><b>Title, crests and UI pieces</b> (U) and <b>more shots</b> (X2). These each need a small code hook when they arrive.</li>
-        <li>Low, when there's time: <b>weather objects</b> (W), <b>shots</b> (X) and <b>Reef Defence extras</b> (R). Animated overlays, bars, rings and the UI are restyled in code, not drawn.</li>
-        <li>Already simple, keep: <b>harbour buildings</b> (B), <b>player ships</b> (S, enemy ships follow), <b>pickups</b> (C) and <b>effects</b> (H).</ol></div>
+        <li>Low, when there's time: <b>straight-body redraws</b> (N, needed before the animation build), <b>weather objects</b> (W), <b>shots</b> (X) and <b>Reef Defence extras</b> (R).</li>
+        <li>Done: <b>chart islands</b> (I), <b>plain pads and rock islets</b> (O), <b>harbour buildings</b> (B), <b>player ships</b> (S, enemy ships follow), <b>pickups</b> (C) and <b>effects</b> (H).</li></ol></div>
+      <div class="box todo"><h3>Animation (the last build stage)</h3><ul>
+        <li>Everything should end up feeling alive. The plan is to animate in code from one still image per creature, so the art has to be drawn in a pose code can move.</li>
+        <li><b>Flyers</b> (gulls, bats, wisps' flames, the flying wyrm): wings spread flat at their widest. Code squashes them in and out to flap. If that looks thin, a second "wings down" image per flyer is the fallback.</li>
+        <li><b>Long bodies</b> (serpents, eels, leeches, worms, tentacles): drawn dead straight. Code bends the image along a moving wave to wriggle it. A curved drawing can't be straightened, which is why batch N redraws the current curved ones.</li>
+        <li><b>Swimmers and walkers</b> (sharks, crabs, golems): a symmetrical neutral pose. Code adds the sway, bob and squash.</li></ul></div>
       <div class="box do"><h3>Do</h3><ul>
         <li>Attach <b>the harbour mockup</b> to every request (and, when redoing an asset, its current image so the shape carries over). The style follows the picture far more than the words.</li>
         <li>Ask for <b>one asset per message</b>, on a <b>transparent background</b> (flat #FF00FF magenta if it can't).</li>
-        <li><b>TOP view</b> for anything that swims or flies: straight down, front pointing to the top of the image. The game turns it to any heading.</li>
-        <li><b>FRONT view</b> for upright things (golems, sirens, buildings, towers, landmarks, pickups, icons): front three-quarter, slightly from above. The game mirrors it left and right.</li>
+        <li><b>TOP-DOWN view</b> for anything that swims or flies: camera directly overhead, you see its back, head at the top of the image, body symmetrical. Wings spread flat; long bodies dead straight. The game turns it to any heading and animates it.</li>
+        <li><b>FRONT view</b> for upright things (golems, sirens, props, buildings, towers, landmarks, pickups, icons): facing us, turned three-quarter, slightly from above. The game mirrors it left and right.</li>
         <li>Ships only: <b>one image with 5 views</b> in a row (see the prompt kit).</li>
         <li><b>Name each image by its code</b> (e.g. "G3") when you send it, so it lands in the right slot.</li>
-        <li><b>ISLAND view</b> (chart islands): one small round island seen from high above at a slight angle, its landmark on top, transparent sea around it.</li>
+        <li><b>ISLAND view</b>: seen from straight above like a flat toy board piece, raised rim, flat top. Every island item names its own outline; ask for that outline, never "a round island".</li>
         <li>Fill most of the frame; around 1024px is fine. The game trims and scales it.</li>
       </ul></div>
       <div class="box dont"><h3>Don't</h3><ul>
@@ -158,7 +162,9 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
         <li>Don't accept <b>painterly or textured</b> results either.</li>
         <li>Don't send <b>24-frame turn sheets</b>. They came back mostly stern-side and unusable; the 5-view set works.</li>
         <li>Don't send <b>8-direction pre-rotations</b>, or re-renders of the game's current art. Both changed nothing last time.</li>
-        <li>Don't <b>bake in</b> shadows, water, glows or text. The game draws its own.</li>
+        <li>Don't <b>bake in</b> shadows, water, glows or text. The game draws its own. The last props came with soft glow halos; they key out, but a clean edge keys better.</li>
+        <li>Don't accept a <b>painted grey checkerboard</b> as the background. It isn't transparency, and it eats pale grey and white parts when it's keyed out.</li>
+        <li>Don't <b>copy the last image</b>. If it hands back the same outline or pose, reply with the fix line below.</li>
         <li>Don't send <b>terrain tiles</b>. Levels are generated, so terrain stays code.</li>
       </ul></div>
       <div class="box also"><h3>When ChatGPT drifts</h3><ul>
@@ -166,6 +172,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
         <li>If it <b>writes code</b> or describes the image instead of making it, start a fresh chat. Arguing doesn't fix it.</li>
         <li>Too busy? Reply: <code>Too many parts. Half as many pieces, no small props, bigger simpler shapes. Same subject and view.</code></li>
         <li>Too detailed or textured? Reply: <code>Simpler, like the attached harbour. Chunky blocks, flat matte colours, no texture or lines. Same pose.</code></li>
+        <li>Wrong view (side or three-quarter instead of from above)? Reply: <code>Wrong view. Camera directly overhead looking straight down: I should see its back, head at the top of the image, body straight and symmetrical.</code></li>
+        <li>Same as the last one? Reply: <code>Too close to the previous image. New outline and pose, same style.</code></li>
         <li>The header makes it restate the asset, view and style before each image. If that line is missing or wrong, the image will be too.</li>
       </ul></div>
     </div>
@@ -238,12 +246,18 @@ const STYLE = { simple: 'Simple toy', toy: 'Detailed toy, simplify', old: 'Older
 const $ = (s) => document.querySelector(s);
 const NEED = ['high', 'medium', 'low'];
 const HEADER = `Use the image generator. No code. One image per reply.
-Match the attached harbour image's style exactly: a simple chunky toy, like a child's wooden or plastic playset piece. A few big rounded blocks (about 3-6 parts), thick silhouette, slightly squat cute proportions. 3-4 flat matte colours, soft light from the top-left, smooth, no texture.
-No clutter: no small props (barrels, crates, cannonball piles, ropes, chains, ladders, lanterns), no brick or plank lines, no rivets, scales, cracks, patterns, window grids or text. If a detail would vanish at 48px, leave it out.
-One subject only, centred, filling most of the image. No shadow, no water, no ground. Transparent background (only if you can't do transparent, use flat #FF00FF magenta).
-Views: TOP = straight top-down, the front pointing to the top of the image. FRONT = front three-quarter view, slightly from above. ISLAND = one island seen from straight above like a toy board piece: a wavy outline, a raised rounded rim, a flat top, filling most of the image.
-Before each image, write one line: the item code, its name, its view, and "simple toy, transparent background".
-Work through the list below. Make the first item now. When I say "next", make the next one.`;
+STYLE (strict): match the attached harbour image. A simple chunky toy, like a piece from a child's plastic playset: a few big rounded shapes, a thick clear silhouette, slightly squat and cute. 3-4 flat matte colours, soft light from the top-left, smooth, no texture. No glow or halo, no shadow, no water, no ground, no text.
+DETAIL (loose): the small choices are yours, as long as every part stays big and simple. If a part would vanish at 48px, leave it out.
+ONE OF A KIND: every image is a new design. Never reuse the outline, pose or layout of an earlier image in this chat, even for a similar item.
+BACKGROUND: truly transparent. If you can't, flat #FF00FF magenta. Never a painted grey checkerboard.
+VIEWS (strict, the game depends on them):
+TOP-DOWN = the camera is directly overhead, looking straight down, like looking at a fish in a pond from a bridge. You see its back, never its face, side or belly. Head at the top edge of the image, tail at the bottom, body mirror-symmetrical left to right. The game turns it to face where it's going.
+  Wings: spread flat out to both sides at their widest. The game flaps them.
+  Long bodies (snakes, eels, worms, leeches, tentacles): dead straight from top to bottom, no curves or coils. The game wriggles them.
+FRONT = an upright thing facing us, turned slightly (three-quarter) and seen a little from above, standing on nothing. The game flips it left and right, so no writing or one-sided detail.
+ISLAND = one island seen from straight above like a flat toy board piece: a raised rounded rim, a flat top, filling most of the image. Follow the outline the item describes exactly. Islands are never round unless the item says so.
+Before each image write one line: code, name, view, "simple toy, transparent".
+Work through the list. Make the first item now; when I say "next", make the next one.`;
 const SHIPS = `Make: [HULL NAME], one simple toy ship: a rounded hull, one or two big sails, a small flag. No ropes, rigging, cannons, windows or plank lines.
 One image with 5 views of the same ship in a row, same size, evenly spaced, not touching:
 1 bow (front towards the camera)
@@ -252,35 +266,50 @@ One image with 5 views of the same ship in a row, same size, evenly spaced, not 
 4 stern-quarter (bow pointing up-left)
 5 stern (back towards the camera)`;
 const BATCHES = [
- ['I', 'Chart islands (9 of 10 done)', 'high', [
-  'I6 Caverns (stage 6) island (ISLAND): a small round pad island seen from straight above, dark purple-grey rock top, a wet dark slate rim, a round rocky cave mouth in the middle',
-  'I1r Tropical redo (ISLAND): same as the current one but seen from straight above like the others: a round pad, sand rim, green top, the little stone fort with a black flag',
-  'I2r Cliff & Cove redo (ISLAND): seen from straight above: a round pad, grey pebble rim, green top, a red and white lighthouse']],
- ['O', 'Sea obstacle islands (plain pads)', 'high', [
-  'O1 Tropical pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), pale sand rim, flat green grass top; nothing on top, the same raised rim as the island set; one image each',
-  'O2 Cliff & Cove pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), grey pebble rim, flat green turf top; nothing on top, the same raised rim as the island set; one image each',
-  'O3 Glacial pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), pale blue ice rim, flat white snow top; nothing on top, the same raised rim as the island set; one image each',
-  'O4 Shipwreck pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), grey stone rim, flat olive moss top; nothing on top, the same raised rim as the island set; one image each',
-  'O5 Volcanic pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), grey ash rim, flat black rock top with one orange crack; nothing on top, the same raised rim as the island set; one image each',
-  'O6 Caverns pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), dark slate rim, flat purple-grey stone top; nothing on top, the same raised rim as the island set; one image each',
-  'O7 Mangrove pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), dark brown mud rim, flat olive top; nothing on top, the same raised rim as the island set; one image each',
-  'O8 Abyss pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), grey rock rim, flat navy rock top; nothing on top, the same raised rim as the island set; one image each',
-  'O9 Bone Sands (one more) pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), cream rim, flat orange sand top; nothing on top, the same raised rim as the island set; one image each',
-  'O10 Crystal (one more) pads (ISLAND): three plain island pads, each a different outline (one round, one long bean shape, one with a bay bitten out of one side), pale pink rim, flat lilac top; nothing on top, the same raised rim as the island set; one image each',
-  'O11 Rock islets (ISLAND): one small cluster of 2-3 smooth round rocks for each biome, in that biome\'s rock colour (grey, white-blue ice, black, purple-grey, navy, sandstone, lilac); one image each']],
- ['P', 'Island props (one set per biome)', 'medium', [
-  'P1 Tropical (FRONT): palm tree, round green bush, grey boulder, pink coral; one image each, chunky and simple',
-  'P2 Cliff & Cove (FRONT): grey boulder, tuft of grass, rock stack, white shell; one image each, chunky and simple',
-  'P3 Glacial (FRONT): snowy pine, ice boulder, snow drift, ice shard; one image each, chunky and simple',
-  'P4 Shipwreck (FRONT): broken mast, barrel, grey boulder, tangled net; one image each, chunky and simple',
-  'P5 Volcanic (FRONT): charred tree stump, glowing ember rock, black boulder, smoke vent; one image each, chunky and simple',
-  'P6 Caverns (FRONT): stalagmite, glowing mushroom, glowing coral, purple boulder; one image each, chunky and simple',
-  'P7 Mangrove (FRONT): mangrove tree, lily pad, reed clump, mossy log; one image each, chunky and simple',
-  'P8 Abyss (FRONT): tube worms, anemone, dark boulder, glowing coral; one image each, chunky and simple',
-  'P9 Bone Sands (FRONT): cactus, rib bones, small skull, sandstone rock; one image each, chunky and simple',
-  'P10 Crystal (FRONT): crystal cluster, pink boulder, lilac shrub, crystal shard; one image each, chunky and simple',
-  'P11 Harbour (FRONT): wooden jetty with a lantern, rock cluster, red buoy, green buoy, rowboat; one image each',
-  'P12 Gull (TOP): a white seagull with wings spread']],
+ ['I', 'Chart islands', 'done', [
+  'I1-I10 All ten chart islands are in (Caverns, Tropical and Cliff & Cove redone top-down on 2026-10-11)']],
+ ['O', 'Sea obstacle islands: plain pads', 'done', [
+  'O1-O11 Three pads per biome and the rock islets are in (2026-10-11). Too many are round: batch O2 adds varied outlines']],
+ ['O2', 'Island outlines (not round)', 'high', [
+  'O12 Tropical island (ISLAND): outline: a long thin sandbar, about five times longer than it is wide, gently bent like a banana; pale sand rim, flat green grass top; nothing on top',
+  'O13 Tropical island (ISLAND): outline: a crescent (horseshoe) hugging a small round lagoon that opens to one side; pale sand rim, flat green grass top; nothing on top',
+  'O14 Tropical island (ISLAND): outline: an L shape with two arms of different lengths and a rounded corner; pale sand rim, flat green grass top; nothing on top',
+  'O15 Cliff & Cove island (ISLAND): outline: a teardrop with a long thin curling tail, like a comma; grey pebble rim, flat green turf top; nothing on top',
+  'O16 Cliff & Cove island (ISLAND): outline: an hourglass: two blobs of different sizes joined by a narrow neck; grey pebble rim, flat green turf top; nothing on top',
+  'O17 Cliff & Cove island (ISLAND): outline: a chain of three small islets in a row, touching each other; grey pebble rim, flat green turf top; nothing on top',
+  'O18 Glacial island (ISLAND): outline: a kidney or boomerang, wider at one end; pale blue ice rim, flat white snow top; nothing on top',
+  'O19 Glacial island (ISLAND): outline: a rounded triangle with one long side and two short sides; pale blue ice rim, flat white snow top; nothing on top',
+  'O20 Glacial island (ISLAND): outline: a zigzag: a long strip with two sharp bends; pale blue ice rim, flat white snow top; nothing on top',
+  'O21 Shipwreck island (ISLAND): outline: a long thin sandbar, about five times longer than it is wide, gently bent like a banana; grey stone rim, flat olive moss top; nothing on top',
+  'O22 Shipwreck island (ISLAND): outline: a crescent (horseshoe) hugging a small round lagoon that opens to one side; grey stone rim, flat olive moss top; nothing on top',
+  'O23 Shipwreck island (ISLAND): outline: an L shape with two arms of different lengths and a rounded corner; grey stone rim, flat olive moss top; nothing on top',
+  'O24 Volcanic island (ISLAND): outline: a teardrop with a long thin curling tail, like a comma; grey rock rim, flat black rock top with two or three glowing orange lava cracks; nothing on top',
+  'O25 Volcanic island (ISLAND): outline: an hourglass: two blobs of different sizes joined by a narrow neck; grey rock rim, flat black rock top with two or three glowing orange lava cracks; nothing on top',
+  'O26 Volcanic island (ISLAND): outline: a chain of three small islets in a row, touching each other; grey rock rim, flat black rock top with two or three glowing orange lava cracks; nothing on top',
+  'O27 Caverns island (ISLAND): outline: a kidney or boomerang, wider at one end; dark slate rim, flat purple-grey stone top; nothing on top',
+  'O28 Caverns island (ISLAND): outline: a rounded triangle with one long side and two short sides; dark slate rim, flat purple-grey stone top; nothing on top',
+  'O29 Caverns island (ISLAND): outline: a zigzag: a long strip with two sharp bends; dark slate rim, flat purple-grey stone top; nothing on top',
+  'O30 Mangrove island (ISLAND): outline: a long thin sandbar, about five times longer than it is wide, gently bent like a banana; brown mud rim, flat olive bog top; nothing on top',
+  'O31 Mangrove island (ISLAND): outline: a crescent (horseshoe) hugging a small round lagoon that opens to one side; brown mud rim, flat olive bog top; nothing on top',
+  'O32 Mangrove island (ISLAND): outline: an L shape with two arms of different lengths and a rounded corner; brown mud rim, flat olive bog top; nothing on top',
+  'O33 Abyss island (ISLAND): outline: a teardrop with a long thin curling tail, like a comma; grey rock rim, flat deep navy top; nothing on top',
+  'O34 Abyss island (ISLAND): outline: an hourglass: two blobs of different sizes joined by a narrow neck; grey rock rim, flat deep navy top; nothing on top',
+  'O35 Abyss island (ISLAND): outline: a chain of three small islets in a row, touching each other; grey rock rim, flat deep navy top; nothing on top',
+  'O36 Bone Sands island (ISLAND): outline: a kidney or boomerang, wider at one end; cream rim, flat orange sand top; nothing on top',
+  'O37 Bone Sands island (ISLAND): outline: a rounded triangle with one long side and two short sides; cream rim, flat orange sand top; nothing on top',
+  'O38 Bone Sands island (ISLAND): outline: a zigzag: a long strip with two sharp bends; cream rim, flat orange sand top; nothing on top',
+  'O39 Crystal island (ISLAND): outline: a long thin sandbar, about five times longer than it is wide, gently bent like a banana; pink rim, flat lilac top; nothing on top',
+  'O40 Crystal island (ISLAND): outline: a crescent (horseshoe) hugging a small round lagoon that opens to one side; pink rim, flat lilac top; nothing on top',
+  'O41 Crystal island (ISLAND): outline: an L shape with two arms of different lengths and a rounded corner; pink rim, flat lilac top; nothing on top']],
+ ['P', 'Island props (P1-P4 done)', 'medium', [
+  'P5 Volcanic (FRONT): a charred black tree stump, a black rock with orange glowing cracks, a plain black boulder, a small grey smoke vent; one image each',
+  'P6 Caverns (FRONT): a stalagmite, a cluster of three glowing blue mushrooms, a glowing teal coral, a purple boulder; one image each',
+  'P7 Mangrove (FRONT): a mangrove tree on stilt roots, a round lily pad with a flower, a reed clump, a mossy log; one image each',
+  'P8 Abyss (FRONT): a clump of red-tipped tube worms, an anemone, a dark navy boulder, a glowing teal coral; one image each',
+  'P9 Bone Sands (FRONT): a round cactus with two arms, a pair of curved rib bones sticking up, a small skull, a sandstone rock; one image each',
+  'P10 Crystal (FRONT): a cluster of lilac crystals, a pink boulder, a round lilac shrub, one tall crystal shard; one image each',
+  'P11 Harbour (FRONT): a short wooden jetty with a lantern post, a grey rock cluster, a red buoy, a green buoy, a rowboat; one image each',
+  'P12 Gull (TOP-DOWN): a white seagull seen from above, head and yellow beak at the top, both wings spread flat out to the sides, a short fan tail at the bottom']],
  ['B', 'Harbour buildings', 'done', [
   'B1 Shipyard (FRONT): a small hut with a blue roof, a simple crane and a little boat on a slipway',
   'B2 Armory (FRONT): a small stone hut with one cannon in front and a gold anchor sign',
@@ -297,28 +326,34 @@ const BATCHES = [
   'S6 Ironclad Steamer: dark iron hull, one funnel, a paddle wheel each side',
   'S7 Galleon: big hull, three cream sails, red flags']],
  ['A', 'Bosses (all, even simpler)', 'high', [
-  'A1 The Black Gale (TOP): a big pirate ship: a dark hull, two big black sails, one red flag; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'A2 The Drowned Admiral (TOP): a pale green see-through ghost ship, two ragged sails; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'A3 Bloodfin Matriarch (TOP): a big grey shark with red fins, a smooth bean body; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'A4 The Kraken\'s Anchor (FRONT): a big rusty anchor with two thick purple tentacles wrapped round it; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'A5 The Frost Leviathan (TOP): a long pale blue sea serpent, an icy white belly, two small ice horns; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'A6 The Caldera Wyrm (TOP): a dark red dragon-serpent, an orange belly, two folded wings; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'A7 The Hollow King (FRONT): a round grey stone blob with a gold crown and two glowing yellow eyes; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'A8 Old Mother Mire (FRONT): a round green mossy blob with a pointed hood and two glowing eyes; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'A9 The Deep Mother (TOP): a big violet squid: a round head and four thick tentacles; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'A10 The Dunemaw (TOP): a fat sandy worm with one big round open mouth; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'A11 The Prism Colossus (FRONT): a chunky giant made of four big lilac crystals, two glowing eyes; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'A12 Warding Seal (FRONT): a round stone disc on a short post with one glowing teal rune; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts']],
+  'A1 The Black Gale (TOP-DOWN): a big pirate ship seen from directly above: you see the deck and the tops of two big black sails stretched across it, bow pointing to the top, one red flag; a dark wooden hull shaped like a fat almond',
+  'A2 The Drowned Admiral (TOP-DOWN): a ghost galleon seen from directly above: a pale green see-through hull shaped like a long almond, bow at the top, two ragged pale sails across the deck',
+  'A3 Bloodfin Matriarch (TOP-DOWN): a big grey shark seen from directly above: a straight fat bean body, blunt snout at the top, two red side fins out to the sides, the back fin seen from above as a red stripe on the spine, a red tail fin at the bottom',
+  'A4 The Kraken\'s Anchor (FRONT): a big rusty-orange anchor standing upright, two thick purple tentacles wrapped once round its shaft',
+  'A5 The Frost Leviathan (TOP-DOWN): a long sea serpent seen from directly above, dead straight from head (top) to tail (bottom): pale blue back, a white stripe down the spine, a wide head with two small ice horns, a small fin at the tail',
+  'A6 The Caldera Wyrm (TOP-DOWN): a dragon-serpent seen from directly above, dead straight from head (top) to tail (bottom): dark red back, an orange stripe down the spine, two small wings folded flat against its sides',
+  'A6b The Caldera Wyrm, flying (TOP-DOWN): the same wyrm seen from directly above, body straight, two big bat wings spread flat out to the sides at their widest',
+  'A7 The Hollow King (FRONT): a round grey stone blob with a gold crown and two glowing yellow eyes, two stubby stone arms',
+  'A8 Old Mother Mire (FRONT): a round green mossy blob under a pointed hood, two glowing eyes, two stubby arms',
+  'A9 The Deep Mother (TOP-DOWN): a big violet squid seen from directly above: a round head-mantle at the top, two big eyes on top of it, four thick tentacles hanging straight down below it side by side',
+  'A10 The Dunemaw (TOP-DOWN): a fat sandy worm seen from directly above, dead straight from top to bottom, its top end one big round open mouth ringed with teeth',
+  'A11 The Prism Colossus (FRONT): a chunky giant made of four big lilac crystals (body, head, two arms), two glowing eyes',
+  'A12 Warding Seal (FRONT): a round stone disc on a short post with one glowing teal rune in the middle']],
  ['G', 'Creatures (G10-G28 done; these 9 left)', 'high', [
-  'G1 Gullswarm Harpy (TOP): a white gull with wings spread, a yellow beak; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'G2 Deep Crawler (TOP): a dark round crab with two big claws; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'G3 Reef Shark (TOP): a grey shark, a smooth bean body, one fin; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'G4 Sea Serpent (TOP): a green sea serpent in an S curve, a pale belly; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'G5 Frost Narwhal (TOP): a pale blue whale with one long white tusk; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'G6 Ice Golem (FRONT): a squat golem of three big ice blocks; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'G7 Frost Wisp (FRONT): a round pale blue ghost flame with two eyes; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'G8 Siren (FRONT): a mermaid with teal hair sitting on a round rock; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts',
-  'G9 Cinder Bat (TOP): a dark bat with orange wing tips; 2-3 big rounded shapes, 2-3 flat colours, no scales, spots or small parts']],
+  'G1 Gullswarm Harpy (TOP-DOWN): a white gull seen from directly above: round white body, head with a yellow beak at the top, both wings spread flat out to the sides at their widest with grey tips, a short fan tail at the bottom',
+  'G2 Deep Crawler (TOP-DOWN): a dark blue-black crab seen from directly above: a round shell, two big claws reaching forward at the top, three short legs out each side, two eye stalks between the claws',
+  'G3 Reef Shark (TOP-DOWN): a grey shark seen from directly above: a straight bean body, pointed snout at the top, two side fins out to the sides, the back fin seen from above as a thin stripe on the spine, tail fin at the bottom',
+  'G4 Sea Serpent (TOP-DOWN): a green sea serpent seen from directly above, dead straight from head (top) to tail (bottom): a round head with two eyes on top, a pale stripe down the back, a small fin at the tail',
+  'G5 Frost Narwhal (TOP-DOWN): a pale blue whale seen from directly above: a smooth bean body, one long straight white tusk pointing out of the top, two flippers out to the sides, a tail fluke at the bottom',
+  'G6 Ice Golem (FRONT): a squat golem built from big pale blue ice blocks: one body block, one head block, two block fists, two small dark eyes',
+  'G7 Frost Wisp (FRONT): a round pale blue flame with a curling tip and two dark eyes',
+  'G8 Siren (FRONT): a mermaid sitting on a round grey rock, long teal hair, her green tail curled round the rock',
+  'G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above: a small round body and head with two ears at the top, both wings spread flat out to the sides at their widest, orange wing edges']],
+ ['N', 'Straight-body redraws (before the animation build)', 'low', [
+  'N1 Stalker Eel (TOP-DOWN): a long dark grey eel seen from directly above, dead straight from head (top) to tail (bottom), two yellow eyes on top of the head',
+  'N2 Bog Leech (TOP-DOWN): one fat dark red leech seen from directly above, dead straight from top to bottom, a round sucker mouth at the top end',
+  'N3 Leech Swarm (TOP-DOWN): three fat red leeches seen from directly above, lying straight and side by side, heads at the top',
+  'N4 Sand Wyrm (TOP-DOWN): a fat sandy worm seen from directly above, dead straight, three spiky orange plates down its back, a blunt head at the top']],
  ['T', 'Reef Defence towers', 'medium', [
   'T1 Cannon Battery (FRONT): a round stone tower with one big cannon on top',
   'T2 Grapeshot Nest (FRONT): a wooden platform with one wide-mouthed gun',

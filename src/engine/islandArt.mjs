@@ -313,7 +313,7 @@ function portrait(biomeId, stage, res) {
 
 // Toy island images (art batch I) replace the rendered portrait per biome
 // once loaded; biomes without one keep the terrain-renderer portrait.
-export const ISLAND_SPRITES = ['tropical', 'cliff_cove', 'glacial', 'shipwreck', 'volcanic', 'mangrove', 'abyss', 'bone_sands', 'crystal'];
+export const ISLAND_SPRITES = ['tropical', 'cliff_cove', 'glacial', 'shipwreck', 'volcanic', 'mangrove', 'abyss', 'bone_sands', 'crystal', 'caverns'];
 const islandImgs = new Map();
 export function loadIslandSprites() { for (const b of Object.keys(ISLAND_SHAPES)) islandSpriteReady(b); }
 // Also serves the plain pads (<biome>_pad<N>) used as arena obstacles.

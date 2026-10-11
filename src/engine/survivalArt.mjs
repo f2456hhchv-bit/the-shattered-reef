@@ -186,6 +186,31 @@ export function drawSeaIslands(ctx, islands, view) {
   }
 }
 
+// Toy props (2026-10-11): upright pieces standing on the land, base on the
+// spot, with a soft contact shadow. Pre-sorted by y.
+const propImgs = new Map();
+export function propSpriteReady(file) {
+  if (typeof Image === 'undefined') return null;
+  let im = propImgs.get(file);
+  if (!im) { im = new Image(); im.src = `assets/props/${file}.png`; propImgs.set(file, im); }
+  return im.complete && im.naturalWidth ? im : null;
+}
+export function drawProps(ctx, props, view) {
+  for (const p of props) {
+    if (!inView(view, p.x, p.y, p.size)) continue;
+    const im = propSpriteReady(p.file);
+    if (!im) continue;
+    const s = p.size / Math.max(im.naturalWidth, im.naturalHeight);
+    const w = im.naturalWidth * s; const h = im.naturalHeight * s;
+    ctx.save(); ctx.translate(p.x, p.y);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath(); ctx.ellipse(0, 0, w * 0.42, w * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+    if (p.flip) ctx.scale(-1, 1);
+    ctx.drawImage(im, -w / 2, -h + h * 0.08, w, h);
+    ctx.restore();
+  }
+}
+
 // Landmarks: the biome's set pieces and the wrecks, on their islands.
 export function drawLandmarks(ctx, landmarks, view, t) {
   for (const l of landmarks) {

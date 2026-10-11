@@ -12,6 +12,7 @@
 
 import { makeValueNoise, fbm } from './maze.mjs';
 import { ISLAND_SHAPES } from '../data/islandShapes.mjs';
+import { PROPS, ROCK_ISLETS } from '../data/props.mjs';
 
 export const ARENA_DEFAULTS = Object.freeze({
   size: 122, // tiles per side (16px tiles: 1952px; was 128 until 2026-10-04)
@@ -20,6 +21,8 @@ export const ARENA_DEFAULTS = Object.freeze({
   islandDensity: 1, // biome data can scale this (arena.islands)
   minGap: 3.5, // tiles of water between islands, so channels fit a ship
   seaIslands: 7, // toy island images placed as obstacles (2026-10-10)
+  seaRocks: 6, // small toy rock islets (2026-10-11)
+  props: 80, // toy props on land, where the biome has them (2026-10-11)
 });
 
 // Toy island images (assets/islands) usable as sea obstacles in a biome:
@@ -95,6 +98,22 @@ function fillUnreachable(tiles, size, sx, sy) {
 }
 
 // Distance in tiles from each tile to the nearest land (BFS, 8-neighbour).
+// Tiles from each land tile to the nearest water (0 on water), 8-way BFS.
+export function landDistance(tiles, size) {
+  const d = tiles.map((row) => row.map((t) => (t ? Infinity : 0)));
+  const q = [];
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (!tiles[y][x]) q.push(x, y);
+  for (let i = 0; i < q.length; i += 2) {
+    const x = q[i]; const y = q[i + 1];
+    for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+      const nx = x + ox; const ny = y + oy;
+      if (nx < 0 || ny < 0 || nx >= size || ny >= size || d[ny][nx] <= d[y][x] + 1) continue;
+      d[ny][nx] = d[y][x] + 1; q.push(nx, ny);
+    }
+  }
+  return d;
+}
+
 export function waterDistance(tiles, size) {
   const d = Array.from({ length: size }, () => new Float32Array(size).fill(Infinity));
   const q = [];
@@ -141,14 +160,7 @@ export function buildArenaGrid(rng, biomeId = 'tropical', opts = {}) {
   // Toy island images first (2026-10-10): obstacles in the open sea, drawn
   // as sprites over land stamped to their outline.
   const seaIslands = [];
-  const pool = seaIslandPool(biomeId);
-  for (let tries = 0; pool.length && seaIslands.length < o.seaIslands && tries < o.seaIslands * 40; tries++) {
-    const x = o.border + 12 + rng() * (N - 2 * o.border - 24);
-    const y = o.border + 12 + rng() * (N - 2 * o.border - 24);
-    const r = 5 + rng() * 4;
-    const sprite = pool[Math.floor(rng() * pool.length)];
-    const flip = rng() < 0.5;
-    if (!fits(x, y, r)) continue;
+  const stamp = (sprite, x, y, r, flip) => {
     const R = Math.ceil(r * 1.6);
     for (let ty = Math.max(0, Math.floor(y) - R); ty <= Math.min(N - 1, Math.floor(y) + R); ty++) {
       for (let tx = Math.max(0, Math.floor(x) - R); tx <= Math.min(N - 1, Math.floor(x) + R); tx++) {
@@ -158,6 +170,26 @@ export function buildArenaGrid(rng, biomeId = 'tropical', opts = {}) {
     }
     placed.push({ x, y, r, kind: 'sea' });
     seaIslands.push({ sprite, tx: x, ty: y, r, flip });
+  };
+  const pool = seaIslandPool(biomeId);
+  for (let tries = 0, n = 0; pool.length && n < o.seaIslands && tries < o.seaIslands * 40; tries++) {
+    const x = o.border + 12 + rng() * (N - 2 * o.border - 24);
+    const y = o.border + 12 + rng() * (N - 2 * o.border - 24);
+    const r = 5 + rng() * 4;
+    const sprite = pool[Math.floor(rng() * pool.length)];
+    const flip = rng() < 0.5;
+    if (!fits(x, y, r)) continue;
+    stamp(sprite, x, y, r, flip); n++;
+  }
+  // Small rock islets in the biome's rock colour.
+  const rock = ROCK_ISLETS[biomeId];
+  for (let tries = 0, n = 0; rock && ISLAND_SHAPES[rock] && n < o.seaRocks && tries < o.seaRocks * 40; tries++) {
+    const x = o.border + 10 + rng() * (N - 2 * o.border - 20);
+    const y = o.border + 10 + rng() * (N - 2 * o.border - 20);
+    const r = 2.2 + rng() * 1.2;
+    const flip = rng() < 0.5;
+    if (!fits(x, y, r)) continue;
+    stamp(rock, x, y, r, flip); n++;
   }
   const want = Math.round(44 * o.islandDensity * (N / 128) ** 2);
   for (let tries = 0; placed.length < want && tries < want * 40; tries++) {
@@ -242,8 +274,28 @@ export function buildArenaGrid(rng, biomeId = 'tropical', opts = {}) {
     if (best) chestTiles.push(best);
   }
 
+  // 5. Props: toy pieces on land at least 2 tiles in from the shore, clear
+  // of the sea-island images (which have their own art) and the landmarks.
+  const props = [];
+  const kinds = PROPS[biomeId];
+  if (kinds && o.props > 0) {
+    const inland = landDistance(tiles, N);
+    const total = kinds.reduce((a, k) => a + (k.w || 1), 0);
+    const clear = (x, y) => seaIslands.every((l) => Math.hypot(l.tx - x, l.ty - y) > l.r * 1.05 + 1)
+      && landmarks.every((l) => Math.hypot(l.tx - x, l.ty - y) > 4.5)
+      && props.every((p) => Math.hypot(p.tx - x, p.ty - y) > 2.6);
+    for (let tries = 0; props.length < o.props && tries < o.props * 30; tries++) {
+      const x = 1 + rng() * (N - 2); const y = 1 + rng() * (N - 2);
+      if (inland[Math.floor(y)][Math.floor(x)] < 2 || !clear(x, y)) continue;
+      let pick = rng() * total; let k = kinds[0];
+      for (const kk of kinds) { pick -= kk.w || 1; if (pick < 0) { k = kk; break; } }
+      props.push({ file: k.file, size: k.size, tx: x, ty: y, flip: rng() < 0.5 });
+    }
+    props.sort((a, b) => a.ty - b.ty);
+  }
+
   const grid = { width: N, height: N, tiles, unit: 1 };
-  return { grid, spawnTile: { tx: c, ty: c }, landmarks, chestTiles, waterDist: dist, seaIslands };
+  return { grid, spawnTile: { tx: c, ty: c }, landmarks, chestTiles, waterDist: dist, seaIslands, props };
 }
 
 // True if world point (x, y) is open water at least `clear` tiles from land.
