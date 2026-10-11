@@ -87,7 +87,9 @@ FX={'Explosion':'medium','Splash':'medium','Kill burst':'low','Hit spark':'low',
 # 'simple' = already passes; 'toy' = first toy pass, too busy, simplify.
 SIMPLE={'Sea-glass gem (1 XP)','Sea-glass gem (5 XP)','Sea-glass gem (25 XP)','Anchor coin (Salvage)','Lodestone (pull all)','Life ring (repair)','Treasure chest',
  'Explosion','Hit spark','Splash','Kill burst','Muzzle flash',
- 'Charm Shrine','Tower Yard','Shipyard','Armory','Workshop','Faction Hall'}
+ 'Charm Shrine','Tower Yard','Shipyard','Armory','Workshop','Faction Hall',
+ 'Crystal Crab','Shard Crab','Prism Sprite','Sand Wyrm','Mirror Tortoise','Bone Vulture','Drift Jelly','Ink Squid','Bog Leech','Leech Swarm',
+ 'Anglerfish','Jelly Bloom','Bayou Gator','Bog Witch','Deep Troll','Cave Bat','Cave Bats','Stalker Eel','Ember Imp','Magma Golem'}
 # 2026-10-09: owner judged every creature and boss too detailed next to the simple ships/buildings: all redo.
 SIMPLIFY_LOW={'Heart of the Reef'}
 TOY_PRI={'Player ships':'high','Harbour buildings':'high','Bosses':'high','Enemies':'high','Reef Defence':'medium'}

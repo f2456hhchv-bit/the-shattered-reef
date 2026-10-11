@@ -2942,6 +2942,18 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   came back as shaped pads, not seamless textures, so they aren't used;
   the arena's toy restyle will be done in code from their colours.
 
+- **Simpler creatures, batch G10-G28** (2026-10-11): 19 new images keyed
+  into `assets/creatures/` by `tools/key-creature.py` (128px; `--white=`
+  for white backgrounds): Magma Golem, Ember Imp (new entry, was sharing
+  the cinder bat), Cave Bat (now also used for the Cave Bats pack; old
+  `cave_bats.png` deleted), Stalker Eel, Deep Troll, Bayou Gator, Bog
+  Witch, Leech Swarm, Bog Leech and Drift Jelly (own images now), Jelly
+  Bloom (dark gap between the three jellies cleared), Anglerfish, Ink
+  Squid, Bone Vulture, Sand Wyrm, Prism Sprite (now `face`: the new art is
+  a front view), Mirror Tortoise (smooth-shell version; the segmented one
+  was unused), Crystal Crab, Shard Crab. Inventory marks them done; batch
+  G keeps G1-G9, and batch A (bosses) is still all to do.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
