@@ -51,38 +51,41 @@ TYPES=[
  ('fonts','Fonts',[]),
  ('sound','Sound',[]),
 ]
+# Every category has a redraw route (2026-10-12, owner: nothing stays code-drawn;
+# code only places, stretches, crops, tints, turns, fades and animates the art).
 CAT={
  'Player ships':('done','All 7 hulls are simple-toy 5-view sets (2026-10-08). Every enemy ship is recoloured from these, so they match too.'),
  'Enemies':('high','__CREATURES__'),
  'Bosses':('high',"Every boss is redone even simpler to match the ships and buildings (batch A). The current art stays in play until each replacement arrives."),
- 'Boss effects':('low','Animated overlays: restyled in code to toy colours (flat fills, thick rounded outlines). No images needed.'),
- 'Harbour buildings':('done',"All six are simple-toy sprites (2026-10-09). The lamp beam, portal, forge glow and banner glow stay code overlays on top."),
- 'Harbour props':('low','Redesign as toy props (batch P): jetty, rock cluster, buoy, rowboat. Blinking lights and foam stay code overlays.'),
- 'Landmarks':('medium','Set pieces on arena islands and the chart. Toy FRONT-view versions, batch F.'),
- 'Reef Defence':('medium','The six towers are busy (props, planks, crates): simplify (batch T). The Heart is close; low. Build spot and mine can take toy images too (batch X). Level pips and rings stay code. The maps themselves now use the toy terrain and toy props (2026-10-11).'),
+ 'Boss effects':('medium','Drawn in code today. Redrawn as RING overlays (batch M: M7 ward bubble, M8 enrage ring, M9 elite aura) and the warlord crown (U8). Code scales, spins, pulses and fades them.'),
+ 'Harbour buildings':('done',"All six are simple-toy sprites (2026-10-09). The lamp beam, portal, forge and banner glows are code effects on top; they become glow images with the markers (M)."),
+ 'Harbour props':('medium','Drawn in code today. Redrawn as toy props (P11): jetty, rock cluster, buoys, rowboat, bush. Code blinks the buoy lights and moves the foam.'),
+ 'Landmarks':('medium','Set pieces on arena islands and the chart, drawn in code today. Toy FRONT-view versions, batch F.'),
+ 'Reef Defence':('medium','The six towers are busy (props, planks, crates): simplify (batch T). The Heart is close (low). The build spot and mine are code today (R3, R4). Level pips use the kit pips (K33); the range and build rings are M13 and M14. The maps use the toy terrain and props.'),
  'Terrain (biome islands)':('done','All 10 chart islands are toy images, all top-down (2026-10-11). Every chart island, the 3-5 plain pads per biome and a rock islet in the biome\'s rock colour are placed as sea obstacles in that biome\'s survival arenas. Too many pads are round: batch O2 asks for 30 named outlines.'),
- 'Terrain in play (arena view)':('keep',"Done in code: survival arenas, Reef Defence maps and the opening scene all draw land in the toy board-piece look (2026-10-10/11), with lava as flat moulded pools. What's left is props for six biomes (batch P) and more island outlines (batch O2)."),
- 'Island decorations':('medium','Toy prop images stand on the land in the arenas and on Reef Defence maps for Tropical, Cliff & Cove, Glacial and Shipwreck (2026-10-11). The other six biomes have no props yet (P5-P10). Still drawn in code: the toy rock every biome uses, the glowing mushroom, glow coral and ember rock the dark biomes need for light, and the harbour bush.'),
- 'Weather objects':('low','Can take toy images (batch W): floes, wreckage, rocks, ghost lights. Spinning whirlpools and spouts stay code-animated over a toy base.'),
- 'Weather effects (in play)':('medium','The rain, snow, ash and cloud overlays are plain code streaks and dots. The Weather V2 sheet\'s painted textures can replace them (code work; art already supplied).'),
- 'Effects':(None,'Already simple. Explosions, splashes and smoke are the effects you see most in combat. The explosion, splash, kill burst and muzzle flash are 12-frame toy animations; the hit spark is a single toy image that pops in and fades (all done 2026-10-08).'),
- 'Player shots':('low','Can take small toy images (batch X); trails, spin and glow stay code.'),
- 'Enemy shots':('low','Can take small toy images (batch X); trails and telegraph rings stay code.'),
- 'In-world HUD':('low','Must stay crisp, so restyled in code to toy colours rather than swapped for images.'),
- 'Ambient life':('low','Gulls drawn as two strokes. A toy gull (batch P) would be a nice touch.'),
- 'Pickups':('done','Already simple: chunky single objects, flat colours. Keep.'),
- 'UI · Screens':('low','Every screen is built from CSS and was restyled in code to the toy look (navy rounded panels with a raised lip, gold buttons, toy icons). Left: the display font (see Fonts) and the plainer text lists.'),
- 'UI · Harbour HUD':('keep','Toy look done in code (2026-10-08): navy chips, toy icons, red alert dots.'),
- 'UI · Voyage card':('low','Toy look done in code. The mini-map is a plain blue and white outline; drawing it like the chart islands would tie it in.'),
- 'UI · Building panels':('low','Toy panels done in code. The shop lists are long text rows; a toy icon per item would make them read faster.'),
- 'UI · Panel parts':('keep','Toy look done in code.'),
- 'UI · Chart parts':('keep','Toy look done in code; the islands are the toy images.'),
- 'UI · In-play HUD':('keep','Toy look done in code; the dock and upgrade strip use the toy icons.'),
- 'UI · Cards':('keep','Level-up cards are toy-styled in code with toy icons; seen dozens of times a level.'),
- 'UI · Menus':('keep','Toy look done in code.'),
- 'UI · Reef Defence UI':('keep','Toy look done in code.'),
+ 'Terrain in play (arena view)':('high',"Drawn in code today, in the toy board-piece look. Redrawn as textures (batch L): for each biome a SEAMLESS land top, a SHORE strip (the moulded rim from water to land) and a SEAMLESS water surface, plus Volcanic lava. The level generator still decides where the coast goes; the art decides how it looks. The terrain renderer gets a texture-sampling step when the first set (Tropical) arrives."),
+ 'Island decorations':('medium','Toy prop images stand on the land in the arenas and on Reef Defence maps for Tropical, Cliff & Cove, Glacial and Shipwreck (2026-10-11). P5-P10 cover the other six biomes, including the boulders, glowing mushrooms, glow coral and ember rocks still drawn in code; the harbour bush is in P11.'),
+ 'Weather objects':('low','Drawn in code today. Redrawn as toy images (batch W): floe, wreckage, falling rock and ice, ghost light, whirlpool, waterspout. Code drifts, drops and spins them. The lightning mark becomes the danger ring (M2) with a bolt (Q13).'),
+ 'Weather effects (in play)':('medium',"Code streaks and dots today. Redrawn as PARTICLE sets (batch Q): rain, snow, ash, embers, fog, sand, leaves, spores, bubbles, glints, foam, sparks, plus a bolt, a wind streak and a wave crest. The game copies them hundreds of times and tints, drifts and fades them."),
+ 'Effects':(None,'The explosion, splash, kill burst and muzzle flash are 12-frame toy animations and the hit spark is a toy image (all done 2026-10-08). Still drawn in code: shockwave rings (M6), the ship wake (Q11 foam), sinking bubbles (Q9), damage numbers (K37, a digit set) and the five status looks on the ship (M11 badges with Q particles).'),
+ 'Player shots':('medium','Drawn in code today. Toy TOP-DOWN images (batches X and X2); code spins them and draws their trails from the same art.'),
+ 'Enemy shots':('medium','Drawn in code today. Toy TOP-DOWN images (batches X and X2); the mortar\'s landing ring is M3.'),
+ 'In-world HUD':('medium','Drawn in code today. The hull bar under the ship is the kit bar (K27, K28), the lock-on reticle M1, the dive and charge telegraphs M3 and M4. Code places, crops and pulses them.'),
+ 'Ambient life':('low','Gulls are two strokes in code. A toy gull (P12), flapped by code.'),
+ 'Pickups':('done','Already simple: chunky single objects, flat colours.'),
+ 'UI · Screens':('high','No single image per screen: each one is built from the UI kit (batch K: frames, buttons, chips, bars, pips, cards), the icons (D, E), the title logo (U1) and the terrain textures (L). Styled in CSS today.'),
+ 'UI · Harbour HUD':('high','CSS today. Becomes kit pieces: chips and pills K17, the sound button K20 with its icon, the alert dot K26, the captain\'s progress bar K27 + K28.'),
+ 'UI · Voyage card':('high','CSS today. Becomes kit pieces: the panel K1, the mini-map frame K2, Set Sail K9, Defend the Reef K11, the stage arrows K20 with D16, level pips K33.'),
+ 'UI · Building panels':('high','CSS today. Becomes kit pieces: the panel K1, shop rows K2, Buy/Select buttons K13 and K16, tabs K18 and K19, back button K20 with D14.'),
+ 'UI · Panel parts':('high','CSS today. These are the kit itself: K1, K2, K13-K16, K18-K20.'),
+ 'UI · Chart parts':('medium','CSS and code today. The island names sit on the name plate (K8), the stage sheet is the panel (K1), the sea is the chart texture (K35) and the route uses K36.'),
+ 'UI · In-play HUD':('high','CSS today. Becomes kit pieces: chips K17, the XP and boss bars K27-K29, wave pips K33, pause K20 with D15, dash K22 with its cooldown ring K23, dock tiles K30-K32, the joystick K24 and K25, the warlord banner K7.'),
+ 'UI · Cards':('high','CSS today. The level-up card frames are K3-K6 (weapon, armament, ship upgrade, evolution); the words stay text.'),
+ 'UI · Menus':('high','CSS today. The pause and summary cards are the panel (K1) with the kit buttons (K9-K16).'),
+ 'UI · Reef Defence UI':('medium','CSS today. The same kit: chips K17, buttons K9-K16, the incoming strip uses dock tiles (K30).'),
 }
-FX={'Explosion':'medium','Splash':'medium','Kill burst':'low','Hit spark':'low','Muzzle flash':'low'}
+FX={'Shockwave rings':'medium','Ship wake':'medium','Damage numbers':'medium','Sinking enemy':'low'}
+NAME_PRI={'Build spot':'low','Mine':'low'}
 # Review against the simple-toy standard (2026-10-08, harbour mockup).
 # 'simple' = already passes; 'toy' = first toy pass, too busy, simplify.
 SIMPLE={'Sea-glass gem (1 XP)','Sea-glass gem (5 XP)','Sea-glass gem (25 XP)','Anchor coin (Salvage)','Lodestone (pull all)','Life ring (repair)','Treasure chest',
@@ -109,7 +112,7 @@ for o in items:
         else: o['pri']=TOY_PRI.get(o['cat'],'medium')
     elif o['cat']=='Enemies' and o['style']=='old': o['pri']='high' if n in EARLY else 'medium'
     elif o['cat']=='Effects': o['pri']=FX.get(o['name'],'low')
-    else: o['pri']=pr or 'keep'
+    else: o['pri']=NAME_PRI.get(n) or pr or 'medium'
     if o['cat']=='Terrain (biome islands)':
         for pre,bid in ISLAND_TOY.items():
             if o['name'].startswith(pre): o['style']='simple'; o['pri']='done'; o['img']=_asset_tile('islands/'+bid)
@@ -139,7 +142,7 @@ for f in sorted(_glob.glob(_A+'props/*.png')):
     stem=_os.path.basename(f)[:-4]; bid=max((b for b in _BNAME if stem.startswith(b+'_')), key=len)
     items.append({'cat':'Island decorations','name':stem[len(bid)+1:].replace('_',' ').capitalize()+' ('+_BNAME[bid]+')','img':_asset_tile('props/'+stem),'style':'simple','pri':'done'})
 for o in items:
-    if o['cat']=='Island decorations' and o.get('style')=='code': o['pri']='low' if o['name'].startswith('Toy ') else 'medium'
+    if o['cat']=='Island decorations' and o.get('style')=='code': o['pri']='medium'
 _cre=[o for o in items if o['cat']=='Enemies' and o['name'] not in TOY_SHIP_LOOKS and o['name']!='Warding Seal']
 _cdone=sum(o['pri']=='done' for o in _cre)
 CAT['Enemies']=('high',f"{_cdone} of {len(_cre)} creatures are in the new simpler style (2026-10-11). Left: {', '.join(o['name'] for o in _cre if o['pri']!='done')} (batch G; the Warding Seal is with the bosses, A12). Long thin bodies read as squiggles at play size, so batch N redraws the curved ones straight and chunkier. Enemy ships follow the player hulls and are done.")
@@ -155,6 +158,8 @@ _ICON_SRC=open('/home/claude/the-shattered-reef/src/ui/emojiIcons.mjs').read()
 _MAP=dict(_re.findall(r"'([^']+)': '([^']+)'", _ICON_SRC.split('EMOJI_ICONS = {')[1].split('};')[0]))
 _STANDIN={'↩':'cannon (wants a stern chaser)','⚔':'cutlass (wants crossed swords)','🔧':'gear (wants a wrench)','⚫':'cannon (wants cannonballs)','✈':'wing','⛓':'chain link'}
 _CANVAS={'♪','♫','🪶','🐂'}
+# Plain text glyphs in the UI: each gets a drawn icon too.
+_GLYPH={'★':'Text star: becomes U6 (gold star)','☆':'Text star: becomes U6 (empty star)','❚':'Pause bars: becomes D15','◀':'Becomes D16 (play arrow, mirrored)','▶':'Becomes D16 (play arrow)','←':'Becomes D14 (back arrow)','↻':'Becomes D17 (retry arrow)','›':'Becomes D16, small','▼':'Tutorial arrow: becomes D13 turned','▲':'Damage mark: part of the digit set (K37)'}
 for e in emoji:
     k=e['e'].replace('\ufe0f','')
     if k in _MAP:
@@ -162,13 +167,12 @@ for e in emoji:
         b=_io.BytesIO(); im.save(b,'PNG',optimize=True); e['img']='data:image/png;base64,'+_b64.b64encode(b.getvalue()).decode()
         e['state']='standin' if k in _STANDIN else 'done'
         if k in _STANDIN: e['note']='Stand-in: '+_STANDIN[k]
-    elif k in ('★','☆','❚'): e['state']='keep'; e['note']='Text glyph, kept (rating stars / pause bars)'
-    else: e['state']='need'; e['note']='Canvas mark' if k in _CANVAS else ''
-_rk={'need':0,'standin':1,'keep':2,'done':3}
+    else: e['state']='need'; e['note']=_GLYPH.get(k) or ('Canvas mark' if k in _CANVAS else '')
+_rk={'need':0,'standin':1,'done':2}
 emoji.sort(key=lambda e:(_rk[e['state']],-e['n']))
 from collections import Counter
 cnt=Counter(o['pri'] for o in items)
-cnt['high']+=sum(e['state']!='done' and e['state']!='keep' for e in emoji)
+cnt['high']+=sum(e['state']=='need' for e in emoji); cnt['medium']+=sum(e['state']=='standin' for e in emoji)
 print(Counter(o['style'] for o in items if o['cat'] in ('Player ships','Enemies','Bosses','Harbour buildings')))
 print(cnt, len(items))
 tpl=open('inv_template.html').read()

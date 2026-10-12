@@ -3025,6 +3025,46 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     serpents, eels and leeches read as squiggles); D13 up arrow and E6
     stern chaser icons added.
 
+- **Nothing stays code-drawn** (2026-10-12, owner: "everything that says
+  keep as code… we're going to redraw the assets sprites, borders etc… this
+  needs to show in the art inventory on how to do it"). The 2026-10-11
+  review had marked UI and arena terrain "keep as code"; that was wrong and
+  is reversed. Inventory changes only (no game code yet):
+  - Every category has a priority and a batch; the "keep" verdict, filter
+    and tally are gone. The plain text glyphs the UI writes (◀ ▶ ← ↻ › ❚
+    ★ ☆ ▼) are scanned as icons too (`emoji_scan.py`) and routed to D14-D17
+    and U6.
+  - New **How it's made** section: one card per format with a diagram, what
+    to ask for, how the game uses it and what I do on arrival. Formats:
+    TOP-DOWN, FRONT, ISLAND, SHIP 5 views, STRIP, FLAT (+PRESSED), 9-SLICE,
+    3-SLICE, BAR (track + fill), RING, SEAMLESS, SHORE, PARTICLE (SET),
+    DIGITS. It also says plainly what ChatGPT can't do exactly (3 canvas
+    shapes only; plain edges and tiling come back close, not exact; kits
+    drift) and that I trim, straighten and run a tiling pass on arrival.
+  - The prompt header is now built per batch (`header(rule, formats)` in
+    inv_template.html): shared rules, then ONE OF A KIND (creatures,
+    islands, props, landmarks, towers) or ONE KIT (UI, surfaces, markers,
+    shots, icons), then only the format definitions that batch's items
+    name in brackets.
+  - New batches: **K** UI kit (37: panel, inset, 4 card frames, banner,
+    name plate, gold/blue/navy/red/grey buttons with PRESSED states, chip,
+    tabs, round button, dash button + cooldown ring, joystick, alert dot,
+    bar track + 4 fills, boss cap, dock tiles, pips, level badge, chart sea,
+    route marks, digit set), **L** terrain surfaces (34: per biome a
+    SEAMLESS land top, SHORE strip and SEAMLESS water, plus lava and the
+    harbour; Tropical first), **M** markers and rings (15), **Q** weather
+    particles (15). X gains 6 shots (wisp, St Elmo's arc, shock bolt, sand
+    blast, spit glob, gold corona); the build spot and mine move to R.
+  - Fonts stay type (words must stay sharp and fit any length); the display
+    face gets three live Google Font candidates (Lilita One, Titan One,
+    Fredoka), my pick Lilita One. Numbers drawn on the map move to K37.
+  - Code work each new kind will need when its art lands: CSS
+    `border-image` for 9-SLICE/3-SLICE/BAR pieces (`assets/ui/`); texture
+    sampling in `terrainRenderer` for L (shore colour by coast distance
+    from the SHORE image, tiled land/water), `assets/terrain/`; image
+    particles in the weather/effects code for Q; digit-set drawing in
+    `drawDamageNumbers` for K37.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -3736,6 +3776,13 @@ Starting fresh below for the new game.)*
 - 2026-10-05: Enemy ships reuse the painted player hulls, recoloured,
   rather than new art per enemy: one hull set gives every ship the same
   style and 16 headings, and the same recolour brings liveries back.
+- 2026-10-12: Every visible surface is drawn art (owner). Code places,
+  stretches, crops, tints, turns, fades and animates it, and writes the
+  words; nothing is "keep as code". UI frames and buttons are 9-slice /
+  3-slice images (CSS `border-image`) so one image fits every size;
+  terrain is per-biome tiling surfaces plus a shore strip sampled by
+  distance from the coast, so generated maps keep any shape. Fonts stay
+  type.
 
 
 ## Known open questions (do not silently resolve — ask)

@@ -1,6 +1,6 @@
 <title>Shattered Reef Art Inventory</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@700&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@700&family=Alegreya+Sans:wght@400;500;700&family=Fredoka:wght@700&family=Lilita+One&family=Titan+One&display=swap">
 <style>
 /* Layout: a chart-room ledger. A sticky tab strip of asset types (with a status filter under it), an overview of what's left and how to brief art, then one section per type. Single dark look in the colour of the game's sea. */
 :root {
@@ -18,6 +18,8 @@ h2 { font: 700 26px var(--display); margin: 0 0 4px; color: var(--gold); }
 h3 { font: 700 19px var(--display); margin: 0 0 4px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 h3 small { font: 400 14px var(--body); color: var(--muted); }
 .lede { color: var(--muted); max-width: 66ch; margin: 0 0 16px; }
+a { color: var(--keep); text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 /* Sticky navigation */
 .nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--edge); margin-inline: -16px; padding: 8px 16px 8px; display: grid; gap: 8px; }
 .tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
@@ -107,16 +109,43 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
 .cues { display: flex; flex-wrap: wrap; gap: 6px; }
 .cues code { background: #061520; border-radius: 6px; padding: 2px 6px; }
 @media (prefers-reduced-motion: no-preference) { .tab, .chip { transition: background .15s, color .15s; } }
+/* How it's made: one card per format, each with a diagram */
+.limits { margin: 0 0 4px; }
+.fmts { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.fmt { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 12px 14px 14px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.fmt h3 { margin: 0; font-size: 19px; color: var(--gold); }
+.fmt .use { margin: 0; font-size: 15px; }
+.fmt figure { margin: 2px 0; background: var(--ink); border-radius: 8px; padding: 8px 10px 8px; }
+.fmt figcaption { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
+.fmt dl { margin: 0; display: grid; gap: 2px; font-size: 14.5px; }
+.fmt dt { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; margin-top: 4px; }
+.fmt dd { margin: 0; }
+.fmt details { margin-top: 2px; }
+.fmt summary { cursor: pointer; font-weight: 600; color: var(--keep); font-size: 14px; min-height: 32px; display: flex; align-items: center; }
+.fmt summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.fmt pre { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--ink); border-radius: 8px; padding: 8px 10px; }
+.dg { display: block; width: 100%; height: auto; max-width: 100%; }
+.dg text { font: 600 11px var(--body); fill: var(--muted); }
+.dg text.k { fill: var(--gold); }
+.dg text.w { fill: #fff; }
+.dg text.n { font-size: 9px; }
+.dg text.dig { font: 900 19px var(--body); fill: #fff; stroke: #0d1526; stroke-width: 4px; paint-order: stroke; }
+.dg text.dig.r { fill: #ff6b5a; } .dg text.dig.g { fill: var(--gold); }
+.prompt .fm { margin: 6px 0 0; font-size: 12.5px; color: var(--keep); }
+.kit .prompt pre { max-height: 340px; overflow: auto; }
+.p-kit b { color: var(--gold); }
+.fontpick { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.fontpick > div { background: var(--ink); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.fontpick .k { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 </style>
 <div class="wrap">
   <h1>Shattered Reef Art Inventory</h1>
-  <p class="lede">Every piece of art in the game, checked against the new standard: <b>the simple toy harbour</b> (2026-10-08). Each asset shows how it draws in the game today, its style (simple toy, detailed toy, older painted, or code) and how urgently it needs redoing. Most of the first toy pass is too busy for the new standard, so this is a fresh pass at nearly everything. The prompt kit below is everything you need to brief ChatGPT, in one place. <b>Last full review against the live game: 2026-10-11</b> (every screenshot and tile recaptured).</p>
+  <p class="lede">Every piece of art in the game, checked against the standard: <b>the simple toy harbour</b> (2026-10-08). Each asset shows how it draws in the game today, its style and how urgently it needs redoing. <b>Nothing stays code-drawn</b> (2026-10-12): panels, buttons, bars, rings, land, water and weather all get drawn art too, and <a href="#howto">How it's made</a> shows how each kind is drawn and used. The prompt kit is everything you need to brief ChatGPT, in one place. <b>Last full review against the live game: 2026-10-11.</b></p>
   <nav class="nav" aria-label="Asset types">
     <div class="tabs" id="tabs"></div>
     <div class="filters" role="group" aria-label="Filter">
       <button class="chip" id="f-need" data-f="need" aria-pressed="true">Needs restyle</button>
       <button class="chip" id="f-high" data-f="high" aria-pressed="false">High only</button>
-      <button class="chip" id="f-keep" data-f="keep" aria-pressed="false">Keep as code</button>
       <button class="chip" id="f-done" data-f="done" aria-pressed="false">Simple style done</button>
       <button class="chip" id="f-all" data-f="all" aria-pressed="false">Everything</button>
     </div>
@@ -134,38 +163,38 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     </div>
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
-        <li><b>Creatures and bosses</b> (batches G, A): even simpler, to match the ships and buildings. 20 of 29 creatures are in; the 9 left are G1-G9 (stage 2-4 creatures and the Cinder Bat), then all 12 bosses (the Warding Seal is A12). Every prompt spells out exactly what the creature looks like from its view, because a bare "TOP" kept coming back as side or three-quarter views.</li>
-        <li><b>Island outlines</b> (batch O2): 30 islands, each a different named outline (sandbar, crescent, L, clover, comma, hourglass, chain…). Too many of the current pads are round, so the arenas start to look stamped. Each drops straight into its biome with no code work.</li>
-        <li><b>Island props</b> (batch P): P1-P4 are in and standing on the arena islands; the other six biomes and the harbour are left.</li>
-        <li><b>Icons</b> (batches D, E): all 72 toy icons are in use (77 emoji covered, 2026-10-11); 16 emoji still need art (batch D, 13 icons; four of them are marks drawn on the canvas) and 6 are stand-ins (batch E). See Icons.</li>
-        <li><b>Reef Defence towers</b> (batch T) and <b>landmarks</b> (batch F).</li>
-        <li><b>Title, crests and UI pieces</b> (U) and <b>more shots</b> (X2). These each need a small code hook when they arrive.</li>
-        <li>Low, when there's time: <b>straight-body redraws</b> (N: the eel and the leeches, needed before the animation build; at play size their curves read as squiggles), <b>weather objects</b> (W), <b>shots</b> (X) and <b>Reef Defence extras</b> (R).</li>
-        <li>Done: <b>chart islands</b> (I), <b>plain pads and rock islets</b> (O), <b>harbour buildings</b> (B), <b>player ships</b> (S, enemy ships follow), <b>pickups</b> (C) and <b>effects</b> (H). The land itself is drawn in code in the toy look everywhere now: arenas, Reef Defence maps and the opening scene.</li></ol></div>
+        <li><b>Creatures and bosses</b> (G, A), in progress: 9 creatures (G1-G9) and all 12 bosses left. Every prompt spells out exactly what the creature looks like from its view.</li>
+        <li><b>UI kit</b> (K): the panels, cards, buttons, chips, tabs, bars, pips and dock tiles that every screen and the HUD are built from. Start with K1 (panel) and K9 (gold button); once they're right, attach them to every later kit chat so the set stays one family.</li>
+        <li><b>Terrain surfaces</b> (L): land, shore and water fill most of the screen in play. Tropical first (L1-L3): I add texture sampling to the terrain renderer when they arrive, then the other nine biomes and the harbour follow.</li>
+        <li><b>Island outlines</b> (O2) and <b>icons</b> (D, E): 30 islands that aren't round; the missing icons, including the arrows and pause bars the UI still writes as text; then the stand-ins.</li>
+        <li><b>What you read in a fight</b>: markers and rings (M), shots (X, X2) and weather particles (Q).</li>
+        <li><b>Props</b> (P), <b>towers</b> (T), <b>landmarks</b> (F), <b>title and crests</b> (U).</li>
+        <li>Low: straight-body redraws (N, needed before the animation build), weather objects (W), Reef Defence extras (R).</li>
+        <li>Done: chart islands (I), pads and rock islets (O), harbour buildings (B), player ships (S; enemy ships follow), pickups (C) and effect animations (H).</li></ol></div>
       <div class="box todo"><h3>Animation (the last build stage)</h3><ul>
         <li>Everything should end up feeling alive. The plan is to animate in code from one still image per creature, so the art has to be drawn in a pose code can move.</li>
         <li><b>Flyers</b> (gulls, bats, wisps' flames, the flying wyrm): wings spread flat at their widest. Code squashes them in and out to flap. If that looks thin, a second "wings down" image per flyer is the fallback.</li>
         <li><b>Long bodies</b> (serpents, eels, leeches, worms, tentacles): drawn dead straight. Code bends the image along a moving wave to wriggle it. A curved drawing can't be straightened, which is why batch N redraws the current curved ones.</li>
-        <li><b>Swimmers and walkers</b> (sharks, crabs, golems): a symmetrical neutral pose. Code adds the sway, bob and squash.</li></ul></div>
+        <li><b>Swimmers and walkers</b> (sharks, crabs, golems): a symmetrical neutral pose. Code adds the sway, bob and squash.</li>
+        <li><b>UI</b>: buttons swap to their PRESSED image, bars fill, pips light up, rings sweep round. Code swaps and crops the art; it doesn't draw any of it.</li></ul></div>
       <div class="box do"><h3>Do</h3><ul>
-        <li>Attach <b>the harbour mockup</b> to every request (and, when redoing an asset, its current image so the shape carries over). The style follows the picture far more than the words.</li>
+        <li>Attach <b>the harbour mockup</b> to every request. When redoing an asset, attach its current image too; for kit pieces, attach the first finished piece of the kit. The style follows the pictures far more than the words.</li>
         <li>Ask for <b>one asset per message</b>, on a <b>transparent background</b> (flat #FF00FF magenta if it can't).</li>
-        <li><b>TOP-DOWN view</b> for anything that swims or flies: camera directly overhead, you see its back, head at the top of the image, body symmetrical. Wings spread flat; long bodies dead straight. The game turns it to any heading and animates it.</li>
-        <li><b>FRONT view</b> for upright things (golems, sirens, props, buildings, towers, landmarks, pickups, icons): facing us, turned three-quarter, slightly from above. The game mirrors it left and right.</li>
+        <li>Every item names its <b>format</b> in brackets: TOP-DOWN for things that swim or fly, FRONT for upright things, FLAT for UI pieces, and so on. <a href="#howto">How it's made</a> shows each one and why the game needs it.</li>
         <li>Ships only: <b>one image with 5 views</b> in a row (see the prompt kit).</li>
-        <li><b>Name each image by its code</b> (e.g. "G3") when you send it, so it lands in the right slot.</li>
-        <li><b>ISLAND view</b>: seen from straight above like a flat toy board piece, raised rim, flat top. Every island item names its own outline; ask for that outline, never "a round island".</li>
+        <li><b>Name each image by its code</b> (e.g. "K9") when you send it, so it lands in the right slot.</li>
         <li>Fill most of the frame; around 1024px is fine. The game trims and scales it.</li>
       </ul></div>
       <div class="box dont"><h3>Don't</h3><ul>
         <li>Don't accept <b>busy</b> results: small props, plank or brick lines, ropes, chains, many windows. Reply with the fix line below rather than starting again.</li>
         <li>Don't accept <b>painterly or textured</b> results either.</li>
-        <li>Don't send <b>24-frame turn sheets</b>. They came back mostly stern-side and unusable; the 5-view set works.</li>
-        <li>Don't send <b>8-direction pre-rotations</b>, or re-renders of the game's current art. Both changed nothing last time.</li>
-        <li>Don't <b>bake in</b> shadows, water, glows or text. The game draws its own. The last props came with soft glow halos; they key out, but a clean edge keys better.</li>
+        <li>Don't let it put <b>words, numbers or icons on UI pieces</b>. The game writes them on top.</li>
+        <li>Don't accept an <b>ornament in the middle of a 9-SLICE or 3-SLICE edge</b>. That part gets stretched, so it smears.</li>
+        <li>Don't accept a <b>SEAMLESS surface with a shape or a border</b> (an island, a patch, a framed square). It must fill the square and repeat; the map supplies the coastline.</li>
+        <li>Don't send <b>24-frame turn sheets</b>, <b>8-direction pre-rotations</b>, or re-renders of the game's current art. None of them worked last time.</li>
+        <li>Don't <b>bake in</b> shadows, water, glows or text. The game draws its own. A clean edge keys out better than a halo.</li>
         <li>Don't accept a <b>painted grey checkerboard</b> as the background. It isn't transparency, and it eats pale grey and white parts when it's keyed out.</li>
-        <li>Don't <b>copy the last image</b>. If it hands back the same outline or pose, reply with the fix line below.</li>
-        <li>Don't send <b>terrain tiles</b>. Levels are generated, so terrain stays code.</li>
+        <li>Don't <b>copy the last image</b> in a creature or island batch. If it hands back the same outline or pose, reply with the fix line below.</li>
       </ul></div>
       <div class="box also"><h3>When ChatGPT drifts</h3><ul>
         <li>It holds the style for 3-4 images, then slips. <b>Start a fresh chat</b> every batch, or every 3-4 images.</li>
@@ -174,25 +203,368 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
         <li>Too detailed or textured? Reply: <code>Simpler, like the attached harbour. Chunky blocks, flat matte colours, no texture or lines. Same pose.</code></li>
         <li>Wrong view (side or three-quarter instead of from above)? Reply: <code>Wrong view. Camera directly overhead looking straight down: I should see its back, head at the top of the image, body straight and symmetrical.</code></li>
         <li>Same as the last one? Reply: <code>Too close to the previous image. New outline and pose, same style.</code></li>
-        <li>The header makes it restate the asset, view and style before each image. If that line is missing or wrong, the image will be too.</li>
+        <li>Kit pieces drifting apart? Reply: <code>Same family as the attached piece: same outline, lip, corners and colours.</code></li>
+        <li>A surface with an edge or a shape? Reply: <code>No shape and no border. Fill the whole square edge to edge so it repeats with no visible join.</code></li>
+        <li>The header makes it restate the asset, format and style before each image. If that line is missing or wrong, the image will be too.</li>
       </ul></div>
+    </div>
+  </section>
+
+  <section class="type" id="howto">
+    <h2>How it's made</h2>
+    <p class="lede">Every visible surface in the game is now meant to be drawn art: creatures, panels, buttons, bars, rings, land, water, rain. Code's only job is to place, stretch, crop, tint, turn, fade and animate that art, and to write the words. Each item in the prompt kit names its format in brackets, like <code>(9-SLICE)</code>, and each batch's Copy button gives ChatGPT the definitions for just the formats in that batch.</p>
+    <div class="box also limits"><h3>What ChatGPT can't do exactly, and what I fix on arrival</h3><ul>
+      <li>It only draws on three canvas shapes (square, 3:2 wide, 2:3 tall), so long pieces like bars and buttons come back centred on a bigger canvas. I trim them.</li>
+      <li>Frame edges that must be plain, and surfaces that must repeat, come back close but not exact. I straighten the edges and run a tiling pass, then check each one repeated side by side.</li>
+      <li>A kit drifts after 3-4 images. Once the first piece is right (K1 panel, K9 button), attach it to every later kit chat with the harbour image.</li>
+    </ul></div>
+
+    <h3 class="bh">Sprites: things in the world</h3>
+    <div class="fmts">
+      <article class="fmt">
+        <h3>TOP-DOWN <small>seen from straight above</small></h3>
+        <p class="use">Creatures and bosses that swim or fly, shots, the gull.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 160" role="img" aria-label="A creature drawn from straight above with its head at the top and both sides mirrored. In the game the same image is turned to any heading.">
+            <defs><g id="dgf" fill="#9fb7c9" stroke="#0d1526" stroke-width="2" stroke-linejoin="round">
+              <path d="M-10 -4 L-30 10 L-10 12 Z M10 -4 L30 10 L10 12 Z M0 40 L13 56 L0 50 L-13 56 Z"/>
+              <path d="M0 -46 C 12 -40, 14 -10, 10 20 C 8 34, 4 40, 0 44 C -4 40, -8 34, -10 20 C -14 -10, -12 -40, 0 -46 Z"/>
+              <circle cx="5" cy="-33" r="2.2" fill="#0d1526" stroke="none"/><circle cx="-5" cy="-33" r="2.2" fill="#0d1526" stroke="none"/>
+            </g></defs>
+            <text class="k" x="65" y="12" text-anchor="middle">the image</text>
+            <rect x="10" y="18" width="110" height="124" fill="none" stroke="#93aab3" stroke-width="1.2" stroke-dasharray="3 3"/>
+            <path d="M65 20 V140" fill="none" stroke="#ff7d6b" stroke-width="1.5" stroke-dasharray="5 3"/>
+            <use href="#dgf" transform="translate(65 82)"/>
+            <text x="65" y="156" text-anchor="middle">head up, mirrored</text>
+            <rect x="148" y="18" width="164" height="124" rx="10" fill="#2e8fb5"/>
+            <use href="#dgf" transform="translate(196 66) rotate(55) scale(.6)"/>
+            <use href="#dgf" transform="translate(268 96) rotate(-140) scale(.6)"/>
+            <text class="w" x="230" y="136" text-anchor="middle">the game turns it</text>
+          </svg>
+          <figcaption>Head at the top, both sides the same. One image covers every direction.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Turned to its heading every frame. Wings spread flat get squashed in and out to flap; long bodies drawn straight get bent along a moving wave to wriggle.</dd>
+          <dt>When it arrives</dt><dd>I key out the background, trim it and scale it (creatures 128px, bosses 170px).</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="TOP-DOWN"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>FRONT <small>upright, three-quarter</small></h3>
+        <p class="use">Upright creatures (golems, sirens, wisps), props, buildings, towers, landmarks, icons.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 160" role="img" aria-label="An upright hut drawn facing us, turned a little and seen slightly from above. In the game it stands on the ground as drawn and as a mirrored copy.">
+            <defs><g id="dgh" stroke="#0d1526" stroke-width="2" stroke-linejoin="round">
+              <polygon points="8,-4 26,-12 26,16 8,24" fill="#c9ad6a"/>
+              <rect x="-26" y="-4" width="34" height="28" fill="#f2dca0"/>
+              <polygon points="-9,-26 12,-4 30,-12 9,-34" fill="#b8433a"/>
+              <polygon points="-30,-4 -9,-26 12,-4" fill="#e8574a"/>
+              <rect x="-15" y="8" width="10" height="16" fill="#8a5a2a"/>
+            </g></defs>
+            <text class="k" x="65" y="12" text-anchor="middle">the image</text>
+            <rect x="10" y="18" width="110" height="124" fill="none" stroke="#93aab3" stroke-width="1.2" stroke-dasharray="3 3"/>
+            <use href="#dgh" transform="translate(63 84) scale(1.5)"/>
+            <rect x="148" y="18" width="164" height="124" rx="10" fill="#5aa847"/>
+            <ellipse cx="196" cy="111" rx="30" ry="6" fill="#000" fill-opacity=".25"/><use href="#dgh" transform="translate(196 82) scale(1.2)"/>
+            <ellipse cx="272" cy="111" rx="30" ry="6" fill="#000" fill-opacity=".25"/><use href="#dgh" transform="translate(272 82) scale(-1.2 1.2)"/>
+            <text class="w" x="196" y="134" text-anchor="middle">as drawn</text><text class="w" x="272" y="134" text-anchor="middle">mirrored</text>
+          </svg>
+          <figcaption>Facing us, turned a little, seen slightly from above. The game uses it as drawn and mirrored, so nothing one-sided.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Stood on its spot with a soft shadow at its base, flipped to face its target, bobbed or swayed by code.</dd>
+          <dt>When it arrives</dt><dd>Keyed, trimmed, and given a foot point so it stands on the ground.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="FRONT"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>ISLAND <small>a board piece from above</small></h3>
+        <p class="use">Chart islands, sea pads, rock islets, the O2 outlines.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 160" role="img" aria-label="One island drawn from straight above in the outline the prompt names, here an L. The game stamps that outline into the sea, so ships collide with exactly what is drawn.">
+            <defs><g id="dgi" stroke-linejoin="round">
+              <path d="M-38 -40 H-8 V14 H38 V42 H-38 Z" fill="none" stroke="#fff" stroke-width="18"/>
+              <path d="M-38 -40 H-8 V14 H38 V42 H-38 Z" fill="#f2dca0" stroke="#f2dca0" stroke-width="12"/>
+              <path d="M-38 -40 H-8 V14 H38 V42 H-38 Z" fill="#6cc04f"/>
+            </g></defs>
+            <text class="k" x="65" y="12" text-anchor="middle">the image</text>
+            <rect x="10" y="18" width="110" height="124" fill="none" stroke="#93aab3" stroke-width="1.2" stroke-dasharray="3 3"/>
+            <use href="#dgi" transform="translate(65 80)"/>
+            <text x="65" y="156" text-anchor="middle">the outline it names</text>
+            <rect x="148" y="18" width="164" height="124" rx="10" fill="#2e8fb5"/>
+            <use href="#dgi" transform="translate(196 62) scale(.6)"/>
+            <use href="#dgi" transform="translate(272 92) scale(-.5 .5)"/>
+            <text class="w" x="230" y="136" text-anchor="middle">stamped into the map</text>
+          </svg>
+          <figcaption>One island, raised rim and flat top, in the exact outline the item asks for (here an L).</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Its outline is traced and stamped into the arena's land, so ships hit exactly the drawn edge. Placed at random sizes, sometimes mirrored.</dd>
+          <dt>When it arrives</dt><dd><code>tools/key-island.py</code> keys it and records its outline.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="ISLAND"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>SHIP <small>five views</small></h3>
+        <p class="use">Player hulls; every enemy ship is recoloured from them.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 96" role="img" aria-label="Five views of one ship in a row: bow towards you, bow down-left, side with bow left, bow up-left, stern towards you.">
+            <g fill="#10242f" stroke="#1d3a49"><rect x="8" y="8" width="56" height="60" rx="8"/><rect x="70" y="8" width="56" height="60" rx="8"/><rect x="132" y="8" width="56" height="60" rx="8"/><rect x="194" y="8" width="56" height="60" rx="8"/><rect x="256" y="8" width="56" height="60" rx="8"/></g>
+            <defs><g id="dgs"><ellipse rx="18" ry="7" fill="#f2dca0" stroke="#0d1526" stroke-width="1.5"/><path d="M19 0 l-9 -6 v12 z" fill="#ff7d6b"/></g></defs>
+            <use href="#dgs" transform="translate(36 38) rotate(90)"/><use href="#dgs" transform="translate(98 38) rotate(135)"/>
+            <use href="#dgs" transform="translate(160 38) rotate(180)"/><use href="#dgs" transform="translate(222 38) rotate(225)"/>
+            <use href="#dgs" transform="translate(284 38) rotate(270)"/>
+            <text x="36" y="86" text-anchor="middle">1 bow</text><text x="98" y="86" text-anchor="middle">2 ¾ bow</text><text x="160" y="86" text-anchor="middle">3 side</text><text x="222" y="86" text-anchor="middle">4 ¾ stern</text><text x="284" y="86" text-anchor="middle">5 stern</text>
+          </svg>
+          <figcaption>Red marks the bow. Five drawings plus mirroring give 16 headings.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Picks the view nearest the ship's heading and mirrors it for the other side; liveries recolour the sails and flags.</dd>
+          <dt>When it arrives</dt><dd><code>tools/cut-ship-views.py</code> cuts the five views and writes the atlas.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="SHIPS"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>STRIP <small>12-frame animation</small></h3>
+        <p class="use">Explosion, splash, kill burst, muzzle flash (all done).</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 116" role="img" aria-label="Twelve frames of an explosion in two rows of six equal cells, growing then fading, with the same centre in every cell.">
+            <g fill="none" stroke="#1d3a49" stroke-dasharray="3 3"><rect x="16" y="8" width="48" height="48"/><rect x="64" y="8" width="48" height="48"/><rect x="112" y="8" width="48" height="48"/><rect x="160" y="8" width="48" height="48"/><rect x="208" y="8" width="48" height="48"/><rect x="256" y="8" width="48" height="48"/><rect x="16" y="58" width="48" height="48"/><rect x="64" y="58" width="48" height="48"/><rect x="112" y="58" width="48" height="48"/><rect x="160" y="58" width="48" height="48"/><rect x="208" y="58" width="48" height="48"/><rect x="256" y="58" width="48" height="48"/></g>
+            <g fill="#ffb347" stroke="#e8574a" stroke-width="2"><circle cx="40" cy="32" r="4"/><circle cx="88" cy="32" r="8"/><circle cx="136" cy="32" r="12"/><circle cx="184" cy="32" r="15"/><circle cx="232" cy="32" r="17"/><circle cx="280" cy="32" r="18"/>
+              <circle cx="40" cy="82" r="18" opacity=".9"/><circle cx="88" cy="82" r="17" opacity=".8"/><circle cx="136" cy="82" r="15" opacity=".7"/><circle cx="184" cy="82" r="12" opacity=".55"/><circle cx="232" cy="82" r="9" opacity=".4"/><circle cx="280" cy="82" r="6" opacity=".3"/></g>
+            <g class="n"><text class="n" x="20" y="19">1</text><text class="n" x="260" y="19">6</text><text class="n" x="20" y="69">7</text><text class="n" x="260" y="69">12</text></g>
+          </svg>
+          <figcaption>Two rows of six equal cells, frame 1 top left, the same centre in every cell. The lines here only show the cells.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Plays the frames over the effect's life, scaled to its size and turned to its direction.</dd>
+          <dt>When it arrives</dt><dd>Cut into equal cells on one shared centre.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="STRIP"></pre></details>
+      </article>
+    </div>
+
+    <h3 class="bh">UI pieces and surfaces</h3>
+    <div class="fmts">
+      <article class="fmt">
+        <h3>FLAT <small>a UI piece, straight on</small></h3>
+        <p class="use">Round buttons, the joystick, pips, badges, plates. Every format below builds on it.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 132" role="img" aria-label="A round button seen straight on; the same button pressed, with its face lower and its lip squashed; and the button with a pause icon that the game adds on top.">
+            <g fill="#0d1526"><circle cx="56" cy="64" r="36"/><circle cx="160" cy="64" r="36"/><circle cx="264" cy="64" r="36"/></g>
+            <g fill="#2b4470" stroke="#0d1526" stroke-width="2.5"><circle cx="56" cy="57" r="36"/><circle cx="160" cy="62" r="36"/><circle cx="264" cy="57" r="36"/></g>
+            <path d="M36 40 A28 28 0 0 1 76 40 M244 40 A28 28 0 0 1 284 40" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="3" stroke-linecap="round"/>
+            <g fill="#fff"><rect x="251" y="43" width="9" height="28" rx="3"/><rect x="268" y="43" width="9" height="28" rx="3"/></g>
+            <text x="56" y="122" text-anchor="middle">normal</text><text x="160" y="122" text-anchor="middle">PRESSED</text><text x="264" y="122" text-anchor="middle">icon on top</text>
+          </svg>
+          <figcaption>No perspective. Depth comes only from a light top edge and a dark lip; PRESSED drops the face onto the lip.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Placed at its size; swapped for the PRESSED image while a finger is down; the icon or number is drawn on top.</dd>
+          <dt>When it arrives</dt><dd>Keyed, trimmed and exported at 3× its on-screen size so it stays sharp on phones.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="FLAT"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>9-SLICE <small>a frame that stretches</small></h3>
+        <p class="use">Panels, inset wells, level-up cards, dock tiles.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 176" role="img" aria-label="A square frame image cut into nine parts. The four corners keep their size, the four edges stretch in one direction and the middle stretches both ways, so one image makes a wide panel and a tall panel with identical corners.">
+            <defs><clipPath id="dg9c"><rect x="14" y="28" width="112" height="108" rx="18"/></clipPath></defs>
+            <text class="k" x="70" y="12" text-anchor="middle">the image</text>
+            <rect x="8" y="20" width="124" height="128" fill="none" stroke="#93aab3" stroke-width="1.2" stroke-dasharray="3 3"/>
+            <rect x="14" y="34" width="112" height="108" rx="18" fill="#0d1526"/>
+            <rect x="14" y="28" width="112" height="108" rx="18" fill="#2b4470" stroke="#0d1526" stroke-width="2.5"/>
+            <g clip-path="url(#dg9c)">
+              <g fill="#f2c867" fill-opacity=".38"><rect x="14" y="28" width="24" height="24"/><rect x="102" y="28" width="24" height="24"/><rect x="14" y="112" width="24" height="24"/><rect x="102" y="112" width="24" height="24"/></g>
+              <g fill="#8fc3d9" fill-opacity=".3"><rect x="38" y="28" width="64" height="24"/><rect x="38" y="112" width="64" height="24"/><rect x="14" y="52" width="24" height="60"/><rect x="102" y="52" width="24" height="60"/></g>
+            </g>
+            <path d="M38 20 V148 M102 20 V148 M8 52 H132 M8 112 H132" fill="none" stroke="#ff7d6b" stroke-width="1.5" stroke-dasharray="5 3"/>
+            <path d="M142 84 H163" stroke="#f2c867" stroke-width="2"/><path d="M170 84 l-8 -5 v10 z" fill="#f2c867"/>
+            <text class="k" x="245" y="12" text-anchor="middle">any size</text>
+            <g fill="#0d1526"><rect x="178" y="26" width="134" height="52" rx="18"/><rect x="208" y="96" width="60" height="62" rx="18"/></g>
+            <g fill="#2b4470" stroke="#0d1526" stroke-width="2.5"><rect x="178" y="20" width="134" height="52" rx="18"/><rect x="208" y="90" width="60" height="62" rx="18"/></g>
+            <rect x="8" y="160" width="10" height="10" fill="#f2c867" fill-opacity=".6"/><text x="22" y="169">keeps its size</text>
+            <rect x="124" y="160" width="10" height="10" fill="#8fc3d9" fill-opacity=".55"/><text x="138" y="169">stretches</text>
+          </svg>
+          <figcaption>Cut into nine: corners keep their size, edges stretch one way, the middle stretches both. That's why the edges and middle must be plain.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>CSS <code>border-image</code> draws every panel from the one image, at any width and height, on any phone, with identical corners.</dd>
+          <dt>When it arrives</dt><dd>I measure the border, make each edge one clean repeat and set the slice size.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="9-SLICE"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>3-SLICE <small>stretches sideways</small></h3>
+        <p class="use">Buttons, chips, tabs, the banner, name plates, the charge lane.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 148" role="img" aria-label="A wide gold button cut into three parts: the two ends keep their size and the plain middle stretches, so the same image makes a short chip and a long button.">
+            <defs><clipPath id="dg3c"><rect x="16" y="26" width="168" height="38" rx="19"/></clipPath></defs>
+            <text class="k" x="100" y="12" text-anchor="middle">the image</text>
+            <rect x="8" y="18" width="184" height="58" fill="none" stroke="#93aab3" stroke-width="1.2" stroke-dasharray="3 3"/>
+            <rect x="16" y="32" width="168" height="38" rx="19" fill="#8a5510"/>
+            <rect x="16" y="26" width="168" height="38" rx="19" fill="#f2c867" stroke="#5a3a0c" stroke-width="2.5"/>
+            <g clip-path="url(#dg3c)"><rect x="58" y="26" width="84" height="38" fill="#8fc3d9" fill-opacity=".45"/></g>
+            <path d="M58 18 V76 M142 18 V76" fill="none" stroke="#ff7d6b" stroke-width="1.5" stroke-dasharray="5 3"/>
+            <text x="37" y="92" text-anchor="middle">end</text><text x="100" y="92" text-anchor="middle">plain middle</text><text x="163" y="92" text-anchor="middle">end</text>
+            <text class="k" x="252" y="40" text-anchor="middle">any width</text>
+            <path d="M206 50 H298" stroke="#f2c867" stroke-width="2"/><path d="M304 50 l-8 -5 v10 z M200 50 l8 -5 v10 z" fill="#f2c867"/>
+            <rect x="8" y="113" width="74" height="28" rx="14" fill="#0d1526"/><rect x="8" y="108" width="74" height="28" rx="14" fill="#2b4470" stroke="#0d1526" stroke-width="2.5"/>
+            <rect x="96" y="113" width="216" height="28" rx="14" fill="#8a5510"/><rect x="96" y="108" width="216" height="28" rx="14" fill="#f2c867" stroke="#5a3a0c" stroke-width="2.5"/>
+          </svg>
+          <figcaption>The ends keep their size; the plain middle stretches. One image makes a short chip and a full-width button.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Stretched sideways to fit its words, height fixed; the PRESSED version is swapped in on touch.</dd>
+          <dt>When it arrives</dt><dd>Trimmed off the bigger canvas, the middle made uniform, the end widths set.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="3-SLICE"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>BAR <small>track and fill</small></h3>
+        <p class="use">XP, hull, the boss bar, the captain's progress.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 138" role="img" aria-label="A bar is two images the same size: the empty track with its groove, and the fill that sits in the groove. The game shows the fill up to the current value, here 62 percent.">
+            <defs><clipPath id="dgbc"><rect x="13" y="96" width="143" height="16"/></clipPath></defs>
+            <g fill="#12203a" stroke="#0d1526" stroke-width="2.5"><rect x="8" y="10" width="240" height="24" rx="12"/><rect x="8" y="91" width="240" height="24" rx="12"/></g>
+            <g fill="#060d18"><rect x="13" y="15" width="230" height="14" rx="7"/><rect x="13" y="96" width="230" height="14" rx="7"/></g>
+            <rect x="13" y="51" width="230" height="14" rx="7" fill="#5fcf4f" stroke="#2a7a2a" stroke-width="1.5"/>
+            <rect x="13" y="96" width="230" height="14" rx="7" fill="#5fcf4f" stroke="#2a7a2a" stroke-width="1.5" clip-path="url(#dgbc)"/>
+            <path d="M156 86 V121" fill="none" stroke="#ff7d6b" stroke-width="1.5" stroke-dasharray="5 3"/>
+            <text class="k" x="258" y="26">TRACK</text><text class="k" x="258" y="62">FILL</text>
+            <text x="156" y="134" text-anchor="middle">62%</text><text x="256" y="101">cropped to</text><text x="256" y="115">the value</text>
+          </svg>
+          <figcaption>Two images the same size: the empty track, and the fill that sits exactly in its groove.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Draws the track, then the fill cropped to the value; the XP bar cuts its fill into 10 segments. Both stretch sideways like a 3-SLICE.</dd>
+          <dt>When it arrives</dt><dd>Lined up so the fill sits exactly in the groove.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="BAR"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>RING <small>a round marker</small></h3>
+        <p class="use">Reticle, danger and target rings, shockwave, ward, auras, the range ring, the dash cooldown, lights.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 144" role="img" aria-label="A ring image fills its square with an empty middle. In the game it is drawn round a ship at any radius, spun and faded.">
+            <rect x="10" y="12" width="120" height="120" fill="none" stroke="#93aab3" stroke-width="1.2" stroke-dasharray="3 3"/>
+            <circle cx="70" cy="72" r="58.5" fill="none" stroke="#fff" stroke-width="3"/><circle cx="70" cy="72" r="51" fill="none" stroke="#ff6b5a" stroke-width="12"/>
+            <text x="70" y="76" text-anchor="middle">empty</text>
+            <rect x="150" y="12" width="162" height="120" rx="10" fill="#2e8fb5"/>
+            <circle cx="240" cy="74" r="25" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="240" cy="74" r="22" fill="none" stroke="#ff6b5a" stroke-width="5"/>
+            <ellipse cx="240" cy="74" rx="5" ry="9" fill="#f2dca0" stroke="#0d1526" stroke-width="1.5"/>
+            <g opacity=".55"><circle cx="188" cy="44" r="21" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="188" cy="44" r="18" fill="none" stroke="#ff6b5a" stroke-width="4.5"/></g>
+            <text class="w" x="231" y="124" text-anchor="middle">any size, spun, faded</text>
+          </svg>
+          <figcaption>A ring touching the edges of its square, even all round, empty in the middle.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Scaled to any radius, spun, pulsed and faded; danger rings get their countdown filled in, cooldown rings are swept round.</dd>
+          <dt>When it arrives</dt><dd>Centred and trimmed to a square.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="RING"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>SEAMLESS <small>a surface that repeats</small></h3>
+        <p class="use">Land tops, water and lava for every biome, the chart sea.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 162" role="img" aria-label="One tile whose soft shapes run off one edge and come back on the opposite edge, so four copies side by side join with no visible seam.">
+            <defs><clipPath id="dgsc"><rect width="100" height="100"/></clipPath>
+              <g id="dgst"><g clip-path="url(#dgsc)"><rect width="100" height="100" fill="#6cc04f"/>
+                <g fill="#86d468"><circle cx="100" cy="30" r="17"/><circle cx="0" cy="30" r="17"/><circle cx="58" cy="100" r="15"/><circle cx="58" cy="0" r="15"/><circle cx="34" cy="62" r="11"/><ellipse cx="80" cy="76" rx="11" ry="7"/></g></g></g></defs>
+            <text class="k" x="60" y="14" text-anchor="middle">one tile</text>
+            <use href="#dgst" x="10" y="26"/><rect x="10" y="26" width="100" height="100" fill="none" stroke="#93aab3" stroke-width="1.2" stroke-dasharray="3 3"/>
+            <path d="M122 76 H141" stroke="#f2c867" stroke-width="2"/><path d="M148 76 l-8 -5 v10 z" fill="#f2c867"/>
+            <text class="k" x="230" y="14" text-anchor="middle">repeated</text>
+            <use href="#dgst" transform="translate(168 22) scale(.62)"/><use href="#dgst" transform="translate(230 22) scale(.62)"/>
+            <use href="#dgst" transform="translate(168 84) scale(.62)"/><use href="#dgst" transform="translate(230 84) scale(.62)"/>
+            <path d="M230 22 V146 M168 84 H292" fill="none" stroke="#ff7d6b" stroke-width="1.5" stroke-dasharray="5 3"/>
+            <text x="230" y="159" text-anchor="middle">no visible join</text>
+          </svg>
+          <figcaption>Shapes that run off one edge come back on the opposite edge, so copies join without a seam. No outline, no border, no shape of its own.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Repeated across the whole map. Levels are generated, so the surface has no shape of its own; the coastline comes from the map.</dd>
+          <dt>When it arrives</dt><dd>A tiling pass removes any seam left, then I check it repeated 2×2.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="SEAMLESS"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>SHORE <small>a cut across the coast</small></h3>
+        <p class="use">One per biome: how every coastline looks.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 166" role="img" aria-label="A cut across one coastline, from open water to the land top, drawn as a square of horizontal bands: water, foam, rim, groove and land top. The game colours every pixel near a coast from the band that matches its distance from the shoreline.">
+            <defs><g id="dgis"><path d="M36 64 C 36 36, 94 32, 104 60 C 114 90, 90 124, 62 122 C 34 120, 36 94, 36 64 Z"/></g></defs>
+            <rect x="8" y="16" width="116" height="140" rx="10" fill="#2e8fb5"/>
+            <use href="#dgis" fill="none" stroke="#fff" stroke-width="8"/>
+            <use href="#dgis" fill="#f2dca0"/>
+            <use href="#dgis" fill="#c9ad6a" transform="translate(70 78) scale(.8) translate(-70 -78)"/>
+            <use href="#dgis" fill="#6cc04f" transform="translate(70 78) scale(.72) translate(-70 -78)"/>
+            <path d="M122 56 L97 67" stroke="#f2c867" stroke-width="2.5"/>
+            <text class="k" x="249" y="11" text-anchor="middle">the cut, as the image</text>
+            <rect x="186" y="16" width="126" height="36" fill="#2e8fb5"/><rect x="186" y="52" width="126" height="6" fill="#fff"/>
+            <rect x="186" y="58" width="126" height="34" fill="#f2dca0"/><rect x="186" y="60" width="126" height="4" fill="#fff8e0"/>
+            <rect x="186" y="92" width="126" height="10" fill="#c9ad6a"/><rect x="186" y="102" width="126" height="54" fill="#6cc04f"/>
+            <text x="181" y="38" text-anchor="end">water</text><text x="181" y="58" text-anchor="end">foam</text><text x="181" y="80" text-anchor="end">rim</text><text x="181" y="101" text-anchor="end">groove</text><text x="181" y="132" text-anchor="end">land top</text>
+          </svg>
+          <figcaption>The gold line on the left is the cut; the square on the right is what to draw. Every column identical, like a ruler.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Every pixel near a coast takes its colour from the band matching its distance from the shoreline, so every island in every generated level gets the same moulded edge.</dd>
+          <dt>When it arrives</dt><dd>I average the columns into one clean ruler and set how many pixels of coast it covers.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="SHORE"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>PARTICLE <small>copied hundreds of times</small></h3>
+        <p class="use">Rain, snow, ash, embers, fog, sand, spores, bubbles, foam, glints, sparks.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 124" role="img" aria-label="A set of three small white shapes in one image; in the game they are copied many times over the sea at different sizes, angles and strengths.">
+            <defs><g id="dgp1" fill="#fff"><rect x="-2.5" y="-12" width="5" height="24" rx="2.5"/></g>
+              <g id="dgp2" fill="#fff"><path d="M0 -10 C 5 -2, 7 4, 0 9 C -7 4, -5 -2, 0 -10 Z"/></g>
+              <g id="dgp3" fill="#fff"><path d="M0 -9 L2.5 -2.5 L9 0 L2.5 2.5 L0 9 L-2.5 2.5 L-9 0 L-2.5 -2.5 Z"/></g></defs>
+            <text class="k" x="74" y="24" text-anchor="middle">the set</text>
+            <rect x="8" y="34" width="132" height="56" fill="none" stroke="#93aab3" stroke-width="1.2" stroke-dasharray="3 3"/>
+            <use href="#dgp1" transform="translate(30 62)"/><use href="#dgp2" transform="translate(74 62)"/><use href="#dgp3" transform="translate(118 62)"/>
+            <path d="M148 62 H165" stroke="#f2c867" stroke-width="2"/><path d="M172 62 l-8 -5 v10 z" fill="#f2c867"/>
+            <rect x="178" y="8" width="134" height="108" rx="10" fill="#2e8fb5"/>
+            <use href="#dgp1" transform="translate(194 30) rotate(20) scale(.7)" opacity=".9"/><use href="#dgp1" transform="translate(216 58) rotate(20) scale(.8)" opacity=".7"/>
+            <use href="#dgp1" transform="translate(242 24) rotate(20) scale(.6)" opacity=".8"/><use href="#dgp1" transform="translate(264 72) rotate(20) scale(.9)" opacity=".6"/>
+            <use href="#dgp1" transform="translate(292 40) rotate(20) scale(.7)" opacity=".9"/><use href="#dgp1" transform="translate(298 92) rotate(20) scale(.6)" opacity=".5"/>
+            <use href="#dgp1" transform="translate(206 96) rotate(20) scale(.7)" opacity=".7"/><use href="#dgp1" transform="translate(250 102) rotate(20) scale(.5)" opacity=".6"/>
+            <use href="#dgp2" transform="translate(232 46) scale(.8)" opacity=".85"/><use href="#dgp2" transform="translate(282 64) scale(.6)" opacity=".7"/><use href="#dgp2" transform="translate(196 72) scale(.5)" opacity=".6"/>
+            <use href="#dgp3" transform="translate(270 26) scale(.7)" opacity=".9"/><use href="#dgp3" transform="translate(226 82) scale(.6)" opacity=".7"/><use href="#dgp3" transform="translate(290 106) scale(.5)" opacity=".6"/>
+          </svg>
+          <figcaption>A few plain shapes in one image; the game makes the crowd.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Copied hundreds of times: tinted, turned, scaled, drifted and faded by the weather and effects code.</dd>
+          <dt>When it arrives</dt><dd><code>tools/split-sheet.py</code> splits the set into separate pieces.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="PARTICLE"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>DIGITS <small>numbers as art</small></h3>
+        <p class="use">Damage numbers and other numbers drawn on the map.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 88" role="img" aria-label="Sixteen characters in equal cells, white with a dark outline: the digits 0 to 9, plus, minus, times, percent and two triangles. The game builds numbers from them and tints them, for example minus 12 in red and 35 in gold.">
+            <g fill="none" stroke="#1d3a49" stroke-dasharray="3 3"><rect x="8" y="8" width="304" height="38"/></g>
+            <g class="digs"><text class="dig" x="17.5" y="35" text-anchor="middle">0</text><text class="dig" x="36.5" y="35" text-anchor="middle">1</text><text class="dig" x="55.5" y="35" text-anchor="middle">2</text><text class="dig" x="74.5" y="35" text-anchor="middle">3</text><text class="dig" x="93.5" y="35" text-anchor="middle">4</text><text class="dig" x="112.5" y="35" text-anchor="middle">5</text><text class="dig" x="131.5" y="35" text-anchor="middle">6</text><text class="dig" x="150.5" y="35" text-anchor="middle">7</text><text class="dig" x="169.5" y="35" text-anchor="middle">8</text><text class="dig" x="188.5" y="35" text-anchor="middle">9</text><text class="dig" x="207.5" y="35" text-anchor="middle">+</text><text class="dig" x="226.5" y="35" text-anchor="middle">-</text><text class="dig" x="245.5" y="35" text-anchor="middle">×</text><text class="dig" x="264.5" y="35" text-anchor="middle">%</text><text class="dig" x="283.5" y="35" text-anchor="middle">▲</text><text class="dig" x="302.5" y="35" text-anchor="middle">▼</text></g>
+            <text class="dig r" x="36" y="76" text-anchor="middle">-12</text><text x="62" y="76">tinted red</text>
+            <text class="dig g" x="176" y="76" text-anchor="middle">35▲</text><text x="206" y="76">tinted gold</text>
+          </svg>
+          <figcaption>Sixteen characters in one row, all the same height, white with a dark outline. The game tints them.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Builds each number from the set: gold on a counter hit, red for damage you take, ▲/▼ for faction matchups. Numbers in menus stay in the display font.</dd>
+          <dt>When it arrives</dt><dd>Split into glyphs and lined up on one baseline.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="DIGITS"></pre></details>
+      </article>
     </div>
   </section>
 
   <section class="type" id="kit">
     <h2>Prompt kit</h2>
-    <p class="mut">Paste the header with one batch list into a fresh chat, attach the harbour mockup, then just say <b>next</b> for each item. Every line already carries its view, so there's nothing to swap by hand.</p>
+    <p class="mut">Press a batch's <b>Copy with header</b>, paste it into a fresh chat, attach the harbour mockup (and the first finished kit piece for a kit batch), then just say <b>next</b> for each item. The header carries only the format definitions that batch uses.</p>
     <div class="kit">
-      <div class="prompt"><div class="ph"><h3>Master header</h3><button class="copy" data-copy="header">Copy</button></div><pre id="p-header"></pre></div>
+      <div class="prompt"><div class="ph"><h3>Full header (every format)</h3><button class="copy" data-copy="header">Copy</button></div><pre id="p-header"></pre></div>
       <div class="prompt"><div class="ph"><h3>Ships: 5-view set</h3><button class="copy" data-copy="ships">Copy</button></div><pre id="p-ships"></pre><p class="mut">Done for all 7 hulls. Kept for new hulls. Cut with <code>python3 tools/cut-ship-views.py &lt;hull&gt; &lt;image&gt;</code>.</p></div>
     </div>
     <h3 class="bh">Batches</h3>
     <div class="batches" id="batches"></div>
     <div class="box handoff"><h3>Sending art back to me</h3><ul>
       <li>Send the images as they are; I key out any background, trim and scale them.</li>
-      <li>Creatures and bosses go in <code>src/data/creatureArt.mjs</code> (TOP art turns, FRONT art mirrors). A boss's flying form is a second image named <code>&lt;id&gt;_flying</code>.</li>
-      <li>Buildings go in <code>src/engine/buildingSprites.mjs</code>; ships through <code>tools/cut-ship-views.py</code>.</li>
-      <li>Every sprite keeps its code art as a fallback until the image loads, so nothing breaks while a batch is half done.</li>
+      <li>Creatures and bosses go in <code>src/data/creatureArt.mjs</code> (TOP-DOWN art turns, FRONT art mirrors). A boss's flying form is a second image named <code>&lt;id&gt;_flying</code>.</li>
+      <li>Buildings go in <code>src/engine/buildingSprites.mjs</code>; ships through <code>tools/cut-ship-views.py</code>; islands through <code>tools/key-island.py</code>.</li>
+      <li>UI kit pieces go in <code>assets/ui/</code>: frames, buttons and bars drawn with CSS <code>border-image</code>, round pieces as plain images.</li>
+      <li>Terrain surfaces go in <code>assets/terrain/</code> (<code>&lt;biome&gt;_land</code>, <code>_shore</code>, <code>_water</code>); the terrain renderer samples them.</li>
+      <li>Every image keeps its code drawing as a fallback until it loads, so nothing breaks while a batch is half done.</li>
     </ul></div>
   </section>
 
@@ -200,28 +572,34 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
 
   <section class="type" id="icons">
     <h2>Icons</h2>
-    <p>Menus, HUD, cards and the harbour now draw emoji as toy icons from the two icon sheets (<code>assets/icons/ui</code>, swapped in by <code>src/ui/emojiIcons.mjs</code>). Each card shows what the game draws today, how often the emoji appears and where. <b>Needs art</b> come first (batch D), then <b>stand-ins</b>: icons that are close but not right (batch E). Marks drawn on the canvas (Reef Defence map, enemy notes) still use the emoji font. <span class="t-high tag">Remaining · high</span></p>
+    <p>Menus, HUD, cards and the harbour now draw emoji as toy icons from the two icon sheets; the plain text glyphs the UI still writes (arrows, pause bars, stars) are listed too and get icons from batches D and U (<code>assets/icons/ui</code>, swapped in by <code>src/ui/emojiIcons.mjs</code>). Each card shows what the game draws today, how often the emoji appears and where. <b>Needs art</b> come first (batch D), then <b>stand-ins</b>: icons that are close but not right (batch E). Marks drawn on the canvas (Reef Defence map, enemy notes) still use the emoji font. <span class="t-high tag">Remaining · high</span></p>
     <div class="igrid" id="igrid"></div>
   </section>
 
   <section class="type" id="fonts">
     <h2>Fonts</h2>
-    <p>Three typefaces, all built into the device. The display face is the one to replace. <span class="t-medium tag">Restyle · medium</span></p>
+    <p>Fonts aren't drawn: words stay real text, so they stay sharp, translate and fit any length. The display face is the one to replace; pick one of these free Google Fonts by eye and I'll swap it in everywhere Georgia is used. Numbers drawn on the map move to drawn digits (K37). <span class="t-medium tag">Replace · medium</span></p>
     <div class="stack">
-      <div class="spec"><span class="k">Interface text · system UI font · keep</span>
-        <div class="sample" style="font: 700 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">Set Sail · Level 1 · 400 Salvage</div>
-        <div class="sample" style="font: 400 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">Pirate cutters, brigs, fire ships and mortar boats. Cannonballs sink them all.</div>
-        <div class="where">Buttons, chips, panels, shop rows, cards, HUD numbers, toasts, Reef Defence. SF Pro on iPhone, Roboto on Android. <code>-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif</code></div></div>
-      <div class="spec"><span class="k">Display · Georgia · replace</span>
+      <div class="spec"><span class="k">Display today · Georgia · replace</span>
         <div class="sample" style="font: 900 34px Georgia, 'Times New Roman', serif; color: var(--gold)">THE SHATTERED REEF</div>
         <div class="sample" style="font: 700 22px Georgia, 'Times New Roman', serif; color: var(--gold)">The Corsair Keys · Ironjaw, Warlord Reef Shark</div>
-        <div class="where">Title, chart and stage names, stage sheet, warlord banner. Swap for a rounder, chunkier display face that matches the toy look (one Google Font). <code>Georgia, 'Times New Roman', serif</code></div></div>
-      <div class="spec"><span class="k">Codes · monospace · keep</span>
+        <div class="where">Title fallback, chart and stage names, stage sheet, warlord banner, boss names. Too thin and bookish next to the chunky toy art.</div></div>
+      <div class="spec"><span class="k">Candidates · my pick is Lilita One, the closest to the harbour's chunky lettering</span>
+        <div class="fontpick">
+          <div><span class="k">Lilita One</span><span style="font: 400 30px 'Lilita One', Georgia, serif; color: var(--gold)">THE SHATTERED REEF</span><span style="font: 400 19px 'Lilita One', Georgia, serif">Ironjaw · Warlord Reef Shark</span><span style="font: 400 17px 'Lilita One', Georgia, serif">Set Sail · Level 3 · 400 Salvage</span></div>
+          <div><span class="k">Titan One</span><span style="font: 400 28px 'Titan One', Georgia, serif; color: var(--gold)">THE SHATTERED REEF</span><span style="font: 400 18px 'Titan One', Georgia, serif">Ironjaw · Warlord Reef Shark</span><span style="font: 400 16px 'Titan One', Georgia, serif">Set Sail · Level 3 · 400 Salvage</span></div>
+          <div><span class="k">Fredoka</span><span style="font: 700 30px Fredoka, Georgia, serif; color: var(--gold)">THE SHATTERED REEF</span><span style="font: 700 19px Fredoka, Georgia, serif">Ironjaw · Warlord Reef Shark</span><span style="font: 700 17px Fredoka, Georgia, serif">Set Sail · Level 3 · 400 Salvage</span></div>
+        </div></div>
+      <div class="spec"><span class="k">Interface text · system UI font · stays text</span>
+        <div class="sample" style="font: 700 22px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">Set Sail · Level 1 · 400 Salvage</div>
+        <div class="sample" style="font: 400 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">Pirate cutters, brigs, fire ships and mortar boats. Cannonballs sink them all.</div>
+        <div class="where">Buttons, chips, panels, shop rows, cards, HUD numbers, toasts, Reef Defence. SF Pro on iPhone, Roboto on Android: the most readable choice for small text. Bold button labels could move to the new display face.</div></div>
+      <div class="spec"><span class="k">Numbers drawn on the map · become art</span>
+        <div class="sample" style="font: 800 15px system-ui, sans-serif">-12 · 35 ▲ · LV 3</div>
+        <div class="where">Damage numbers, tower marks and level badges are drawn with the system font on the canvas today. They move to the K37 digit set, tinted by the game.</div></div>
+      <div class="spec"><span class="k">Codes · monospace · stays text</span>
         <div class="sample" style="font: 400 16px ui-monospace, SFMono-Regular, Menlo, monospace">TR2-0K3F9ZA</div>
         <div class="where">Shareable level codes only.</div></div>
-      <div class="spec"><span class="k">Text painted on the game canvas · keep</span>
-        <div class="sample" style="font: 800 15px system-ui, sans-serif">-12 · 35 ▲ · LV 3</div>
-        <div class="where">Damage numbers, boss names, tower marks and level badges, in the system font (weights 600–900, 8–13px). Boss names would follow the new display font.</div></div>
     </div>
   </section>
 
@@ -241,23 +619,48 @@ const TYPES = __TYPES__;
 const EMOJI = __EMOJI__;
 
 const CUES = 'Fire Hit Kill Explosion WallImpact PickupWeapon PickupSalvage Treasure EnemyFire Dash Evolve Synergy Achievement ReefCleared Victory Sunk Revive LockedWeapon BossPhaseChange BossDefeated WardClink Zap Thunder StrikeMark WeatherWarning Build Upgrade Sell Leak WaveHorn Tap'.split(' ');
-const LABEL = { high: 'Redo · high', medium: 'Redo · medium', low: 'Redo · low', keep: 'Keep as code', done: 'Simple style ✓' };
-const STYLE = { simple: 'Simple toy', toy: 'Detailed toy, simplify', old: 'Older painted art', code: 'Code-drawn' };
+const LABEL = { high: 'Redo · high', medium: 'Redo · medium', low: 'Redo · low', done: 'Simple style ✓' };
+const STYLE = { simple: 'Simple toy', toy: 'Detailed toy, simplify', old: 'Older painted art', code: 'Drawn in code: needs art' };
 const $ = (s) => document.querySelector(s);
 const NEED = ['high', 'medium', 'low'];
-const HEADER = `Use the image generator. No code. One image per reply.
-STYLE (strict): match the attached harbour image. A simple chunky toy, like a piece from a child's plastic playset: a few big rounded shapes, a thick clear silhouette, slightly squat and cute. 3-4 flat matte colours, soft light from the top-left, smooth, no texture. No glow or halo, no shadow, no water, no ground, no text.
+// The prompt header is built per batch: the shared rules, ONE OF A KIND or
+// ONE KIT, then only the format definitions that batch's items name.
+const BASE = `Use the image generator. No code. One image per reply.
+STYLE (strict): match the attached harbour image. A simple chunky toy, like a piece from a child's plastic playset: a few big rounded shapes, a thick clear silhouette, slightly squat and cute. 3-4 flat matte colours, soft light from the top-left, smooth, no texture. No glow or halo, no cast shadow, no text. Objects stand on nothing: no water or ground under them.
 DETAIL (loose): the small choices are yours, as long as every part stays big and simple. If a part would vanish at 48px, leave it out.
-ONE OF A KIND: every image is a new design. Never reuse the outline, pose or layout of an earlier image in this chat, even for a similar item.
-BACKGROUND: truly transparent. If you can't, flat #FF00FF magenta. Never a painted grey checkerboard.
-VIEWS (strict, the game depends on them):
-TOP-DOWN = the camera is directly overhead, looking straight down, like looking at a fish in a pond from a bridge. You see its back, never its face, side or belly. Head at the top edge of the image, tail at the bottom, body mirror-symmetrical left to right. The game turns it to face where it's going.
-  Wings: spread flat out to both sides at their widest. The game flaps them.
-  Long bodies (snakes, eels, worms, leeches, tentacles): dead straight from top to bottom, no curves or coils, and chunky: about a third as wide as they are long, so they still read at phone size. The game wriggles them.
-FRONT = an upright thing facing us, turned slightly (three-quarter) and seen a little from above, standing on nothing. The game flips it left and right, so no writing or one-sided detail.
-ISLAND = one island seen from straight above like a flat toy board piece: a raised rounded rim, a flat top, filling most of the image. Follow the outline the item describes exactly. Islands are never round unless the item says so.
-Before each image write one line: code, name, view, "simple toy, transparent".
+BACKGROUND: truly transparent, except SEAMLESS and SHORE images, which fill the whole canvas. If you can't do transparent, use flat #FF00FF magenta. Never a painted grey checkerboard.`;
+const RULE = {
+  unique: `ONE OF A KIND: every image is a new design. Never reuse the outline, pose or layout of an earlier image in this chat, even for a similar item.`,
+  kit: `ONE KIT: everything in this list belongs to one set. Keep the same outline thickness, corner roundness, light and colour family on every piece; change only what the item asks for.`,
+};
+const CLOSE = `Before each image write one line: code, name, format, "simple toy". If that line is wrong, the image will be too.
 Work through the list. Make the first item now; when I say "next", make the next one.`;
+const FMT = {
+  'TOP-DOWN': `TOP-DOWN = the camera is directly overhead, looking straight down, like looking at a fish in a pond from a bridge. You see its back, never its face, side or belly. Head (or front) at the top edge of the image, tail at the bottom, mirror-symmetrical left to right. The game turns it to face where it's going.
+  Wings: spread flat out to both sides at their widest. The game flaps them.
+  Long bodies (snakes, eels, worms, leeches, tentacles): dead straight from top to bottom, no curves or coils, and chunky: about a third as wide as they are long. The game wriggles them.`,
+  FRONT: `FRONT = an upright thing facing us, turned slightly (three-quarter) and seen a little from above, standing on nothing. The game flips it left and right, so no writing or one-sided detail.`,
+  ISLAND: `ISLAND = one island seen from straight above like a flat toy board piece: a raised rounded rim, a flat top, filling most of the image. Follow the outline the item describes exactly. Islands are never round unless the item says so.`,
+  FLAT: `FLAT = a game UI piece seen dead straight on, like a button on a phone screen: no perspective or tilt, level and mirror-symmetrical. Depth comes only from a lighter edge along its top and a darker lip along its bottom. No words, numbers or icons on it unless the item asks; the game adds those. PRESSED = the same piece pushed in: the lip shrinks to a sliver and the face sits lower by the lip's height.`,
+  '9-SLICE': `9-SLICE = an empty FLAT frame filling a square canvas. Its border band is about a fifth of the width all round. Corners may be shaped, but the four straight edges must be plain and identical along their whole length (no ornament in the middle of an edge), and the inside is one flat plain colour, because the game stretches the edges and the inside to any size.`,
+  '3-SLICE': `3-SLICE = a FLAT piece about 4 times as wide as it is tall (leave the rest of the canvas empty), with rounded or shaped ends. The middle half must be plain and identical all the way along, because the game stretches it sideways to any width.`,
+  BAR: `BAR = a FLAT bar about 6 times as wide as it is tall (leave the rest of the canvas empty). TRACK = the empty bar: a sunken groove with rounded ends. FILL = only the coloured filling that sits exactly inside that groove: rounded ends, plain along its length, the same size as the groove. The game shows part of the fill to show how full it is.`,
+  RING: `RING = a FLAT round marker centred on a square canvas, its outer edge touching the canvas edges, even all the way round so it can spin. Empty (transparent) in the middle unless the item says to fill it. Solid colours: the game sets how see-through it is.`,
+  SEAMLESS: `SEAMLESS = a square tile of the surface itself (like a patch cut from the harbour's grass or water), seen from straight above and filling the whole canvas edge to edge: no shape, no outline, no border, no darker or lighter edges. It must repeat: anything that runs off the right edge comes back on the left, and the same top to bottom. Big soft simple shapes in 2-3 close shades of one colour; calm, not busy.`,
+  SHORE: `SHORE = a cut across one coastline, seen from above, filling a square canvas edge to edge in straight horizontal bands. Top edge: open water. Then, going down: a thin foam line, the raised rim (lit along its top), a small dark groove, then the flat land top filling the bottom third. Every column is identical, like a ruler: no rocks, plants, bumps or breaks.`,
+  SET: `SET = several separate pieces in one image, in one row, the same size, evenly spaced and not touching.`,
+  PARTICLE: `PARTICLE = a SET of small simple shapes that the game copies hundreds of times. Each one is a single solid shape with no inner detail, centred in its own space. Draw them white unless the item names a colour; the game tints them.`,
+  STRIP: `STRIP = an animation: 12 frames of one effect in 2 rows of 6 equal cells, frame 1 at top left, reading left to right, then the second row. The same centre point in every cell; no grid lines.`,
+  DIGITS: `DIGITS = a SET of chunky characters in this exact order: 0 1 2 3 4 5 6 7 8 9 + - × % ▲ ▼. All the same height, white with a thick dark outline, no other colour (the game tints them).`,
+};
+const NEEDS = { '9-SLICE': ['FLAT'], '3-SLICE': ['FLAT'], BAR: ['FLAT'], RING: ['FLAT'], PARTICLE: ['SET'], DIGITS: ['SET'] };
+const FORDER = ['TOP-DOWN', 'FRONT', 'ISLAND', 'FLAT', '9-SLICE', '3-SLICE', 'BAR', 'RING', 'SEAMLESS', 'SHORE', 'SET', 'PARTICLE', 'STRIP', 'DIGITS'];
+function formatsIn(lines) {
+  const used = new Set();
+  for (const l of lines) for (const m of l.matchAll(/\(([A-Z0-9 ,-]+)\)/g)) for (const t of m[1].split(/[ ,]+/)) if (FMT[t]) { used.add(t); (NEEDS[t] || []).forEach((n) => used.add(n)); }
+  return FORDER.filter((f) => used.has(f));
+}
+const header = (rule, fmts) => [BASE, RULE[rule], fmts.length ? 'FORMATS (strict, the game depends on them):\n' + fmts.map((f) => FMT[f]).join('\n') : '', CLOSE].filter(Boolean).join('\n');
 const SHIPS = `Make: [HULL NAME], one simple toy ship: a rounded hull, one or two big sails, a small flag. No ropes, rigging, cannons, windows or plank lines.
 One image with 5 views of the same ship in a row, same size, evenly spaced, not touching:
 1 bow (front towards the camera)
@@ -265,11 +668,105 @@ One image with 5 views of the same ship in a row, same size, evenly spaced, not 
 3 side (bow pointing left)
 4 stern-quarter (bow pointing up-left)
 5 stern (back towards the camera)`;
+// [code, title, priority, item lines, rule]. Each line names its format in brackets.
 const BATCHES = [
- ['I', 'Chart islands', 'done', [
-  'I1-I10 All ten chart islands are in (Caverns, Tropical and Cliff & Cove redone top-down on 2026-10-11)']],
- ['O', 'Sea obstacle islands: plain pads', 'done', [
-  'O1-O11 Three pads per biome and the rock islets are in (2026-10-11). Too many are round: batch O2 adds varied outlines']],
+ ['A', 'Bosses (all, even simpler)', 'high', [
+  'A1 The Black Gale (TOP-DOWN): a big pirate ship seen from directly above: you see the deck and the tops of two big black sails stretched across it, bow pointing to the top, one red flag; a dark wooden hull shaped like a fat almond',
+  'A2 The Drowned Admiral (TOP-DOWN): a ghost galleon seen from directly above: a pale green see-through hull shaped like a long almond, bow at the top, two ragged pale sails across the deck',
+  'A3 Bloodfin Matriarch (TOP-DOWN): a big grey shark seen from directly above: a straight fat bean body, blunt snout at the top, two red side fins out to the sides, the back fin seen from above as a red stripe on the spine, a red tail fin at the bottom',
+  "A4 The Kraken's Anchor (FRONT): a big rusty-orange anchor standing upright, two thick purple tentacles wrapped once round its shaft",
+  'A5 The Frost Leviathan (TOP-DOWN): a long sea serpent seen from directly above, dead straight from head (top) to tail (bottom): pale blue back, a white stripe down the spine, a wide head with two small ice horns, a small fin at the tail',
+  'A6 The Caldera Wyrm (TOP-DOWN): a dragon-serpent seen from directly above, dead straight from head (top) to tail (bottom): dark red back, an orange stripe down the spine, two small wings folded flat against its sides',
+  'A6b The Caldera Wyrm, flying (TOP-DOWN): the same wyrm seen from directly above, body straight, two big bat wings spread flat out to the sides at their widest',
+  'A7 The Hollow King (FRONT): a round grey stone blob with a gold crown and two glowing yellow eyes, two stubby stone arms',
+  'A8 Old Mother Mire (FRONT): a round green mossy blob under a pointed hood, two glowing eyes, two stubby arms',
+  'A9 The Deep Mother (TOP-DOWN): a big violet squid seen from directly above: a round head-mantle at the top, two big eyes on top of it, four thick tentacles hanging straight down below it side by side',
+  'A10 The Dunemaw (TOP-DOWN): a fat sandy worm seen from directly above, dead straight from top to bottom, its top end one big round open mouth ringed with teeth',
+  'A11 The Prism Colossus (FRONT): a chunky giant made of four big lilac crystals (body, head, two arms), two glowing eyes',
+  'A12 Warding Seal (FRONT): a round stone disc on a short post with one glowing teal rune in the middle'], 'unique'],
+ ['G', 'Creatures (G10-G28 done; these 9 left)', 'high', [
+  'G1 Gullswarm Harpy (TOP-DOWN): a white gull seen from directly above: round white body, head with a yellow beak at the top, both wings spread flat out to the sides at their widest with grey tips, a short fan tail at the bottom',
+  'G2 Deep Crawler (TOP-DOWN): a dark blue-black crab seen from directly above: a round shell, two big claws reaching forward at the top, three short legs out each side, two eye stalks between the claws',
+  'G3 Reef Shark (TOP-DOWN): a grey shark seen from directly above: a straight bean body, pointed snout at the top, two side fins out to the sides, the back fin seen from above as a thin stripe on the spine, tail fin at the bottom',
+  'G4 Sea Serpent (TOP-DOWN): a fat green sea serpent seen from directly above, dead straight from head (top) to tail (bottom), about a third as wide as it is long: a round head with two eyes on top, a pale stripe down the back, a small fin at the tail',
+  'G5 Frost Narwhal (TOP-DOWN): a pale blue whale seen from directly above: a smooth bean body, one long straight white tusk pointing out of the top, two flippers out to the sides, a tail fluke at the bottom',
+  'G6 Ice Golem (FRONT): a squat golem built from big pale blue ice blocks: one body block, one head block, two block fists, two small dark eyes',
+  'G7 Frost Wisp (FRONT): a round pale blue flame with a curling tip and two dark eyes',
+  'G8 Siren (FRONT): a mermaid sitting on a round grey rock, long teal hair, her green tail curled round the rock',
+  'G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above: a small round body and head with two ears at the top, both wings spread flat out to the sides at their widest, orange wing edges'], 'unique'],
+ ['K', 'UI kit (one family; start with K1 and K9)', 'high', [
+  'K1 Panel (9-SLICE): the main navy panel, like the attached harbour cards: navy face, thick dark outline, a lighter band along the top edge, a darker lip along the bottom edge, well-rounded corners (building panels, voyage card, pause menu, run summary, stage sheet)',
+  'K2 Inset well (9-SLICE): a sunken darker navy box pressed into the panel, its shadow along the top inside edge (shop rows, stat boxes, the mini-map frame, log rows)',
+  'K3 Card, weapon (9-SLICE): a cream card face with a thick gold border and the same bottom lip (level-up card for a weapon)',
+  'K4 Card, armament (9-SLICE): the same card with a teal border',
+  'K5 Card, ship upgrade (9-SLICE): the same card with a green border',
+  'K6 Card, evolution (9-SLICE): the same card with a gold face, a rich orange-gold border and a small gold star on each top corner',
+  'K7 Banner (3-SLICE): a red ribbon banner with a folded tail at each end (level-up title, warlord entrance, results titles)',
+  'K8 Name plate (3-SLICE): a small cream scroll plate with curled ends (island names on the chart)',
+  'K9 Gold button (3-SLICE): the big main button, like the attached Set Sail: gold-yellow face, orange-brown lip, thick dark outline',
+  'K10 Gold button, PRESSED (3-SLICE): K9 pushed in',
+  'K11 Blue button (3-SLICE): like the attached Defend the Reef: sky-blue face, deep blue lip',
+  'K12 Blue button, PRESSED (3-SLICE): K11 pushed in',
+  'K13 Navy button (3-SLICE): navy face, dark lip (menu buttons, Buy)',
+  'K14 Navy button, PRESSED (3-SLICE): K13 pushed in',
+  'K15 Red button (3-SLICE): red face, dark red lip (Abandon voyage, Sell)',
+  'K16 Grey button (3-SLICE): flat grey face, no shine (disabled, locked)',
+  'K17 Chip (3-SLICE): a small navy pill with a thin lip (HUD chips, currency pills, weather chip, messages)',
+  'K18 Tab, off (3-SLICE): a navy tab with rounded top corners and a flat bottom',
+  'K19 Tab, on (3-SLICE): the same tab in gold',
+  'K20 Round button (FLAT): a round navy button with a lip and a plain face (pause, sound, back, close; the icon goes on top)',
+  'K21 Round button, PRESSED (FLAT): K20 pushed in',
+  'K22 Dash button (FLAT): a bigger round button with a thick gold rim and a plain navy face (the lightning icon goes on top)',
+  'K23 Cooldown ring (RING): a thin gold ring that fits exactly round the dash button (the game sweeps it round while the dash recharges)',
+  'K24 Joystick base (FLAT): a wide flat round navy disc with a thick lighter rim, plain',
+  'K25 Joystick knob (FLAT): a small round domed gold knob',
+  'K26 Alert dot (FLAT): a small red dot with a thick white rim',
+  "K27 Bar track (BAR): the TRACK only: a navy groove with rounded ends (XP, hull, boss, captain's progress)",
+  "K28 Bar fills (BAR, SET): four FILLs that fit K27's groove exactly: green, red, gold, blue",
+  'K29 Boss bar cap (FLAT): a small round plate with a white skull, sits on the left end of the boss bar',
+  'K30 Dock tile (9-SLICE): a small square navy tile with a gold rim (weapon dock)',
+  'K31 Dock tile, evolved (9-SLICE): the same tile, all gold',
+  'K32 Empty berth (9-SLICE): the same tile shape as a dashed outline only, empty inside',
+  'K33 Pips (FLAT, SET): five small round pips: empty (a dark hole in a navy rim), filled gold, bright gold (current), empty with a gold ring (elite), dark red with a white skull (boss)',
+  'K34 Level badge (FLAT): a small plain navy shield badge (ship and tower levels; the number goes on top)',
+  "K35 Chart sea (SEAMLESS): the voyage chart's sea: calm toy blue with a few big soft lighter swirls",
+  'K36 Route marks (FLAT, SET): a cream dash, a gold dash and a small red X (the dotted route on the chart: ahead, sailed, next goal)',
+  'K37 Numbers (DIGITS): white chunky digits with a thick dark outline (damage numbers and other numbers drawn on the map)'], 'kit'],
+ ['L', 'Terrain surfaces (Tropical first)', 'high', [
+  'L1 Tropical land top (SEAMLESS): flat bright grass green with a few big soft patches one shade lighter',
+  'L2 Tropical shore (SHORE): turquoise water, white foam line, pale sand rim, a darker sand groove, bright green grass top',
+  'L3 Tropical water (SEAMLESS): bright toy turquoise with a few big soft lighter ripples',
+  'L4 Cliff & Cove land top (SEAMLESS): flat turf green with a few big soft lighter patches',
+  'L5 Cliff & Cove shore (SHORE): green-blue water, white foam line, grey pebble rim, a darker groove, turf green top',
+  'L6 Cliff & Cove water (SEAMLESS): green-blue sea with a few big soft lighter ripples',
+  'L7 Glacial land top (SEAMLESS): flat white snow with a few big soft pale blue patches',
+  'L8 Glacial shore (SHORE): icy blue water, white foam line, pale blue ice rim, a darker blue groove, white snow top',
+  'L9 Glacial water (SEAMLESS): cold mid blue with a few big soft paler ripples',
+  'L10 Shipwreck land top (SEAMLESS): flat olive moss green with a few big soft darker patches',
+  'L11 Shipwreck shore (SHORE): grey-teal water, white foam line, grey stone rim, a darker groove, olive moss top',
+  'L12 Shipwreck water (SEAMLESS): grey-teal sea with a few big soft lighter ripples',
+  'L13 Volcanic land top (SEAMLESS): flat charcoal-black rock with a few big soft dark grey patches',
+  'L14 Volcanic shore (SHORE): dark slate water, an orange-tinted foam line, grey rock rim, a darker groove, charcoal-black top',
+  'L15 Volcanic water (SEAMLESS): dark slate sea with a few big soft lighter ripples',
+  'L16 Volcanic lava (SEAMLESS): bright orange lava with a few big soft yellow swirls and darker red crust patches',
+  'L17 Caverns land top (SEAMLESS): flat purple-grey stone with a few big soft darker patches',
+  'L18 Caverns shore (SHORE): dark teal water, a pale foam line, dark slate rim, a darker groove, purple-grey top',
+  'L19 Caverns water (SEAMLESS): dark teal with a few big soft lighter ripples',
+  'L20 Mangrove land top (SEAMLESS): flat olive bog green with a few big soft brown patches',
+  'L21 Mangrove shore (SHORE): murky green water, a pale foam line, brown mud rim, a darker groove, olive bog top',
+  'L22 Mangrove water (SEAMLESS): murky green with a few big soft lighter ripples',
+  'L23 Abyss land top (SEAMLESS): flat deep navy rock with a few big soft lighter patches',
+  'L24 Abyss shore (SHORE): deep navy water, a cyan foam line, grey rock rim, a darker groove, deep navy top',
+  'L25 Abyss water (SEAMLESS): deep navy with a few big soft cyan-tinted ripples',
+  'L26 Bone Sands land top (SEAMLESS): flat orange sand with a few big soft lighter dune patches',
+  'L27 Bone Sands shore (SHORE): turquoise water, white foam line, cream rim, a darker groove, orange sand top',
+  'L28 Bone Sands water (SEAMLESS): turquoise with a few big soft lighter ripples',
+  'L29 Crystal land top (SEAMLESS): flat lilac with a few big soft pink patches',
+  'L30 Crystal shore (SHORE): lilac-blue water, white foam line, pink rim, a darker groove, lilac top',
+  'L31 Crystal water (SEAMLESS): lilac-blue with a few big soft lighter ripples',
+  'L32 Harbour land top (SEAMLESS): flat bright lawn green like the attached harbour, almost no variation',
+  'L33 Harbour shore (SHORE): bright toy-blue water, white foam line, clean sand rim, a darker groove, lawn green top, like the attached harbour',
+  "L34 Harbour water (SEAMLESS): the attached harbour's bright toy blue, almost no variation"], 'kit'],
  ['O2', 'Island outlines (not round)', 'high', [
   'O12 Tropical island (ISLAND): outline: a long thin sandbar, about five times longer than it is wide, gently bent like a banana; pale sand rim, flat green grass top; nothing on top',
   'O13 Tropical island (ISLAND): outline: a crescent (horseshoe) hugging a small round lagoon that opens to one side; pale sand rim, flat green grass top; nothing on top',
@@ -300,67 +797,7 @@ const BATCHES = [
   'O38 Bone Sands island (ISLAND): outline: a zigzag: a long strip with two sharp bends; cream rim, flat orange sand top; nothing on top',
   'O39 Crystal island (ISLAND): outline: a long thin sandbar, about five times longer than it is wide, gently bent like a banana; pink rim, flat lilac top; nothing on top',
   'O40 Crystal island (ISLAND): outline: a crescent (horseshoe) hugging a small round lagoon that opens to one side; pink rim, flat lilac top; nothing on top',
-  'O41 Crystal island (ISLAND): outline: an L shape with two arms of different lengths and a rounded corner; pink rim, flat lilac top; nothing on top']],
- ['P', 'Island props (P1-P4 done)', 'medium', [
-  'P5 Volcanic (FRONT): a charred black tree stump, a black rock with orange glowing cracks, a plain black boulder, a small grey smoke vent; one image each',
-  'P6 Caverns (FRONT): a stalagmite, a cluster of three glowing blue mushrooms, a glowing teal coral, a purple boulder; one image each',
-  'P7 Mangrove (FRONT): a mangrove tree on stilt roots, a round lily pad with a flower, a reed clump, a mossy log; one image each',
-  'P8 Abyss (FRONT): a clump of red-tipped tube worms, an anemone, a dark navy boulder, a glowing teal coral; one image each',
-  'P9 Bone Sands (FRONT): a round cactus with two arms, a pair of curved rib bones sticking up, a small skull, a sandstone rock; one image each',
-  'P10 Crystal (FRONT): a cluster of lilac crystals, a pink boulder, a round lilac shrub, one tall crystal shard; one image each',
-  'P11 Harbour (FRONT): a short wooden jetty with a lantern post, a grey rock cluster, a red buoy, a green buoy, a rowboat; one image each',
-  'P12 Gull (TOP-DOWN): a white seagull seen from above, head and yellow beak at the top, both wings spread flat out to the sides, a short fan tail at the bottom']],
- ['B', 'Harbour buildings', 'done', [
-  'B1 Shipyard (FRONT): a small hut with a blue roof, a simple crane and a little boat on a slipway',
-  'B2 Armory (FRONT): a small stone hut with one cannon in front and a gold anchor sign',
-  'B3 Workshop (FRONT): a small hut with a chimney and a glowing forge door, one anvil',
-  'B4 Faction Hall (FRONT): a wide hall with a blue roof and three coloured banners',
-  'B5 Tower Yard (FRONT): a red and white striped lighthouse on a round rock',
-  'B6 Charm Shrine (FRONT): a stone archway with a glowing purple portal, a little moss']],
- ['S', 'Player ships (5-view sets)', 'done', [
-  'S1 Sloop: wooden hull, one big cream sail, red flag',
-  'S2 Longboat: long low hull, one square red-striped sail, dragon-head prow',
-  'S3 Skiff: small light hull, one triangular sail',
-  'S4 Catamaran: two slim hulls joined by a deck, one tall sail',
-  'S5 Junk: round hull, red battened sails',
-  'S6 Ironclad Steamer: dark iron hull, one funnel, a paddle wheel each side',
-  'S7 Galleon: big hull, three cream sails, red flags']],
- ['A', 'Bosses (all, even simpler)', 'high', [
-  'A1 The Black Gale (TOP-DOWN): a big pirate ship seen from directly above: you see the deck and the tops of two big black sails stretched across it, bow pointing to the top, one red flag; a dark wooden hull shaped like a fat almond',
-  'A2 The Drowned Admiral (TOP-DOWN): a ghost galleon seen from directly above: a pale green see-through hull shaped like a long almond, bow at the top, two ragged pale sails across the deck',
-  'A3 Bloodfin Matriarch (TOP-DOWN): a big grey shark seen from directly above: a straight fat bean body, blunt snout at the top, two red side fins out to the sides, the back fin seen from above as a red stripe on the spine, a red tail fin at the bottom',
-  'A4 The Kraken\'s Anchor (FRONT): a big rusty-orange anchor standing upright, two thick purple tentacles wrapped once round its shaft',
-  'A5 The Frost Leviathan (TOP-DOWN): a long sea serpent seen from directly above, dead straight from head (top) to tail (bottom): pale blue back, a white stripe down the spine, a wide head with two small ice horns, a small fin at the tail',
-  'A6 The Caldera Wyrm (TOP-DOWN): a dragon-serpent seen from directly above, dead straight from head (top) to tail (bottom): dark red back, an orange stripe down the spine, two small wings folded flat against its sides',
-  'A6b The Caldera Wyrm, flying (TOP-DOWN): the same wyrm seen from directly above, body straight, two big bat wings spread flat out to the sides at their widest',
-  'A7 The Hollow King (FRONT): a round grey stone blob with a gold crown and two glowing yellow eyes, two stubby stone arms',
-  'A8 Old Mother Mire (FRONT): a round green mossy blob under a pointed hood, two glowing eyes, two stubby arms',
-  'A9 The Deep Mother (TOP-DOWN): a big violet squid seen from directly above: a round head-mantle at the top, two big eyes on top of it, four thick tentacles hanging straight down below it side by side',
-  'A10 The Dunemaw (TOP-DOWN): a fat sandy worm seen from directly above, dead straight from top to bottom, its top end one big round open mouth ringed with teeth',
-  'A11 The Prism Colossus (FRONT): a chunky giant made of four big lilac crystals (body, head, two arms), two glowing eyes',
-  'A12 Warding Seal (FRONT): a round stone disc on a short post with one glowing teal rune in the middle']],
- ['G', 'Creatures (G10-G28 done; these 9 left)', 'high', [
-  'G1 Gullswarm Harpy (TOP-DOWN): a white gull seen from directly above: round white body, head with a yellow beak at the top, both wings spread flat out to the sides at their widest with grey tips, a short fan tail at the bottom',
-  'G2 Deep Crawler (TOP-DOWN): a dark blue-black crab seen from directly above: a round shell, two big claws reaching forward at the top, three short legs out each side, two eye stalks between the claws',
-  'G3 Reef Shark (TOP-DOWN): a grey shark seen from directly above: a straight bean body, pointed snout at the top, two side fins out to the sides, the back fin seen from above as a thin stripe on the spine, tail fin at the bottom',
-  'G4 Sea Serpent (TOP-DOWN): a fat green sea serpent seen from directly above, dead straight from head (top) to tail (bottom), about a third as wide as it is long: a round head with two eyes on top, a pale stripe down the back, a small fin at the tail',
-  'G5 Frost Narwhal (TOP-DOWN): a pale blue whale seen from directly above: a smooth bean body, one long straight white tusk pointing out of the top, two flippers out to the sides, a tail fluke at the bottom',
-  'G6 Ice Golem (FRONT): a squat golem built from big pale blue ice blocks: one body block, one head block, two block fists, two small dark eyes',
-  'G7 Frost Wisp (FRONT): a round pale blue flame with a curling tip and two dark eyes',
-  'G8 Siren (FRONT): a mermaid sitting on a round grey rock, long teal hair, her green tail curled round the rock',
-  'G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above: a small round body and head with two ears at the top, both wings spread flat out to the sides at their widest, orange wing edges']],
- ['N', 'Straight-body redraws (before the animation build)', 'low', [
-  'N1 Stalker Eel (TOP-DOWN): a fat dark grey eel seen from directly above, dead straight from head (top) to tail (bottom), about a third as wide as it is long, two yellow eyes on top of the head',
-  'N2 Bog Leech (TOP-DOWN): one fat dark red leech seen from directly above, dead straight from top to bottom, plump like a bean, a round sucker mouth at the top end',
-  'N3 Leech Swarm (TOP-DOWN): three fat red leeches seen from directly above, lying straight and side by side, heads at the top, each plump like a bean']],
- ['T', 'Reef Defence towers', 'medium', [
-  'T1 Cannon Battery (FRONT): a round stone tower with one big cannon on top',
-  'T2 Grapeshot Nest (FRONT): a wooden platform with one wide-mouthed gun',
-  'T3 Chain Mast (FRONT): a wooden mast tower with a chain launcher',
-  'T4 Depth Charge Post (FRONT): a dock post with a barrel launcher',
-  'T5 Fire Brazier (FRONT): a stone tower with a fire bowl on top',
-  'T6 Lighthouse Tower (FRONT): a small squat red and white lighthouse',
-  'T7 Heart of the Reef (FRONT): a glowing teal crystal on a round coral rock']],
+  'O41 Crystal island (ISLAND): outline: an L shape with two arms of different lengths and a rounded corner; pink rim, flat lilac top; nothing on top'], 'unique'],
  ['D', 'Missing icons', 'high', [
   'D1 Burst (FRONT): a round yellow-orange explosion burst (Grapeshot, Scattershot, ring of shot)',
   'D2 Shock (FRONT): a small yellow star with a lightning crackle (Shock Shells)',
@@ -374,14 +811,93 @@ const BATCHES = [
   'D10 Feather (FRONT): a white feather (Reef Defence flyer mark)',
   'D11 Music note (FRONT): a pair of black music notes (Siren song)',
   'D12 Dagger (FRONT): a small dagger (Glass Cannon)',
-  'D13 Up arrow (FRONT): a chunky gold arrow pointing up (Reef Defence upgrade button)']],
+  'D13 Up arrow (FRONT): a chunky gold arrow pointing up (Reef Defence upgrade button; turned for the tutorial pointer)',
+  'D14 Back arrow (FLAT): a chunky white arrow pointing left, rounded ends (back buttons)',
+  'D15 Pause (FLAT): two chunky white upright bars side by side',
+  'D16 Play (FLAT): a chunky white triangle pointing right, rounded corners (Resume, stage arrows; mirrored for previous)',
+  'D17 Retry (FLAT): a chunky white circular arrow (Retry this level)'], 'kit'],
  ['E', 'Stand-in icons to replace', 'medium', [
   'E1 Crossed swords (FRONT): two cutlasses crossed (crew, First Blood; now a single cutlass)',
   'E2 Wrench (FRONT): a single spanner (Bilge Pumps; now a gear)',
   'E3 Cannonballs (FRONT): three iron cannonballs in a pile (Cannonballs; now a cannon)',
   'E4 Chain shot (FRONT): two iron balls joined by a short chain (Chain Shot; now a plain link)',
   'E5 Wings (FRONT): a pair of small white wings (flyer mark; now one wing)',
-  'E6 Stern chaser (FRONT): a small cannon pointing backwards over a ship\'s stern rail (Stern Chaser armament; now a plain cannon)']],
+  "E6 Stern chaser (FRONT): a small cannon pointing backwards over a ship's stern rail (Stern Chaser armament; now a plain cannon)"], 'kit'],
+ ['M', 'Markers and rings', 'medium', [
+  'M1 Lock-on reticle (RING): four chunky gold corner brackets round an empty middle',
+  'M2 Danger circle (RING): a thick red ring with a thin white outer edge (lightning marks, slams; the game fills in the countdown)',
+  'M3 Target ring (RING): an orange ring with four short ticks pointing inward (mortar shells, rockfall, dive spots)',
+  'M4 Charge lane (3-SLICE): a long red stripe with a chunky arrowhead at the right end (shark and warlord charges)',
+  'M5 Sighting line (3-SLICE): a thin row of red dashes ending in a small red dot at the right end (where an enemy gun is aiming)',
+  'M6 Shockwave (RING): a thin pale blue ring (blasts and level-ups; the game grows and fades it)',
+  'M7 Ward bubble (RING): a round teal shield: a thick ring, the middle filled with flat pale teal',
+  'M8 Enrage ring (RING): a ring of short red spikes pointing outward',
+  'M9 Elite aura (RING): a ring of small gold flame tongues pointing outward',
+  'M10 Edge arrow (FLAT): a chunky gold arrow pointing up, with a round empty slot in its tail (points at bosses, elites and chests off screen; their icon goes in the slot)',
+  'M11 Status badges (FLAT, SET): five small round badges: a flame (burning), a green drip (poisoned), a snowflake (chilled), a yellow zigzag (shocked), a black ink drop (inked)',
+  'M12 Matchup marks (FLAT, SET): a small cyan up-triangle (prey) and a small red shield with a white ! (threat)',
+  'M13 Range ring (RING): a thin ring of chunky white dashes (Reef Defence tower range)',
+  'M14 Build ring (RING): a thick navy ring with six round sockets spaced evenly round it (Reef Defence build menu)',
+  "M15 Light (RING): one soft round light, warm white in the middle fading smoothly to nothing at the edge, filled, on a flat pure black background (I turn the black into transparency); the one exception to 'no glow' (lamps, portal and forge glows, the lantern pool in dark biomes)"], 'kit'],
+ ['X', 'Shots', 'medium', [
+  'X1 Cannonball (TOP-DOWN): a black iron ball',
+  'X2 Chain shot (TOP-DOWN): two iron balls on a short chain',
+  'X3 Grapeshot pellet (TOP-DOWN): a small grey ball',
+  'X4 Depth charge (TOP-DOWN): a round barrel bomb',
+  'X5 Flame barrel (TOP-DOWN): a small barrel with a flame on top',
+  'X6 Harpoon (TOP-DOWN): a harpoon, point at the top',
+  'X7 Powder keg (TOP-DOWN): a small black keg seen from above',
+  'X8 Enemy fire bolt (TOP-DOWN): an orange fireball, its flame trailing downwards',
+  'X9 Frost shard (TOP-DOWN): a blue ice shard, point at the top',
+  'X10 Boulder (TOP-DOWN): a round grey boulder',
+  'X21 Sea Spirit wisp (TOP-DOWN): a small round blue-white flame, its tail curling downwards (orbits the ship)',
+  "X22 St Elmo's arc (FLAT): a chunky yellow-white zigzag of lightning lying sideways, left to right (the game stretches it between two targets)",
+  'X23 Shock bolt (TOP-DOWN): a round yellow spark ball with short zigzag spikes',
+  'X24 Sand blast (TOP-DOWN): a round sandy puff',
+  'X25 Spit glob (TOP-DOWN): a round green-teal glob (Sea Serpent, Warding Seal)',
+  "X26 Gold corona (RING): a gold sunburst ring of short rays (round evolved weapons' shots)"], 'kit'],
+ ['X2', 'More shots', 'medium', [
+  'X13 Fire pool (TOP-DOWN): a flat round puddle of orange flame (Flame Barrels)',
+  'X14 Reaper blade (TOP-DOWN): a curved iron blade (Reaper Chains, orbits the ship)',
+  'X15 Hex bolt (TOP-DOWN): a green orb with a darker core (Bog Witch)',
+  'X16 Ink blob (TOP-DOWN): a round black-purple ink splat (Ink Squid)',
+  'X17 Spectral shot (TOP-DOWN): a pale green ghostly ball with a wispy tail (Ghost Ship)',
+  'X18 Light orb (TOP-DOWN): a pink-white orb (Prism Colossus)',
+  'X19 Spore puff (TOP-DOWN): a round green-yellow puff (Old Mother Mire)',
+  'X20 Mortar shell (TOP-DOWN): a fat black shell with a lit fuse (Mortar Gunboat)'], 'kit'],
+ ['Q', 'Weather particles', 'medium', [
+  'Q1 Rain (PARTICLE): three short slanted raindrop streaks of different lengths',
+  'Q2 Snow (PARTICLE): three chunky snowflakes, six thick arms each',
+  'Q3 Ash (PARTICLE): three small grey flakes, each a different lumpy shape',
+  'Q4 Embers (PARTICLE): three small sparks in orange and yellow: a diamond, a teardrop, a dot',
+  'Q5 Fog (PARTICLE): two big soft round puffs (fog, mist, ash cloud, cave mist)',
+  'Q6 Sand (PARTICLE): three small sandy streaks (sandstorm, dust devils)',
+  'Q7 Leaves (PARTICLE): three small green leaves (gales, the bayou)',
+  'Q8 Spores (PARTICLE): three small round green-yellow spores with a lighter middle',
+  'Q9 Bubbles (PARTICLE): three round bubbles, each an outline with a small highlight (sinking, poison, the deep)',
+  'Q10 Glints (PARTICLE): three small four-point star sparkles (water glints, prism lights, ghost lights)',
+  'Q11 Foam (PARTICLE): three small white foam blobs (ship wake, surf)',
+  'Q12 Sparks (PARTICLE): three small yellow zigzag sparks (static storm, shocks)',
+  'Q13 Lightning bolt (FLAT): one chunky yellow zigzag bolt from top to bottom',
+  'Q14 Wind streak (3-SLICE): a long thin white wind line, curled into a small loop at the right end (gales)',
+  'Q15 Wave crest (3-SLICE): a long chunky white-and-blue wave crest, plain along its length, curled over at both ends (rogue wave)'], 'kit'],
+ ['P', 'Island props (P1-P4 done)', 'medium', [
+  'P5 Volcanic (FRONT): a charred black tree stump, a black rock with orange glowing cracks, a plain black boulder, a small grey smoke vent; one image each',
+  'P6 Caverns (FRONT): a stalagmite, a cluster of three glowing blue mushrooms, a glowing teal coral, a purple boulder; one image each',
+  'P7 Mangrove (FRONT): a mangrove tree on stilt roots, a round lily pad with a flower, a reed clump, a mossy log; one image each',
+  'P8 Abyss (FRONT): a clump of red-tipped tube worms, an anemone, a dark navy boulder, a glowing teal coral; one image each',
+  'P9 Bone Sands (FRONT): a round cactus with two arms, a pair of curved rib bones sticking up, a small skull, a sandstone rock; one image each',
+  'P10 Crystal (FRONT): a cluster of lilac crystals, a pink boulder, a round lilac shrub, one tall crystal shard; one image each',
+  'P11 Harbour (FRONT): a short wooden jetty with a lantern post, a grey rock cluster, a red buoy, a green buoy, a rowboat, a round green bush; one image each',
+  'P12 Gull (TOP-DOWN): a white seagull seen from above, head and yellow beak at the top, both wings spread flat out to the sides, a short fan tail at the bottom'], 'unique'],
+ ['T', 'Reef Defence towers', 'medium', [
+  'T1 Cannon Battery (FRONT): a round stone tower with one big cannon on top',
+  'T2 Grapeshot Nest (FRONT): a wooden platform with one wide-mouthed gun',
+  'T3 Chain Mast (FRONT): a wooden mast tower with a chain launcher',
+  'T4 Depth Charge Post (FRONT): a dock post with a barrel launcher',
+  'T5 Fire Brazier (FRONT): a stone tower with a fire bowl on top',
+  'T6 Lighthouse Tower (FRONT): a small squat red and white lighthouse',
+  'T7 Heart of the Reef (FRONT): a glowing teal crystal on a round coral rock'], 'unique'],
  ['F', 'Landmarks', 'medium', [
   'F1 Pirate fort (FRONT): a small stone fort with a black flag',
   'F2 Lighthouse (FRONT): a white lighthouse on a cliff',
@@ -392,60 +908,69 @@ const BATCHES = [
   'F7 Stilt hut (FRONT): a swamp hut on stilts',
   'F8 Drowned temple (FRONT): a sunken stone arch',
   'F9 Giant skull (FRONT): a big skull half in sand',
-  'F10 Crystal spire (FRONT): a tall lilac crystal']],
- ['W', 'Weather objects', 'low', [
-  'W1 Ice floe (TOP): a flat white ice slab',
-  'W2 Wreckage (TOP): a few floating planks and a barrel',
-  'W3 Falling rock (FRONT): one chunky grey rock',
-  'W4 Falling ice (FRONT): one chunky ice block',
-  'W5 Ghost light (FRONT): a soft glowing blue orb',
-  'W6 Whirlpool base (TOP): a round dark-blue swirl of water',
-  'W7 Waterspout (FRONT): a grey-blue water funnel']],
- ['X', 'Shots and small markers', 'low', [
-  'X1 Cannonball (TOP): a black iron ball',
-  'X2 Chain shot (TOP): two iron balls on a short chain',
-  'X3 Grapeshot pellet (TOP): a small grey ball',
-  'X4 Depth charge (TOP): a round barrel bomb',
-  'X5 Flame barrel (TOP): a small barrel with a flame',
-  'X6 Harpoon (TOP): a harpoon pointing up',
-  'X7 Powder keg (TOP): a small black keg',
-  'X8 Enemy fire bolt (TOP): an orange fireball',
-  'X9 Frost shard (TOP): a blue ice shard pointing up',
-  'X10 Boulder (TOP): a round grey boulder',
-  'X11 Build spot (TOP): a round stone platform',
-  'X12 Mine (TOP): a round spiked sea mine']],
- ['X2', 'More shots and markers', 'medium', [
-  'X13 Fire pool (TOP): a flat round puddle of orange flame (Flame Barrels)',
-  'X14 Reaper blade (TOP): a curved iron blade (Reaper Chains, orbits the ship)',
-  'X15 Hex bolt (TOP): a green glowing orb (Bog Witch)',
-  'X16 Ink blob (TOP): a round black-purple ink splat (Ink Squid)',
-  'X17 Spectral shot (TOP): a pale green ghostly ball (Ghost Ship)',
-  'X18 Light orb (TOP): a pink-white glowing orb (Prism Colossus)',
-  'X19 Spore puff (TOP): a round green-yellow puff (Old Mother Mire)',
-  'X20 Mortar shell (TOP): a fat black shell with a lit fuse (Mortar Gunboat)']],
+  'F10 Crystal spire (FRONT): a tall lilac crystal'], 'unique'],
  ['U', 'Title, crests and UI pieces', 'medium', [
   'U1 Title logo (FRONT): the words THE SHATTERED REEF in chunky rounded gold letters on a navy banner, spelled exactly; nothing else',
   'U2 Blacksail Reavers crest (FRONT): a round black shield with a white skull on a sail',
   'U3 Wyrdtide crest (FRONT): a round teal shield with a white wave curl',
   'U4 Iron Accord crest (FRONT): a round grey iron shield with a gold anchor',
   'U5 Kraken Scale (FRONT): one shiny purple fish scale (rare currency)',
-  'U6 Gold star and empty star (FRONT): two images, a filled gold star and an outlined grey star (ratings)',
+  'U6 Gold star and empty star (FRONT): two images, a filled gold star and an outlined grey star (ratings and weapon levels; replaces the text stars)',
   'U7 Elite chest (FRONT): the treasure chest in gold with a red gem (elite drop)',
-  'U8 Warlord crown (FRONT): a small spiky gold crown (worn by wave-10 warlords)']],
+  'U8 Warlord crown (FRONT): a small spiky gold crown (worn by wave-10 warlords)'], 'kit'],
+ ['N', 'Straight-body redraws (before the animation build)', 'low', [
+  'N1 Stalker Eel (TOP-DOWN): a fat dark grey eel seen from directly above, dead straight from head (top) to tail (bottom), about a third as wide as it is long, two yellow eyes on top of the head',
+  'N2 Bog Leech (TOP-DOWN): one fat dark red leech seen from directly above, dead straight from top to bottom, plump like a bean, a round sucker mouth at the top end',
+  'N3 Leech Swarm (TOP-DOWN): three fat red leeches seen from directly above, lying straight and side by side, heads at the top, each plump like a bean'], 'unique'],
+ ['W', 'Weather objects', 'low', [
+  'W1 Ice floe (TOP-DOWN): a flat white ice slab with a jagged outline',
+  'W2 Wreckage (TOP-DOWN): three floating planks and a barrel, seen from above',
+  'W3 Falling rock (FRONT): one chunky grey rock',
+  'W4 Falling ice (FRONT): one chunky ice block',
+  'W5 Ghost light (FRONT): a round pale blue orb with a white core',
+  'W6 Whirlpool (RING): a round swirl of dark blue water spiralling into a dark centre, filled (the game spins it)',
+  'W7 Waterspout (FRONT): a grey-blue water funnel, wide at the top'], 'unique'],
  ['R', 'Reef Defence extras', 'low', [
   'R1 Sea gate (FRONT): two red and white buoys with a small flag between them (where defence waves enter)',
-  'R2 Specialisation badge (FRONT): a small round gold badge with a star (tower specialised)']],
+  'R2 Specialisation badge (FLAT): a small round gold badge with a star (tower specialised)',
+  'R3 Build spot (TOP-DOWN): a round stone platform seen from above, flat top (where towers are built)',
+  'R4 Mine (TOP-DOWN): a round spiked sea mine seen from above'], 'kit'],
+ ['I', 'Chart islands', 'done', [
+  'I1-I10 All ten chart islands are in (Caverns, Tropical and Cliff & Cove redone top-down on 2026-10-11)'], 'unique'],
+ ['O', 'Sea obstacle islands: plain pads', 'done', [
+  'O1-O11 Three pads per biome and the rock islets are in (2026-10-11). Too many are round: batch O2 adds varied outlines'], 'unique'],
+ ['B', 'Harbour buildings', 'done', [
+  'B1 Shipyard (FRONT): a small hut with a blue roof, a simple crane and a little boat on a slipway',
+  'B2 Armory (FRONT): a small stone hut with one cannon in front and a gold anchor sign',
+  'B3 Workshop (FRONT): a small hut with a chimney and a glowing forge door, one anvil',
+  'B4 Faction Hall (FRONT): a wide hall with a blue roof and three coloured banners',
+  'B5 Tower Yard (FRONT): a red and white striped lighthouse on a round rock',
+  'B6 Charm Shrine (FRONT): a stone archway with a glowing purple portal, a little moss'], 'unique'],
+ ['S', 'Player ships (5-view sets)', 'done', [
+  'S1 Sloop: wooden hull, one big cream sail, red flag',
+  'S2 Longboat: long low hull, one square red-striped sail, dragon-head prow',
+  'S3 Skiff: small light hull, one triangular sail',
+  'S4 Catamaran: two slim hulls joined by a deck, one tall sail',
+  'S5 Junk: round hull, red battened sails',
+  'S6 Ironclad Steamer: dark iron hull, one funnel, a paddle wheel each side',
+  'S7 Galleon: big hull, three cream sails, red flags'], 'unique'],
  ['C', 'Pickups', 'done', [
-  'C1-C7 Sea glass, coin, lodestone, life ring, chest: already simple, keep']],
+  'C1-C7 Sea glass, coin, lodestone, life ring, chest: already simple'], 'kit'],
  ['H', 'Effects (frame animations)', 'done', [
-  'H1-H5 Explosion, splash, kill burst, hit spark, muzzle flash: already simple, keep']],
+  'H1-H5 Explosion, splash, kill burst, hit spark, muzzle flash: already simple'], 'kit'],
 ];
-$('#p-header').textContent = HEADER;
-$('#p-ships').textContent = SHIPS;
 const bText = (b) => b[3].join('\n');
-$('#batches').innerHTML = BATCHES.map((b, i) => `<div class="prompt"><div class="ph"><h3>${b[0]} · ${b[1]} <span class="pri t-${b[2]}">${b[2]}</span></h3><button class="copy" data-copy="b${i}">Copy with header</button></div><pre>${bText(b).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre></div>`).join('');
-const TEXTS = { header: HEADER, ships: HEADER + '\n\n' + SHIPS };
-BATCHES.forEach((b, i) => { TEXTS['b' + i] = HEADER + '\n\nList:\n' + bText(b); });
+const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const TEXTS = { header: header('unique', FORDER), ships: header('unique', []) + '\n\n' + SHIPS };
+BATCHES.forEach((b, i) => { TEXTS['b' + i] = b[0] === 'S' ? TEXTS.ships + '\n\nList:\n' + bText(b) : header(b[4], formatsIn(b[3])) + '\n\nList:\n' + bText(b); });
+$('#batches').innerHTML = BATCHES.map((b, i) => {
+  const f = b[0] === 'S' ? ['SHIP 5 views'] : formatsIn(b[3]);
+  const meta = b[2] === 'done' ? '' : `<p class="fm">${b[4] === 'kit' ? 'One kit' : 'One of a kind'} · ${f.join(' · ')}</p>`;
+  return `<div class="prompt"><div class="ph"><h3>${b[0]} · ${b[1]} <span class="pri t-${b[2]}">${b[2]}</span></h3><button class="copy" data-copy="b${i}">Copy with header</button></div>${meta}<pre>${esc(bText(b))}</pre></div>`;
+}).join('');
+$('#p-header').textContent = TEXTS.header;
+$('#p-ships').textContent = SHIPS;
+document.querySelectorAll('pre[data-fmt]').forEach((p) => { p.textContent = p.dataset.fmt === 'SHIPS' ? SHIPS : FMT[p.dataset.fmt]; });
 document.addEventListener('click', async (ev) => {
   const btn = ev.target.closest('.copy'); if (!btn) return;
   const text = TEXTS[btn.dataset.copy]; const was = btn.textContent;
@@ -456,19 +981,21 @@ document.addEventListener('click', async (ev) => {
 $('#std-img').src = '__STD_IMG__';
 
 const count = (p) => DATA.filter((d) => d.pri === p).length;
-$('#tally').innerHTML = [['done', 'simple style done', EMOJI.filter((e) => e.state === 'done').length], ['high', 'redo · high (incl. icons)', EMOJI.filter((e) => e.state === 'need' || e.state === 'standin').length], ['medium', 'redo · medium', 1], ['low', 'redo · low', 0], ['keep', 'keep as code', 0]]
-  .map(([p, l, extra]) => `<div class="p-${p}"><b>${count(p) + extra}</b><span>${l}</span></div>`).join('');
-const ISTATE = { need: ['t-high', 'Needs art'], standin: ['t-medium', 'Stand-in'], keep: ['t-keep', 'Keep'], done: ['t-done', 'Toy icon ✓'] };
+const icon = (s) => EMOJI.filter((e) => e.state === s).length;
+const kitLeft = BATCHES.filter((b) => b[2] !== 'done').reduce((n, b) => n + b[3].length, 0);
+$('#tally').innerHTML = [['done', 'in the simple style', count('done') + icon('done')], ['high', 'redo · high (incl. icons)', count('high') + icon('need')], ['medium', 'redo · medium (incl. stand-ins, font)', count('medium') + icon('standin') + 1], ['low', 'redo · low', count('low')], ['kit', 'prompt lines left to send', kitLeft]]
+  .map(([p, l, n]) => `<div class="p-${p}"><b>${n}</b><span>${l}</span></div>`).join('');
+const ISTATE = { need: ['t-high', 'Needs art'], standin: ['t-medium', 'Stand-in'], done: ['t-done', 'Toy icon ✓'] };
 $('#igrid').innerHTML = EMOJI.map((e) => `<div class="icon is-${e.state}"><div class="g" aria-hidden="true">${e.img ? `<img src="${e.img}" alt="">` : e.e}<span class="ge">${e.img ? e.e : ''}</span></div><span class="tag ${ISTATE[e.state][0]}">${ISTATE[e.state][1]}</span><div class="u"><b>${e.n}×</b> · ${e.where.join(', ')}${e.ctx.length ? `<br>e.g. ${e.ctx.join(', ')}` : ''}${e.note ? `<br><i>${e.note}</i>` : ''}</div></div>`).join('');
 $('#cues').innerHTML = CUES.map((c) => `<code>${c}</code>`).join('');
 const match = (d, f) => f === 'all' || (f === 'need' ? NEED.includes(d.pri) : d.pri === f);
-const rank = { high: 0, medium: 1, low: 2, keep: 3, done: 4 };
+const rank = { high: 0, medium: 1, low: 2, done: 3 };
 let filter = 'need';
 function render() {
   const list = $('#list');
   for (const id of ['icons', 'fonts', 'sound']) $('.wrap').appendChild(document.getElementById(id));
   list.innerHTML = '';
-  const tabs = [['overview', 'Overview', null], ['kit', 'Prompt kit', null]];
+  const tabs = [['overview', 'Overview', null], ['howto', "How it's made", null], ['kit', 'Prompt kit', null]];
   for (const [id, title, cats] of TYPES) {
     if (!cats.length) { tabs.push([id, title, id === 'icons' ? EMOJI.length : null, id === 'icons' || id === 'fonts']); continue; }
     const all = DATA.filter((d) => cats.includes(d.cat));
@@ -502,7 +1029,7 @@ function render() {
     const idx = TYPES.findIndex((t) => t[0] === id);
     const nextId = TYPES.slice(idx + 1).map((t) => t[0]).find((n) => n !== id && document.getElementById(n) && document.getElementById(n).parentElement === list);
     if (nextId) list.insertBefore(sec, document.getElementById(nextId)); else list.appendChild(sec);
-    sec.hidden = filter === 'keep' || filter === 'done' || (filter === 'high' && id === 'sound');
+    sec.hidden = filter === 'done' || (filter === 'high' && id === 'sound');
   }
   $('#tabs').innerHTML = tabs.map(([id, title, n, hot]) => `<a class="tab" href="#${id}" data-id="${id}">${title}${n != null ? ` <span class="n${hot ? ' hot' : ''}">${n}</span>` : ''}</a>`).join('');
   watch();

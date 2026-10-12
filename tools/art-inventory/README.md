@@ -20,7 +20,11 @@ port 8940 (`python3 -m http.server 8940` in the repo root):
    - `python3 capture/make_prev.py <caps> <workdir>` → prev-data.json
 6. `python3 build_inv.py` → art-inventory.html (copy to index.html here, then
    republish the artifact). Verdicts per category live in build_inv.py (CAT,
-   SIMPLE, TOY_PRI); the prompt kit (header, batches) in inv_template.html.
+   SIMPLE, TOY_PRI); the prompt kit in inv_template.html: BASE/RULE/CLOSE are
+   the shared header, FMT the format definitions (one per "How it's made"
+   card), BATCHES the items. Each item names its format in brackets, e.g.
+   `(9-SLICE)`; a batch's copied header includes only the formats it names.
+   Nothing is "keep as code" (2026-10-12): every category needs a redraw route.
 
 `capture/sheet.py out.png cellW cellH cols files…` makes a contact sheet for
 eyeballing a batch of captures.
