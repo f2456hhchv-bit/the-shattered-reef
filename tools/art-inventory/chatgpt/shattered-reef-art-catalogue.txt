@@ -1,0 +1,312 @@
+THE SHATTERED REEF · ART CATALOGUE (2026-10-12)
+One line per asset: CODE Name (FORMAT): what it looks like (where the game uses it).
+Each batch heading gives its rule: ONE KIT (pieces of one matching set) or ONE OF A KIND (every image a new design).
+Finished batches are left out.
+
+== Batch A · Bosses (all, even simpler) · ONE OF A KIND ==
+A1 The Black Gale (TOP-DOWN): a big pirate ship seen from directly above: you see the deck and the tops of two big black sails stretched across it, bow pointing to the top, one red flag; a dark wooden hull shaped like a fat almond
+A2 The Drowned Admiral (TOP-DOWN): a ghost galleon seen from directly above: a pale green see-through hull shaped like a long almond, bow at the top, two ragged pale sails across the deck
+A3 Bloodfin Matriarch (TOP-DOWN): a big grey shark seen from directly above: a straight fat bean body, blunt snout at the top, two red side fins out to the sides, the back fin seen from above as a red stripe on the spine, a red tail fin at the bottom
+A4 The Kraken's Anchor (FRONT): a big rusty-orange anchor standing upright, two thick purple tentacles wrapped once round its shaft
+A5 The Frost Leviathan (TOP-DOWN): a long sea serpent seen from directly above, dead straight from head (top) to tail (bottom): pale blue back, a white stripe down the spine, a wide head with two small ice horns, a small fin at the tail
+A6 The Caldera Wyrm (TOP-DOWN): a dragon-serpent seen from directly above, dead straight from head (top) to tail (bottom): dark red back, an orange stripe down the spine, two small wings folded flat against its sides
+A6b The Caldera Wyrm, flying (TOP-DOWN): the same wyrm seen from directly above, body straight, two big bat wings spread flat out to the sides at their widest
+A7 The Hollow King (FRONT): a round grey stone blob with a gold crown and two glowing yellow eyes, two stubby stone arms
+A8 Old Mother Mire (FRONT): a round green mossy blob under a pointed hood, two glowing eyes, two stubby arms
+A9 The Deep Mother (TOP-DOWN): a big violet squid seen from directly above: a round head-mantle at the top, two big eyes on top of it, four thick tentacles hanging straight down below it side by side
+A10 The Dunemaw (TOP-DOWN): a fat sandy worm seen from directly above, dead straight from top to bottom, its top end one big round open mouth ringed with teeth
+A11 The Prism Colossus (FRONT): a chunky giant made of four big lilac crystals (body, head, two arms), two glowing eyes
+A12 Warding Seal (FRONT): a round stone disc on a short post with one glowing teal rune in the middle
+
+== Batch G · Creatures (G10-G28 done; these 9 left) · ONE OF A KIND ==
+G1 Gullswarm Harpy (TOP-DOWN): a white gull seen from directly above: round white body, head with a yellow beak at the top, both wings spread flat out to the sides at their widest with grey tips, a short fan tail at the bottom
+G2 Deep Crawler (TOP-DOWN): a dark blue-black crab seen from directly above: a round shell, two big claws reaching forward at the top, three short legs out each side, two eye stalks between the claws
+G3 Reef Shark (TOP-DOWN): a grey shark seen from directly above: a straight bean body, pointed snout at the top, two side fins out to the sides, the back fin seen from above as a thin stripe on the spine, tail fin at the bottom
+G4 Sea Serpent (TOP-DOWN): a fat green sea serpent seen from directly above, dead straight from head (top) to tail (bottom), about a third as wide as it is long: a round head with two eyes on top, a pale stripe down the back, a small fin at the tail
+G5 Frost Narwhal (TOP-DOWN): a pale blue whale seen from directly above: a smooth bean body, one long straight white tusk pointing out of the top, two flippers out to the sides, a tail fluke at the bottom
+G6 Ice Golem (FRONT): a squat golem built from big pale blue ice blocks: one body block, one head block, two block fists, two small dark eyes
+G7 Frost Wisp (FRONT): a round pale blue flame with a curling tip and two dark eyes
+G8 Siren (FRONT): a mermaid sitting on a round grey rock, long teal hair, her green tail curled round the rock
+G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above: a small round body and head with two ears at the top, both wings spread flat out to the sides at their widest, orange wing edges
+
+== Batch K · UI kit (one family; start with K1 and K9) · ONE KIT ==
+K1 Panel (9-SLICE): the main navy panel, like the harbour mockup's navy cards: navy face, thick dark outline, a lighter band along the top edge, a darker lip along the bottom edge, well-rounded corners (building panels, voyage card, pause menu, run summary, stage sheet)
+K2 Inset well (9-SLICE): a sunken darker navy box pressed into the panel, its shadow along the top inside edge (shop rows, stat boxes, the mini-map frame, log rows)
+K3 Card, weapon (9-SLICE): a cream card face with a thick gold border and the same bottom lip (level-up card for a weapon)
+K4 Card, armament (9-SLICE): the same card with a teal border
+K5 Card, ship upgrade (9-SLICE): the same card with a green border
+K6 Card, evolution (9-SLICE): the same card with a gold face, a rich orange-gold border and a small gold star on each top corner
+K7 Banner (3-SLICE): a red ribbon banner with a folded tail at each end (level-up title, warlord entrance, results titles)
+K8 Name plate (3-SLICE): a small cream scroll plate with curled ends (island names on the chart)
+K9 Gold button (3-SLICE): the big main button, like the mockup's Set Sail button: gold-yellow face, orange-brown lip, thick dark outline
+K10 Gold button, PRESSED (3-SLICE): K9 pushed in
+K11 Blue button (3-SLICE): like the mockup's Defend the Reef button: sky-blue face, deep blue lip
+K12 Blue button, PRESSED (3-SLICE): K11 pushed in
+K13 Navy button (3-SLICE): navy face, dark lip (menu buttons, Buy)
+K14 Navy button, PRESSED (3-SLICE): K13 pushed in
+K15 Red button (3-SLICE): red face, dark red lip (Abandon voyage, Sell)
+K16 Grey button (3-SLICE): flat grey face, no shine (disabled, locked)
+K17 Chip (3-SLICE): a small navy pill with a thin lip (HUD chips, currency pills, weather chip, messages)
+K18 Tab, off (3-SLICE): a navy tab with rounded top corners and a flat bottom
+K19 Tab, on (3-SLICE): the same tab in gold
+K20 Round button (FLAT): a round navy button with a lip and a plain face (pause, sound, back, close; the icon goes on top)
+K21 Round button, PRESSED (FLAT): K20 pushed in
+K22 Dash button (FLAT): a bigger round button with a thick gold rim and a plain navy face (the lightning icon goes on top)
+K23 Cooldown ring (RING): a thin gold ring that fits exactly round the dash button (the game sweeps it round while the dash recharges)
+K24 Joystick base (FLAT): a wide flat round navy disc with a thick lighter rim, plain
+K25 Joystick knob (FLAT): a small round domed gold knob
+K26 Alert dot (FLAT): a small red dot with a thick white rim
+K27 Bar track (BAR): the TRACK only: a navy groove with rounded ends (XP, hull, boss, captain's progress)
+K28 Bar fills (BAR, SET): four FILLs that fit K27's groove exactly: green, red, gold, blue
+K29 Boss bar cap (FLAT): a small round plate with a white skull, sits on the left end of the boss bar
+K30 Dock tile (9-SLICE): a small square navy tile with a gold rim (weapon dock)
+K31 Dock tile, evolved (9-SLICE): the same tile, all gold
+K32 Empty berth (9-SLICE): the same tile shape as a dashed outline only, empty inside
+K33 Pips (FLAT, SET): five small round pips: empty (a dark hole in a navy rim), filled gold, bright gold (current), empty with a gold ring (elite), dark red with a white skull (boss)
+K34 Level badge (FLAT): a small plain navy shield badge (ship and tower levels; the number goes on top)
+K35 Chart sea (SEAMLESS): the voyage chart's sea: calm toy blue with a few big soft lighter swirls
+K36 Route marks (FLAT, SET): a cream dash, a gold dash and a small red X (the dotted route on the chart: ahead, sailed, next goal)
+K37 Numbers (DIGITS): white chunky digits with a thick dark outline (damage numbers and other numbers drawn on the map)
+
+== Batch L · Terrain surfaces (Tropical first) · ONE KIT ==
+L1 Tropical land top (SEAMLESS): flat bright grass green with a few big soft patches one shade lighter
+L2 Tropical shore (SHORE): turquoise water, white foam line, pale sand rim, a darker sand groove, bright green grass top
+L3 Tropical water (SEAMLESS): bright toy turquoise with a few big soft lighter ripples
+L4 Cliff & Cove land top (SEAMLESS): flat turf green with a few big soft lighter patches
+L5 Cliff & Cove shore (SHORE): green-blue water, white foam line, grey pebble rim, a darker groove, turf green top
+L6 Cliff & Cove water (SEAMLESS): green-blue sea with a few big soft lighter ripples
+L7 Glacial land top (SEAMLESS): flat white snow with a few big soft pale blue patches
+L8 Glacial shore (SHORE): icy blue water, white foam line, pale blue ice rim, a darker blue groove, white snow top
+L9 Glacial water (SEAMLESS): cold mid blue with a few big soft paler ripples
+L10 Shipwreck land top (SEAMLESS): flat olive moss green with a few big soft darker patches
+L11 Shipwreck shore (SHORE): grey-teal water, white foam line, grey stone rim, a darker groove, olive moss top
+L12 Shipwreck water (SEAMLESS): grey-teal sea with a few big soft lighter ripples
+L13 Volcanic land top (SEAMLESS): flat charcoal-black rock with a few big soft dark grey patches
+L14 Volcanic shore (SHORE): dark slate water, an orange-tinted foam line, grey rock rim, a darker groove, charcoal-black top
+L15 Volcanic water (SEAMLESS): dark slate sea with a few big soft lighter ripples
+L16 Volcanic lava (SEAMLESS): bright orange lava with a few big soft yellow swirls and darker red crust patches
+L17 Caverns land top (SEAMLESS): flat purple-grey stone with a few big soft darker patches
+L18 Caverns shore (SHORE): dark teal water, a pale foam line, dark slate rim, a darker groove, purple-grey top
+L19 Caverns water (SEAMLESS): dark teal with a few big soft lighter ripples
+L20 Mangrove land top (SEAMLESS): flat olive bog green with a few big soft brown patches
+L21 Mangrove shore (SHORE): murky green water, a pale foam line, brown mud rim, a darker groove, olive bog top
+L22 Mangrove water (SEAMLESS): murky green with a few big soft lighter ripples
+L23 Abyss land top (SEAMLESS): flat deep navy rock with a few big soft lighter patches
+L24 Abyss shore (SHORE): deep navy water, a cyan foam line, grey rock rim, a darker groove, deep navy top
+L25 Abyss water (SEAMLESS): deep navy with a few big soft cyan-tinted ripples
+L26 Bone Sands land top (SEAMLESS): flat orange sand with a few big soft lighter dune patches
+L27 Bone Sands shore (SHORE): turquoise water, white foam line, cream rim, a darker groove, orange sand top
+L28 Bone Sands water (SEAMLESS): turquoise with a few big soft lighter ripples
+L29 Crystal land top (SEAMLESS): flat lilac with a few big soft pink patches
+L30 Crystal shore (SHORE): lilac-blue water, white foam line, pink rim, a darker groove, lilac top
+L31 Crystal water (SEAMLESS): lilac-blue with a few big soft lighter ripples
+L32 Harbour land top (SEAMLESS): flat bright lawn green like the harbour mockup, almost no variation
+L33 Harbour shore (SHORE): bright toy-blue water, white foam line, clean sand rim, a darker groove, lawn green top, like the harbour mockup
+L34 Harbour water (SEAMLESS): the harbour mockup's bright toy blue, almost no variation
+
+== Batch O2 · Island outlines (not round) · ONE OF A KIND ==
+O12 Tropical island (ISLAND): outline: a long thin sandbar, about five times longer than it is wide, gently bent like a banana; pale sand rim, flat green grass top; nothing on top
+O13 Tropical island (ISLAND): outline: a crescent (horseshoe) hugging a small round lagoon that opens to one side; pale sand rim, flat green grass top; nothing on top
+O14 Tropical island (ISLAND): outline: an L shape with two arms of different lengths and a rounded corner; pale sand rim, flat green grass top; nothing on top
+O15 Cliff & Cove island (ISLAND): outline: a teardrop with a long thin curling tail, like a comma; grey pebble rim, flat green turf top; nothing on top
+O16 Cliff & Cove island (ISLAND): outline: an hourglass: two blobs of different sizes joined by a narrow neck; grey pebble rim, flat green turf top; nothing on top
+O17 Cliff & Cove island (ISLAND): outline: a chain of three small islets in a row, touching each other; grey pebble rim, flat green turf top; nothing on top
+O18 Glacial island (ISLAND): outline: a kidney or boomerang, wider at one end; pale blue ice rim, flat white snow top; nothing on top
+O19 Glacial island (ISLAND): outline: a rounded triangle with one long side and two short sides; pale blue ice rim, flat white snow top; nothing on top
+O20 Glacial island (ISLAND): outline: a zigzag: a long strip with two sharp bends; pale blue ice rim, flat white snow top; nothing on top
+O21 Shipwreck island (ISLAND): outline: a long thin sandbar, about five times longer than it is wide, gently bent like a banana; grey stone rim, flat olive moss top; nothing on top
+O22 Shipwreck island (ISLAND): outline: a crescent (horseshoe) hugging a small round lagoon that opens to one side; grey stone rim, flat olive moss top; nothing on top
+O23 Shipwreck island (ISLAND): outline: an L shape with two arms of different lengths and a rounded corner; grey stone rim, flat olive moss top; nothing on top
+O24 Volcanic island (ISLAND): outline: a teardrop with a long thin curling tail, like a comma; grey rock rim, flat black rock top with two or three glowing orange lava cracks; nothing on top
+O25 Volcanic island (ISLAND): outline: an hourglass: two blobs of different sizes joined by a narrow neck; grey rock rim, flat black rock top with two or three glowing orange lava cracks; nothing on top
+O26 Volcanic island (ISLAND): outline: a chain of three small islets in a row, touching each other; grey rock rim, flat black rock top with two or three glowing orange lava cracks; nothing on top
+O27 Caverns island (ISLAND): outline: a kidney or boomerang, wider at one end; dark slate rim, flat purple-grey stone top; nothing on top
+O28 Caverns island (ISLAND): outline: a rounded triangle with one long side and two short sides; dark slate rim, flat purple-grey stone top; nothing on top
+O29 Caverns island (ISLAND): outline: a zigzag: a long strip with two sharp bends; dark slate rim, flat purple-grey stone top; nothing on top
+O30 Mangrove island (ISLAND): outline: a long thin sandbar, about five times longer than it is wide, gently bent like a banana; brown mud rim, flat olive bog top; nothing on top
+O31 Mangrove island (ISLAND): outline: a crescent (horseshoe) hugging a small round lagoon that opens to one side; brown mud rim, flat olive bog top; nothing on top
+O32 Mangrove island (ISLAND): outline: an L shape with two arms of different lengths and a rounded corner; brown mud rim, flat olive bog top; nothing on top
+O33 Abyss island (ISLAND): outline: a teardrop with a long thin curling tail, like a comma; grey rock rim, flat deep navy top; nothing on top
+O34 Abyss island (ISLAND): outline: an hourglass: two blobs of different sizes joined by a narrow neck; grey rock rim, flat deep navy top; nothing on top
+O35 Abyss island (ISLAND): outline: a chain of three small islets in a row, touching each other; grey rock rim, flat deep navy top; nothing on top
+O36 Bone Sands island (ISLAND): outline: a kidney or boomerang, wider at one end; cream rim, flat orange sand top; nothing on top
+O37 Bone Sands island (ISLAND): outline: a rounded triangle with one long side and two short sides; cream rim, flat orange sand top; nothing on top
+O38 Bone Sands island (ISLAND): outline: a zigzag: a long strip with two sharp bends; cream rim, flat orange sand top; nothing on top
+O39 Crystal island (ISLAND): outline: a long thin sandbar, about five times longer than it is wide, gently bent like a banana; pink rim, flat lilac top; nothing on top
+O40 Crystal island (ISLAND): outline: a crescent (horseshoe) hugging a small round lagoon that opens to one side; pink rim, flat lilac top; nothing on top
+O41 Crystal island (ISLAND): outline: an L shape with two arms of different lengths and a rounded corner; pink rim, flat lilac top; nothing on top
+
+== Batch D · Missing icons · ONE KIT ==
+D1 Burst (FRONT): a round yellow-orange explosion burst (Grapeshot, Scattershot, ring of shot)
+D2 Shock (FRONT): a small yellow star with a lightning crackle (Shock Shells)
+D3 Ram (FRONT): an iron ram head on a prow (Iron Ram, warlord rams)
+D4 Hook (FRONT): a grappling hook (Rigging Shredder)
+D5 Keg (FRONT): a small black powder keg (Powder Kegs)
+D6 Puff (FRONT): a small grey-white puff of smoke (Fine Powder, Swamp Gas)
+D7 Medal (FRONT): a gold medal on a red ribbon (Seasoned)
+D8 Finish flag (FRONT): a black and white chequered flag (Conqueror)
+D9 Eye (FRONT): a single cartoon eye (Reef Defence reveal)
+D10 Feather (FRONT): a white feather (Reef Defence flyer mark)
+D11 Music note (FRONT): a pair of black music notes (Siren song)
+D12 Dagger (FRONT): a small dagger (Glass Cannon)
+D13 Up arrow (FRONT): a chunky gold arrow pointing up (Reef Defence upgrade button; turned for the tutorial pointer)
+D14 Back arrow (FLAT): a chunky white arrow pointing left, rounded ends (back buttons)
+D15 Pause (FLAT): two chunky white upright bars side by side
+D16 Play (FLAT): a chunky white triangle pointing right, rounded corners (Resume, stage arrows; mirrored for previous)
+D17 Retry (FLAT): a chunky white circular arrow (Retry this level)
+
+== Batch E · Stand-in icons to replace · ONE KIT ==
+E1 Crossed swords (FRONT): two cutlasses crossed (crew, First Blood; now a single cutlass)
+E2 Wrench (FRONT): a single spanner (Bilge Pumps; now a gear)
+E3 Cannonballs (FRONT): three iron cannonballs in a pile (Cannonballs; now a cannon)
+E4 Chain shot (FRONT): two iron balls joined by a short chain (Chain Shot; now a plain link)
+E5 Wings (FRONT): a pair of small white wings (flyer mark; now one wing)
+E6 Stern chaser (FRONT): a small cannon pointing backwards over a ship's stern rail (Stern Chaser armament; now a plain cannon)
+
+== Batch M · Markers and rings · ONE KIT ==
+M1 Lock-on reticle (RING): four chunky gold corner brackets round an empty middle
+M2 Danger circle (RING): a thick red ring with a thin white outer edge (lightning marks, slams; the game fills in the countdown)
+M3 Target ring (RING): an orange ring with four short ticks pointing inward (mortar shells, rockfall, dive spots)
+M4 Charge lane (3-SLICE): a long red stripe with a chunky arrowhead at the right end (shark and warlord charges)
+M5 Sighting line (3-SLICE): a thin row of red dashes ending in a small red dot at the right end (where an enemy gun is aiming)
+M6 Shockwave (RING): a thin pale blue ring (blasts and level-ups; the game grows and fades it)
+M7 Ward bubble (RING): a round teal shield: a thick ring, the middle filled with flat pale teal
+M8 Enrage ring (RING): a ring of short red spikes pointing outward
+M9 Elite aura (RING): a ring of small gold flame tongues pointing outward
+M10 Edge arrow (FLAT): a chunky gold arrow pointing up, with a round empty slot in its tail (points at bosses, elites and chests off screen; their icon goes in the slot)
+M11 Status badges (FLAT, SET): five small round badges: a flame (burning), a green drip (poisoned), a snowflake (chilled), a yellow zigzag (shocked), a black ink drop (inked)
+M12 Matchup marks (FLAT, SET): a small cyan up-triangle (prey) and a small red shield with a white ! (threat)
+M13 Range ring (RING): a thin ring of chunky white dashes (Reef Defence tower range)
+M14 Build ring (RING): a thick navy ring with six round sockets spaced evenly round it (Reef Defence build menu)
+M15 Light (RING): one soft round light, warm white in the middle fading smoothly to nothing at the edge, filled, on a flat pure black background (I turn the black into transparency); the one exception to 'no glow' (lamps, portal and forge glows, the lantern pool in dark biomes)
+
+== Batch X · Shots · ONE KIT ==
+X1 Cannonball (TOP-DOWN): a black iron ball
+X2 Chain shot (TOP-DOWN): two iron balls on a short chain
+X3 Grapeshot pellet (TOP-DOWN): a small grey ball
+X4 Depth charge (TOP-DOWN): a round barrel bomb
+X5 Flame barrel (TOP-DOWN): a small barrel with a flame on top
+X6 Harpoon (TOP-DOWN): a harpoon, point at the top
+X7 Powder keg (TOP-DOWN): a small black keg seen from above
+X8 Enemy fire bolt (TOP-DOWN): an orange fireball, its flame trailing downwards
+X9 Frost shard (TOP-DOWN): a blue ice shard, point at the top
+X10 Boulder (TOP-DOWN): a round grey boulder
+X21 Sea Spirit wisp (TOP-DOWN): a small round blue-white flame, its tail curling downwards (orbits the ship)
+X22 St Elmo's arc (FLAT): a chunky yellow-white zigzag of lightning lying sideways, left to right (the game stretches it between two targets)
+X23 Shock bolt (TOP-DOWN): a round yellow spark ball with short zigzag spikes
+X24 Sand blast (TOP-DOWN): a round sandy puff
+X25 Spit glob (TOP-DOWN): a round green-teal glob (Sea Serpent, Warding Seal)
+X26 Gold corona (RING): a gold sunburst ring of short rays (round evolved weapons' shots)
+
+== Batch X2 · More shots · ONE KIT ==
+X13 Fire pool (TOP-DOWN): a flat round puddle of orange flame (Flame Barrels)
+X14 Reaper blade (TOP-DOWN): a curved iron blade (Reaper Chains, orbits the ship)
+X15 Hex bolt (TOP-DOWN): a green orb with a darker core (Bog Witch)
+X16 Ink blob (TOP-DOWN): a round black-purple ink splat (Ink Squid)
+X17 Spectral shot (TOP-DOWN): a pale green ghostly ball with a wispy tail (Ghost Ship)
+X18 Light orb (TOP-DOWN): a pink-white orb (Prism Colossus)
+X19 Spore puff (TOP-DOWN): a round green-yellow puff (Old Mother Mire)
+X20 Mortar shell (TOP-DOWN): a fat black shell with a lit fuse (Mortar Gunboat)
+
+== Batch Q · Weather particles · ONE KIT ==
+Q1 Rain (PARTICLE): three short slanted raindrop streaks of different lengths
+Q2 Snow (PARTICLE): three chunky snowflakes, six thick arms each
+Q3 Ash (PARTICLE): three small grey flakes, each a different lumpy shape
+Q4 Embers (PARTICLE): three small sparks in orange and yellow: a diamond, a teardrop, a dot
+Q5 Fog (PARTICLE): two big soft round puffs (fog, mist, ash cloud, cave mist)
+Q6 Sand (PARTICLE): three small sandy streaks (sandstorm, dust devils)
+Q7 Leaves (PARTICLE): three small green leaves (gales, the bayou)
+Q8 Spores (PARTICLE): three small round green-yellow spores with a lighter middle
+Q9 Bubbles (PARTICLE): three round bubbles, each an outline with a small highlight (sinking, poison, the deep)
+Q10 Glints (PARTICLE): three small four-point star sparkles (water glints, prism lights, ghost lights)
+Q11 Foam (PARTICLE): three small white foam blobs (ship wake, surf)
+Q12 Sparks (PARTICLE): three small yellow zigzag sparks (static storm, shocks)
+Q13 Lightning bolt (FLAT): one chunky yellow zigzag bolt from top to bottom
+Q14 Wind streak (3-SLICE): a long thin white wind line, curled into a small loop at the right end (gales)
+Q15 Wave crest (3-SLICE): a long chunky white-and-blue wave crest, plain along its length, curled over at both ends (rogue wave)
+
+== Batch P · Island props (P1-P4 done) · ONE OF A KIND ==
+P5a Volcanic prop (FRONT): a charred black tree stump
+P5b Volcanic prop (FRONT): a black rock with bright orange cracks
+P5c Volcanic prop (FRONT): a plain black boulder
+P5d Volcanic prop (FRONT): a small grey smoke vent
+P6a Caverns prop (FRONT): a stalagmite
+P6b Caverns prop (FRONT): a cluster of three mushrooms with bright cyan caps
+P6c Caverns prop (FRONT): a bright teal coral
+P6d Caverns prop (FRONT): a purple boulder
+P7a Mangrove prop (FRONT): a mangrove tree on stilt roots
+P7b Mangrove prop (FRONT): a round lily pad with one flower
+P7c Mangrove prop (FRONT): a reed clump
+P7d Mangrove prop (FRONT): a mossy log
+P8a Abyss prop (FRONT): a clump of red-tipped tube worms
+P8b Abyss prop (FRONT): an anemone
+P8c Abyss prop (FRONT): a dark navy boulder
+P8d Abyss prop (FRONT): a tall bright pink sea fan
+P9a Bone Sands prop (FRONT): a round cactus with two arms
+P9b Bone Sands prop (FRONT): a pair of curved rib bones sticking up
+P9c Bone Sands prop (FRONT): a small skull
+P9d Bone Sands prop (FRONT): a sandstone rock
+P10a Crystal prop (FRONT): a cluster of lilac crystals
+P10b Crystal prop (FRONT): a pink boulder
+P10c Crystal prop (FRONT): a round lilac shrub
+P10d Crystal prop (FRONT): one tall crystal shard
+P11a Harbour prop (FRONT): a short wooden jetty with a lantern post
+P11b Harbour prop (FRONT): a grey rock cluster
+P11c Harbour prop (FRONT): a red buoy
+P11d Harbour prop (FRONT): a green buoy
+P11e Harbour prop (FRONT): a rowboat
+P11f Harbour prop (FRONT): a round green bush
+P12 Gull (TOP-DOWN): a white seagull seen from above, head and yellow beak at the top, both wings spread flat out to the sides, a short fan tail at the bottom
+
+== Batch T · Reef Defence towers · ONE OF A KIND ==
+T1 Cannon Battery (FRONT): a round stone tower with one big cannon on top
+T2 Grapeshot Nest (FRONT): a wooden platform with one wide-mouthed gun
+T3 Chain Mast (FRONT): a wooden mast tower with a chain launcher
+T4 Depth Charge Post (FRONT): a dock post with a barrel launcher
+T5 Fire Brazier (FRONT): a stone tower with a fire bowl on top
+T6 Lighthouse Tower (FRONT): a small squat red and white lighthouse
+T7 Heart of the Reef (FRONT): a glowing teal crystal on a round coral rock
+
+== Batch F · Landmarks · ONE OF A KIND ==
+F1 Pirate fort (FRONT): a small stone fort with a black flag
+F2 Lighthouse (FRONT): a white lighthouse on a cliff
+F3 Ice spires (FRONT): three ice spires
+F4 Shipwreck (FRONT): a broken boat hull
+F5 Volcano (FRONT): a small volcano with a glowing top
+F6 Cave mouth (FRONT): a round rocky cave entrance
+F7 Stilt hut (FRONT): a swamp hut on stilts
+F8 Drowned temple (FRONT): a sunken stone arch
+F9 Giant skull (FRONT): a big skull half in sand
+F10 Crystal spire (FRONT): a tall lilac crystal
+
+== Batch U · Title, crests and UI pieces · ONE KIT ==
+U1 Title logo (FRONT): the words THE SHATTERED REEF in chunky rounded gold letters on a navy banner, spelled exactly; nothing else
+U2 Blacksail Reavers crest (FRONT): a round black shield with a white skull on a sail
+U3 Wyrdtide crest (FRONT): a round teal shield with a white wave curl
+U4 Iron Accord crest (FRONT): a round grey iron shield with a gold anchor
+U5 Kraken Scale (FRONT): one shiny purple fish scale (rare currency)
+U6a Gold star (FLAT): a filled chunky gold star (ratings and weapon levels; replaces the text star)
+U6b Empty star (FLAT): the same star as a grey outline, empty inside (replaces the text empty star)
+U7 Elite chest (FRONT): the treasure chest in gold with a red gem (elite drop)
+U8 Warlord crown (FRONT): a small spiky gold crown (worn by wave-10 warlords)
+
+== Batch N · Straight-body redraws (before the animation build) · ONE OF A KIND ==
+N1 Stalker Eel (TOP-DOWN): a fat dark grey eel seen from directly above, dead straight from head (top) to tail (bottom), about a third as wide as it is long, two yellow eyes on top of the head
+N2 Bog Leech (TOP-DOWN): one fat dark red leech seen from directly above, dead straight from top to bottom, plump like a bean, a round sucker mouth at the top end
+N3 Leech Swarm (TOP-DOWN): three fat red leeches seen from directly above, lying straight and side by side, heads at the top, each plump like a bean
+
+== Batch W · Weather objects · ONE OF A KIND ==
+W1 Ice floe (TOP-DOWN): a flat white ice slab with a jagged outline
+W2 Wreckage (TOP-DOWN): three floating planks and a barrel, seen from above
+W3 Falling rock (FRONT): one chunky grey rock
+W4 Falling ice (FRONT): one chunky ice block
+W5 Ghost light (FRONT): a round pale blue orb with a white core
+W6 Whirlpool (RING): a round swirl of dark blue water spiralling into a dark centre, filled (the game spins it)
+W7 Waterspout (FRONT): a grey-blue water funnel, wide at the top
+
+== Batch R · Reef Defence extras · ONE KIT ==
+R1 Sea gate (FRONT): two red and white buoys with a small flag between them (where defence waves enter)
+R2 Specialisation badge (FLAT): a small round gold badge with a star (tower specialised)
+R3 Build spot (TOP-DOWN): a round stone platform seen from above, flat top (where towers are built)
+R4 Mine (TOP-DOWN): a round spiked sea mine seen from above
+

@@ -159,7 +159,7 @@ _MAP=dict(_re.findall(r"'([^']+)': '([^']+)'", _ICON_SRC.split('EMOJI_ICONS = {'
 _STANDIN={'↩':'cannon (wants a stern chaser)','⚔':'cutlass (wants crossed swords)','🔧':'gear (wants a wrench)','⚫':'cannon (wants cannonballs)','✈':'wing','⛓':'chain link'}
 _CANVAS={'♪','♫','🪶','🐂'}
 # Plain text glyphs in the UI: each gets a drawn icon too.
-_GLYPH={'★':'Text star: becomes U6 (gold star)','☆':'Text star: becomes U6 (empty star)','❚':'Pause bars: becomes D15','◀':'Becomes D16 (play arrow, mirrored)','▶':'Becomes D16 (play arrow)','←':'Becomes D14 (back arrow)','↻':'Becomes D17 (retry arrow)','›':'Becomes D16, small','▼':'Tutorial arrow: becomes D13 turned','▲':'Damage mark: part of the digit set (K37)'}
+_GLYPH={'★':'Text star: becomes U6a (gold star)','☆':'Text star: becomes U6b (empty star)','❚':'Pause bars: becomes D15','◀':'Becomes D16 (play arrow, mirrored)','▶':'Becomes D16 (play arrow)','←':'Becomes D14 (back arrow)','↻':'Becomes D17 (retry arrow)','›':'Becomes D16, small','▼':'Tutorial arrow: becomes D13 turned','▲':'Damage mark: part of the digit set (K37)'}
 for e in emoji:
     k=e['e'].replace('\ufe0f','')
     if k in _MAP:
@@ -182,6 +182,7 @@ def _std_img():
     im = Image.open('/home/claude/the-shattered-reef/docs/art-reference/toy-simple/harbour-mockup.png').convert('RGB'); im.thumbnail((360, 540))
     b = io.BytesIO(); im.save(b, 'WEBP', quality=82)
     return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
-html=tpl.replace('__STD_IMG__', _std_img()).replace('__DATA__',json.dumps(items)).replace('__NOTES__',json.dumps(notes)).replace('__TYPES__',json.dumps([[a,b,c] for a,b,c in TYPES])).replace('__EMOJI__',json.dumps(emoji,ensure_ascii=False))
+import datetime as _dt
+html=tpl.replace('__BUILD_DATE__', _dt.date.today().isoformat()).replace('__STD_IMG__', _std_img()).replace('__DATA__',json.dumps(items)).replace('__NOTES__',json.dumps(notes)).replace('__TYPES__',json.dumps([[a,b,c] for a,b,c in TYPES])).replace('__EMOJI__',json.dumps(emoji,ensure_ascii=False))
 open('art-inventory.html','w').write(html)
 print(len(html)//1024,'KB')

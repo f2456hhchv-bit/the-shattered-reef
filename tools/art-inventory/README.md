@@ -26,5 +26,13 @@ port 8940 (`python3 -m http.server 8940` in the repo root):
    `(9-SLICE)`; a batch's copied header includes only the formats it names.
    Nothing is "keep as code" (2026-10-12): every category needs a redraw route.
 
+7. `node export-chatgpt.mjs art-inventory.html chatgpt` writes the ChatGPT
+   project files from the built page: `project-instructions.txt` (pasted into
+   the project's Instructions; must stay under 8,000 characters, the script
+   fails otherwise) and `shattered-reef-art-catalogue.txt` (uploaded as a
+   project file, with `docs/art-reference/toy-simple/harbour-mockup.png`).
+   Copies live in `chatgpt/`; send the owner the new catalogue whenever the
+   batches change. With the project set up he only types codes (K1, P5a…).
+
 `capture/sheet.py out.png cellW cellH cols files…` makes a contact sheet for
 eyeballing a batch of captures.

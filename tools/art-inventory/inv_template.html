@@ -134,6 +134,13 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
 .prompt .fm { margin: 6px 0 0; font-size: 12.5px; color: var(--keep); }
 .kit .prompt pre { max-height: 340px; overflow: auto; }
 .p-kit b { color: var(--gold); }
+.setup { border-color: var(--gold); margin: 0 0 12px; }
+.setup h3 { color: var(--gold); }
+.setup-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.setup details { margin-top: 4px; }
+.setup summary { cursor: pointer; font-weight: 600; color: var(--keep); font-size: 14px; min-height: 32px; display: flex; align-items: center; }
+.setup summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.setup pre { margin: 4px 0 0; max-height: 340px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--ink); border-radius: 8px; padding: 8px 10px; }
 .fontpick { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
 .fontpick > div { background: var(--ink); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
 .fontpick .k { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
@@ -178,7 +185,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
         <li><b>Swimmers and walkers</b> (sharks, crabs, golems): a symmetrical neutral pose. Code adds the sway, bob and squash.</li>
         <li><b>UI</b>: buttons swap to their PRESSED image, bars fill, pips light up, rings sweep round. Code swaps and crops the art; it doesn't draw any of it.</li></ul></div>
       <div class="box do"><h3>Do</h3><ul>
-        <li>Attach <b>the harbour mockup</b> to every request. When redoing an asset, attach its current image too; for kit pieces, attach the first finished piece of the kit. The style follows the pictures far more than the words.</li>
+        <li><b>Set up the ChatGPT project once</b> (top of the Prompt kit). It holds the instructions, every code and the harbour mockup, so you only type codes. When redoing an asset, attach its current image with the code; for kit pieces, attach the kit's first finished piece. The style follows the pictures far more than the words.</li>
         <li>Ask for <b>one asset per message</b>, on a <b>transparent background</b> (flat #FF00FF magenta if it can't).</li>
         <li>Every item names its <b>format</b> in brackets: TOP-DOWN for things that swim or fly, FRONT for upright things, FLAT for UI pieces, and so on. <a href="#howto">How it's made</a> shows each one and why the game needs it.</li>
         <li>Ships only: <b>one image with 5 views</b> in a row (see the prompt kit).</li>
@@ -197,7 +204,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
         <li>Don't <b>copy the last image</b> in a creature or island batch. If it hands back the same outline or pose, reply with the fix line below.</li>
       </ul></div>
       <div class="box also"><h3>When ChatGPT drifts</h3><ul>
-        <li>It holds the style for 3-4 images, then slips. <b>Start a fresh chat</b> every batch, or every 3-4 images.</li>
+        <li>It holds the style for 3-4 images, then slips. <b>Start a fresh chat</b> (in the project) every 3-4 images.</li>
+        <li>In the project, fix an image with one word: <code>busy</code>, <code>simpler</code>, <code>view</code>, <code>same</code>, <code>edge</code>, <code>family</code>, <code>again</code>. Without the project, the full lines below do the same.</li>
         <li>If it <b>writes code</b> or describes the image instead of making it, start a fresh chat. Arguing doesn't fix it.</li>
         <li>Too busy? Reply: <code>Too many parts. Half as many pieces, no small props, bigger simpler shapes. Same subject and view.</code></li>
         <li>Too detailed or textured? Reply: <code>Simpler, like the attached harbour. Chunky blocks, flat matte colours, no texture or lines. Same pose.</code></li>
@@ -551,7 +559,23 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
 
   <section class="type" id="kit">
     <h2>Prompt kit</h2>
-    <p class="mut">Press a batch's <b>Copy with header</b>, paste it into a fresh chat, attach the harbour mockup (and the first finished kit piece for a kit batch), then just say <b>next</b> for each item. The header carries only the format definitions that batch uses.</p>
+    <div class="box setup">
+      <h3>Set up once in ChatGPT, then just type a code</h3>
+      <ol>
+        <li>In ChatGPT, make a new <b>Project</b> (for example "Shattered Reef art").</li>
+        <li>Open the project's <b>Instructions</b> and paste in the project instructions (button below). They fit its 8,000-character limit: <span id="pi-len"></span>.</li>
+        <li>Add two <b>project files</b>: <code>shattered-reef-art-catalogue.txt</code> (all <span id="cat-n"></span> codes) and <code>harbour-mockup.png</code> (the style). I sent both in our chat.</li>
+        <li>Start a chat in the project and type a code, like <code>K1</code>. It quotes that item's line, then draws it. Then type <code>next</code>, or any code.</li>
+        <li>When it drifts (usually after 3-4 images), start a <b>new chat in the project</b> and type the next code. Nothing to paste.</li>
+        <li>To fix an image, reply with one word: <code>busy</code>, <code>simpler</code>, <code>view</code>, <code>same</code>, <code>edge</code>, <code>family</code> or <code>again</code>.</li>
+        <li>Kit batches (K, L, M, Q, X, D, E, U, R): once the first piece is right, attach it with the code when you start a new chat, so the set stays one family.</li>
+        <li>When the list changes, I'll send a new catalogue file: replace the old one in the project.</li>
+      </ol>
+      <div class="setup-btns"><button class="copy" data-copy="project" data-pre="p-project">Copy project instructions</button><button class="copy" data-copy="catalogue" data-pre="p-catalogue">Copy catalogue text</button></div>
+      <details><summary>Read the project instructions</summary><pre id="p-project"></pre></details>
+      <details><summary>Read the catalogue</summary><pre id="p-catalogue"></pre></details>
+    </div>
+    <p class="mut">Without a project: press a batch's <b>Copy with header</b>, paste it into a fresh chat with the harbour mockup attached, then say <b>next</b> for each item.</p>
     <div class="kit">
       <div class="prompt"><div class="ph"><h3>Full header (every format)</h3><button class="copy" data-copy="header">Copy</button></div><pre id="p-header"></pre></div>
       <div class="prompt"><div class="ph"><h3>Ships: 5-view set</h3><button class="copy" data-copy="ships">Copy</button></div><pre id="p-ships"></pre><p class="mut">Done for all 7 hulls. Kept for new hulls. Cut with <code>python3 tools/cut-ship-views.py &lt;hull&gt; &lt;image&gt;</code>.</p></div>
@@ -626,7 +650,7 @@ const NEED = ['high', 'medium', 'low'];
 // The prompt header is built per batch: the shared rules, ONE OF A KIND or
 // ONE KIT, then only the format definitions that batch's items name.
 const BASE = `Use the image generator. No code. One image per reply.
-STYLE (strict): match the attached harbour image. A simple chunky toy, like a piece from a child's plastic playset: a few big rounded shapes, a thick clear silhouette, slightly squat and cute. 3-4 flat matte colours, soft light from the top-left, smooth, no texture. No glow or halo, no cast shadow, no text. Objects stand on nothing: no water or ground under them.
+STYLE (strict): match the harbour mockup image. A simple chunky toy, like a piece from a child's plastic playset: a few big rounded shapes, a thick clear silhouette, slightly squat and cute. 3-4 flat matte colours, soft light from the top-left, smooth, no texture. No glow or halo, no cast shadow, no text. Objects stand on nothing: no water or ground under them.
 DETAIL (loose): the small choices are yours, as long as every part stays big and simple. If a part would vanish at 48px, leave it out.
 BACKGROUND: truly transparent, except SEAMLESS and SHORE images, which fill the whole canvas. If you can't do transparent, use flat #FF00FF magenta. Never a painted grey checkerboard.`;
 const RULE = {
@@ -695,7 +719,7 @@ const BATCHES = [
   'G8 Siren (FRONT): a mermaid sitting on a round grey rock, long teal hair, her green tail curled round the rock',
   'G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above: a small round body and head with two ears at the top, both wings spread flat out to the sides at their widest, orange wing edges'], 'unique'],
  ['K', 'UI kit (one family; start with K1 and K9)', 'high', [
-  'K1 Panel (9-SLICE): the main navy panel, like the attached harbour cards: navy face, thick dark outline, a lighter band along the top edge, a darker lip along the bottom edge, well-rounded corners (building panels, voyage card, pause menu, run summary, stage sheet)',
+  "K1 Panel (9-SLICE): the main navy panel, like the harbour mockup's navy cards: navy face, thick dark outline, a lighter band along the top edge, a darker lip along the bottom edge, well-rounded corners (building panels, voyage card, pause menu, run summary, stage sheet)",
   'K2 Inset well (9-SLICE): a sunken darker navy box pressed into the panel, its shadow along the top inside edge (shop rows, stat boxes, the mini-map frame, log rows)',
   'K3 Card, weapon (9-SLICE): a cream card face with a thick gold border and the same bottom lip (level-up card for a weapon)',
   'K4 Card, armament (9-SLICE): the same card with a teal border',
@@ -703,9 +727,9 @@ const BATCHES = [
   'K6 Card, evolution (9-SLICE): the same card with a gold face, a rich orange-gold border and a small gold star on each top corner',
   'K7 Banner (3-SLICE): a red ribbon banner with a folded tail at each end (level-up title, warlord entrance, results titles)',
   'K8 Name plate (3-SLICE): a small cream scroll plate with curled ends (island names on the chart)',
-  'K9 Gold button (3-SLICE): the big main button, like the attached Set Sail: gold-yellow face, orange-brown lip, thick dark outline',
+  "K9 Gold button (3-SLICE): the big main button, like the mockup's Set Sail button: gold-yellow face, orange-brown lip, thick dark outline",
   'K10 Gold button, PRESSED (3-SLICE): K9 pushed in',
-  'K11 Blue button (3-SLICE): like the attached Defend the Reef: sky-blue face, deep blue lip',
+  "K11 Blue button (3-SLICE): like the mockup's Defend the Reef button: sky-blue face, deep blue lip",
   'K12 Blue button, PRESSED (3-SLICE): K11 pushed in',
   'K13 Navy button (3-SLICE): navy face, dark lip (menu buttons, Buy)',
   'K14 Navy button, PRESSED (3-SLICE): K13 pushed in',
@@ -764,9 +788,9 @@ const BATCHES = [
   'L29 Crystal land top (SEAMLESS): flat lilac with a few big soft pink patches',
   'L30 Crystal shore (SHORE): lilac-blue water, white foam line, pink rim, a darker groove, lilac top',
   'L31 Crystal water (SEAMLESS): lilac-blue with a few big soft lighter ripples',
-  'L32 Harbour land top (SEAMLESS): flat bright lawn green like the attached harbour, almost no variation',
-  'L33 Harbour shore (SHORE): bright toy-blue water, white foam line, clean sand rim, a darker groove, lawn green top, like the attached harbour',
-  "L34 Harbour water (SEAMLESS): the attached harbour's bright toy blue, almost no variation"], 'kit'],
+  'L32 Harbour land top (SEAMLESS): flat bright lawn green like the harbour mockup, almost no variation',
+  'L33 Harbour shore (SHORE): bright toy-blue water, white foam line, clean sand rim, a darker groove, lawn green top, like the harbour mockup',
+  "L34 Harbour water (SEAMLESS): the harbour mockup's bright toy blue, almost no variation"], 'kit'],
  ['O2', 'Island outlines (not round)', 'high', [
   'O12 Tropical island (ISLAND): outline: a long thin sandbar, about five times longer than it is wide, gently bent like a banana; pale sand rim, flat green grass top; nothing on top',
   'O13 Tropical island (ISLAND): outline: a crescent (horseshoe) hugging a small round lagoon that opens to one side; pale sand rim, flat green grass top; nothing on top',
@@ -882,13 +906,36 @@ const BATCHES = [
   'Q14 Wind streak (3-SLICE): a long thin white wind line, curled into a small loop at the right end (gales)',
   'Q15 Wave crest (3-SLICE): a long chunky white-and-blue wave crest, plain along its length, curled over at both ends (rogue wave)'], 'kit'],
  ['P', 'Island props (P1-P4 done)', 'medium', [
-  'P5 Volcanic (FRONT): a charred black tree stump, a black rock with orange glowing cracks, a plain black boulder, a small grey smoke vent; one image each',
-  'P6 Caverns (FRONT): a stalagmite, a cluster of three glowing blue mushrooms, a glowing teal coral, a purple boulder; one image each',
-  'P7 Mangrove (FRONT): a mangrove tree on stilt roots, a round lily pad with a flower, a reed clump, a mossy log; one image each',
-  'P8 Abyss (FRONT): a clump of red-tipped tube worms, an anemone, a dark navy boulder, a glowing teal coral; one image each',
-  'P9 Bone Sands (FRONT): a round cactus with two arms, a pair of curved rib bones sticking up, a small skull, a sandstone rock; one image each',
-  'P10 Crystal (FRONT): a cluster of lilac crystals, a pink boulder, a round lilac shrub, one tall crystal shard; one image each',
-  'P11 Harbour (FRONT): a short wooden jetty with a lantern post, a grey rock cluster, a red buoy, a green buoy, a rowboat, a round green bush; one image each',
+  'P5a Volcanic prop (FRONT): a charred black tree stump',
+  'P5b Volcanic prop (FRONT): a black rock with bright orange cracks',
+  'P5c Volcanic prop (FRONT): a plain black boulder',
+  'P5d Volcanic prop (FRONT): a small grey smoke vent',
+  'P6a Caverns prop (FRONT): a stalagmite',
+  'P6b Caverns prop (FRONT): a cluster of three mushrooms with bright cyan caps',
+  'P6c Caverns prop (FRONT): a bright teal coral',
+  'P6d Caverns prop (FRONT): a purple boulder',
+  'P7a Mangrove prop (FRONT): a mangrove tree on stilt roots',
+  'P7b Mangrove prop (FRONT): a round lily pad with one flower',
+  'P7c Mangrove prop (FRONT): a reed clump',
+  'P7d Mangrove prop (FRONT): a mossy log',
+  'P8a Abyss prop (FRONT): a clump of red-tipped tube worms',
+  'P8b Abyss prop (FRONT): an anemone',
+  'P8c Abyss prop (FRONT): a dark navy boulder',
+  'P8d Abyss prop (FRONT): a tall bright pink sea fan',
+  'P9a Bone Sands prop (FRONT): a round cactus with two arms',
+  'P9b Bone Sands prop (FRONT): a pair of curved rib bones sticking up',
+  'P9c Bone Sands prop (FRONT): a small skull',
+  'P9d Bone Sands prop (FRONT): a sandstone rock',
+  'P10a Crystal prop (FRONT): a cluster of lilac crystals',
+  'P10b Crystal prop (FRONT): a pink boulder',
+  'P10c Crystal prop (FRONT): a round lilac shrub',
+  'P10d Crystal prop (FRONT): one tall crystal shard',
+  'P11a Harbour prop (FRONT): a short wooden jetty with a lantern post',
+  'P11b Harbour prop (FRONT): a grey rock cluster',
+  'P11c Harbour prop (FRONT): a red buoy',
+  'P11d Harbour prop (FRONT): a green buoy',
+  'P11e Harbour prop (FRONT): a rowboat',
+  'P11f Harbour prop (FRONT): a round green bush',
   'P12 Gull (TOP-DOWN): a white seagull seen from above, head and yellow beak at the top, both wings spread flat out to the sides, a short fan tail at the bottom'], 'unique'],
  ['T', 'Reef Defence towers', 'medium', [
   'T1 Cannon Battery (FRONT): a round stone tower with one big cannon on top',
@@ -915,7 +962,8 @@ const BATCHES = [
   'U3 Wyrdtide crest (FRONT): a round teal shield with a white wave curl',
   'U4 Iron Accord crest (FRONT): a round grey iron shield with a gold anchor',
   'U5 Kraken Scale (FRONT): one shiny purple fish scale (rare currency)',
-  'U6 Gold star and empty star (FRONT): two images, a filled gold star and an outlined grey star (ratings and weapon levels; replaces the text stars)',
+  'U6a Gold star (FLAT): a filled chunky gold star (ratings and weapon levels; replaces the text star)',
+  'U6b Empty star (FLAT): the same star as a grey outline, empty inside (replaces the text empty star)',
   'U7 Elite chest (FRONT): the treasure chest in gold with a red gem (elite drop)',
   'U8 Warlord crown (FRONT): a small spiky gold crown (worn by wave-10 warlords)'], 'kit'],
  ['N', 'Straight-body redraws (before the animation build)', 'low', [
@@ -968,6 +1016,40 @@ $('#batches').innerHTML = BATCHES.map((b, i) => {
   const meta = b[2] === 'done' ? '' : `<p class="fm">${b[4] === 'kit' ? 'One kit' : 'One of a kind'} · ${f.join(' · ')}</p>`;
   return `<div class="prompt"><div class="ph"><h3>${b[0]} · ${b[1]} <span class="pri t-${b[2]}">${b[2]}</span></h3><button class="copy" data-copy="b${i}">Copy with header</button></div>${meta}<pre>${esc(bText(b))}</pre></div>`;
 }).join('');
+// One-time ChatGPT project: these instructions (under ChatGPT's 8,000-character
+// project limit) plus the catalogue file let the owner just type a code.
+const CAT_FILE = 'shattered-reef-art-catalogue.txt';
+const PROJECT = [`You make the game art for my mobile game, The Shattered Reef. The project file ${CAT_FILE} lists every asset by code (G1, K9, P5a…). I type a code and you make that asset. I may also type "next", or attach an image with a code.
+EVERY TIME I TYPE A CODE:
+1. Find that code's line in ${CAT_FILE} and quote it word for word. If it isn't there, say so and stop; never guess an item.
+2. Follow the rule on its batch heading (ONE KIT or ONE OF A KIND) and the format in brackets after its name.
+3. Make exactly one image with the image generator. No code, no description instead of the image.
+"next" = the code after the one you last made in this chat. If you haven't made one yet, ask me for a code.
+An image I attach with a code is the current art for that item: keep its subject and shape, restyle it to these rules.
+The style reference is the project file harbour-mockup.png. If you can't see it, ask me to attach it.`,
+  BASE.split('\n').slice(1).join('\n'),
+  `ONE OF A KIND batches: every image is a new design; never reuse the outline, pose or layout of an earlier image in this chat.
+ONE KIT batches: the pieces are one set: same outline thickness, corner roundness, light and colour family; change only what the item asks for.`,
+  'FORMATS (strict, the game depends on them):\n' + FORDER.filter((f) => f !== 'STRIP').map((f) => FMT[f]).join('\n'),
+  `QUICK FIXES (I may reply with one word):
+busy = half as many parts, no small props, bigger simpler shapes; same subject and view.
+simpler = chunkier blocks, flat matte colours, no texture or lines; same pose.
+view = wrong view: redo it exactly as its format says.
+same = too close to an earlier image: new outline and pose, same style.
+edge = no shape or border: fill the whole square so it repeats with no visible join.
+family = match the attached kit piece: same outline, lip, corners and colours.
+again = make the same code again.`].join('\n');
+const OPEN = BATCHES.filter((b) => b[2] !== 'done');
+const CATALOGUE = [`THE SHATTERED REEF · ART CATALOGUE (__BUILD_DATE__)`,
+  'One line per asset: CODE Name (FORMAT): what it looks like (where the game uses it).',
+  'Each batch heading gives its rule: ONE KIT (pieces of one matching set) or ONE OF A KIND (every image a new design).',
+  'Finished batches are left out.', '',
+  ...OPEN.flatMap((b) => [`== Batch ${b[0]} · ${b[1]} · ${b[4] === 'kit' ? 'ONE KIT' : 'ONE OF A KIND'} ==`, ...b[3], ''])].join('\n');
+TEXTS.project = PROJECT; TEXTS.catalogue = CATALOGUE;
+$('#p-project').textContent = PROJECT;
+$('#p-catalogue').textContent = CATALOGUE;
+$('#pi-len').textContent = `${PROJECT.length.toLocaleString('en-GB')} characters`;
+$('#cat-n').textContent = OPEN.reduce((n, b) => n + b[3].length, 0);
 $('#p-header').textContent = TEXTS.header;
 $('#p-ships').textContent = SHIPS;
 document.querySelectorAll('pre[data-fmt]').forEach((p) => { p.textContent = p.dataset.fmt === 'SHIPS' ? SHIPS : FMT[p.dataset.fmt]; });
@@ -975,7 +1057,10 @@ document.addEventListener('click', async (ev) => {
   const btn = ev.target.closest('.copy'); if (!btn) return;
   const text = TEXTS[btn.dataset.copy]; const was = btn.textContent;
   try { await navigator.clipboard.writeText(text); btn.textContent = 'Copied'; btn.classList.add('ok'); }
-  catch { const pre = btn.closest('.prompt').querySelector('pre'); const r = document.createRange(); r.selectNodeContents(pre); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); btn.textContent = 'Selected, copy it'; }
+  catch {
+    const pre = document.getElementById(btn.dataset.pre || '') || btn.closest('.prompt')?.querySelector('pre');
+    if (pre) { pre.closest('details')?.setAttribute('open', ''); const r = document.createRange(); r.selectNodeContents(pre); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); btn.textContent = 'Selected, copy it'; }
+  }
   setTimeout(() => { btn.textContent = was; btn.classList.remove('ok'); }, 1600);
 });
 $('#std-img').src = '__STD_IMG__';

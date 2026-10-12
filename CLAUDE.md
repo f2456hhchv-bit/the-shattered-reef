@@ -3065,6 +3065,28 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     particles in the weather/effects code for Q; digit-set drawing in
     `drawDamageNumbers` for K37.
 
+- **ChatGPT project: type a code, no pasting** (2026-10-12, owner: "drop
+  this in as the only thing in the prompt with a number code (g1, p1 etc)…
+  no need for me to copy paste the prompt in each time"). ChatGPT projects
+  take up to 8,000 characters of instructions plus files, so the setup is
+  done once:
+  - `tools/art-inventory/chatgpt/project-instructions.txt` (6,371
+    characters): look up the code in the catalogue file, quote its line
+    word for word (so a wrong lookup shows), apply the batch rule and
+    format, draw one image; `next`; attached image = current art to
+    restyle; one-word fixes (`busy`, `simpler`, `view`, `same`, `edge`,
+    `family`, `again`). Built in inv_template.html from the same BASE / FMT
+    as the batch prompts.
+  - `shattered-reef-art-catalogue.txt`: every open code (271), grouped by
+    batch with its ONE KIT / ONE OF A KIND rule; done batches left out.
+    Uploaded as a project file with the harbour mockup.
+  - Every code is now one image: P5-P11 split into P5a-P11f, U6 into
+    U6a/U6b. Prompt wording no longer says "the attached harbour"; it says
+    "the harbour mockup", which works pasted or in the project.
+  - The inventory's Prompt kit opens with the setup steps and copy buttons;
+    `export-chatgpt.mjs` writes both files from the built page (fails if
+    the instructions pass 8,000 characters).
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
