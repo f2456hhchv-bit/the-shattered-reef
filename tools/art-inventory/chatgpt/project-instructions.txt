@@ -7,6 +7,7 @@ EVERY TIME I TYPE A CODE:
 An image I attach with a code is the current art for that item: keep its subject and shape, restyle it to these rules.
 The style reference is the project file harbour-mockup.png. If you can't see it, ask me to attach it.
 STYLE (strict): match the harbour mockup image. A simple chunky toy, like a piece from a child's plastic playset: a few big rounded shapes, a thick clear silhouette, slightly squat and cute. 3-4 flat matte colours, soft light from the top-left, smooth, no texture. No glow or halo, no cast shadow, no text. Objects stand on nothing: no water or ground under them.
+NO CLUTTER (strict): about 6 big parts at most. Leave out small props and fittings unless the item names them: no cannons, barrels, crates, ropes, chains, ladders, lanterns, hatches, grates, wheels, posts, studs or rivets; no plank, brick or stone lines; no windows.
 DETAIL (loose): the small choices are yours, as long as every part stays big and simple. If a part would vanish at 48px, leave it out.
 BACKGROUND: truly transparent, except SEAMLESS and SHORE images, which fill the whole canvas. If you can't do transparent, use flat #FF00FF magenta. Never a painted grey checkerboard.
 ONE OF A KIND batches: every image is a new design; never reuse the outline, pose or layout of an earlier image in this chat.

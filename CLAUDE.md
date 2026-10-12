@@ -3086,6 +3086,12 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   - The inventory's Prompt kit opens with the setup steps and copy buttons;
     `export-chatgpt.mjs` writes both files from the built page (fails if
     the instructions pass 8,000 characters).
+  - First result (A1 Black Gale): right view, lookup quoted exactly, but
+    far too busy (cannons, grates, wheel, windows, posts, plank lines).
+    The prompt's STYLE said "a few big rounded shapes" but never listed
+    what to leave out (only the inventory's standard text did), so a NO
+    CLUTTER line now caps it at about 6 parts and bans small fittings
+    unless the item names them.
 
 ## Decisions log
 
