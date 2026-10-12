@@ -18,6 +18,13 @@ export const PROPS = {
     { file: 'shipwreck_mast', size: 56, w: 1 }, { file: 'shipwreck_barrel', size: 31, w: 2 },
     { file: 'shipwreck_boulder', size: 45, w: 3 }, { file: 'shipwreck_net', size: 42, w: 1 },
   ],
+  // One prop each so far (2026-10-12); more arrive with batch P.
+  volcanic: [{ file: 'volcanic_stump', size: 48, w: 1 }],
+  caverns: [{ file: 'caverns_stalagmite', size: 52, w: 1 }],
+  mangrove: [{ file: 'mangrove_tree', size: 60, w: 1 }],
+  abyss: [{ file: 'abyss_anemone', size: 42, w: 1 }],
+  bone_sands: [{ file: 'bone_sands_cactus', size: 48, w: 1 }],
+  crystal: [{ file: 'crystal_cluster', size: 48, w: 1 }],
 };
 
 // Sea rock islets (assets/islands/rock_<colour>.png): small obstacles.

@@ -2350,6 +2350,18 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   real-alpha wyrm (not the checkerboard). Left open: A6b (flying wyrm,
   still the older art) and G5-G9. Catalogue now 255 codes.
 
+- **Second art drop, same day:** better G1 gull (real alpha, no glow), a
+  true shark for G3 (the first read as a whale), G5 Frost Narwhal (keyed
+  from a checkerboard), a cleaner A1 Black Gale. First props for the six
+  newer biomes, one each, wired in `data/props.mjs`: volcanic stump,
+  caverns stalagmite, mangrove tree, abyss anemone, bone-sands cactus,
+  crystal cluster (screenshotted in play). `assets/props/harbour_jetty.png`
+  (P11a) is saved but not placed: harbour decor is still code-drawn. The
+  re-sent tropical/cliff/glacial/shipwreck prop sheets and rock islets
+  repeat art already in the game, so they weren't used. `key-creature.py`
+  takes `--size=` and `--out=`. Baseline sheets rebuilt with the bosses,
+  G1-G5 and the new props. Catalogue: 247 codes.
+
 ## Decisions log" heading in this file. Short landscape: Continue
   no longer wraps, and the mini-map hides while a voyage is saved so the
   New Voyage / Defend row fits.

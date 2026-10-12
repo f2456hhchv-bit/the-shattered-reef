@@ -18,11 +18,11 @@ def sheet(items,cell,cols,name,pad=14):
         im=fit(im,cell); x=pad+(i%cols)*(cell+pad)+(cell-im.width)//2; y=pad+(i//cols)*(cell+pad)+(cell-im.height)//2
         c.alpha_composite(im,(x,y))
     c.convert('RGB').save(out+'/'+name,optimize=True); print(name,W,H)
-cre='crystal_crab shard_crab prism_sprite sand_wyrm mirror_tortoise bone_vulture drift_jelly ink_squid bog_leech leech_swarm anglerfish jelly_bloom bayou_gator bog_witch deep_troll cave_bat stalker_eel ember_imp magma_golem'.split()
+cre='gullswarm_harpy deep_crawler reef_shark sea_serpent frost_narwhal black_gale drowned_admiral bloodfin_matriarch krakens_anchor frost_leviathan caldera_wyrm hollow_king mire_mother deep_mother dunemaw prism_colossus warding_seal crystal_crab shard_crab prism_sprite sand_wyrm mirror_tortoise bone_vulture drift_jelly ink_squid bog_leech leech_swarm anglerfish jelly_bloom bayou_gator bog_witch deep_troll cave_bat stalker_eel ember_imp magma_golem'.split()
 items=[Image.open(R+'creatures/'+n+'.png') for n in cre]
 for h,f in frames.items():
     a=Image.open(R+'ships/'+h+'.png'); x,y,w,hh=f[:4]; items.append(a.crop((x,y,x+w,y+hh)))
-sheet(items,150,7,'style-creatures-ships.png')
+sheet(items,140,9,'style-creatures-ships.png')
 import os
 w=[Image.open(R+'buildings/'+n) for n in sorted(os.listdir(R+'buildings'))]
 isl=['tropical','cliff_cove','glacial','shipwreck','volcanic','caverns','mangrove','abyss','bone_sands','crystal']
