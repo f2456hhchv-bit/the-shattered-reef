@@ -6,8 +6,7 @@ Finished batches are left out.
 == Batch A · Bosses (A1-A12 done; flying wyrm left) · ONE OF A KIND · match style-creatures-ships.png ==
 A6b The Caldera Wyrm, flying (TOP-DOWN): the same wyrm seen from directly above, body straight, two big bat wings spread flat out to the sides at their widest
 
-== Batch G · Creatures (G10-G28 done; G1-G4 done; these 5 left) · ONE OF A KIND · match style-creatures-ships.png ==
-G5 Frost Narwhal (TOP-DOWN): a pale blue whale seen from directly above: a smooth bean body, one long straight white tusk pointing out of the top, two flippers out to the sides, a tail fluke at the bottom
+== Batch G · Creatures (G1-G5, G10-G28 done; these 4 left) · ONE OF A KIND · match style-creatures-ships.png ==
 G6 Ice Golem (FRONT): a squat golem built from big pale blue ice blocks: one body block, one head block, two block fists, two small dark eyes
 G7 Frost Wisp (FRONT): a round pale blue flame with a curling tip and two dark eyes
 G8 Siren (FRONT): a mermaid sitting on a round grey rock, long teal hair, her green tail curled round the rock
@@ -209,32 +208,25 @@ Q13 Lightning bolt (FLAT): one chunky yellow zigzag bolt from top to bottom
 Q14 Wind streak (3-SLICE): a long thin white wind line, curled into a small loop at the right end (gales)
 Q15 Wave crest (3-SLICE): a long chunky white-and-blue wave crest, plain along its length, curled over at both ends (rogue wave)
 
-== Batch P · Island props (P1-P4 done) · ONE OF A KIND · match style-world.png ==
-P5a Volcanic prop (FRONT): a charred black tree stump
+== Batch P · Island props (P1-P4 done, plus P5a P6a P7a P8b P9a P10a P11a) · ONE OF A KIND · match style-world.png ==
 P5b Volcanic prop (FRONT): a black rock with bright orange cracks
 P5c Volcanic prop (FRONT): a plain black boulder
 P5d Volcanic prop (FRONT): a small grey smoke vent
-P6a Caverns prop (FRONT): a stalagmite
 P6b Caverns prop (FRONT): a cluster of three mushrooms with bright cyan caps
 P6c Caverns prop (FRONT): a bright teal coral
 P6d Caverns prop (FRONT): a purple boulder
-P7a Mangrove prop (FRONT): a mangrove tree on stilt roots
 P7b Mangrove prop (FRONT): a round lily pad with one flower
 P7c Mangrove prop (FRONT): a reed clump
 P7d Mangrove prop (FRONT): a mossy log
 P8a Abyss prop (FRONT): a clump of red-tipped tube worms
-P8b Abyss prop (FRONT): an anemone
 P8c Abyss prop (FRONT): a dark navy boulder
 P8d Abyss prop (FRONT): a tall bright pink sea fan
-P9a Bone Sands prop (FRONT): a round cactus with two arms
 P9b Bone Sands prop (FRONT): a pair of curved rib bones sticking up
 P9c Bone Sands prop (FRONT): a small skull
 P9d Bone Sands prop (FRONT): a sandstone rock
-P10a Crystal prop (FRONT): a cluster of lilac crystals
 P10b Crystal prop (FRONT): a pink boulder
 P10c Crystal prop (FRONT): a round lilac shrub
 P10d Crystal prop (FRONT): one tall crystal shard
-P11a Harbour prop (FRONT): a short wooden jetty with a lantern post
 P11b Harbour prop (FRONT): a grey rock cluster
 P11c Harbour prop (FRONT): a red buoy
 P11d Harbour prop (FRONT): a green buoy

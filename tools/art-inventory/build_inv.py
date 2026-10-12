@@ -140,8 +140,8 @@ for bid,bname in _BNAME.items():
     pads=sorted(_glob.glob(_A+'islands/'+bid+'_pad*.png'))+[_A+'islands/'+ROCKS[bid]+'.png']
     items.append({'cat':'Terrain (biome islands)','name':bname+' · sea pads + rock islet','img':_grid_tile(pads),'style':'simple','pri':'done'})
 for f in sorted(_glob.glob(_A+'props/*.png')):
-    stem=_os.path.basename(f)[:-4]; bid=max((b for b in _BNAME if stem.startswith(b+'_')), key=len)
-    items.append({'cat':'Island decorations','name':stem[len(bid)+1:].replace('_',' ').capitalize()+' ('+_BNAME[bid]+')','img':_asset_tile('props/'+stem),'style':'simple','pri':'done'})
+    stem=_os.path.basename(f)[:-4]; bid=max((b for b in _BNAME if stem.startswith(b+'_')), key=len, default=stem.split('_')[0])
+    items.append({'cat':'Island decorations','name':stem[len(bid)+1:].replace('_',' ').capitalize()+' ('+_BNAME.get(bid,bid.capitalize())+')','img':_asset_tile('props/'+stem),'style':'simple','pri':'done'})
 for o in items:
     if o['cat']=='Island decorations' and o.get('style')=='code': o['pri']='medium'
 _cre=[o for o in items if o['cat']=='Enemies' and o['name'] not in TOY_SHIP_LOOKS and o['name']!='Warding Seal']
