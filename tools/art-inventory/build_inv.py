@@ -92,7 +92,8 @@ SIMPLE={'Sea-glass gem (1 XP)','Sea-glass gem (5 XP)','Sea-glass gem (25 XP)','A
  'Explosion','Hit spark','Splash','Kill burst','Muzzle flash',
  'Charm Shrine','Tower Yard','Shipyard','Armory','Workshop','Faction Hall',
  'Crystal Crab','Shard Crab','Prism Sprite','Sand Wyrm','Mirror Tortoise','Bone Vulture','Drift Jelly','Ink Squid','Bog Leech','Leech Swarm',
- 'Anglerfish','Jelly Bloom','Bayou Gator','Bog Witch','Deep Troll','Cave Bat','Cave Bats','Stalker Eel','Ember Imp','Magma Golem'}
+ 'Anglerfish','Jelly Bloom','Bayou Gator','Bog Witch','Deep Troll','Cave Bat','Cave Bats','Stalker Eel','Ember Imp','Magma Golem',
+ 'Black Gale','The Black Gale','Drowned Admiral','The Drowned Admiral','Bloodfin Matriarch','The Bloodfin Matriarch',"Kraken's Anchor","The Kraken's Anchor",'Frost Leviathan','The Frost Leviathan','Caldera Wyrm','The Caldera Wyrm','Hollow King','The Hollow King','Old Mother Mire','The Old Mother Mire','Deep Mother','The Deep Mother','Dunemaw','The Dunemaw','Prism Colossus','The Prism Colossus','Warding Seal','The Warding Seal','Gullswarm Harpy','The Gullswarm Harpy','Deep Crawler','The Deep Crawler','Reef Shark','The Reef Shark','Sea Serpent','The Sea Serpent'}
 # 2026-10-09: owner judged every creature and boss too detailed next to the simple ships/buildings: all redo.
 SIMPLIFY_LOW={'Heart of the Reef'}
 TOY_PRI={'Player ships':'high','Harbour buildings':'high','Bosses':'high','Enemies':'high','Reef Defence':'medium'}

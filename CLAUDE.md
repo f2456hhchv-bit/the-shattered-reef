@@ -2339,6 +2339,17 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   the instructions name them as the style reference, each catalogue batch
   heading names its sheet, and the inventory Overview shows them.
 
+- **All 12 bosses + G1-G4 in the simple-toy style** (2026-10-12, owner's
+  ChatGPT-project images): keyed by `tools/key-creature.py` into
+  `assets/creatures/` (Black Gale, Drowned Admiral, Bloodfin Matriarch,
+  Kraken's Anchor, Frost Leviathan, Caldera Wyrm, Hollow King, Old Mother
+  Mire, Deep Mother, Dunemaw, Prism Colossus, Warding Seal; Gullswarm
+  Harpy, Deep Crawler, Reef Shark, Sea Serpent). Baked glows on the gull and
+  leviathan were cut by the alpha core. Of the duplicates, kept the plain
+  anchor (not the rust-spotted one), the chunkier leviathan, and the
+  real-alpha wyrm (not the checkerboard). Left open: A6b (flying wyrm,
+  still the older art) and G5-G9. Catalogue now 255 codes.
+
 ## Decisions log" heading in this file. Short landscape: Continue
   no longer wraps, and the mini-map hides while a voyage is saved so the
   New Voyage / Defend row fits.
