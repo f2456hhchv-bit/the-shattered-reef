@@ -183,6 +183,12 @@ def _std_img():
     b = io.BytesIO(); im.save(b, 'WEBP', quality=82)
     return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
 import datetime as _dt
-html=tpl.replace('__BUILD_DATE__', _dt.date.today().isoformat()).replace('__STD_IMG__', _std_img()).replace('__DATA__',json.dumps(items)).replace('__NOTES__',json.dumps(notes)).replace('__TYPES__',json.dumps([[a,b,c] for a,b,c in TYPES])).replace('__EMOJI__',json.dumps(emoji,ensure_ascii=False))
+def _base_img(n):
+    import io, base64
+    from PIL import Image
+    im = Image.open('/home/claude/the-shattered-reef/docs/art-reference/baseline/'+n).convert('RGB'); im.thumbnail((760, 760))
+    b = io.BytesIO(); im.save(b, 'WEBP', quality=80)
+    return 'data:image/webp;base64,' + base64.b64encode(b.getvalue()).decode()
+html=tpl.replace('__BUILD_DATE__', _dt.date.today().isoformat()).replace('__STD_IMG__', _std_img()).replace('__BASE_CS__', _base_img('style-creatures-ships.png')).replace('__BASE_W__', _base_img('style-world.png')).replace('__BASE_I__', _base_img('style-icons.png')).replace('__DATA__',json.dumps(items)).replace('__NOTES__',json.dumps(notes)).replace('__TYPES__',json.dumps([[a,b,c] for a,b,c in TYPES])).replace('__EMOJI__',json.dumps(emoji,ensure_ascii=False))
 open('art-inventory.html','w').write(html)
 print(len(html)//1024,'KB')

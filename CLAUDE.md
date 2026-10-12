@@ -2329,6 +2329,16 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   Applied in main.mjs only when `run.mode === 'survival'`. Screenshotted
   all 10 biomes at 390×844. Next: biome props as toy images (batch P).
 
+- **Finished art is the baseline** (2026-10-12, owner: "all the completed
+  sprites should be the baseline artwork"). Three reference sheets
+  (`docs/art-reference/baseline/`, rebuilt by
+  `tools/art-inventory/make-baseline-sheets.py`): creatures + 7 hulls,
+  world (buildings, chart islands, pads, rocks, props, pickups), icons +
+  effect frames. Bosses and G1-G9 are left off (being redone). They're
+  ChatGPT project files beside the mockup (5 files, fits the free plan);
+  the instructions name them as the style reference, each catalogue batch
+  heading names its sheet, and the inventory Overview shows them.
+
 ## Decisions log" heading in this file. Short landscape: Continue
   no longer wraps, and the mini-map hides while a voyage is saved so the
   New Voyage / Defend row fits.

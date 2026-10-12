@@ -144,6 +144,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
 .fontpick { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
 .fontpick > div { background: var(--ink); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
 .fontpick .k { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.baseline{display:grid;gap:12px;margin-block:20px}.baseline figure{margin:0}.baseline img{width:100%;max-width:760px;border-radius:10px;display:block}.baseline figcaption{font-size:12px;color:var(--mut,#667);margin-top:4px}
 </style>
 <div class="wrap">
   <h1>Shattered Reef Art Inventory</h1>
@@ -166,7 +167,13 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
       <div class="std-txt"><span class="k">The standard</span>
         <p><b>A simple chunky toy, like a child's wooden or plastic playset piece.</b> A few big rounded blocks (about 3-6 parts), thick silhouette, slightly squat cute proportions. Three or four flat matte colours, soft light from the top-left, smooth with no texture.</p>
         <p><b>No clutter.</b> No small props (barrels, crates, cannonball piles, ropes, chains, ladders, lanterns), no brick or plank lines, no rivets, scales, cracks, patterns, windows grids or text. If a part wouldn't be visible at 48px, leave it out.</p>
-        <p class="mut">The harbour mockup sets this standard; attach it to every request. The first toy pass (ships, buildings, towers, most creatures) is too detailed: same family, too many parts. Never use the word "painted" in a prompt.</p></div>
+        <p class="mut">The harbour mockup and the baseline sheets below set this standard; ChatGPT gets them as project files. The first toy pass (ships, buildings, towers, most creatures) is too detailed: same family, too many parts. Never use the word "painted" in a prompt.</p></div>
+    </div>
+    <div class="baseline"><span class="k">Baseline: the finished art</span>
+      <p class="mut">Every finished asset is now the style reference. New art must look like it belongs on these sheets. Bosses and creatures G1-G9 are left off (they're being redone). Each catalogue batch names the sheet to match.</p>
+      <figure><img src="__BASE_CS__" alt="Finished creatures and the seven player hulls"><figcaption>style-creatures-ships.png · for batches A, G, N</figcaption></figure>
+      <figure><img src="__BASE_W__" alt="Finished buildings, islands, rocks, props and pickups"><figcaption>style-world.png · for P, T, F, W, O2, L</figcaption></figure>
+      <figure><img src="__BASE_I__" alt="Finished icons and effect frames"><figcaption>style-icons.png · for K, D, E, U, M, X, X2, Q, R</figcaption></figure>
     </div>
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
@@ -564,7 +571,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
       <ol>
         <li>In ChatGPT, make a new <b>Project</b> (for example "Shattered Reef art").</li>
         <li>Open the project's <b>Instructions</b> and paste in the project instructions (button below). They fit its 8,000-character limit: <span id="pi-len"></span>.</li>
-        <li>Add two <b>project files</b>: <code>shattered-reef-art-catalogue.txt</code> (all <span id="cat-n"></span> codes) and <code>harbour-mockup.png</code> (the style). I sent both in our chat.</li>
+        <li>Add five <b>project files</b>: <code>shattered-reef-art-catalogue.txt</code> (all <span id="cat-n"></span> codes), <code>harbour-mockup.png</code>, and the three baseline sheets <code>style-creatures-ships.png</code>, <code>style-world.png</code>, <code>style-icons.png</code> (the finished art: see Baseline on the Overview). I sent them in our chat. Five files fits even the free plan.</li>
         <li>Start a chat in the project and type a code, like <code>K1</code>. It quotes that item's line, then draws it. Then type <code>next</code>, or any code.</li>
         <li>When it drifts (usually after 3-4 images), start a <b>new chat in the project</b> and type the next code. Nothing to paste.</li>
         <li>To fix an image, reply with one word: <code>busy</code>, <code>simpler</code>, <code>view</code>, <code>same</code>, <code>edge</code>, <code>family</code> or <code>again</code>.</li>
@@ -575,7 +582,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
       <details><summary>Read the project instructions</summary><pre id="p-project"></pre></details>
       <details><summary>Read the catalogue</summary><pre id="p-catalogue"></pre></details>
     </div>
-    <p class="mut">Without a project: press a batch's <b>Copy with header</b>, paste it into a fresh chat with the harbour mockup attached, then say <b>next</b> for each item.</p>
+    <p class="mut">Without a project: press a batch's <b>Copy with header</b>, paste it into a fresh chat with the harbour mockup and the batch's baseline sheet attached, then say <b>next</b> for each item.</p>
     <div class="kit">
       <div class="prompt"><div class="ph"><h3>Full header (every format)</h3><button class="copy" data-copy="header">Copy</button></div><pre id="p-header"></pre></div>
       <div class="prompt"><div class="ph"><h3>Ships: 5-view set</h3><button class="copy" data-copy="ships">Copy</button></div><pre id="p-ships"></pre><p class="mut">Done for all 7 hulls. Kept for new hulls. Cut with <code>python3 tools/cut-ship-views.py &lt;hull&gt; &lt;image&gt;</code>.</p></div>
@@ -650,7 +657,7 @@ const NEED = ['high', 'medium', 'low'];
 // The prompt header is built per batch: the shared rules, ONE OF A KIND or
 // ONE KIT, then only the format definitions that batch's items name.
 const BASE = `Use the image generator. No code. One image per reply.
-STYLE (strict): match the harbour mockup image. A simple chunky toy, like a piece from a child's plastic playset: a few big rounded shapes, a thick clear silhouette, slightly squat and cute. 3-4 flat matte colours, soft light from the top-left, smooth, no texture. No glow or halo, no cast shadow, no text. Objects stand on nothing: no water or ground under them.
+STYLE (strict): match the finished game art on the baseline sheets and the harbour mockup. A simple chunky toy, like a piece from a child's plastic playset: a few big rounded shapes, a thick clear silhouette, slightly squat and cute. 3-4 flat matte colours, soft light from the top-left, smooth, no texture. No glow or halo, no cast shadow, no text. Objects stand on nothing: no water or ground under them.
 NO CLUTTER (strict): about 6 big parts at most. Leave out small props and fittings unless the item names them: no cannons, barrels, crates, ropes, chains, ladders, lanterns, hatches, grates, wheels, posts, studs or rivets; no plank, brick or stone lines; no windows.
 DETAIL (loose): the small choices are yours, as long as every part stays big and simple. If a part would vanish at 48px, leave it out.
 BACKGROUND: truly transparent, except SEAMLESS and SHORE images, which fill the whole canvas. If you can't do transparent, use flat #FF00FF magenta. Never a painted grey checkerboard.`;
@@ -1027,7 +1034,7 @@ EVERY TIME I TYPE A CODE:
 3. Make exactly one image with the image generator. No code, no description instead of the image.
 "next" = the code after the one you last made in this chat. If you haven't made one yet, ask me for a code.
 An image I attach with a code is the current art for that item: keep its subject and shape, restyle it to these rules.
-The style reference is the project file harbour-mockup.png. If you can't see it, ask me to attach it.`,
+STYLE REFERENCE: the finished game art in the project files style-creatures-ships.png, style-world.png and style-icons.png, plus harbour-mockup.png. Every new image must look like it belongs on those sheets: same toy finish, outline weight, light and colour feel. Each batch heading names the sheet to match most closely. Match the look, never copy an item from a sheet. If you can't see a file, ask me to attach it.`,
   BASE.split('\n').slice(1).join('\n'),
   `ONE OF A KIND batches: every image is a new design; never reuse the outline, pose or layout of an earlier image in this chat.
 ONE KIT batches: the pieces are one set: same outline thickness, corner roundness, light and colour family; change only what the item asks for.`,
@@ -1041,11 +1048,13 @@ edge = no shape or border: fill the whole square so it repeats with no visible j
 family = match the attached kit piece: same outline, lip, corners and colours.
 again = make the same code again.`].join('\n');
 const OPEN = BATCHES.filter((b) => b[2] !== 'done');
+// Which baseline sheet each batch matches most closely.
+const SHEET_OF = (c) => /^(A|G|N|S)$/.test(c) ? 'style-creatures-ships.png' : /^(P|T|F|W|O2|L|B|I|O)$/.test(c) ? 'style-world.png' : 'style-icons.png';
 const CATALOGUE = [`THE SHATTERED REEF · ART CATALOGUE (__BUILD_DATE__)`,
   'One line per asset: CODE Name (FORMAT): what it looks like (where the game uses it).',
   'Each batch heading gives its rule: ONE KIT (pieces of one matching set) or ONE OF A KIND (every image a new design).',
   'Finished batches are left out.', '',
-  ...OPEN.flatMap((b) => [`== Batch ${b[0]} · ${b[1]} · ${b[4] === 'kit' ? 'ONE KIT' : 'ONE OF A KIND'} ==`, ...b[3], ''])].join('\n');
+  ...OPEN.flatMap((b) => [`== Batch ${b[0]} · ${b[1]} · ${b[4] === 'kit' ? 'ONE KIT' : 'ONE OF A KIND'} · match ${SHEET_OF(b[0])} ==`, ...b[3], ''])].join('\n');
 TEXTS.project = PROJECT; TEXTS.catalogue = CATALOGUE;
 $('#p-project').textContent = PROJECT;
 $('#p-catalogue').textContent = CATALOGUE;
