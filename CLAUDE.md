@@ -2362,6 +2362,20 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   takes `--size=` and `--out=`. Baseline sheets rebuilt with the bosses,
   G1-G5 and the new props. Catalogue: 247 codes.
 
+- **Prompts rewritten for real simplicity** (2026-10-18). Owner's G6 Ice
+  Golem came back with ~20 faceted pieces (shoulders, legs, feet, brow,
+  chin, a crest). Causes: lines named parts loosely ("built from big ice
+  blocks"), nothing banned facets, ChatGPT pads its own image prompt with
+  detail, and the baseline sheet itself showed three faceted golems.
+  Fixes: BASE now has SMOOTH (no facets/cut stone; rock/ice/crystal at most
+  3-4 soft faces), PARTS (the line's parts are the complete list), a
+  48px/black-silhouette test and named target pieces (crab, squid, gull,
+  shark, jellyfish, turtle). Project steps: write a short image prompt
+  with no added detail, then count parts and redraw once if over. G6-G9,
+  T1-T7 and F1-F10 lines now read "ONLY: … (N parts)". Hollow King,
+  Prism Colossus and Magma Golem dropped from style-creatures-ships.png;
+  the simplest pieces lead it. Instructions 7,377 characters.
+
 ## Decisions log" heading in this file. Short landscape: Continue
   no longer wraps, and the mini-map hides while a voyage is saved so the
   New Voyage / Defend row fits.

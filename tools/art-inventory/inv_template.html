@@ -166,6 +166,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
       <div class="std-art"><img id="std-img" alt="The simple toy harbour mockup, the reference for every asset"></div>
       <div class="std-txt"><span class="k">The standard</span>
         <p><b>A simple chunky toy, like a child's wooden or plastic playset piece.</b> A few big rounded blocks (about 3-6 parts), thick silhouette, slightly squat cute proportions. Three or four flat matte colours, soft light from the top-left, smooth with no texture.</p>
+        <p><b>Smooth, and only the listed parts.</b> Every surface smooth and rounded like moulded plastic: no facets or cut-stone planes, even for rock, ice and crystal. Each catalogue line lists its parts with "ONLY:" and a count; anything not on the list is left out.</p>
         <p><b>No clutter.</b> No small props (barrels, crates, cannonball piles, ropes, chains, ladders, lanterns), no brick or plank lines, no rivets, scales, cracks, patterns, windows grids or text. If a part wouldn't be visible at 48px, leave it out.</p>
         <p class="mut">The harbour mockup and the baseline sheets below set this standard; ChatGPT gets them as project files. The first toy pass (ships, buildings, towers, most creatures) is too detailed: same family, too many parts. Never use the word "painted" in a prompt.</p></div>
     </div>
@@ -657,9 +658,11 @@ const NEED = ['high', 'medium', 'low'];
 // The prompt header is built per batch: the shared rules, ONE OF A KIND or
 // ONE KIT, then only the format definitions that batch's items name.
 const BASE = `Use the image generator. No code. One image per reply.
-STYLE (strict): match the finished game art on the baseline sheets and the harbour mockup. A simple chunky toy, like a piece from a child's plastic playset: a few big rounded shapes, a thick clear silhouette, slightly squat and cute. 3-4 flat matte colours, soft light from the top-left, smooth, no texture. No glow or halo, no cast shadow, no text. Objects stand on nothing: no water or ground under them.
-NO CLUTTER (strict): about 6 big parts at most. Leave out small props and fittings unless the item names them: no cannons, barrels, crates, ropes, chains, ladders, lanterns, hatches, grates, wheels, posts, studs or rivets; no plank, brick or stone lines; no windows.
-DETAIL (loose): the small choices are yours, as long as every part stays big and simple. If a part would vanish at 48px, leave it out.
+STYLE (strict): a soft toy like a rubber bath toy or a jelly sweet: smooth, rounded, moulded-plastic surfaces, a thick clear silhouette, squat and cute. 2-3 flat matte colours plus one accent (eyes, flame, flag). Soft light from the top-left. No glow, halo, shadow, text or ground.
+SMOOTH (strict): no facets, gem cuts, chiselled planes, cracks, scales, feathers, planks, bricks or texture. Rock, ice and crystal are smooth rounded lumps shown mainly by colour: at most 3-4 big soft flat faces per lump, like the boulders on style-world.png, never many small facets or cut stone.
+PARTS (strict): the item line lists its parts, and that list is complete. Draw each listed part as one big smooth piece and nothing else: no extra shoulders, joints, legs, feet, brows, chins, armour, spikes, horns, crests, props, ropes, chains, rivets or windows. If unsure, leave it out.
+SIZE TEST: it must read as one clear blob filled solid black, and every part must still show at 48px wide.
+MATCH: the target look is the crab, squid, gull, shark, jellyfish and turtle on style-creatures-ships.png. Simpler than that is fine; busier is wrong.
 BACKGROUND: truly transparent, except SEAMLESS and SHORE images, which fill the whole canvas. If you can't do transparent, use flat #FF00FF magenta. Never a painted grey checkerboard.`;
 const RULE = {
   unique: `ONE OF A KIND: every image is a new design. Never reuse the outline, pose or layout of an earlier image in this chat, even for a similar item.`,
@@ -705,10 +708,10 @@ const BATCHES = [
  ['A', 'Bosses (A1-A12 done; flying wyrm left)', 'high', [
   "A6b The Caldera Wyrm, flying (TOP-DOWN): open the project file style-creatures-ships.png and find the Caldera Wyrm (the long dark-red dragon-serpent with an orange stripe down its back, second row). Copy it exactly: same head, horns, round body segments, cream spikes, orange stripe, colours and tail fin, seen from directly above, body dead straight. The only change: its two small folded wings are now two big bat wings spread flat out to the sides at their widest, dark red with orange webbing. This item is a copy of that wyrm, not a new design; if you can't see the file, ask me to attach the wyrm"], 'unique'],
  ['G', 'Creatures (G1-G5, G10-G28 done; these 4 left)', 'high', [
-  'G6 Ice Golem (FRONT): a squat golem built from big pale blue ice blocks: one body block, one head block, two block fists, two small dark eyes',
-  'G7 Frost Wisp (FRONT): a round pale blue flame with a curling tip and two dark eyes',
-  'G8 Siren (FRONT): a mermaid sitting on a round grey rock, long teal hair, her green tail curled round the rock',
-  'G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above: a small round body and head with two ears at the top, both wings spread flat out to the sides at their widest, orange wing edges'], 'unique'],
+  "G6 Ice Golem (FRONT): a squat pale blue ice golem like a soft toy. ONLY: one big round body, one small round head on top, two round fists at its sides, two dark eyes (5 parts). No legs, shoulders or facets",
+  "G7 Frost Wisp (FRONT): ONLY: one round pale blue flame shaped like a teardrop with one curl at the tip, two dark eyes (3 parts)",
+  "G8 Siren (FRONT): ONLY: one round grey rock, a mermaid sitting on it (round head, teal hair as one smooth shape, green tail as one smooth curve round the rock), two dark eyes. No hands, shells or jewellery",
+  "G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above. ONLY: one round body, one round head with two ears at the top, two wings spread flat out to the sides, each wing one smooth shape with an orange edge (6 parts). No wing fingers or veins"], 'unique'],
  ['K', 'UI kit (one family; start with K1 and K9)', 'high', [
   "K1 Panel (9-SLICE): the main navy panel, like the harbour mockup's navy cards: navy face, thick dark outline, a lighter band along the top edge, a darker lip along the bottom edge, well-rounded corners (building panels, voyage card, pause menu, run summary, stage sheet)",
   'K2 Inset well (9-SLICE): a sunken darker navy box pressed into the panel, its shadow along the top inside edge (shop rows, stat boxes, the mini-map frame, log rows)',
@@ -922,24 +925,24 @@ const BATCHES = [
   'P11f Harbour prop (FRONT): a round green bush',
   'P12 Gull (TOP-DOWN): a white seagull seen from above, head and yellow beak at the top, both wings spread flat out to the sides, a short fan tail at the bottom'], 'unique'],
  ['T', 'Reef Defence towers', 'medium', [
-  'T1 Cannon Battery (FRONT): a round stone tower with one big cannon on top',
-  'T2 Grapeshot Nest (FRONT): a wooden platform with one wide-mouthed gun',
-  'T3 Chain Mast (FRONT): a wooden mast tower with a chain launcher',
-  'T4 Depth Charge Post (FRONT): a dock post with a barrel launcher',
-  'T5 Fire Brazier (FRONT): a stone tower with a fire bowl on top',
-  'T6 Lighthouse Tower (FRONT): a small squat red and white lighthouse',
-  'T7 Heart of the Reef (FRONT): a glowing teal crystal on a round coral rock'], 'unique'],
+  "T1 Cannon Battery (FRONT): ONLY: one round squat grey tower, one big black cannon on top (2 parts). No stones, bricks or windows",
+  "T2 Grapeshot Nest (FRONT): ONLY: one round wooden tub-shaped platform, one wide-mouthed short gun on top (2 parts). No planks or posts",
+  "T3 Chain Mast (FRONT): ONLY: one fat wooden pole on a round base, one round chain launcher at the top (3 parts). No rigging",
+  "T4 Depth Charge Post (FRONT): ONLY: one fat round dock post, one round barrel launcher on top (2 parts)",
+  "T5 Fire Brazier (FRONT): ONLY: one round squat grey tower, one round fire bowl on top, one smooth flame (3 parts)",
+  "T6 Lighthouse Tower (FRONT): ONLY: one short fat red and white striped tower, one round lamp top (2 parts). No windows or railings",
+  "T7 Heart of the Reef (FRONT): ONLY: one round coral rock, one smooth teal crystal on top (2 parts). No glow"], 'unique'],
  ['F', 'Landmarks', 'medium', [
-  'F1 Pirate fort (FRONT): a small stone fort with a black flag',
-  'F2 Lighthouse (FRONT): a white lighthouse on a cliff',
-  'F3 Ice spires (FRONT): three ice spires',
-  'F4 Shipwreck (FRONT): a broken boat hull',
-  'F5 Volcano (FRONT): a small volcano with a glowing top',
-  'F6 Cave mouth (FRONT): a round rocky cave entrance',
-  'F7 Stilt hut (FRONT): a swamp hut on stilts',
-  'F8 Drowned temple (FRONT): a sunken stone arch',
-  'F9 Giant skull (FRONT): a big skull half in sand',
-  'F10 Crystal spire (FRONT): a tall lilac crystal'], 'unique'],
+  "F1 Pirate fort (FRONT): ONLY: one round squat grey fort, one black flag on top (2 parts). No bricks, cannons or windows",
+  "F2 Lighthouse (FRONT): ONLY: one round grey cliff lump, one short white lighthouse with a red top (2 parts)",
+  "F3 Ice spires (FRONT): ONLY: three smooth pale blue spires, tall, middle and short, standing together (3 parts). No facets",
+  "F4 Shipwreck (FRONT): ONLY: one brown boat hull broken in two halves, one leaning stump of mast (3 parts). No planks or ropes",
+  "F5 Volcano (FRONT): ONLY: one round dark grey cone, one orange top (2 parts). No cracks or smoke",
+  "F6 Cave mouth (FRONT): ONLY: one round grey rock lump, one dark round opening in its front (2 parts)",
+  "F7 Stilt hut (FRONT): ONLY: one round brown hut with a pointed green roof, four fat stilts (6 parts). No planks or windows",
+  "F8 Drowned temple (FRONT): ONLY: one smooth grey stone arch, two pillars and a round top (1 piece). No bricks or carvings",
+  "F9 Giant skull (FRONT): ONLY: one round cream skull, two dark eye holes, one sand mound it sits in (4 parts). No teeth or cracks",
+  "F10 Crystal spire (FRONT): ONLY: one tall smooth lilac crystal, one short one beside it (2 parts). No facets"], 'unique'],
  ['U', 'Title, crests and UI pieces', 'medium', [
   'U1 Title logo (FRONT): the words THE SHATTERED REEF in chunky rounded gold letters on a navy banner, spelled exactly; nothing else',
   'U2 Blacksail Reavers crest (FRONT): a round black shield with a white skull on a sail',
@@ -1007,16 +1010,17 @@ const PROJECT = [`You make the game art for my mobile game, The Shattered Reef. 
 EVERY TIME I TYPE A CODE:
 1. Find that code's line in ${CAT_FILE} and quote it word for word. If it isn't there, say so and stop; never guess an item.
 2. Follow the rule on its batch heading (ONE KIT or ONE OF A KIND) and the format in brackets after its name.
-3. Make exactly one image with the image generator. No code, no description instead of the image.
+3. Write the image prompt SHORT: the item's line, its format, and "simple soft toy, smooth rounded plastic, only these parts: …" listing the line's parts. Add no adjectives, details, poses or extra parts of your own.
+4. Make exactly one image. Then count its parts against the list; if it has extra parts, facets or texture, say so and redraw it once, simpler.
 "next" = the code after the one you last made in this chat. If you haven't made one yet, ask me for a code.
 An image I attach with a code is the current art for that item: keep its subject and shape, restyle it to these rules.
-STYLE REFERENCE: the finished game art in the project files style-creatures-ships.png, style-world.png and style-icons.png, plus harbour-mockup.png. Every new image must look like it belongs on those sheets: same toy finish, outline weight, light and colour feel. Each batch heading names the sheet to match most closely. Match the look, never copy an item from a sheet. If you can't see a file, ask me to attach it.`,
+STYLE REFERENCE: project files style-creatures-ships.png, style-world.png, style-icons.png and harbour-mockup.png. Match their simplest pieces; never copy an item. If you can't see a file, ask me to attach it.`,
   BASE.split('\n').slice(1).join('\n'),
   `ONE OF A KIND batches: every image is a new design; never reuse the outline, pose or layout of an earlier image in this chat.
 ONE KIT batches: the pieces are one set: same outline thickness, corner roundness, light and colour family; change only what the item asks for.`,
   'FORMATS (strict, the game depends on them):\n' + FORDER.filter((f) => f !== 'STRIP').map((f) => FMT[f]).join('\n'),
   `QUICK FIXES (I may reply with one word):
-busy = half as many parts, no small props, bigger simpler shapes; same subject and view.
+busy = redraw with only the parts the line lists, all smooth, no facets; same subject and view.
 simpler = chunkier blocks, flat matte colours, no texture or lines; same pose.
 view = wrong view: redo it exactly as its format says.
 same = too close to an earlier image: new outline and pose, same style.

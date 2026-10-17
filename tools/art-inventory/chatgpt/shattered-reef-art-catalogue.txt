@@ -1,4 +1,4 @@
-THE SHATTERED REEF · ART CATALOGUE (2026-10-12)
+THE SHATTERED REEF · ART CATALOGUE (2026-10-18)
 One line per asset: CODE Name (FORMAT): what it looks like (where the game uses it).
 Each batch heading gives its rule: ONE KIT (pieces of one matching set) or ONE OF A KIND (every image a new design).
 Finished batches are left out.
@@ -7,10 +7,10 @@ Finished batches are left out.
 A6b The Caldera Wyrm, flying (TOP-DOWN): open the project file style-creatures-ships.png and find the Caldera Wyrm (the long dark-red dragon-serpent with an orange stripe down its back, second row). Copy it exactly: same head, horns, round body segments, cream spikes, orange stripe, colours and tail fin, seen from directly above, body dead straight. The only change: its two small folded wings are now two big bat wings spread flat out to the sides at their widest, dark red with orange webbing. This item is a copy of that wyrm, not a new design; if you can't see the file, ask me to attach the wyrm
 
 == Batch G · Creatures (G1-G5, G10-G28 done; these 4 left) · ONE OF A KIND · match style-creatures-ships.png ==
-G6 Ice Golem (FRONT): a squat golem built from big pale blue ice blocks: one body block, one head block, two block fists, two small dark eyes
-G7 Frost Wisp (FRONT): a round pale blue flame with a curling tip and two dark eyes
-G8 Siren (FRONT): a mermaid sitting on a round grey rock, long teal hair, her green tail curled round the rock
-G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above: a small round body and head with two ears at the top, both wings spread flat out to the sides at their widest, orange wing edges
+G6 Ice Golem (FRONT): a squat pale blue ice golem like a soft toy. ONLY: one big round body, one small round head on top, two round fists at its sides, two dark eyes (5 parts). No legs, shoulders or facets
+G7 Frost Wisp (FRONT): ONLY: one round pale blue flame shaped like a teardrop with one curl at the tip, two dark eyes (3 parts)
+G8 Siren (FRONT): ONLY: one round grey rock, a mermaid sitting on it (round head, teal hair as one smooth shape, green tail as one smooth curve round the rock), two dark eyes. No hands, shells or jewellery
+G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above. ONLY: one round body, one round head with two ears at the top, two wings spread flat out to the sides, each wing one smooth shape with an orange edge (6 parts). No wing fingers or veins
 
 == Batch K · UI kit (one family; start with K1 and K9) · ONE KIT · match style-icons.png ==
 K1 Panel (9-SLICE): the main navy panel, like the harbour mockup's navy cards: navy face, thick dark outline, a lighter band along the top edge, a darker lip along the bottom edge, well-rounded corners (building panels, voyage card, pause menu, run summary, stage sheet)
@@ -235,25 +235,25 @@ P11f Harbour prop (FRONT): a round green bush
 P12 Gull (TOP-DOWN): a white seagull seen from above, head and yellow beak at the top, both wings spread flat out to the sides, a short fan tail at the bottom
 
 == Batch T · Reef Defence towers · ONE OF A KIND · match style-world.png ==
-T1 Cannon Battery (FRONT): a round stone tower with one big cannon on top
-T2 Grapeshot Nest (FRONT): a wooden platform with one wide-mouthed gun
-T3 Chain Mast (FRONT): a wooden mast tower with a chain launcher
-T4 Depth Charge Post (FRONT): a dock post with a barrel launcher
-T5 Fire Brazier (FRONT): a stone tower with a fire bowl on top
-T6 Lighthouse Tower (FRONT): a small squat red and white lighthouse
-T7 Heart of the Reef (FRONT): a glowing teal crystal on a round coral rock
+T1 Cannon Battery (FRONT): ONLY: one round squat grey tower, one big black cannon on top (2 parts). No stones, bricks or windows
+T2 Grapeshot Nest (FRONT): ONLY: one round wooden tub-shaped platform, one wide-mouthed short gun on top (2 parts). No planks or posts
+T3 Chain Mast (FRONT): ONLY: one fat wooden pole on a round base, one round chain launcher at the top (3 parts). No rigging
+T4 Depth Charge Post (FRONT): ONLY: one fat round dock post, one round barrel launcher on top (2 parts)
+T5 Fire Brazier (FRONT): ONLY: one round squat grey tower, one round fire bowl on top, one smooth flame (3 parts)
+T6 Lighthouse Tower (FRONT): ONLY: one short fat red and white striped tower, one round lamp top (2 parts). No windows or railings
+T7 Heart of the Reef (FRONT): ONLY: one round coral rock, one smooth teal crystal on top (2 parts). No glow
 
 == Batch F · Landmarks · ONE OF A KIND · match style-world.png ==
-F1 Pirate fort (FRONT): a small stone fort with a black flag
-F2 Lighthouse (FRONT): a white lighthouse on a cliff
-F3 Ice spires (FRONT): three ice spires
-F4 Shipwreck (FRONT): a broken boat hull
-F5 Volcano (FRONT): a small volcano with a glowing top
-F6 Cave mouth (FRONT): a round rocky cave entrance
-F7 Stilt hut (FRONT): a swamp hut on stilts
-F8 Drowned temple (FRONT): a sunken stone arch
-F9 Giant skull (FRONT): a big skull half in sand
-F10 Crystal spire (FRONT): a tall lilac crystal
+F1 Pirate fort (FRONT): ONLY: one round squat grey fort, one black flag on top (2 parts). No bricks, cannons or windows
+F2 Lighthouse (FRONT): ONLY: one round grey cliff lump, one short white lighthouse with a red top (2 parts)
+F3 Ice spires (FRONT): ONLY: three smooth pale blue spires, tall, middle and short, standing together (3 parts). No facets
+F4 Shipwreck (FRONT): ONLY: one brown boat hull broken in two halves, one leaning stump of mast (3 parts). No planks or ropes
+F5 Volcano (FRONT): ONLY: one round dark grey cone, one orange top (2 parts). No cracks or smoke
+F6 Cave mouth (FRONT): ONLY: one round grey rock lump, one dark round opening in its front (2 parts)
+F7 Stilt hut (FRONT): ONLY: one round brown hut with a pointed green roof, four fat stilts (6 parts). No planks or windows
+F8 Drowned temple (FRONT): ONLY: one smooth grey stone arch, two pillars and a round top (1 piece). No bricks or carvings
+F9 Giant skull (FRONT): ONLY: one round cream skull, two dark eye holes, one sand mound it sits in (4 parts). No teeth or cracks
+F10 Crystal spire (FRONT): ONLY: one tall smooth lilac crystal, one short one beside it (2 parts). No facets
 
 == Batch U · Title, crests and UI pieces · ONE KIT · match style-icons.png ==
 U1 Title logo (FRONT): the words THE SHATTERED REEF in chunky rounded gold letters on a navy banner, spelled exactly; nothing else
