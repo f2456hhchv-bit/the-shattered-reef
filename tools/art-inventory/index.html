@@ -658,7 +658,7 @@ const NEED = ['high', 'medium', 'low'];
 // The prompt header is built per batch: the shared rules, ONE OF A KIND or
 // ONE KIT, then only the format definitions that batch's items name.
 const BASE = `Use the image generator. No code. One image per reply.
-STYLE (strict): a soft toy like a rubber bath toy or a jelly sweet: smooth, rounded, moulded-plastic surfaces, a thick clear silhouette, squat and cute. 2-3 flat matte colours plus one accent (eyes, flame, flag). Soft light from the top-left. No glow, halo, shadow, text or ground.
+STYLE (strict): a matte soft-clay toy like the crab and squid on style-creatures-ships.png: smooth rounded surfaces, MATTE (no gloss, no shine spots, no plastic sheen), NO outline or black line around it, a thick clear silhouette, squat and cute. 2-3 flat matte colours plus one accent (eyes, flame, flag). Soft light from the top-left. No glow, halo, shadow, text or ground.
 SMOOTH (strict): no facets, gem cuts, chiselled planes, cracks, scales, feathers, planks, bricks or texture. Rock, ice and crystal are smooth rounded lumps shown mainly by colour: at most 3-4 big soft flat faces per lump, like the boulders on style-world.png, never many small facets or cut stone.
 PARTS (strict): the item line lists its parts, and that list is complete. Draw each listed part as one big smooth piece and nothing else: no extra shoulders, joints, legs, feet, brows, chins, armour, spikes, horns, crests, props, ropes, chains, rivets or windows. If unsure, leave it out.
 SIZE TEST: it must read as one clear blob filled solid black, and every part must still show at 48px wide.
@@ -708,7 +708,7 @@ const BATCHES = [
  ['A', 'Bosses (A1-A12 done; flying wyrm left)', 'high', [
   "A6b The Caldera Wyrm, flying (TOP-DOWN): open the project file style-creatures-ships.png and find the Caldera Wyrm (the long dark-red dragon-serpent with an orange stripe down its back, second row). Copy it exactly: same head, horns, round body segments, cream spikes, orange stripe, colours and tail fin, seen from directly above, body dead straight. The only change: its two small folded wings are now two big bat wings spread flat out to the sides at their widest, dark red with orange webbing. This item is a copy of that wyrm, not a new design; if you can't see the file, ask me to attach the wyrm"], 'unique'],
  ['G', 'Creatures (G1-G5, G10-G28 done; these 4 left)', 'high', [
-  "G6 Ice Golem (FRONT): a squat pale blue ice golem like a soft toy. ONLY: one big round body, one small round head on top, two round fists at its sides, two dark eyes (5 parts). No legs, shoulders or facets",
+  "G6 Ice Golem (FRONT): a squat pale blue ice golem. ONLY: one big body shaped like a rounded ice cube, one smaller rounded-cube head on top, two rounded-cube fists at its sides, two dark eyes (5 parts). Each cube has soft corners and at most 3 big flat faces so it reads as ice. No legs, feet, shoulders or small facets",
   "G7 Frost Wisp (FRONT): ONLY: one round pale blue flame shaped like a teardrop with one curl at the tip, two dark eyes (3 parts)",
   "G8 Siren (FRONT): ONLY: one round grey rock, a mermaid sitting on it (round head, teal hair as one smooth shape, green tail as one smooth curve round the rock), two dark eyes. No hands, shells or jewellery",
   "G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above. ONLY: one round body, one round head with two ears at the top, two wings spread flat out to the sides, each wing one smooth shape with an orange edge (6 parts). No wing fingers or veins"], 'unique'],
