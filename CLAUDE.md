@@ -2376,6 +2376,13 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   Prism Colossus and Magma Golem dropped from style-creatures-ships.png;
   the simplest pieces lead it. Instructions 7,377 characters.
 
+- **G6 Ice Golem done** (2026-10-18), the first image from the rewritten
+  prompts: 5 rounded-cube parts, matte, no outline. The attempt before it
+  came back glossy with a dark outline ("rubber bath toy / jelly sweet"
+  wording), so STYLE now says matte soft clay, no gloss, no outline.
+  Keyed into `assets/creatures/ice_golem.png`; added to the baseline sheet
+  as a target piece. Catalogue: G7-G9 left in batch G.
+
 ## Decisions log" heading in this file. Short landscape: Continue
   no longer wraps, and the mini-map hides while a voyage is saved so the
   New Voyage / Defend row fits.

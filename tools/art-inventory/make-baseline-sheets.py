@@ -18,7 +18,7 @@ def sheet(items,cell,cols,name,pad=14):
         im=fit(im,cell); x=pad+(i%cols)*(cell+pad)+(cell-im.width)//2; y=pad+(i//cols)*(cell+pad)+(cell-im.height)//2
         c.alpha_composite(im,(x,y))
     c.convert('RGB').save(out+'/'+name,optimize=True); print(name,W,H)
-cre='deep_crawler ink_squid gullswarm_harpy reef_shark jelly_bloom mirror_tortoise sea_serpent frost_narwhal black_gale drowned_admiral bloodfin_matriarch krakens_anchor frost_leviathan caldera_wyrm  mire_mother deep_mother dunemaw  warding_seal crystal_crab shard_crab prism_sprite sand_wyrm mirror_tortoise bone_vulture drift_jelly ink_squid bog_leech leech_swarm anglerfish jelly_bloom bayou_gator bog_witch deep_troll cave_bat stalker_eel ember_imp'.split(); cre=list(dict.fromkeys(cre))
+cre='deep_crawler ink_squid ice_golem gullswarm_harpy reef_shark jelly_bloom mirror_tortoise sea_serpent frost_narwhal black_gale drowned_admiral bloodfin_matriarch krakens_anchor frost_leviathan caldera_wyrm  mire_mother deep_mother dunemaw  warding_seal crystal_crab shard_crab prism_sprite sand_wyrm mirror_tortoise bone_vulture drift_jelly ink_squid bog_leech leech_swarm anglerfish jelly_bloom bayou_gator bog_witch deep_troll cave_bat stalker_eel ember_imp'.split(); cre=list(dict.fromkeys(cre))
 items=[Image.open(R+'creatures/'+n+'.png') for n in cre]
 for h,f in frames.items():
     a=Image.open(R+'ships/'+h+'.png'); x,y,w,hh=f[:4]; items.append(a.crop((x,y,x+w,y+hh)))

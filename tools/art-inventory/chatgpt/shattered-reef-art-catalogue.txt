@@ -6,8 +6,7 @@ Finished batches are left out.
 == Batch A · Bosses (A1-A12 done; flying wyrm left) · ONE OF A KIND · match style-creatures-ships.png ==
 A6b The Caldera Wyrm, flying (TOP-DOWN): open the project file style-creatures-ships.png and find the Caldera Wyrm (the long dark-red dragon-serpent with an orange stripe down its back, second row). Copy it exactly: same head, horns, round body segments, cream spikes, orange stripe, colours and tail fin, seen from directly above, body dead straight. The only change: its two small folded wings are now two big bat wings spread flat out to the sides at their widest, dark red with orange webbing. This item is a copy of that wyrm, not a new design; if you can't see the file, ask me to attach the wyrm
 
-== Batch G · Creatures (G1-G5, G10-G28 done; these 4 left) · ONE OF A KIND · match style-creatures-ships.png ==
-G6 Ice Golem (FRONT): a squat pale blue ice golem. ONLY: one big body shaped like a rounded ice cube, one smaller rounded-cube head on top, two rounded-cube fists at its sides, two dark eyes (5 parts). Each cube has soft corners and at most 3 big flat faces so it reads as ice. No legs, feet, shoulders or small facets
+== Batch G · Creatures (G1-G6, G10-G28 done; these 3 left) · ONE OF A KIND · match style-creatures-ships.png ==
 G7 Frost Wisp (FRONT): ONLY: one round pale blue flame shaped like a teardrop with one curl at the tip, two dark eyes (3 parts)
 G8 Siren (FRONT): ONLY: one round grey rock, a mermaid sitting on it (round head, teal hair as one smooth shape, green tail as one smooth curve round the rock), two dark eyes. No hands, shells or jewellery
 G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above. ONLY: one round body, one round head with two ears at the top, two wings spread flat out to the sides, each wing one smooth shape with an orange edge (6 parts). No wing fingers or veins
