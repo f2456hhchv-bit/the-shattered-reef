@@ -17,6 +17,7 @@ export function drawSurvivalPickups(ctx, pickups, view, t) {
     if (p.kind === 'gem') drawGem(ctx, p, t);
     else if (p.kind === 'coin') drawCoin(ctx, p, t);
     else if (p.kind === 'magnet') drawMagnet(ctx, p, t);
+    else if (p.kind === 'nuke' || p.kind === 'becalm') drawRare(ctx, p, t);
     else drawPickup(ctx, p, null, t);
   }
 }
@@ -259,4 +260,62 @@ export function drawVignette(ctx, vw, vh, hullFrac, t) {
     ctx.fillStyle = vigCache.r; ctx.fillRect(0, 0, vw, vh);
     ctx.globalAlpha = 1;
   }
+}
+
+// Flotsam (2026-10-22): crates and barrels bobbing on the swell, a glint
+// to catch the eye, a flash when hit.
+export function drawFlotsam(ctx, flotsam, view, t) {
+  for (const f of flotsam || []) {
+    if (f.hp <= 0 || !inView(view, f.x, f.y)) continue;
+    const bob = Math.sin(t * 2 + f.id) * 1.4;
+    ctx.save(); ctx.translate(f.x, f.y + bob);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.beginPath(); ctx.ellipse(0, 3, f.r + 4, (f.r + 4) * 0.45, 0, 0, TAU); ctx.fill();
+    ctx.rotate(Math.sin(t * 0.8 + f.id) * 0.25 + f.spin * 0.1);
+    const hit = f.hit > 0;
+    if (f.look === 'crate') {
+      const s = f.r * 0.95;
+      ctx.fillStyle = hit ? '#ffe2b0' : '#b9793a'; ctx.strokeStyle = '#5e3812'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.roundRect(-s, -s, s * 2, s * 2, 2.5); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#7d4d1c'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(-s, -s); ctx.lineTo(s, s); ctx.moveTo(-s + 0.5, -s * 0.33); ctx.lineTo(s - 0.5, -s * 0.33); ctx.moveTo(-s + 0.5, s * 0.33); ctx.lineTo(s - 0.5, s * 0.33); ctx.stroke();
+    } else {
+      const rx = f.r * 0.8; const ry = f.r;
+      ctx.fillStyle = hit ? '#ffe2b0' : '#a8662c'; ctx.strokeStyle = '#4f2e0f'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#3d3d3d'; ctx.lineWidth = 2;
+      for (const k of [-0.5, 0.5]) { ctx.beginPath(); ctx.moveTo(-rx * 0.92, ry * k); ctx.lineTo(rx * 0.92, ry * k); ctx.stroke(); }
+    }
+    const gl = (Math.sin(t * 3 + f.id * 1.7) + 1) / 2;
+    ctx.fillStyle = `rgba(255, 245, 210, ${0.2 + gl * 0.6})`;
+    ctx.beginPath(); ctx.arc(-f.r * 0.45, -f.r * 0.5, 1.6, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+}
+
+// The rare flotsam finds: a Powder Keg (red, a lit fuse) and a Becalming
+// shell (pale blue, a slow swirl).
+function drawRare(ctx, p, t) {
+  const bob = p.pulled ? 0 : Math.sin(t * 2.4 + p.id) * 1.5;
+  ctx.save(); ctx.translate(p.x, p.y + bob);
+  const nuke = p.kind === 'nuke';
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = nuke ? 'rgba(255, 120, 60, 0.35)' : 'rgba(150, 220, 255, 0.35)';
+  ctx.beginPath(); ctx.arc(0, 0, 14 + Math.sin(t * 5) * 2, 0, TAU); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+  if (nuke) {
+    ctx.fillStyle = '#c0392b'; ctx.strokeStyle = '#5a1209'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(0, 1, 7, 8.5, 0, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#2b2b2b'; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.moveTo(-6.5, -2); ctx.lineTo(6.5, -2); ctx.moveTo(-6.5, 4); ctx.lineTo(6.5, 4); ctx.stroke();
+    ctx.strokeStyle = '#d9c38c'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(0, -7.5); ctx.quadraticCurveTo(3, -11, 5, -12); ctx.stroke();
+    ctx.fillStyle = `rgba(255, 230, 120, ${0.6 + 0.4 * Math.sin(t * 20)})`; ctx.beginPath(); ctx.arc(5, -12, 2.2, 0, TAU); ctx.fill();
+  } else {
+    ctx.strokeStyle = '#e8f7ff'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+    ctx.rotate(t * 1.2);
+    ctx.beginPath();
+    for (let a = 0; a < TAU * 1.6; a += 0.2) { const r = 1.5 + a * 1.4; const x = Math.cos(a) * r; const y = Math.sin(a) * r; if (a === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.stroke();
+  }
+  ctx.restore();
 }

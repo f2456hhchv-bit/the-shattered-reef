@@ -161,3 +161,79 @@ test('a gale can never blow the ship off the chart', () => {
   stepSurvivalFrame(run, 1 / 30, { x: 0, y: 0 }, { spawnDist: 520, biome: getBiome(run.level.biomeId), rng: makeSeededRng(1), t: 0 });
   assert.ok(run.boat.x < run.widthPx && run.boat.y > 0);
 });
+
+// --- Second pass (2026-10-22): research-led additions ----------------------
+import { openChest, seedFlotsam, stepFlotsam, powderKeg, spawnRush, stepRushers } from '../src/engine/survival.mjs';
+import { FLOTSAM, RUSH } from '../src/data/survival.mjs';
+import { resolveLoadout, createDefaultMeta } from '../src/engine/meta.mjs';
+
+test('treasure: the first chest is a sure 3; later ones roll 1, 3 or 5; elites roll better', () => {
+  const run = createSurvivalRun(20);
+  const rng = makeSeededRng(4);
+  const first = openChest(run, rng);
+  assert.equal(first.items.length, 3); assert.ok(first.gold > 0);
+  const tally = (elite) => { const c = { 1: 0, 3: 0, 5: 0 }; for (let i = 0; i < 300; i++) { const r = createSurvivalRun(21); r.sv.chestsThisLevel = 1; c[openChest(r, rng, { elite }).items.length]++; } return c; };
+  const n = tally(false); const e = tally(true);
+  assert.ok(n[1] > n[3] && n[3] > n[5] && n[5] > 0);
+  assert.ok(e[3] + e[5] > n[3] + n[5], 'elite chests roll bigger');
+});
+
+test('flotsam: afloat at the start, broken by ramming, spills loot, drifts back in', () => {
+  const run = createSurvivalRun(22);
+  assert.equal(run.flotsam.length, FLOTSAM.count);
+  const f = run.flotsam[0];
+  run.boat.x = f.x; run.boat.y = f.y;
+  const before = run.pickups.length;
+  const broke = stepFlotsam(run, 1 / 30, [], 11, makeSeededRng(2));
+  assert.equal(broke.length, 1);
+  assert.ok(run.pickups.length > before, 'loot spilled');
+  for (let t = 0; t < FLOTSAM.respawn[1] + 1; t += 0.5) stepFlotsam(run, 0.5, [], 11, makeSeededRng(t * 10 | 0));
+  assert.equal(run.flotsam.length, FLOTSAM.count, 'a new crate drifted in');
+});
+
+test('powder keg: blasts everything near; a boss loses only a slice', () => {
+  const run = createSurvivalRun(23);
+  const b = run.boat;
+  const near = { id: 1, x: b.x + 100, y: b.y, health: 50, maxHealth: 50 };
+  const boss = { id: 2, x: b.x - 100, y: b.y, health: 1000, maxHealth: 1000, isBoss: true };
+  const far = { id: 3, x: b.x + 2000, y: b.y, health: 50, maxHealth: 50 };
+  run.enemies.push(near, boss, far);
+  powderKeg(run);
+  assert.equal(near.health, 0); assert.equal(far.health, 50);
+  assert.ok(boss.health > 900 && boss.health < 1000);
+});
+
+test('becalmed: enemies hold still', () => {
+  const run = createSurvivalRun(24);
+  const rng = makeSeededRng(3);
+  run.sv.waveTime = 5;
+  for (let i = 0; i < 90; i++) stepSurvivalFrame(run, 1 / 30, { x: 0, y: 0 }, { spawnDist: 520, biome: getBiome(run.level.biomeId), rng, t: i / 30 });
+  const e = run.enemies.find((x) => x.health > 0);
+  assert.ok(e);
+  run.sv.becalm = 3;
+  const x0 = e.x; const y0 = e.y;
+  for (let i = 0; i < 30; i++) stepSurvivalFrame(run, 1 / 30, { x: 0, y: 0 }, { spawnDist: 520, biome: getBiome(run.level.biomeId), rng, t: 3 + i / 30 });
+  assert.ok(Math.hypot(e.x - x0, e.y - y0) < 3);
+});
+
+test('a rush crosses in a straight line and leaves without loot', () => {
+  const run = createSurvivalRun(25);
+  const n = spawnRush(run, { spawnDist: 520 }, makeSeededRng(7));
+  assert.ok(n >= RUSH.count[0] * 0.5);
+  const e = run.enemies.find((x) => x.rush);
+  const { dx, dy } = e.rush; const x0 = e.x; const y0 = e.y;
+  stepRushers(run, 0.5);
+  const mx = e.x - x0; const my = e.y - y0;
+  assert.ok((mx * dx + my * dy) / Math.hypot(mx, my) > 0.9, 'moving along its line');
+  for (let t = 0; t < RUSH.life + 1; t += 0.5) stepRushers(run, 0.5);
+  assert.ok(e.health <= 0 && e.detonated, 'gone, no loot');
+});
+
+test('each hull starts with its own gun', () => {
+  const meta = createDefaultMeta();
+  for (const [hull, gun] of [['sloop', 'cannonballs'], ['skiff', 'chain_shot'], ['junk', 'flame_barrels']]) {
+    meta.ownedHulls = [...new Set([...meta.ownedHulls, hull])]; meta.selectedHull = hull;
+    const run = createSurvivalRun(26, resolveLoadout(meta));
+    assert.ok(run.sv.weapons[gun] >= 1, `${hull} → ${gun}`);
+  }
+});

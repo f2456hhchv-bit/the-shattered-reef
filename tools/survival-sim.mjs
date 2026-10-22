@@ -11,7 +11,7 @@
 
 import { createSurvivalRun, completeLevel, sinkLevel } from '../src/engine/survivalRun.mjs';
 import { stepSurvivalFrame, BOAT_RADIUS } from '../src/engine/survivalLoop.mjs';
-import { rollChoices, applyChoice, timeToBoss, snapshotBuild } from '../src/engine/survival.mjs';
+import { rollChoices, applyChoice, timeToBoss, snapshotBuild, openChest } from '../src/engine/survival.mjs';
 import { checkSunk } from '../src/engine/run.mjs';
 import { sampleField } from '../src/engine/terrain.mjs';
 import { makeSeededRng } from '../src/engine/rng.mjs';
@@ -107,9 +107,10 @@ export function playLevel(seed, { stage = 1, levelIndex = 0, maxSeconds = 900, d
     for (const c of ev.contacts) dmg.contact += c.damage;
     for (const h of ev.weather.boatHits || []) dmg.weather += h.damage;
     if (ev.levelUps && firstUp == null) firstUp = t;
-    let ups = ev.levelUps + ev.pickups.chests;
+    let ups = ev.levelUps;
     chests += ev.pickups.chests;
     while (ups-- > 0) { applyChoice(run, botPick(run, rng)); picks++; }
+    for (const k of ev.pickups.chestKinds) picks += openChest(run, rng, k).items.length;
     if (ev.director.boss) bossAt = t;
     let alive = 0; for (const e of run.enemies) if (e.health > 0) alive++;
     peakAlive = Math.max(peakAlive, alive);

@@ -28,7 +28,7 @@ export const SURVIVAL = Object.freeze({
   // Glass further out creeps toward the ship (2026-10-22 sims: ~70% of the
   // XP was being left on the water), and every new wave sweeps it all in.
   gemDrift: { radius: 300, speed: 46 },
-  bossHp: 42, // × a stage boss's voyage hull (it has a whole stage's build to face)
+  bossHp: 34, // × a stage boss's voyage hull (it has a whole stage's build to face)
   warlordHp: 220, // × the toughest enemy in the level's pool…
   warlordHpPerLevel: 0.15, // …× (1 + this × level index): the build grows through a stage
   // The last fight is an event (2026-10-22): a warlord/boss is armoured
@@ -274,6 +274,37 @@ export const HORDE_FOR_BIOME = Object.freeze({
   [B.ABYSS]: H.DRIFT_JELLY,
   [B.BONE_SANDS]: H.SAND_SKIFF,
   [B.CRYSTAL]: H.SHARD_CRAB,
+});
+
+// Treasure (2026-10-22, after Vampire Survivors' chests): a chest rolls 1,
+// 3 or 5 upgrades and applies them all, with a reveal. The first chest of
+// every level is a sure 3, so the moment lands early; elites' chests roll
+// better.
+export const CHEST_ODDS = Object.freeze({ normal: [[1, 0.62], [3, 0.31], [5, 0.07]], elite: [[1, 0.25], [3, 0.55], [5, 0.2]] });
+export const CHEST_GOLD = [6, 14]; // anchor coins showered per item
+
+// Flotsam (2026-10-22, after the light sources in Vampire Survivors): crates
+// and barrels adrift on the arena. Sail into one (or shoot it) to break it
+// open. `kind` is what spills out; nuke and becalm are the rare power spikes.
+export const FLOTSAM = Object.freeze({
+  count: 9, // afloat at once
+  respawn: [8, 14], // seconds before a broken one is replaced, out of sight
+  hp: 18, radius: 13,
+  drops: [['coins', 34], ['ring', 18], ['glass', 18], ['magnet', 12], ['nuke', 10], ['becalm', 8]],
+  nuke: { radius: 460, damage: 120, bossFrac: 0.04 }, // Powder Keg: everything in sight
+  becalm: { seconds: 5 }, // Becalmed: the sea holds every enemy still
+});
+
+// Rushes (2026-10-22): mid-wave, a shoal of the horde sweeps straight past
+// you — not hunting, just crossing. Easy kills in bulk: a power moment
+// between the hard ones.
+export const RUSH = Object.freeze({ waves: [1, 3, 5, 7], at: 13, count: [16, 34], speed: 1.7, life: 10, spacing: 16 });
+
+// Every hull starts a level with its own gun (2026-10-22: unlocks should
+// open new ways to play, not just add stats).
+export const HULL_START_WEAPON = Object.freeze({
+  sloop: W.CANNONBALLS, galleon: W.CANNONBALLS, steamer: W.CANNONBALLS,
+  skiff: W.CHAIN_SHOT, longboat: W.GRAPESHOT, catamaran: W.DEPTH_CHARGES, junk: W.FLAME_BARRELS,
 });
 
 // Loot odds (per kill).

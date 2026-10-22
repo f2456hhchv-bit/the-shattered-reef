@@ -58,12 +58,12 @@ import {
   unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact, playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playBossPhaseChange, playBossDefeated, playDash, playEvolve, playSynergy, playAchievement, playTap, playTreasure, playZap, playThunder, playWeatherWarning, playStrikeMark,
 } from './audio/audio.mjs';
 import { createSurvivalRun, buildSurvivalWorld, survivalLevel, completeLevel, sinkLevel, addLevelSalvage } from './engine/survivalRun.mjs';
-import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, recomputeStats, orbitBlades, evolutionsUsed, activeSynergies, snapshotBuild, rerollChoices, banishChoice } from './engine/survival.mjs';
+import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, recomputeStats, orbitBlades, evolutionsUsed, activeSynergies, snapshotBuild, rerollChoices, banishChoice, openChest } from './engine/survival.mjs';
 import { stepSurvivalFrame } from './engine/survivalLoop.mjs';
 import { DEV, loadDev, devActive } from './engine/devTuning.mjs';
 import { createDevPanel } from './ui/devPanel.mjs';
 import {
-  drawSurvivalPickups, drawFirePools, drawOrbitBlades, drawHullBar, drawRings, drawSinkers, drawLandmarks, drawSeaIslands, drawProps, drawEdgeArrows, drawVignette,
+  drawSurvivalPickups, drawFirePools, drawOrbitBlades, drawHullBar, drawRings, drawSinkers, drawLandmarks, drawSeaIslands, drawProps, drawEdgeArrows, drawVignette, drawFlotsam,
 } from './engine/survivalArt.mjs';
 import { drawLords, drawCage, drawBroadsideArcs } from './engine/warlordArt.mjs';
 import { loadCreatureSprites } from './engine/creatureSprites.mjs';
@@ -75,7 +75,7 @@ import {
 } from './engine/progression.mjs';
 import { LIVERIES, ACHIEVEMENTS, POOL_UNLOCKS } from './data/progression.mjs';
 import { LORD_TRAITS, lordName } from './engine/warlord.mjs';
-import { SURVIVAL, WAVES, SV_WEAPONS, SV_WEAPON_MAX, PASSIVE_BY_ID, FINAL_STRETCH } from './data/survival.mjs';
+import { SURVIVAL, WAVES, SV_WEAPONS, SV_WEAPON_MAX, PASSIVE_BY_ID, FINAL_STRETCH, HULL_START_WEAPON } from './data/survival.mjs';
 import { createDefenceMode } from './td/tdMode.mjs';
 import { renderTowerYard, towerYardBuyable } from './ui/towerYard.mjs';
 
@@ -291,7 +291,7 @@ export function startApp(root) {
   const upgradeOverlay = document.createElement('div');
   upgradeOverlay.id = 'upgrade-pick';
   upgradeOverlay.hidden = true;
-  upgradeOverlay.innerHTML = `<div class="up-wrap"><h2 id="up-title"></h2><p class="up-sub"></p><div id="up-cards"></div><div class="up-tools"><button type="button" class="up-reroll">↻ Reroll</button><button type="button" class="up-banish">✕ Banish</button></div><p class="up-hint" hidden>Tap a card to banish it for the rest of the stage</p></div>`;
+  upgradeOverlay.innerHTML = `<div class="up-wrap"><h2 id="up-title"></h2><p class="up-sub"></p><div id="up-cards"></div><div class="up-tools"><button type="button" class="up-reroll">↻ Reroll</button><button type="button" class="up-banish">✕ Banish</button></div><p class="up-hint" hidden>Tap a card to banish it for the rest of the stage</p><button type="button" class="up-collect" hidden>Collect ⚓</button></div>`;
   root.appendChild(upgradeOverlay);
 
   const summaryOverlay = document.createElement('div');
@@ -773,8 +773,7 @@ export function startApp(root) {
   }
 
   // Level-up and treasure choices: the level waits while you pick.
-  function cardEl(card) {
-    const v = describeChoice(run, card);
+  function cardEl(card, v = describeChoice(run, card)) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `up-card k-${card.kind}${v.evolve ? ' evo' : ''}`;
@@ -814,8 +813,51 @@ export function startApp(root) {
     };
     bn.onclick = () => { banishMode = !banishMode; renderCardTools(title, sub); upgradeOverlay.classList.toggle('banishing', banishMode); };
   }
+  // Treasure (2026-10-22, after Vampire Survivors' chests): 1, 3 or 5
+  // upgrades, chosen for you and revealed one by one, with a shower of coin.
+  function showTreasure(elite) {
+    const res = openChest(run, Math.random, { elite });
+    if (run.chestSalvage) addLevelSalvage(run, run.chestSalvage);
+    for (const it of res.items) if (it.salvage) addLevelSalvage(run, it.salvage);
+    addLevelSalvage(run, res.gold);
+    sailing = false; pendingChoice = null;
+    joystick.reset?.();
+    const n = res.items.length;
+    upgradeOverlay.classList.add('treasure', `t${n}`);
+    upgradeOverlay.querySelector('#up-title').textContent = n >= 5 ? 'A king\'s ransom! ×5 💰' : n >= 3 ? 'Treasure! ×3 💰' : 'Treasure! 💰';
+    upgradeOverlay.querySelector('.up-sub').textContent = `+${res.gold} Salvage`;
+    upgradeOverlay.querySelector('.up-tools').hidden = true;
+    upgradeOverlay.querySelector('.up-hint').hidden = true;
+    const cards = upgradeOverlay.querySelector('#up-cards');
+    const els = res.items.map((it, i) => {
+      const b = cardEl(it.card, it.desc);
+      b.disabled = true; b.classList.add('reveal'); b.style.animationDelay = `${0.25 + i * 0.32}s`;
+      return b;
+    });
+    cards.replaceChildren(...els);
+    const collect = upgradeOverlay.querySelector('.up-collect');
+    collect.hidden = false; collect.style.animationDelay = `${0.4 + n * 0.32}s`;
+    upgradeOverlay.hidden = false;
+    playTreasure();
+    res.items.forEach((_, i) => setTimeout(() => playPickupSalvage(), 280 + i * 320));
+    const evo = res.items.find((it) => it.card.kind === 'evolve');
+    collect.onclick = () => {
+      upgradeOverlay.hidden = true; collect.hidden = true;
+      upgradeOverlay.classList.remove('treasure', 't1', 't3', 't5');
+      upgradeOverlay.querySelector('.up-tools').hidden = false;
+      renderDock(); renderUpgradeStrip(); updateSurvivalHud();
+      spawnLevelRing(!!evo);
+      if (evo) evolutionMoment(evo.desc);
+      sailing = true;
+      saveCurrentVoyage();
+      setTimeout(maybeOfferChoice, 140);
+    };
+  }
   function offerChoices(title, sub, choices) {
     if (!choices.length) return false;
+    upgradeOverlay.classList.remove('treasure', 't1', 't3', 't5');
+    upgradeOverlay.querySelector('.up-collect').hidden = true;
+    upgradeOverlay.querySelector('.up-tools').hidden = false;
     sailing = false;
     banishMode = false; upgradeOverlay.classList.remove('banishing');
     pendingChoice = { title, sub, choices };
@@ -872,10 +914,8 @@ export function startApp(root) {
         head ? 'No build carried into this level: build one now.' : 'Choose one — your build lasts the whole stage.', rollChoices(run, Math.random, n));
     } else if (run.sv.pendingChests > 0) {
       run.sv.pendingChests -= 1;
-      playTreasure();
-      if (run.chestSalvage) addLevelSalvage(run, run.chestSalvage);
-      const evo = rollChoices(run, Math.random, n);
-      offerChoices('Treasure! 💰', 'Pick a free upgrade from the hold.', evo);
+      const elite = !!(run.sv.chestQueue || []).shift()?.elite;
+      showTreasure(elite);
     }
   }
   // A ring of light off the ship on a level-up pick (an evolution: gold).
@@ -1037,6 +1077,7 @@ export function startApp(root) {
         <div class="hub-item-info">
           <span class="hub-item-name">${hull.name}${selected ? ' ✓' : ''}</span>
           <span class="hub-item-desc">${hull.description}</span>
+          <span class="hull-gun">Starts with ${SV_WEAPONS[HULL_START_WEAPON[hull.id] || 'cannonballs'].icon} ${SV_WEAPONS[HULL_START_WEAPON[hull.id] || 'cannonballs'].name}</span>
           <span class="hull-stats">🛡️ ${hull.maxHull} · ⛵ ${Math.round(hull.maxSpeedMult * 100)}% · ↻ ${Math.round(hull.turnRateMult * 100)}%${hull.perk ? ` · <b>${hull.perk}</b>` : ''}</span>
         </div>
         <button type="button" class="hub-item-btn" data-hull-id="${hull.id}"${disabled ? ' disabled' : ''}>${label}</button>
@@ -1995,6 +2036,9 @@ export function startApp(root) {
     chest: () => { run.sv.pendingChests += 1; maybeOfferChoice(); },
     pick: (i = 0) => { const b = upgradeOverlay.querySelectorAll('.up-card')[i]; if (b) b.click(); return !!b; },
     raw: () => run.sv,
+    rushers: () => run.enemies.filter((e) => e.rush && e.health > 0).length,
+    flotsam: () => run.flotsam || [],
+    toCrate: () => { const f = (run.flotsam || [])[0]; if (f) { run.boat.x = f.x - 40; run.boat.y = f.y; run.boat.vx = 120; run.boat.vy = 0; run.boat.heading = 0; } return !!f; },
     lord: () => run.enemies.find((e) => e.id === run.sv.bossId) || null,
     stageBuild: () => meta.stageBuild || null,
     give: (kind, id, times = 1) => { for (let k = 0; k < times; k++) applyChoice(run, { kind, id }); renderDock(); renderUpgradeStrip(); return { ...run.sv.weapons }; },
@@ -2193,6 +2237,7 @@ export function startApp(root) {
         playReefCleared();
       }
     }
+    if (d.rush) { showToast('🌊 A shoal sweeps past — mow them down!', { ms: 1800 }); playWeatherWarning(); }
     if (d.preview) { showToast(`Next wave: ${featureLine(d.preview)}`, { ms: 2600 }); playStrikeMark(); }
     if (d.finalStretch) {
       showBanner({ eyebrow: '🌩 The tide turns', title: 'Final stretch', chips: ['Elite hunters every 20s', 'Hold on until the warlord'], cls: 'dark', ms: 2600 });
@@ -2242,7 +2287,22 @@ export function startApp(root) {
     if (pk.salvage && coinSoundCd <= 0) { coinSoundCd = 0.07; playPickupSalvage(); }
     if (pk.repaired > 0) { spawnDamageNumber(damageNumbers, b.x, b.y - BOAT_RADIUS - 10, pk.repaired, { heal: true }); playRevive(); }
     if (pk.magnet) { showToast('🧲 Lodestone! Every gem comes to you'); playPickupWeapon(); rings.push({ x: b.x, y: b.y, life: 0.8, maxLife: 0.8, r: 260, color: '160, 220, 255' }); }
-    if (pk.chests) { run.sv.pendingChests += pk.chests; spawnExplosion(particles, b.x, b.y, 18, Math.random); }
+    if (pk.chests) { run.sv.pendingChests += pk.chests; (run.sv.chestQueue ||= []).push(...pk.chestKinds); spawnExplosion(particles, b.x, b.y, 18, Math.random); }
+    if (ev.nuke) {
+      spawnExplosion(particles, b.x, b.y, 60, Math.random); addShake(shake, 1); triggerHitStop(hitStop, 0.1); playBossDefeated();
+      rings.push({ x: b.x, y: b.y, life: 0.9, maxLife: 0.9, r: 460, color: '255, 170, 80' });
+      showToast('💥 Powder Keg! The sea around you goes up', { ms: 2000 });
+    }
+    if (ev.becalm) {
+      rings.push({ x: b.x, y: b.y, life: 1.2, maxLife: 1.2, r: 520, color: '170, 230, 255' });
+      showToast('🌫️ Becalmed! Every enemy is held still', { ms: 2000 }); playWeatherWarning();
+    }
+    for (const f of ev.flotsam || []) {
+      spawnSplash(particles, f.x, f.y, Math.random, 10);
+      if (particles.length < 460) spawnKillBurst(particles, f.x, f.y, '#a36a2c', Math.random);
+      playWallImpact(0.4);
+      if (!hintsShown.flotsam) { hintsShown.flotsam = true; showToast('📦 Flotsam! Sail into crates and barrels to break them open', { ms: 2600 }); }
+    }
     if (ev.levelUps) rings.push({ x: b.x, y: b.y, life: 0.5, maxLife: 0.5, r: 70, color: '150, 230, 255' });
     // Boss phase changes and enrage.
     for (const e of run.enemies) {
@@ -2375,6 +2435,7 @@ export function startApp(root) {
     drawWeatherWorld(ctx, run.weather, t);
     drawWake(ctx, wake);
     if (run.sv) drawFirePools(ctx, run.sv.pools, view.visible, t);
+    drawFlotsam(ctx, run.flotsam, view.visible, t);
     drawSurvivalPickups(ctx, run.pickups, view.visible, t);
     drawSinkers(ctx, sinkers, t, (e) => e.colorHex || enemyColor(e));
     drawEnemies(
@@ -2416,6 +2477,7 @@ export function startApp(root) {
     drawAmbientScreen(ctx, runBiome, t, vw, vh);
     if (sailing || run.over) drawWeatherScreen(ctx, run.weather, weatherModifiers(run.weather), t, vw, vh, { x: run.boat.x + view.translateX, y: run.boat.y + view.translateY });
     drawVignette(ctx, vw, vh, run.boat.health / run.boat.maxHull, t);
+    if (run.sv?.becalm > 0) { ctx.fillStyle = `rgba(175, 225, 255, ${Math.min(0.18, run.sv.becalm * 0.08)})`; ctx.fillRect(0, 0, vw, vh); }
     if (run.sv && run.sv.wave >= FINAL_STRETCH) {
       // The final stretch: a storm-dark sky closing in from the edges.
       const k = Math.min(1, (run.sv.wave - FINAL_STRETCH + Math.min(1, run.sv.waveTime / 4)) / 2);

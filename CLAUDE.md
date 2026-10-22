@@ -3245,6 +3245,51 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   - whether ×0.7 off-counter feels like counters matter or like a nerf
   - whether 6 head-start picks per level is too much tapping
 
+- **Phase:** research-led pass (project owner, same day: "Research gameplay
+  and what makes these type of games successful gameplay-wise... not from a
+  monetary perspective"). Sources: essays on Vampire Survivors' design
+  (jboger's "Secret Sauce", The Conversation) and on the wider roguelite
+  genre (feedme.design). Gaps found against those principles:
+  - chests were just another card pick
+  - nothing on the map rewarded exploring
+  - there were no "mow down a crowd" power moments
+  - unlocks added stats rather than new ways to play
+- **Just shipped:**
+  - **Treasure** (`openChest`, `CHEST_ODDS`). A chest rolls 1, 3 or 5
+    upgrades and applies them all. They're picked like Vampire Survivors'
+    chests: an evolution first, then something you already carry. The
+    first chest of every level is a sure 3; elite chests roll better.
+    Items reveal one by one, with a coin shower, a Collect button and the
+    evolution moment if one was in it.
+  - **Flotsam** (`FLOTSAM`, `seedFlotsam`/`stepFlotsam`). 9 crates and
+    barrels adrift; sail into one, or shoot or blast it, to break it.
+    Drops:
+    - coins, a life ring, a big gem, or a lodestone
+    - rarely a **Powder Keg**, which blasts everything within 460px (×120
+      damage; bosses lose 4%)
+    - rarely **Becalmed**, which holds every enemy still for 5s, under a
+      pale tint
+    Broken ones drift back in out of sight after 8-14s.
+  - **Rushes** (`RUSH`, `spawnRush`/`stepRushers`). On waves 2/4/6/8, at
+    13s, a shoal of 16-34 horde sweeps past in a straight line a little to
+    one side: easy bulk kills. They leave without loot if they get past.
+  - **Hull guns** (`HULL_START_WEAPON`). Skiff starts with Chain Shot,
+    Longboat with Grapeshot, Catamaran with Depth Charges, Junk with Flame
+    Barrels; Sloop, Steamer and Galleon keep Cannonballs. Shown in the
+    Shipyard.
+  - Stage bosses ×42 → ×34 (fights were running past 3 minutes).
+  - Tests: 6 more in `tests/gameplay.test.mjs`. 500/500.
+  - Playtested 390×844 with no console errors: treasure reveal, rush,
+    a crate broken by ramming.
+  - Bot (starter ship): stage 1 cleared 2/3 and stage 2 2/2, with up to 3
+    retries a level; boss fights 52-136s.
+- **Next up:** the owner plays. Ideas the research raised but not built
+  yet:
+  - a run-wide modifier pick at stage start (like Vampire Survivors'
+    Arcanas)
+  - characters with unique passives, not just guns
+  - more map secrets (hidden coves, a merchant ship)
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -3977,6 +4022,12 @@ Starting fresh below for the new game.)*
   than with more HP alone. More HP alone would make a longer bar; the cage
   stops kiting and the crowd from soaking shots (both seen in the sims),
   and the guard turns the fight into dodge-then-punish.
+- 2026-10-22: Chests choose for you (Vampire Survivors' model) instead of
+  being another pick, so a chest is a moment rather than a menu; they grow
+  what you carry, so a big chest pushes a build toward its evolutions
+  instead of diluting it.
+- 2026-10-22: Hulls start with different guns, so unlocking a hull opens a
+  different opening game, not just different stats.
 ## Known open questions (do not silently resolve — ask)
 
 - See the PRD's "Open Risks & Provisional Decisions" section

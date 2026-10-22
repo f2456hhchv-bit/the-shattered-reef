@@ -19,10 +19,10 @@ import { encodeLevelCode, mixSeed } from './levels.mjs';
 import { createBoat } from './boat.mjs';
 import { createWeaponState } from './combat.mjs';
 import { createWeather } from './weather.mjs';
-import { createSurvivalState, recomputeStats, applyBuild, snapshotBuild, grantCatchUp } from './survival.mjs';
+import { createSurvivalState, recomputeStats, applyBuild, snapshotBuild, grantCatchUp, seedFlotsam } from './survival.mjs';
 import { BASELINE_LOADOUT, biomeForStage, LEVELS_PER_STAGE, TILE_SIZE } from './run.mjs';
 import { BIOMES } from '../data/biomes.mjs';
-import { SURVIVAL, SV_WEAPONS } from '../data/survival.mjs';
+import { SURVIVAL, SV_WEAPONS, HULL_START_WEAPON } from '../data/survival.mjs';
 import { tuningForHull, CHARMS, CHARM_IDS } from '../data/meta.mjs';
 import { ARMAMENT_BY_ID } from '../data/armaments.mjs';
 
@@ -142,7 +142,8 @@ export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1,
     dashMult: daily?.mod?.fx?.dashMult ?? 1,
   };
   run.sv = createSurvivalState({ stage, levelIndex, biomeId: lvl.biomeId });
-  run.sv.weapons.cannonballs = 1;
+  // Each hull's own starting gun (data/survival.mjs HULL_START_WEAPON).
+  run.sv.weapons[HULL_START_WEAPON[hull.id] || 'cannonballs'] = 1;
   run.poolLocked = new Set(locked);
   if (livery) run.boat.livery = livery;
   if (daily) {
@@ -167,6 +168,7 @@ export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1,
   if (build) applyBuild(run, build, { fresh: !retry });
   else run.catchUp = grantCatchUp(run, levelIndex);
   run.carryIn = snapshotBuild(run);
+  seedFlotsam(run, makeSeededRng((lvl.seed ^ 0x5f3759df) >>> 0));
   // Treasure floating by the wrecks and landmarks.
   for (const c of world.chests) run.pickups.push({ id: nextChestId++, kind: 'chest', x: c.x, y: c.y, amount: 1, collected: false, age: 0, map: true });
   run.weather = createWeather(lvl.biomeId);

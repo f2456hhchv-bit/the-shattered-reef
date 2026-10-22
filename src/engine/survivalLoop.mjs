@@ -16,12 +16,12 @@ import { stepArmaments, chainLightning } from './armaments.mjs';
 import { updateEnemyGuns, stepEnemyProjectiles } from './enemyGuns.mjs';
 import { ambientLight, viewRadius, canSee } from './ambient.mjs';
 import {
-  spawnCrew, applySynergies, sweepPickups, confineToCage, stepDirector, recycleStragglers, separateEnemies, knockBack, fireWeapons, afterHits, stepWeaponExtras, dropLoot, stepPickups, addXp,
+  spawnCrew, applySynergies, sweepPickups, confineToCage, stepRushers, stepFlotsam, powderKeg, stepDirector, recycleStragglers, separateEnemies, knockBack, fireWeapons, afterHits, stepWeaponExtras, dropLoot, stepPickups, addXp,
 } from './survival.mjs';
 import { addLevelSalvage } from './survivalRun.mjs';
 import { stepLord } from './warlord.mjs';
 import { getEnemy } from '../data/enemies.mjs';
-import { DASH } from '../data/survival.mjs';
+import { DASH, FLOTSAM } from '../data/survival.mjs';
 import { DEV } from './devTuning.mjs';
 
 export const BOAT_RADIUS = 11;
@@ -111,8 +111,14 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   if (ev.director.sweep) sweepPickups(run);
   // The last fight turns the sea: a weather event when it arrives.
   if (ev.director.boss) ev.bossWeather = stirTheSea(run, rng);
-  updateEnemies(run.enemies, boat, dt, run.grid, run.tileSize, run.coast);
-  for (const e of stepSummons(run.enemies, dt, rng)) { e.hunting = true; e.xp = 1; ev.summoned++; }
+  // Becalmed (a flotsam find): the sea holds every enemy still.
+  const calm = (sv.becalm || 0) > 0;
+  if (calm) sv.becalm -= dt;
+  if (!calm) {
+    updateEnemies(run.enemies, boat, dt, run.grid, run.tileSize, run.coast);
+    for (const e of stepSummons(run.enemies, dt, rng)) { e.hunting = true; e.xp = 1; ev.summoned++; }
+    stepRushers(run, dt);
+  } else for (const e of run.enemies) { e.vx = 0; e.vy = 0; }
   separateEnemies(run.enemies);
   sv.recycleTimer = (sv.recycleTimer || 0) - dt;
   if (sv.recycleTimer <= 0) { sv.recycleTimer = 0.8; recycleStragglers(run, ctx, rng); }
@@ -131,6 +137,7 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   }
   const hits = resolveHits(run.weapons, run.enemies, currentCounter, factionMultiplierFor(run.faction), () => 1);
   ev.explosions.push(...afterHits(run));
+  ev.flotsam = stepFlotsam(run, dt, ev.explosions, BOAT_RADIUS, rng);
   cleanupProjectiles(run.weapons);
   ev.hits.push(...hits);
   const chain = chainLightning(run, hits);
@@ -168,7 +175,7 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   const guard = run.dash.iframes > 0 || DEV.god ? { hp: boat.health, aff: { ...(boat.afflictions || {}) }, chill: boat.chillRemaining || 0, jam: boat.turnJamRemaining || 0 } : null;
   // Warlords' and bosses' signature moves.
   for (const e of run.enemies) {
-    if (!e.lord || e.health <= 0) continue;
+    if (!e.lord || e.health <= 0 || calm) continue;
     const lv = stepLord(run, e, dt, rng, (x, y) => spawnCrew(run, x, y, rng), run.enemyProjectiles, BOAT_RADIUS);
     if (lv.rammed) {
       const dmg = lv.rammed * incoming(e) * taken;
@@ -179,7 +186,7 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
     if (confineToCage(e, sv.cage, e.radius) && run.coast && !passesOverLand(e)) resolveCoastCollision(e, e.radius, run.coast);
     if (Object.keys(lv).length) ev.lord.push({ e, ...lv });
   }
-  updateEnemyGuns(run.enemies, boat, dt, world, run.enemyProjectiles, rng);
+  if (!calm) updateEnemyGuns(run.enemies, boat, dt, world, run.enemyProjectiles, rng);
   ev.shots = stepEnemyProjectiles(run.enemyProjectiles, boat, BOAT_RADIUS, dt, world, (s) => incoming(s) * taken);
   run.enemyProjectiles = run.enemyProjectiles.filter((s) => !s.spent);
   ev.contacts = resolveEnemyContactEvents(run.enemies, boat, BOAT_RADIUS, (e) => incoming(e) * (run.contactDamageTaken ?? 1) * taken);
@@ -217,6 +224,8 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   // Sea glass, coins, chests.
   ev.pickups = stepPickups(run, dt, BOAT_RADIUS);
   if (ev.pickups.xp) ev.levelUps = addXp(run, ev.pickups.xp);
+  if (ev.pickups.nuke) { ev.nuke = powderKeg(run); ev.hits.push(...ev.nuke); }
+  if (ev.pickups.becalm) { sv.becalm = FLOTSAM.becalm.seconds; ev.becalm = true; }
   if (ev.pickups.chests) sv.chestsOpened = (sv.chestsOpened || 0) + ev.pickups.chests;
   if (boat.health < hpStart) sv.hullLost = (sv.hullLost || 0) + (hpStart - boat.health);
   if (ev.pickups.salvage) ev.pickups.salvageGained = addLevelSalvage(run, ev.pickups.salvage);

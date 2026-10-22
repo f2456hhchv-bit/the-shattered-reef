@@ -1533,3 +1533,18 @@ body.in-hub #tutorial { display: none; }
   overflow: hidden;
 }
 .emo-t { display: inline-block; width: 100%; opacity: 0; font-size: 0.8em; }
+
+/* Treasure reveal (2026-10-22): items pop in one by one, then Collect. */
+#upgrade-pick.treasure .up-card.reveal { opacity: 1; cursor: default; animation: chest-reveal .5s cubic-bezier(.2, 1.5, .4, 1) both; border-color: #ffd35c; box-shadow: 0 0 22px rgba(255, 210, 90, .35), 0 5px 16px rgba(0, 0, 0, .45); }
+#upgrade-pick.treasure h2 { animation: chest-title .6s cubic-bezier(.2, 1.6, .4, 1) both; text-shadow: 0 0 18px rgba(255, 210, 90, .7); }
+#upgrade-pick.t5 h2 { color: #fff1a8; }
+@keyframes chest-reveal { 0% { opacity: 0; transform: scale(.4) rotate(-6deg); filter: blur(6px) brightness(2.2); } 70% { filter: blur(0) brightness(1.4); } 100% { opacity: 1; transform: none; filter: none; } }
+@keyframes chest-title { 0% { transform: scale(.3); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.up-collect {
+  display: block; margin: 14px auto 0; min-height: 48px; min-width: 180px; padding: 10px 22px; border-radius: 16px;
+  border: 2px solid #ffd35c; background: linear-gradient(180deg, #f2b33c, #c47f16); color: #2b1606;
+  font: inherit; font-size: 18px; font-weight: 800; touch-action: manipulation;
+  animation: up-in .35s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+.hull-gun { display: block; font-size: 12px; color: #ffd978; font-weight: 700; margin-top: 2px; }
+.up-tools[hidden], .up-collect[hidden] { display: none; }

@@ -9,7 +9,9 @@ import { DASH, SYNERGIES, FINAL_STRETCH } from '../data/survival.mjs';
 import {
   SURVIVAL, SV_WEAPONS, SV_WEAPON_IDS, SV_WEAPON_MAX, PASSIVES, PASSIVE_BY_ID, PASSIVE_MAX,
   WAVES, waveScaling, HORDE_FOR_BIOME, LOOT, GEMS, GEM_CAP, xpToNext, crowdMult, spawnPaceMult, hordeCoinChance,
+  CHEST_ODDS, CHEST_GOLD, FLOTSAM, RUSH,
 } from '../data/survival.mjs';
+import { resolveCoastCollision } from './boat.mjs';
 import { ARMAMENTS, ARMAMENT_BY_ID, ARMAMENT_MAX_LEVEL } from '../data/armaments.mjs';
 import { getEnemy, ARCHETYPES } from '../data/enemies.mjs';
 import { stagePool, bossForStage, stageScaling } from '../data/stages.mjs';
@@ -439,6 +441,171 @@ function runEvent(run, event, ctx, rng, out) {
   }
 }
 
+// A column of the horde that crosses past the ship in a straight line,
+// a little off to one side. Returns how many came.
+export function spawnRush(run, ctx, rng = Math.random) {
+  const sv = run.sv; const b = run.boat;
+  const def = getEnemy(sv.hordeId); const flyer = isFlyerDef(def);
+  const ws = waveScaling(sv.stage, sv.levelIndex, sv.wave);
+  const n = Math.round((RUSH.count[0] + rng() * (RUSH.count[1] - RUSH.count[0])) * Math.min(1.6, ws.count) * DEV.enemyCount);
+  for (let tries = 0; tries < 8; tries++) {
+    const a = rng() * TAU; const dx = Math.cos(a); const dy = Math.sin(a);
+    const side = rng() < 0.5 ? 1 : -1; const off = (60 + rng() * 70) * side;
+    const sx = b.x - dx * ctx.spawnDist + -dy * off; const sy = b.y - dy * ctx.spawnDist + dx * off;
+    let k = 0;
+    for (let i = 0; i < n; i++) {
+      const lat = (rng() - 0.5) * 34;
+      const x = sx - dx * i * RUSH.spacing + -dy * lat; const y = sy - dy * i * RUSH.spacing + dx * lat;
+      const pad = run.tileSize * 3;
+      if (x < pad || y < pad || x > run.widthPx - pad || y > run.heightPx - pad) continue;
+      if (!flyer) { const tx = Math.floor(x / run.tileSize); const ty = Math.floor(y / run.tileSize); if (!(run.arena?.waterDist[ty]?.[tx] >= 1.2)) continue; }
+      const e = spawnEnemy(run, sv.hordeId, { x, y }, rng);
+      e.rush = { dx, dy, t: RUSH.life, v: Math.max(60, e.speed) * RUSH.speed };
+      e.hunting = false;
+      k++;
+    }
+    if (k >= n * 0.5) return k;
+  }
+  return 0;
+}
+
+// Moves the rushing shoal in its straight line (after the normal AI), and
+// quietly removes it once it's long gone.
+export function stepRushers(run, dt) {
+  for (const e of run.enemies) {
+    const R = e.rush; if (!R || e.health <= 0) continue;
+    R.t -= dt;
+    if (R.t <= 0) { e.health = 0; e.detonated = true; continue; } // gone over the horizon: no loot
+    if (R.px != null) { e.x = R.px; e.y = R.py; }
+    e.vx = R.dx * R.v; e.vy = R.dy * R.v; e.heading = Math.atan2(R.dy, R.dx);
+    e.x += e.vx * dt; e.y += e.vy * dt;
+    if (run.coast && !passesOverLand(e)) resolveCoastCollision(e, e.radius, run.coast);
+    R.px = e.x; R.py = e.y;
+  }
+}
+
+// -- Treasure -------------------------------------------------------------
+// Opens a chest: rolls how many items (the first chest of a level is a
+// sure 3), picks each the way a captain would — an evolution first, else
+// the first card of a fresh hand — and applies them. Returns
+// { items: [{ card }], gold }.
+export function openChest(run, rng = Math.random, { elite = false } = {}) {
+  const sv = run.sv;
+  let n;
+  if (!sv.chestsThisLevel) n = 3;
+  else {
+    let r = rng();
+    n = 1;
+    for (const [k, w] of CHEST_ODDS[elite ? 'elite' : 'normal']) { r -= w; if (r <= 0) { n = k; break; } }
+  }
+  sv.chestsThisLevel = (sv.chestsThisLevel || 0) + 1;
+  const items = [];
+  for (let i = 0; i < n; i++) {
+    const hand = rollChoices(run, rng, 3);
+    // Like Vampire Survivors' chests: grow what you already carry.
+    const owned = (c) => levelOf(run, c) > 0;
+    const pick = hand.find((c) => c.kind === 'evolve') || hand.find((c) => c.kind === 'weapon' && owned(c))
+      || hand.find((c) => c.kind === 'armament' && owned(c)) || hand.find((c) => c.kind === 'passive' && owned(c))
+      || hand.find((c) => c.kind !== 'salvage' && c.kind !== 'repair') || hand[0];
+    const desc = describeChoice(run, pick);
+    const res = applyChoice(run, pick);
+    items.push({ card: pick, desc, salvage: res?.salvage || 0 });
+  }
+  const gold = Math.round(n * (CHEST_GOLD[0] + rng() * (CHEST_GOLD[1] - CHEST_GOLD[0])));
+  return { items, gold };
+}
+
+// -- Flotsam --------------------------------------------------------------
+// A crate or barrel adrift somewhere on open water, out of sight of `avoid`.
+function placeFlotsam(run, rng, avoid = null, minD = 0) {
+  for (let tries = 0; tries < 40; tries++) {
+    const x = run.tileSize * 6 + rng() * (run.widthPx - run.tileSize * 12);
+    const y = run.tileSize * 6 + rng() * (run.heightPx - run.tileSize * 12);
+    const tx = Math.floor(x / run.tileSize); const ty = Math.floor(y / run.tileSize);
+    if (!(run.arena?.waterDist[ty]?.[tx] >= 2.2)) continue;
+    if (avoid && Math.hypot(x - avoid.x, y - avoid.y) < minD) continue;
+    return { id: nextPickupId++, x, y, hp: FLOTSAM.hp, maxHp: FLOTSAM.hp, r: FLOTSAM.radius, look: rng() < 0.5 ? 'crate' : 'barrel', spin: rng() * TAU, hit: 0 };
+  }
+  return null;
+}
+
+export function seedFlotsam(run, rng = Math.random) {
+  run.flotsam = [];
+  for (let i = 0; i < FLOTSAM.count; i++) {
+    const f = placeFlotsam(run, rng, run.boat, 260);
+    if (f) run.flotsam.push(f);
+  }
+  run.flotsamTimers = [];
+}
+
+function flotsamDrop(run, f, rng) {
+  const total = FLOTSAM.drops.reduce((a, [, w]) => a + w, 0);
+  let r = rng() * total; let kind = FLOTSAM.drops[0][0];
+  for (const [k, w] of FLOTSAM.drops) { r -= w; if (r <= 0) { kind = k; break; } }
+  const at = (dx = 0, dy = 0) => ({ x: f.x + dx, y: f.y + dy });
+  if (kind === 'coins') {
+    const n = 3 + Math.floor(rng() * 4);
+    for (let i = 0; i < n; i++) { const p = at((rng() - 0.5) * 26, (rng() - 0.5) * 26); run.pickups.push({ id: nextPickupId++, kind: 'coin', ...p, amount: 2, collected: false, pulled: false, age: 0 }); }
+  } else if (kind === 'glass') {
+    pushGem(run, f.x, f.y, 25);
+  } else if (kind === 'ring') {
+    run.pickups.push({ id: nextPickupId++, kind: 'repair', ...at(), amount: 0.25, collected: false, pulled: false, age: 0 });
+  } else {
+    run.pickups.push({ id: nextPickupId++, kind, ...at(), amount: 1, collected: false, pulled: false, age: 0 });
+  }
+  return kind;
+}
+
+// Breaks flotsam the ship sails into, or that shots and blasts hit, and
+// drifts new crates in out of sight. Returns [{ x, y, kind }] broken.
+export function stepFlotsam(run, dt, explosions = [], boatRadius = 11, rng = Math.random) {
+  const out = [];
+  if (!run.flotsam) return out;
+  const b = run.boat;
+  for (const f of run.flotsam) {
+    if (f.hp <= 0) continue;
+    f.spin += dt * 0.4; if (f.hit > 0) f.hit -= dt;
+    let dmg = 0;
+    if (Math.hypot(b.x - f.x, b.y - f.y) < boatRadius + f.r + 2) dmg = f.hp; // rammed open
+    for (const p of run.weapons.projectiles) {
+      if (p.spent || p.fuseRemaining != null || p.hitFlotsam?.has?.(f.id)) continue;
+      if (Math.hypot(p.x - f.x, p.y - f.y) > (p.radius || 4) + f.r) continue;
+      dmg += p.damage || 10;
+      if (p.pierceLeft > 0) { p.pierceLeft -= 1; (p.hitFlotsam ||= new Set()).add(f.id); } else p.spent = true;
+    }
+    for (const x of explosions) if (Math.hypot(x.x - f.x, x.y - f.y) < (x.r || 28) + f.r) dmg += 30;
+    if (dmg <= 0) continue;
+    f.hp -= dmg; f.hit = 0.12;
+    if (f.hp <= 0) {
+      out.push({ x: f.x, y: f.y, kind: flotsamDrop(run, f, rng), look: f.look });
+      run.flotsamTimers.push(FLOTSAM.respawn[0] + rng() * (FLOTSAM.respawn[1] - FLOTSAM.respawn[0]));
+    }
+  }
+  run.flotsam = run.flotsam.filter((f) => f.hp > 0);
+  for (let i = run.flotsamTimers.length - 1; i >= 0; i--) {
+    run.flotsamTimers[i] -= dt;
+    if (run.flotsamTimers[i] > 0) continue;
+    run.flotsamTimers.splice(i, 1);
+    const f = placeFlotsam(run, rng, b, 560);
+    if (f) run.flotsam.push(f);
+  }
+  return out;
+}
+
+// The Powder Keg: everything within reach takes a heavy blast (bosses and
+// warlords a slice of their hull). Returns hit events.
+export function powderKeg(run) {
+  const N = FLOTSAM.nuke; const b = run.boat; const ev = [];
+  for (const e of run.enemies) {
+    if (e.health <= 0 || e.warded) continue;
+    if (Math.hypot(e.x - b.x, e.y - b.y) > N.radius) continue;
+    const dmg = (e.isBoss || e.warlord) ? e.maxHealth * N.bossFrac : N.damage * (run.sv.stats?.damageMult ?? 1);
+    const killed = applyDamageToEnemy(e, dmg);
+    ev.push({ enemy: e, weaponId: 'depth_charges', damage: dmg, killed, nuke: true });
+  }
+  return ev;
+}
+
 // Keeps a body inside the boss cage: pushed back to the wall, its outward
 // speed cancelled. Returns true if it touched the wall.
 export function confineToCage(o, cage, radius = 11) {
@@ -495,6 +662,12 @@ export function stepDirector(run, dt, ctx, rng = Math.random) {
     out.waveStarted = 0;
   }
 
+  // A rush: a shoal sweeps past mid-wave.
+  if (RUSH.waves.includes(sv.wave) && sv.waveTime >= RUSH.at && !sv.eventsDone[`rush${sv.wave}`]) {
+    sv.eventsDone[`rush${sv.wave}`] = true;
+    out.rush = spawnRush(run, ctx, rng);
+  }
+
   // Steady spawns.
   const ws = waveScaling(sv.stage, sv.levelIndex, sv.wave);
   sv.spawnTimer -= dt * ws.rate * DEV.spawnRate * spawnPaceMult(sv.wave, sv.stage, sv.levelIndex);
@@ -539,7 +712,7 @@ export function recycleStragglers(run, ctx, rng = Math.random) {
   const moving = Math.hypot(run.boat.vx || 0, run.boat.vy || 0) > 30;
   let n = 0;
   for (const e of run.enemies) {
-    if (e.health <= 0 || e.isBoss || e.warlord || e.tether) continue;
+    if (e.health <= 0 || e.isBoss || e.warlord || e.tether || e.rush) continue;
     const d = Math.hypot(e.x - run.boat.x, e.y - run.boat.y);
     if (d < far) continue;
     const p = findSpawn(run, ctx.spawnDist, passesOverLand(e), rng, moving ? heading : null, 1.1);
@@ -646,7 +819,7 @@ export function dropLoot(run, enemy, rng = Math.random) {
   const coin = (amount) => run.pickups.push({ id: nextPickupId++, kind: 'coin', x: enemy.x + (rng() - 0.5) * 12, y: enemy.y + (rng() - 0.5) * 12, amount, collected: false, pulled: false, age: 0 });
   if (enemy.elite || enemy.warlord) {
     coin(enemy.salvageDrop);
-    run.pickups.push({ id: nextPickupId++, kind: 'chest', x: enemy.x, y: enemy.y, amount: 1, collected: false, age: 0 });
+    run.pickups.push({ id: nextPickupId++, kind: 'chest', x: enemy.x, y: enemy.y, amount: 1, collected: false, age: 0, elite: true });
   } else if (def.horde) {
     if (rng() < hordeCoinChance(run.sv.stage)) coin(1);
   } else if (rng() < LOOT.specialCoin) {
@@ -664,7 +837,7 @@ export function sweepPickups(run) {
 // Pulls nearby gems/coins to the boat and collects what reaches it.
 // Returns { xp, salvage, repaired, chests, magnet } for this frame.
 export function stepPickups(run, dt, boatRadius = 11) {
-  const out = { xp: 0, salvage: 0, repaired: 0, chests: 0, magnet: false, collected: 0 };
+  const out = { xp: 0, salvage: 0, repaired: 0, chests: 0, chestKinds: [], magnet: false, nuke: false, becalm: false, collected: 0 };
   const b = run.boat;
   const reach = SURVIVAL.pickupRadius * (run.sv.stats?.pickup ?? 1);
   const drift = SURVIVAL.gemDrift;
@@ -679,7 +852,7 @@ export function stepPickups(run, dt, boatRadius = 11) {
       dx = b.x - p.x; dy = b.y - p.y; d = Math.hypot(dx, dy);
     }
     if (p.kind === 'chest') {
-      if (d < boatRadius + 14) { p.collected = true; out.chests++; }
+      if (d < boatRadius + 14) { p.collected = true; out.chests++; out.chestKinds.push({ elite: !!p.elite }); }
       continue;
     }
     if (p.kind === 'repair' && b.health >= b.maxHull && !p.pulled) continue;
@@ -701,7 +874,8 @@ export function stepPickups(run, dt, boatRadius = 11) {
       } else if (p.kind === 'magnet') {
         out.magnet = true;
         sweepPickups(run);
-      }
+      } else if (p.kind === 'nuke') out.nuke = true;
+      else if (p.kind === 'becalm') out.becalm = true;
     }
   }
   if (run.pickups.length > 60 && run.pickups.some((p) => p.collected)) run.pickups = run.pickups.filter((p) => !p.collected);
