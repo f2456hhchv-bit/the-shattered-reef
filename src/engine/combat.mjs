@@ -259,6 +259,8 @@ export function cleanupProjectiles(state) {
 }
 
 export function applyDamageToEnemy(enemy, amount) {
+  // A warlord's guard (survival): armoured, or exposed after a move.
+  if (enemy.takenMult != null) amount *= enemy.takenMult;
   enemy.health = Math.max(0, enemy.health - amount);
   return enemy.health <= 0;
 }
@@ -275,6 +277,16 @@ export function frontArmorFactor(enemy, p) {
   // The shot travels toward the enemy; it hit the front if it came from ahead.
   const into = -(p.vx * fx + p.vy * fy) / sp;
   return into > Math.cos(65 * Math.PI / 180) ? enemy.frontArmor : 1;
+}
+
+// Survival hit flags: on-counter, a glancing off-counter hit on an
+// armoured specialist, a raking broadside.
+function hitFlags(p, enemy, getEnemyCounter) {
+  const f = {};
+  if (p.counterMult && getEnemyCounter(enemy) === (p.counterId || p.weaponId)) f.counter = true;
+  else if (p.counterMult && (enemy.offCounterMult ?? 1) < 1) f.glance = true;
+  if (p.rake) f.rake = true;
+  return f;
 }
 
 // Checks every live projectile against every enemy and applies damage,
@@ -301,7 +313,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
     // Survival weapons (engine/survival.mjs) carry their damage too, plus a
     // counter bonus against what their weapon (`counterId`) counters.
     const baseDamage = (enemy) => (p.damage != null
-      ? p.damage * (p.counterMult && getEnemyCounter(enemy) === (p.counterId || p.weaponId) ? p.counterMult : 1)
+      ? p.damage * (p.counterMult && getEnemyCounter(enemy) === (p.counterId || p.weaponId) ? p.counterMult : (p.counterMult ? (enemy.offCounterMult ?? 1) : 1))
       : damageAgainst(weapon, getEnemyCounter(enemy)));
 
     if (lobbed && p.fuseRemaining != null && p.fuseRemaining > 0 && !p.spent) {
@@ -323,7 +335,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
         if (dist <= radius + enemy.radius) {
           const dmg = baseDamage(enemy) * getFactionMultiplier(enemy) * getWeaponMultiplier(weapon.id);
           const killed = applyDamageToEnemy(enemy, dmg);
-          events.push({ enemy, weaponId: p.counterId || weapon.id, damage: dmg, killed, ...(p.counterMult && getEnemyCounter(enemy) === (p.counterId || p.weaponId) ? { counter: true } : {}) });
+          events.push({ enemy, weaponId: p.counterId || weapon.id, damage: dmg, killed, ...hitFlags(p, enemy, getEnemyCounter) });
         }
       }
       continue; // detonated; cleanupProjectiles removes it (already spent)
@@ -352,7 +364,7 @@ export function resolveHits(state, enemies, getEnemyCounter = (e) => e.counter, 
         const armor = frontArmorFactor(enemy, p);
         const dmg = baseDamage(enemy) * extraMult * armor;
         const killed = applyDamageToEnemy(enemy, dmg);
-        events.push({ enemy, weaponId: p.counterId || weapon.id, damage: dmg, killed, ...(armor < 1 ? { armored: true } : {}), ...(p.counterMult && getEnemyCounter(enemy) === (p.counterId || p.weaponId) ? { counter: true } : {}) });
+        events.push({ enemy, weaponId: p.counterId || weapon.id, damage: dmg, killed, ...(armor < 1 ? { armored: true } : {}), ...hitFlags(p, enemy, getEnemyCounter) });
         if (p.pierceLeft > 0) {
           p.pierceLeft -= 1;
           (p.hitIds ||= new Set()).add(enemy.id);

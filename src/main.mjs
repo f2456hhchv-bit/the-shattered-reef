@@ -39,7 +39,7 @@ import {
 } from './engine/renderer.mjs';
 import { createJoystick } from './input/joystick.mjs';
 import { resolveHits } from './engine/combat.mjs';
-import { createEnemy } from './engine/enemies.mjs';
+import { createEnemy, currentCounter } from './engine/enemies.mjs';
 import { getWeapon } from './data/weapons.mjs';
 import { getEnemy } from './data/enemies.mjs';
 import { bossForStage, stageInfo, stageName } from './data/stages.mjs';
@@ -58,14 +58,14 @@ import {
   unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact, playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playBossPhaseChange, playBossDefeated, playDash, playEvolve, playSynergy, playAchievement, playTap, playTreasure, playZap, playThunder, playWeatherWarning, playStrikeMark,
 } from './audio/audio.mjs';
 import { createSurvivalRun, buildSurvivalWorld, survivalLevel, completeLevel, sinkLevel, addLevelSalvage } from './engine/survivalRun.mjs';
-import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, recomputeStats, orbitBlades, evolutionsUsed, activeSynergies } from './engine/survival.mjs';
+import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, recomputeStats, orbitBlades, evolutionsUsed, activeSynergies, snapshotBuild, rerollChoices, banishChoice } from './engine/survival.mjs';
 import { stepSurvivalFrame } from './engine/survivalLoop.mjs';
 import { DEV, loadDev, devActive } from './engine/devTuning.mjs';
 import { createDevPanel } from './ui/devPanel.mjs';
 import {
   drawSurvivalPickups, drawFirePools, drawOrbitBlades, drawHullBar, drawRings, drawSinkers, drawLandmarks, drawSeaIslands, drawProps, drawEdgeArrows, drawVignette,
 } from './engine/survivalArt.mjs';
-import { drawLords } from './engine/warlordArt.mjs';
+import { drawLords, drawCage, drawBroadsideArcs } from './engine/warlordArt.mjs';
 import { loadCreatureSprites } from './engine/creatureSprites.mjs';
 import { loadFxSprites } from './engine/fxSprites.mjs';
 import { loadShipSprites, shipSpriteReady, hasShipSprite, whenShipSpriteReady } from './engine/shipSprites.mjs';
@@ -236,11 +236,17 @@ export function startApp(root) {
     clearTimeout(lordBannerTimer);
     lordBannerTimer = setTimeout(() => { lordBanner.hidden = true; }, ms);
   }
+  // "Pirate Brig — weak to Chain Shot ✓" (✓ you carry it, ✗ you don't).
+  function featureLine(id) {
+    const def = getEnemy(id); const w = def.counter;
+    const have = !!(run.sv.weapons[w]);
+    return `${def.name} — weak to ${getWeapon(w).name} ${have ? '✓' : '✗'}`;
+  }
   function showLordBanner(e) {
     showBanner({
       eyebrow: e.isBoss ? `☠ Stage ${run.stage} boss` : `⚔ Level ${run.reefIndex + 1} warlord`,
       title: lordTitle(e),
-      chips: (e.lord?.kit || []).map((k) => `${LORD_TRAITS[k].icon} ${LORD_TRAITS[k].name}`),
+      chips: [...(e.lord?.kit || []).map((k) => `${LORD_TRAITS[k].icon} ${LORD_TRAITS[k].name}`), '🛡 Armoured — strike after each move'],
       cls: e.isBoss ? 'boss' : '',
     });
   }
@@ -285,7 +291,7 @@ export function startApp(root) {
   const upgradeOverlay = document.createElement('div');
   upgradeOverlay.id = 'upgrade-pick';
   upgradeOverlay.hidden = true;
-  upgradeOverlay.innerHTML = `<div class="up-wrap"><h2 id="up-title"></h2><p class="up-sub"></p><div id="up-cards"></div></div>`;
+  upgradeOverlay.innerHTML = `<div class="up-wrap"><h2 id="up-title"></h2><p class="up-sub"></p><div id="up-cards"></div><div class="up-tools"><button type="button" class="up-reroll">↻ Reroll</button><button type="button" class="up-banish">✕ Banish</button></div><p class="up-hint" hidden>Tap a card to banish it for the rest of the stage</p></div>`;
   root.appendChild(upgradeOverlay);
 
   const summaryOverlay = document.createElement('div');
@@ -791,9 +797,27 @@ export function startApp(root) {
     else if (v.evolve) lv.textContent = 'EVOLVE';
     return b;
   }
+  let banishMode = false;
+  function cardCount() { return SURVIVAL.choices + (run.extraCardChoices || 0); }
+  // Reroll and banish (2026-10-22): a few per stage, so a hand you don't
+  // want can be changed and a weapon you never want can be struck out.
+  function renderCardTools(title, sub) {
+    const sv = run.sv;
+    const rr = upgradeOverlay.querySelector('.up-reroll'); const bn = upgradeOverlay.querySelector('.up-banish');
+    rr.textContent = `↻ Reroll · ${sv.rerolls || 0}`; rr.disabled = !(sv.rerolls > 0);
+    bn.textContent = banishMode ? '✕ Cancel' : `✕ Banish · ${sv.banishes || 0}`; bn.disabled = !(sv.banishes > 0);
+    bn.classList.toggle('on', banishMode);
+    upgradeOverlay.querySelector('.up-hint').hidden = !banishMode;
+    rr.onclick = () => {
+      const hand = rerollChoices(run, Math.random, cardCount());
+      if (hand) { playTap(); banishMode = false; offerChoices(title, sub, hand); }
+    };
+    bn.onclick = () => { banishMode = !banishMode; renderCardTools(title, sub); upgradeOverlay.classList.toggle('banishing', banishMode); };
+  }
   function offerChoices(title, sub, choices) {
     if (!choices.length) return false;
     sailing = false;
+    banishMode = false; upgradeOverlay.classList.remove('banishing');
     pendingChoice = { title, sub, choices };
     saveCurrentVoyage();
     joystick.reset?.();
@@ -804,6 +828,11 @@ export function startApp(root) {
       const b = cardEl(c);
       b.addEventListener('click', () => {
         if (upgradeOverlay.hidden) return;
+        if (banishMode) {
+          const hand = banishChoice(run, c, Math.random, cardCount());
+          if (hand) { showToast(`✕ ${describeChoice(run, c).name} banished for this stage`); playTap(); offerChoices(title, sub, hand); }
+          return;
+        }
         const v = describeChoice(run, c);
         const combosBefore = new Set(activeSynergies(run).map((x) => x.id));
         const res = applyChoice(run, c);
@@ -827,6 +856,7 @@ export function startApp(root) {
       });
       return b;
     }));
+    renderCardTools(title, sub);
     upgradeOverlay.hidden = false;
     return true;
   }
@@ -837,7 +867,9 @@ export function startApp(root) {
     if (run.sv.pendingLevelUps > 0) {
       run.sv.pendingLevelUps -= 1;
       playReefCleared();
-      offerChoices(`Level up! ⚓ Lv ${run.sv.shipLevel - run.sv.pendingLevelUps}`, 'Choose one — it lasts for this level.', rollChoices(run, Math.random, n));
+      const head = run.catchUp && run.sv.time < 0.5;
+      offerChoices(head ? `Head start ⚓ ${run.catchUp - run.sv.pendingLevelUps}/${run.catchUp}` : `Level up! ⚓ Lv ${run.sv.shipLevel - run.sv.pendingLevelUps}`,
+        head ? 'No build carried into this level: build one now.' : 'Choose one — your build lasts the whole stage.', rollChoices(run, Math.random, n));
     } else if (run.sv.pendingChests > 0) {
       run.sv.pendingChests -= 1;
       playTreasure();
@@ -872,6 +904,8 @@ export function startApp(root) {
   // Feedback for one hit (the engine has already applied the damage and
   // dropped the loot). With a hundred enemies on the water this runs a lot,
   // so numbers, particles and sounds are capped and throttled.
+  const hintsShown = {}; // one-off teaching toasts this session
+  let broadsideFlash = 0;
   const sinkers = []; // sunk enemies, drawn going under for a moment
   const rings = []; // shockwave rings (blasts, level-ups)
   let killSoundCd = 0; let hitSoundCd = 0;
@@ -886,10 +920,12 @@ export function startApp(root) {
       const triangleMult = ram ? 1 : triangleMultiplier(run.faction, enemy.faction);
       spawnDamageNumber(damageNumbers, enemy.x, enemy.y - enemy.radius - 4, ev.damage, {
         jitterX: (Math.random() - 0.5) * 12,
-        crit: !!ev.counter,
-        triangle: triangleMult > 1 ? 'advantage' : triangleMult < 1 ? 'disadvantage' : null,
+        crit: !!(ev.counter || ev.rake || ev.exposed),
+        triangle: ev.glance || ev.guarded ? 'disadvantage' : triangleMult > 1 ? 'advantage' : triangleMult < 1 ? 'disadvantage' : null,
       });
     }
+    if (ev.glance && !hintsShown.glance && !enemy.elite) { hintsShown.glance = true; showToast(`Grey ▼ hits: ${getEnemy(enemy.defId).name} shrugs that off — ${getWeapon(currentCounter(enemy)).name} counters it`, { ms: 2800 }); }
+    if (ev.rake && !hintsShown.rake) { hintsShown.rake = true; showToast('Raking broadside! ×1.5 — keep them off your beam ⚓', { ms: 2400 }); }
     if (!ev.killed) {
       if (!burn && particles.length < 420) spawnHitSpark(particles, enemy.x, enemy.y, color, Math.random, big ? 8 : 4);
       if (!burn && hitSoundCd <= 0) { hitSoundCd = 0.06; playHit(); }
@@ -1641,8 +1677,16 @@ export function startApp(root) {
     startCountdown();
     showBanner({ eyebrow: `📅 Daily voyage · ${v.key}`, title: `${v.mod.icon} ${v.mod.name}`, chips: [v.mod.desc, `Stage ${v.stage} – Level ${v.levelIndex + 1}`], cls: 'combo', ms: 3000 });
   }
-  function startRun(stage = selectedStage, levelIndex = selectedLevel, seed = nextRunSeed) {
-    run = createSurvivalRun(seed, resolveLoadout(meta), { stage, levelIndex, ...runOptions() });
+  // The stage's build (2026-10-22): carried from the level before, or the
+  // build you arrived with when retrying. Kept in meta.stageBuild so it
+  // survives a trip to the harbour.
+  function storedBuild(stage, levelIndex) {
+    const sb = meta.stageBuild;
+    return sb && sb.stage === stage && sb.levelIndex === levelIndex ? sb : null;
+  }
+  function startRun(stage = selectedStage, levelIndex = selectedLevel, seed = nextRunSeed, build = undefined, retry = false) {
+    if (build === undefined) { const sb = storedBuild(stage, levelIndex); build = sb?.build || null; retry = !!sb?.retry; }
+    run = createSurvivalRun(seed, resolveLoadout(meta), { stage, levelIndex, build, retry, ...runOptions() });
     pendingChoice = null;
     enterLevelView();
     saveCurrentVoyage();
@@ -1663,7 +1707,7 @@ export function startApp(root) {
   });
   function abandonSavedVoyage() {
     const got = loadVoyage(window.localStorage);
-    if (got && !got.run.over) { sinkLevel(got.run); recordLevelResult(meta, got.run); saveMeta(window.localStorage, meta); }
+    if (got && !got.run.over) { sinkLevel(got.run); recordLevelResult(meta, got.run); const keep = run; run = got.run; rememberStageBuild(); run = keep; saveMeta(window.localStorage, meta); }
     clearVoyage(window.localStorage);
   }
   // Continue a saved level exactly where it was left.
@@ -1740,7 +1784,7 @@ export function startApp(root) {
   });
   pauseMenu.querySelector('#pm-abandon').addEventListener('click', async () => {
     if (!await askConfirm('Abandon this level? You keep half the Salvage you\'ve collected in it.', 'Abandon level')) return;
-    sinkLevel(run); recordLevelResult(meta, run); saveMeta(window.localStorage, meta);
+    sinkLevel(run); recordLevelResult(meta, run); rememberStageBuild(); saveMeta(window.localStorage, meta);
     clearVoyage(window.localStorage);
     voyageActive = false; paused = false; pauseMenu.hidden = true;
     openHub();
@@ -1860,6 +1904,14 @@ export function startApp(root) {
     summaryOverlay.classList.add('show');
   }
   let lastProgress = null;
+  function rememberStageBuild() {
+    if (run.daily) return;
+    const won = run.outcome === 'victory';
+    if (won && run.reefIndex >= LEVELS_PER_STAGE - 1) meta.stageBuild = null;
+    else meta.stageBuild = won
+      ? { stage: run.stage, levelIndex: run.reefIndex + 1, build: snapshotBuild(run) }
+      : { stage: run.stage, levelIndex: run.reefIndex, build: run.carryIn, retry: true };
+  }
   function endRun() {
     if (run.outcome === 'victory') playVictory(); else playSunk();
     const wonBefore = levelsWonTotal(meta);
@@ -1871,6 +1923,7 @@ export function startApp(root) {
       lastResult = { unlockedLevel: false, unlockedStage: false };
     } else {
       lastResult = recordLevelResult(meta, run);
+      rememberStageBuild();
     }
     lastProgress = recordProgress(meta, run);
     lastProgress.poolUnlocks = newlyUnlocked(wonBefore, levelsWonTotal(meta));
@@ -1889,9 +1942,9 @@ export function startApp(root) {
     rollNextRunSeed();
     if (run.daily) startDaily();
     else if (run.outcome === 'victory') {
-      if (run.reefIndex < LEVELS_PER_STAGE - 1) startRun(run.stage, run.reefIndex + 1);
-      else startRun(run.stage + 1, 0);
-    } else startRun(run.stage, run.reefIndex);
+      if (run.reefIndex < LEVELS_PER_STAGE - 1) startRun(run.stage, run.reefIndex + 1, nextRunSeed, snapshotBuild(run), false);
+      else startRun(run.stage + 1, 0, nextRunSeed, null, false);
+    } else startRun(run.stage, run.reefIndex, nextRunSeed, run.carryIn, true);
   });
 
   // A tiny debug hook for headless/automated testing — not user-facing,
@@ -1941,6 +1994,9 @@ export function startApp(root) {
     addXp: (n) => { addXp(run, n); maybeOfferChoice(); return run.sv.shipLevel; },
     chest: () => { run.sv.pendingChests += 1; maybeOfferChoice(); },
     pick: (i = 0) => { const b = upgradeOverlay.querySelectorAll('.up-card')[i]; if (b) b.click(); return !!b; },
+    raw: () => run.sv,
+    lord: () => run.enemies.find((e) => e.id === run.sv.bossId) || null,
+    stageBuild: () => meta.stageBuild || null,
     give: (kind, id, times = 1) => { for (let k = 0; k < times; k++) applyChoice(run, { kind, id }); renderDock(); renderUpgradeStrip(); return { ...run.sv.weapons }; },
   };
   // Testing-only: teleports the boat, since a headless test driving the
@@ -2082,6 +2138,11 @@ export function startApp(root) {
     for (const f of ev.fired) {
       if ((fireSoundCd[f.id] || 0) <= now) { fireSoundCd[f.id] = now + 90; playFire(f.id === 'flame_barrels' ? 'flame_barrels' : f.id); }
       spawnMuzzleFlash(particles, b.x + Math.cos(f.heading) * BOAT_RADIUS, b.y + Math.sin(f.heading) * BOAT_RADIUS, f.heading, getWeapon(f.id).color, Math.random);
+      if (f.side) { broadsideFlash = f.rake ? 1 : 0.5; if (f.rake) addShake(shake, 0.05); }
+    }
+    if (!hintsShown.broadside && run.sv.time > 6 && run.sv.weapons.cannonballs) {
+      hintsShown.broadside = true;
+      showToast('⚓ Your cannons fire broadside — turn your side to the enemy', { ms: 2800 });
     }
     for (const id of ev.armFired) {
       if ((fireSoundCd[id] || 0) <= now) { fireSoundCd[id] = now + 120; playFire(id); }
@@ -2127,10 +2188,12 @@ export function startApp(root) {
       renderWavePips();
       if (d.waveStarted > 0) {
         const last = d.waveStarted === SURVIVAL.waves - 1;
-        showToast(last ? (run.sv.bossDefId ? `☠ Final wave — ${getEnemy(run.sv.bossDefId).name} is coming!` : '⚔ Final wave — the warlord is coming!') : `Wave ${d.waveStarted + 1} / ${SURVIVAL.waves}`, { ms: 1800 });
+        showToast(last ? (run.sv.bossDefId ? `☠ Final wave — ${getEnemy(run.sv.bossDefId).name} is coming!` : '⚔ Final wave — the warlord is coming!')
+          : d.feature ? `Wave ${d.waveStarted + 1} / ${SURVIVAL.waves} — ${featureLine(d.feature)}` : `Wave ${d.waveStarted + 1} / ${SURVIVAL.waves}`, { ms: 2400 });
         playReefCleared();
       }
     }
+    if (d.preview) { showToast(`Next wave: ${featureLine(d.preview)}`, { ms: 2600 }); playStrikeMark(); }
     if (d.finalStretch) {
       showBanner({ eyebrow: '🌩 The tide turns', title: 'Final stretch', chips: ['Elite hunters every 20s', 'Hold on until the warlord'], cls: 'dark', ms: 2600 });
       playWeatherWarning(); addShake(shake, 0.4);
@@ -2161,6 +2224,14 @@ export function startApp(root) {
         spawnDamageNumber(damageNumbers, b.x, b.y - BOAT_RADIUS - 12, ev.rammed, { incoming: true });
         flashHit(); hullFlash = 0.5; addShake(shake, 0.7); playWallImpact(1);
         spawnSplash(particles, b.x, b.y, Math.random, 16);
+      }
+      if (l.exposed) {
+        rings.push({ x: e.x, y: e.y, life: 0.5, maxLife: 0.5, r: e.radius + 34, color: '255, 214, 92' });
+        if (!hintsShown.exposed) { hintsShown.exposed = true; showToast('💥 Its guard is down — hit it now!', { ms: 1800 }); }
+      }
+      if (l.phase) {
+        showBanner({ eyebrow: `${lordTitle(e)}`, title: l.phase >= 2 ? 'Enraged! 🔥' : 'The sea turns', chips: [l.phase >= 2 ? 'Faster moves, more shot' : 'Its crew joins the fight'], cls: e.isBoss ? 'boss' : 'dark', ms: 2200 });
+        playBossPhaseChange(); addShake(shake, 0.5);
       }
       if (l.shieldUp) { showToast(`🛡️ ${lordTitle(e)} raises a ward — sink its crew!`, { ms: 2000 }); playBossPhaseChange(); addShake(shake, 0.3); }
       if (l.shieldDown) { showToast('The ward breaks — open fire! 💥', { ms: 1400 }); rings.push({ x: e.x, y: e.y, life: 0.5, maxLife: 0.5, r: e.radius + 40, color: '255, 240, 180' }); }
@@ -2210,6 +2281,7 @@ export function startApp(root) {
     let dt = live ? applyHitStop(hitStop, rawDt) : rawDt;
     if (tut && !live && !upgradeOverlay.hidden) stepTutorial(0, { x: 0, y: 0 });
     if (evoSlow > 0) { evoSlow -= rawDt; if (live) dt *= 0.3 + 0.7 * Math.max(0, 1 - evoSlow / 1.4) ** 2; }
+    broadsideFlash -= rawDt * 3;
     killSoundCd -= rawDt; hitSoundCd -= rawDt; explosionSoundCd -= rawDt; coinSoundCd -= rawDt; hullFlash = Math.max(0, hullFlash - rawDt * 2);
 
     if (live && dt > 0 && run.sv) {
@@ -2313,11 +2385,13 @@ export function startApp(root) {
     );
     for (const e of run.enemies) if (e.isBoss && e.enraged && e.health > 0) drawEnrage(ctx, e, t);
     drawLords(ctx, visibleOnly(run.enemies, view.visible), t);
+    drawCage(ctx, run.sv?.cage, t);
     drawLighting(view.visible, t);
     drawEnemyProjectiles(ctx, run.enemyProjectiles, t);
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color, t);
     if (run.outcome !== 'sunk') {
       if (run.sv) drawOrbitBlades(ctx, orbitBlades(run), t);
+      if (run.sv?.weapons.cannonballs) drawBroadsideArcs(ctx, run.boat, SURVIVAL.broadside.arc, SURVIVAL.broadside.rake, 0.07 + Math.max(0, broadsideFlash) * 0.25);
       if (run.dash?.iframes > 0) {
         // Afterimages along the dash.
         for (let k = 3; k >= 1; k--) {

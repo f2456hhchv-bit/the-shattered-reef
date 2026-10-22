@@ -7,15 +7,16 @@
 // here touches the DOM or a canvas.
 
 import { stepBoat, resolveCoastCollision, applyWallImpactDamage, statusTuning, tickBoatStatus } from './boat.mjs';
-import { stepWeather, weatherModifiers } from './weather.mjs';
-import { updateEnemies, stepSummons, currentCounter, factionMultiplierFor, incomingMultiplierFor, resolveEnemyContactEvents, isRevealed, fireShipBlast } from './enemies.mjs';
+import { stepWeather, weatherModifiers, startWeather } from './weather.mjs';
+import { BIOME_WEATHER, WEATHER } from '../data/weather.mjs';
+import { passesOverLand, updateEnemies, stepSummons, currentCounter, factionMultiplierFor, incomingMultiplierFor, resolveEnemyContactEvents, isRevealed, fireShipBlast } from './enemies.mjs';
 import { trackEnemyMotion } from './aim.mjs';
 import { stepCombat, resolveHits, cleanupProjectiles, stepBurn, applyDamageToEnemy } from './combat.mjs';
 import { stepArmaments, chainLightning } from './armaments.mjs';
 import { updateEnemyGuns, stepEnemyProjectiles } from './enemyGuns.mjs';
 import { ambientLight, viewRadius, canSee } from './ambient.mjs';
 import {
-  spawnCrew, applySynergies, stepDirector, recycleStragglers, separateEnemies, knockBack, fireWeapons, afterHits, stepWeaponExtras, dropLoot, stepPickups, addXp,
+  spawnCrew, applySynergies, sweepPickups, confineToCage, stepDirector, recycleStragglers, separateEnemies, knockBack, fireWeapons, afterHits, stepWeaponExtras, dropLoot, stepPickups, addXp,
 } from './survival.mjs';
 import { addLevelSalvage } from './survivalRun.mjs';
 import { stepLord } from './warlord.mjs';
@@ -24,6 +25,19 @@ import { DASH } from '../data/survival.mjs';
 import { DEV } from './devTuning.mjs';
 
 export const BOAT_RADIUS = 11;
+
+// Starts one of the biome's weather events now (the boss fight's hazards).
+// Returns its id, or null.
+export function stirTheSea(run, rng = Math.random) {
+  if (!run.weather) return null;
+  // Hazards, not fog: nothing that would hide the boss from your guns.
+  const ids = Object.keys(BIOME_WEATHER[run.level?.biomeId] || BIOME_WEATHER.tropical).filter((id) => !WEATHER[id]?.view && !(WEATHER[id]?.fog > 0.2));
+  for (let k = 0; k < 4 && ids.length; k++) {
+    const id = ids[Math.floor(rng() * ids.length)];
+    if (startWeather(run, id, rng)) return id;
+  }
+  return null;
+}
 
 function tallyKill(sv, e) {
   (sv.killsByDef ||= {})[e.defId] = (sv.killsByDef[e.defId] || 0) + 1;
@@ -79,6 +93,14 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   ev.weather = stepWeather(run, dt, rng);
   const impact = resolveCoastCollision(boat, BOAT_RADIUS, run.coast);
   ev.wallDamage = run.dash.t > 0 ? 0 : applyWallImpactDamage(boat, impact);
+  ev.caged = confineToCage(boat, sv.cage, BOAT_RADIUS);
+  // Never off the chart: a gale once blew a ship through the outer coast
+  // and out of the map, where its shots died on the spot (2026-10-22 sims).
+  const pad = (run.tileSize || 16) * 2;
+  if (run.widthPx && (boat.x < pad || boat.y < pad || boat.x > run.widthPx - pad || boat.y > run.heightPx - pad)) {
+    boat.x = Math.min(run.widthPx - pad, Math.max(pad, boat.x)); boat.y = Math.min(run.heightPx - pad, Math.max(pad, boat.y));
+    boat.vx *= 0.3; boat.vy *= 0.3;
+  }
   ev.dot = tickBoatStatus(boat, dt);
   if (run.hullRegenPerSecond && boat.health > 0 && boat.health < boat.maxHull) {
     boat.health = Math.min(boat.maxHull, boat.health + run.hullRegenPerSecond * dt);
@@ -86,6 +108,9 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
 
   // Enemies: spawn, move, crowd, catch up.
   ev.director = stepDirector(run, dt, ctx, rng);
+  if (ev.director.sweep) sweepPickups(run);
+  // The last fight turns the sea: a weather event when it arrives.
+  if (ev.director.boss) ev.bossWeather = stirTheSea(run, rng);
   updateEnemies(run.enemies, boat, dt, run.grid, run.tileSize, run.coast);
   for (const e of stepSummons(run.enemies, dt, rng)) { e.hunting = true; e.xp = 1; ev.summoned++; }
   separateEnemies(run.enemies);
@@ -127,6 +152,11 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
       ev.hits.push({ enemy: e, weaponId: 'cannonballs', damage: run.ramDamage, killed, ram: true });
     }
   }
+  // A guarded or exposed warlord: show the damage it actually took.
+  for (const h of ev.hits) {
+    const m = h.enemy?.takenMult;
+    if (m != null && !h._tm) { h._tm = true; h.damage *= m; if (m > 1) h.exposed = true; else h.guarded = true; }
+  }
   // Weather hits enemies too.
   for (const h of ev.weather.enemyHits || []) ev.hits.push({ ...h, burn: true });
 
@@ -145,6 +175,8 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
       boat.health = Math.max(0, boat.health - dmg);
       ev.rammed += dmg;
     }
+    if (lv.phase) lv.weather = stirTheSea(run, rng);
+    if (confineToCage(e, sv.cage, e.radius) && run.coast && !passesOverLand(e)) resolveCoastCollision(e, e.radius, run.coast);
     if (Object.keys(lv).length) ev.lord.push({ e, ...lv });
   }
   updateEnemyGuns(run.enemies, boat, dt, world, run.enemyProjectiles, rng);

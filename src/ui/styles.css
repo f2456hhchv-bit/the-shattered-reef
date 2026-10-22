@@ -683,6 +683,17 @@ body.in-hub #pickup-toast, body.in-hub #hit-flash { visibility: hidden; }
   color: #f6e6c2; touch-action: manipulation;
   animation: up-in .35s cubic-bezier(.2, 1.4, .4, 1) both;
 }
+/* Reroll / banish (2026-10-22). */
+.up-tools { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+.up-tools button {
+  min-height: 44px; min-width: 120px; padding: 8px 14px; border-radius: 14px;
+  border: 2px solid #c99a45; background: rgba(30, 19, 10, .92); color: #f6e6c2;
+  font: inherit; font-weight: 700; touch-action: manipulation;
+}
+.up-tools button:disabled { opacity: .4; }
+.up-tools .up-banish.on { border-color: #ff6b5b; color: #ffb0a6; }
+.up-hint { margin: 8px 0 0; color: #ffb0a6; font-size: 13px; }
+#upgrade-overlay.banishing .up-card, .banishing .up-card { border-color: #ff6b5b; box-shadow: 0 0 0 2px rgba(255, 107, 91, .35), 0 5px 16px rgba(0, 0, 0, .45); }
 .up-card:nth-child(2) { animation-delay: .07s; }
 .up-card:nth-child(3) { animation-delay: .14s; }
 .up-card:active { transform: scale(.97); border-color: #ffd35c; }

@@ -6,10 +6,12 @@
 // bound and clear times as roughly right.
 //
 // Usage: node tools/survival-sim.mjs [runs] [stage] [level] [seedOffset]
+//        node tools/survival-sim.mjs stage [runs] [stage]   (a whole stage,
+//        the build carried level to level, up to 3 retries per level)
 
 import { createSurvivalRun, completeLevel, sinkLevel } from '../src/engine/survivalRun.mjs';
 import { stepSurvivalFrame, BOAT_RADIUS } from '../src/engine/survivalLoop.mjs';
-import { rollChoices, applyChoice, timeToBoss } from '../src/engine/survival.mjs';
+import { rollChoices, applyChoice, timeToBoss, snapshotBuild } from '../src/engine/survival.mjs';
 import { checkSunk } from '../src/engine/run.mjs';
 import { sampleField } from '../src/engine/terrain.mjs';
 import { makeSeededRng } from '../src/engine/rng.mjs';
@@ -31,8 +33,10 @@ export function botInput(run) {
     for (const e of run.enemies) {
       if (e.health <= 0) continue;
       const ex = e.x - b.x; const ey = e.y - b.y; const d = Math.hypot(ex, ey);
-      if (d > 260) continue;
+      if (d > 260 && !(e.isBoss || e.warlord)) continue;
       const toward = (ex * dx + ey * dy) / (d || 1);
+      // The last fight: hold it at gun range (close in if it's far off).
+      if ((e.isBoss || e.warlord) && d > 190) { score += toward * 0.9; continue; }
       score -= toward * (e.isBoss || e.warlord ? 3 : 1) * 4000 / (d * d + 400);
     }
     for (const s of run.enemyProjectiles) {
@@ -84,9 +88,12 @@ export function botPick(run, rng) {
   return cards[0];
 }
 
-export function playLevel(seed, { stage = 1, levelIndex = 0, maxSeconds = 900, dt = 1 / 30, loadout } = {}) {
+export function playLevel(seed, { stage = 1, levelIndex = 0, maxSeconds = 900, dt = 1 / 30, loadout, build = null, retry = false } = {}) {
   const rng = makeSeededRng(seed ^ 0x9e3779b9);
-  const run = loadout ? createSurvivalRun(seed, loadout, { stage, levelIndex }) : createSurvivalRun(seed, undefined, { stage, levelIndex });
+  const run = createSurvivalRun(seed, loadout, { stage, levelIndex, build, retry });
+  let firstUp = null;
+  // Head-start picks (a later level without a carried build).
+  while (run.sv.pendingLevelUps > 0) { run.sv.pendingLevelUps--; applyChoice(run, botPick(run, rng)); }
   const biome = getBiome(run.level.biomeId);
   const ctx = { spawnDist: 520, biome, rng };
   const dmg = { wall: 0, shots: 0, contact: 0, dot: 0, weather: 0 };
@@ -99,6 +106,7 @@ export function playLevel(seed, { stage = 1, levelIndex = 0, maxSeconds = 900, d
     for (const h of ev.shots.hits) dmg.shots += h.damage;
     for (const c of ev.contacts) dmg.contact += c.damage;
     for (const h of ev.weather.boatHits || []) dmg.weather += h.damage;
+    if (ev.levelUps && firstUp == null) firstUp = t;
     let ups = ev.levelUps + ev.pickups.chests;
     chests += ev.pickups.chests;
     while (ups-- > 0) { applyChoice(run, botPick(run, rng)); picks++; }
@@ -114,17 +122,45 @@ export function playLevel(seed, { stage = 1, levelIndex = 0, maxSeconds = 900, d
     outcome: run.outcome || 'timeout', t: Math.round(t), wave: run.sv.wave + 1, shipLevel: run.sv.shipLevel, kills: run.sv.kills,
     weapons: { ...run.sv.weapons }, evolved: Object.keys(run.sv.evolved), armaments: { ...run.armaments }, passives: { ...run.sv.passives },
     salvage: Math.round(run.bankedSalvage), dmg, peakAlive, picks, bossAt: bossAt && Math.round(bossAt), chests, hull: Math.round(run.boat.health),
+    bossFight: bossAt != null ? Math.round(t - bossAt) : null, firstUp: firstUp && +firstUp.toFixed(1),
+    build: snapshotBuild(run), carryIn: run.carryIn,
   };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// A whole stage: levels 1-5, the build carried, a sinking retried with the
+// build you arrived with.
+export function playStage(seed, { stage = 1, retries = 3 } = {}) {
+  let build = null; const levels = [];
+  for (let lv = 0; lv < 5; lv++) {
+    let r; let tries = 0;
+    do {
+      r = playLevel(seed + lv * 101 + tries * 7, { stage, levelIndex: lv, build: tries ? r.carryIn : build, retry: tries > 0 });
+      tries++;
+    } while (r.outcome !== 'victory' && tries <= retries);
+    levels.push({ lv: lv + 1, tries, outcome: r.outcome, t: r.t, shipLevel: r.shipLevel, bossFight: r.bossFight, evolved: r.evolved.length, hull: r.hull });
+    if (r.outcome !== 'victory') break;
+    build = r.build;
+  }
+  return levels;
+}
+
+if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === 'stage') {
+  const n = Number(process.argv[3] || 4); const stage = Number(process.argv[4] || 1);
+  let cleared = 0;
+  for (let i = 0; i < n; i++) {
+    const L = playStage(5000 + i * 31, { stage });
+    if (L.length === 5 && L[4].outcome === 'victory') cleared++;
+    console.log(`#${i} ` + L.map((x) => `L${x.lv}:${x.outcome === 'victory' ? 'win' : 'sunk'}${x.tries > 1 ? `(${x.tries} tries)` : ''} ${x.t}s lv${x.shipLevel} evo${x.evolved} boss${x.bossFight ?? '-'}s`).join(' | '));
+  }
+  console.log(`stage ${stage}: ${cleared}/${n} cleared within 3 retries per level`);
+} else if (import.meta.url === `file://${process.argv[1]}`) {
   const n = Number(process.argv[2] || 6); const stage = Number(process.argv[3] || 1); const lv = Number(process.argv[4] || 0); const off = Number(process.argv[5] || 0);
   const res = [];
   const t0 = performance.now();
   for (let i = 0; i < n; i++) {
     const r = playLevel(1000 + off + i, { stage, levelIndex: lv });
     res.push(r);
-    console.log(`#${i} ${r.outcome.padEnd(7)} t=${r.t}s wave ${r.wave} lv${r.shipLevel} kills ${r.kills} peak ${r.peakAlive} salv ${r.salvage} hull ${r.hull} boss@${r.bossAt} chests ${r.chests} dmg w${r.dmg.wall | 0}/s${r.dmg.shots | 0}/c${r.dmg.contact | 0}/d${r.dmg.dot | 0}/x${r.dmg.weather | 0} weapons ${JSON.stringify(r.weapons)} evo ${r.evolved} arm ${JSON.stringify(r.armaments)}`);
+    console.log(`#${i} ${r.outcome.padEnd(7)} t=${r.t}s firstUp ${r.firstUp}s bossFight ${r.bossFight}s wave ${r.wave} lv${r.shipLevel} kills ${r.kills} peak ${r.peakAlive} salv ${r.salvage} hull ${r.hull} boss@${r.bossAt} chests ${r.chests} dmg w${r.dmg.wall | 0}/s${r.dmg.shots | 0}/c${r.dmg.contact | 0}/d${r.dmg.dot | 0}/x${r.dmg.weather | 0} weapons ${JSON.stringify(r.weapons)} evo ${r.evolved} arm ${JSON.stringify(r.armaments)}`);
   }
   const wins = res.filter((r) => r.outcome === 'victory');
   console.log(`stage ${stage} level ${lv + 1}: ${wins.length}/${n} cleared, median t ${res.map((r) => r.t).sort((a, b) => a - b)[n >> 1]}s, sim ${((performance.now() - t0) / 1000).toFixed(1)}s`);

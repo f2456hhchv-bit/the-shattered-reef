@@ -33,7 +33,9 @@ export function createSurvivalState({ stage = 1, levelIndex = 0, biomeId = 'trop
     wave: 0, // 0-based; WAVES[wave]
     waveTime: 0,
     time: 0,
-    spawnTimer: 1.2,
+    spawnTimer: 0.25,
+    feature: null, nextFeature: null, previewed: false, // the wave's headline specialist
+    rerolls: SURVIVAL.rerolls[0], banishes: SURVIVAL.banishes[0], banished: [],
     eventsDone: {},
     xp: 0, shipLevel: 1, xpNeed: xpToNext(1, stage), pendingLevelUps: 0,
     weapons: {}, // core weapon id -> level
@@ -121,6 +123,63 @@ export function addXp(run, amount) {
   return ups;
 }
 
+// The build a stage carries from level to level (2026-10-22): weapons,
+// evolutions, upgrades, armaments, ship level and the card tools.
+export function snapshotBuild(run) {
+  const sv = run.sv;
+  return JSON.parse(JSON.stringify({
+    weapons: sv.weapons, evolved: sv.evolved, passives: sv.passives, armaments: run.armaments || {},
+    shipLevel: sv.shipLevel, xp: sv.xp, pendingLevelUps: sv.pendingLevelUps || 0,
+    rerolls: sv.rerolls, banishes: sv.banishes, banished: sv.banished || [],
+  }));
+}
+
+// Puts a carried build on a fresh level. `fresh` (default) adds the
+// level's new rerolls and banishes on top of what was carried.
+export function applyBuild(run, build, { fresh = true } = {}) {
+  const sv = run.sv; const b = JSON.parse(JSON.stringify(build));
+  sv.weapons = b.weapons || { cannonballs: 1 };
+  sv.evolved = b.evolved || {};
+  sv.passives = b.passives || {};
+  run.armaments = b.armaments || {};
+  sv.shipLevel = b.shipLevel || 1;
+  sv.xpNeed = xpToNext(sv.shipLevel, sv.stage);
+  sv.xp = Math.min(b.xp || 0, sv.xpNeed - 1);
+  sv.pendingLevelUps = b.pendingLevelUps || 0;
+  sv.rerolls = (b.rerolls ?? 0) + (fresh ? SURVIVAL.rerolls[1] : 0);
+  sv.banishes = (b.banishes ?? 0) + (fresh ? SURVIVAL.banishes[1] : 0);
+  sv.banished = b.banished || [];
+  for (const id of Object.keys(sv.weapons)) sv.timers[id] = 0.3;
+  recomputeStats(run);
+  run.boat.health = run.boat.maxHull;
+}
+
+// No carried build on a later level: a head start of free picks instead.
+export function grantCatchUp(run, levelIndex) {
+  const n = SURVIVAL.catchUpPicks * levelIndex;
+  if (n <= 0) return 0;
+  const sv = run.sv;
+  sv.shipLevel += n; sv.pendingLevelUps += n;
+  sv.xpNeed = xpToNext(sv.shipLevel, sv.stage);
+  sv.rerolls += SURVIVAL.rerolls[1] * levelIndex; sv.banishes += SURVIVAL.banishes[1] * levelIndex;
+  return n;
+}
+
+// Card tools: a reroll replaces the whole hand; a banish strikes one card's
+// weapon/armament/upgrade from the rest of the stage and replaces the hand.
+export function rerollChoices(run, rng = Math.random, count = SURVIVAL.choices) {
+  if (!(run.sv.rerolls > 0)) return null;
+  run.sv.rerolls -= 1;
+  return rollChoices(run, rng, count);
+}
+export function banishChoice(run, card, rng = Math.random, count = SURVIVAL.choices) {
+  const sv = run.sv;
+  if (!(sv.banishes > 0) || !['weapon', 'armament', 'passive'].includes(card.kind)) return null;
+  sv.banishes -= 1;
+  (sv.banished ||= []).push(card.id);
+  return rollChoices(run, rng, count);
+}
+
 // Which stage enemies (horde included) a weapon counters — for the cards.
 export function countersInLevel(run, weaponId) {
   const ids = new Set([run.sv.hordeId, ...run.sv.specials]);
@@ -151,6 +210,7 @@ export function rollChoices(run, rng = Math.random, count = SURVIVAL.choices) {
   const out = [];
   for (const id of SV_WEAPON_IDS) if (canEvolve(run, id) && out.length < count) out.push({ kind: 'evolve', id });
   const cands = [];
+  const banned = new Set(sv.banished || []);
   for (const id of SV_WEAPON_IDS) {
     const lv = sv.weapons[id] || 0;
     if (lv > 0 && lv < SV_WEAPON_MAX) cands.push({ kind: 'weapon', id, w: 11 });
@@ -167,6 +227,7 @@ export function rollChoices(run, rng = Math.random, count = SURVIVAL.choices) {
     if (lv > 0 && lv < PASSIVE_MAX) cands.push({ kind: 'passive', id: p.id, w: 7 });
     else if (lv === 0 && !passivesFull) cands.push({ kind: 'passive', id: p.id, w: weaponSlots(run).length < 3 ? 2 : 4 });
   }
+  for (let i = cands.length - 1; i >= 0; i--) if (banned.has(cands[i].id)) cands.splice(i, 1);
   while (out.length < count && cands.length) {
     const total = cands.reduce((a, c) => a + c.w, 0);
     let r = rng() * total; let i = 0;
@@ -253,12 +314,13 @@ function spawnEnemy(run, defId, p, rng, { health = 1, radius = 1, damage = 1, el
   // The horde stays one-shot fodder for a fresh build in every stage; the
   // stage's toughness lives in its specialists.
   const hordeDef = getEnemy(defId).horde;
-  const e = createEnemy(defId, p.x, p.y, rng, { scale: { health: (hordeDef ? 1 : ss.health) * ws.health * health * DEV.enemyHealth * (warlord || run.sv.bossDefId === defId ? DEV.bossHealth : 1), damage: ss.damage * damage * SURVIVAL.enemyDamage * DEV.enemyDamage } });
+  const e = createEnemy(defId, p.x, p.y, rng, { scale: { health: (hordeDef ? 1 : ss.health) * ws.health * health * DEV.enemyHealth * (warlord || run.sv.bossDefId === defId ? DEV.bossHealth : 1), damage: ss.damage * damage * (ws.damage ?? 1) * SURVIVAL.enemyDamage * DEV.enemyDamage } });
   e.hunting = true; e.aggro = true;
   e.speed *= ws.speed * (sv.enemySpeed || 1) * DEV.enemySpeed;
   if (radius !== 1) e.radius *= radius;
   const def = getEnemy(defId);
   e.xp = def.horde ? 1 : Math.max(2, Math.round(def.maxHealth / 10));
+  if (!def.horde) e.offCounterMult = SURVIVAL.offCounter;
   if (elite) { e.elite = true; e.xp = 20; e.salvageDrop = Math.max(6, e.salvageDrop * 3); }
   if (warlord) { e.warlord = true; e.xp = 60; e.salvageDrop = 30; }
   run.enemies.push(e);
@@ -290,6 +352,9 @@ function pickSpecial(run, rng) {
   let gunners = 0;
   for (const e of run.enemies) if (e.health > 0 && e.gun && !e.isBoss && !e.warlord) gunners++;
   const capped = gunners >= gunnerCap(run.sv);
+  // Over half the wave's specialists are its headline enemy.
+  const f = run.sv.feature;
+  if (f && rng() < 0.55 && !(capped && getEnemy(f).gun)) return f;
   // At most one rooted siren at a time.
   for (let k = 0; k < 4; k++) {
     const id = s[Math.floor(rng() * s.length)];
@@ -298,6 +363,14 @@ function pickSpecial(run, rng) {
     return id;
   }
   return run.sv.hordeId;
+}
+
+// A wave's headline specialist: cycles through the stage's specialists so
+// each gets its wave; sirens and totems never headline.
+function chooseFeature(run, waveIndex) {
+  const s = run.sv.specials.filter((id) => ![ARCHETYPES.SIREN, ARCHETYPES.TOTEM].includes(getEnemy(id).archetype));
+  if (!s.length || waveIndex < 1) return null;
+  return s[(waveIndex - 1 + run.sv.levelIndex) % s.length];
 }
 
 function toughestSpecial(run) {
@@ -315,7 +388,7 @@ function runEvent(run, event, ctx, rng, out) {
   const ws = waveScaling(sv.stage, sv.levelIndex, sv.wave);
   if (event === 'encircle') {
     // A ring of the horde closes in from every side at once.
-    const n = Math.round((12 + sv.wave * 1.5) * ws.count * DEV.enemyCount * crowdMult(sv.wave, sv.stage));
+    const n = Math.round((12 + sv.wave * 1.5) * ws.count * DEV.enemyCount * crowdMult(sv.wave, sv.stage, sv.levelIndex));
     const def = getEnemy(sv.hordeId);
     const R = ctx.spawnDist * 0.9;
     for (let i = 0; i < n; i++) {
@@ -333,25 +406,51 @@ function runEvent(run, event, ctx, rng, out) {
     }
   } else if (event === 'boss') {
     const heading = Math.atan2(run.boat.vy || 0, run.boat.vx || 1);
+    sv.cage = { x: run.boat.x, y: run.boat.y, r: SURVIVAL.cage.r, t: 0 };
+    const near = SURVIVAL.cage.r * 0.72;
     let e;
     if (sv.bossDefId) {
       const def = getEnemy(sv.bossDefId);
-      const p = findSpawn(run, ctx.spawnDist * 0.85, isFlyerDef(def), rng, heading, 1.2) || { x: run.boat.x, y: run.boat.y - ctx.spawnDist * 0.8 };
+      const p = findSpawn(run, near, isFlyerDef(def), rng, heading, 1.2) || { x: run.boat.x, y: run.boat.y - near };
       e = spawnEnemy(run, sv.bossDefId, p, rng, { health: SURVIVAL.bossHp });
       e.xp = 0;
     } else {
       const id = toughestSpecial(run);
       const def = getEnemy(id);
-      const p = findSpawn(run, ctx.spawnDist * 0.85, isFlyerDef(def), rng, heading, 1.2) || { x: run.boat.x, y: run.boat.y - ctx.spawnDist * 0.8 };
-      e = spawnEnemy(run, id, p, rng, { health: SURVIVAL.warlordHp * (def.horde ? 3 : 1), radius: 1.75, damage: 1.4, elite: true, warlord: true });
+      const p = findSpawn(run, near, isFlyerDef(def), rng, heading, 1.2) || { x: run.boat.x, y: run.boat.y - near };
+      e = spawnEnemy(run, id, p, rng, { health: SURVIVAL.warlordHp * (1 + SURVIVAL.warlordHpPerLevel * sv.levelIndex) * (def.horde ? 3 : 1), radius: 1.75, damage: 1.4, elite: true, warlord: true });
       e.contactCooldownRemaining = 0;
     }
+    // The storm wall forms: the crowd inside is thrown clear of it.
+    for (const o of run.enemies) {
+      if (o === e || o.health <= 0) continue;
+      const dx = o.x - sv.cage.x; const dy = o.y - sv.cage.y; const d = Math.hypot(dx, dy) || 1;
+      if (d > sv.cage.r + 30) continue;
+      o.x = sv.cage.x + (dx / d) * (sv.cage.r + 40 + rng() * 60); o.y = sv.cage.y + (dy / d) * (sv.cage.r + 40 + rng() * 60);
+      o.vx = 0; o.vy = 0; o._aimX = null;
+    }
+    out.cage = sv.cage;
     initLord(e, { levelIndex: sv.levelIndex, stage: sv.stage, boss: !!sv.bossDefId }, rng);
+    e.offCounterMult = 1; // the guard (engine/warlord.mjs) is its armour
+    e.takenMult = SURVIVAL.lordGuard.guarded;
     sv.bossId = e.id;
     out.boss = e;
-    // An escort ring arrives with it.
-    runEvent(run, 'encircle', ctx, rng, out);
+
   }
+}
+
+// Keeps a body inside the boss cage: pushed back to the wall, its outward
+// speed cancelled. Returns true if it touched the wall.
+export function confineToCage(o, cage, radius = 11) {
+  if (!cage) return false;
+  const dx = o.x - cage.x; const dy = o.y - cage.y; const d = Math.hypot(dx, dy);
+  const max = cage.r - radius;
+  if (d <= max || d < 1e-6) return false;
+  const nx = dx / d; const ny = dy / d;
+  o.x = cage.x + nx * max; o.y = cage.y + ny * max;
+  const out = (o.vx || 0) * nx + (o.vy || 0) * ny;
+  if (out > 0) { o.vx -= nx * out * 1.4; o.vy -= ny * out * 1.4; }
+  return true;
 }
 
 // Advances the level clock, the spawns and the set pieces. `ctx.spawnDist`
@@ -366,6 +465,16 @@ export function stepDirector(run, dt, ctx, rng = Math.random) {
   if (sv.wave < last && sv.waveTime >= SURVIVAL.waveSeconds * DEV.waveLength) {
     sv.wave += 1; sv.waveTime = 0;
     out.waveStarted = sv.wave;
+    sv.feature = chooseFeature(run, sv.wave);
+    sv.previewed = false;
+    out.feature = sv.feature;
+    out.sweep = true; // the new wave sweeps the glass in
+  }
+  // Eight seconds before a wave turns, say who's coming.
+  if (!sv.previewed && sv.wave < last - 1 && sv.waveTime >= SURVIVAL.waveSeconds * DEV.waveLength - 8) {
+    sv.previewed = true;
+    sv.nextFeature = chooseFeature(run, sv.wave + 1);
+    if (sv.nextFeature) out.preview = sv.nextFeature;
   }
   const W = WAVES[sv.wave];
   if (out.waveStarted === FINAL_STRETCH) out.finalStretch = true;
@@ -388,12 +497,12 @@ export function stepDirector(run, dt, ctx, rng = Math.random) {
 
   // Steady spawns.
   const ws = waveScaling(sv.stage, sv.levelIndex, sv.wave);
-  sv.spawnTimer -= dt * ws.rate * DEV.spawnRate * spawnPaceMult(sv.wave, sv.stage);
+  sv.spawnTimer -= dt * ws.rate * DEV.spawnRate * spawnPaceMult(sv.wave, sv.stage, sv.levelIndex);
   if (sv.spawnTimer <= 0) {
     sv.spawnTimer += W.every;
     let alive = 0;
     for (const e of run.enemies) if (e.health > 0) alive++;
-    const cm = (sv.countMult || 1) * DEV.enemyCount * crowdMult(sv.wave, sv.stage);
+    const cm = (sv.countMult || 1) * DEV.enemyCount * crowdMult(sv.wave, sv.stage, sv.levelIndex);
     const cap = Math.round(W.alive * ws.count * cm);
     const want = Math.min(cap - alive, Math.max(1, Math.round(W.batch * ws.count * cm)));
     // A batch arrives together from one direction, so you can read it.
@@ -406,9 +515,10 @@ export function stepDirector(run, dt, ctx, rng = Math.random) {
   }
 
   // The level ends when the last wave's warlord or boss is sunk.
+  if (sv.cage) sv.cage.t += dt;
   if (sv.wave === last && sv.bossId != null) {
     const b = run.enemies.find((e) => e.id === sv.bossId);
-    if (!b || b.health <= 0) { sv.finished = true; out.finished = true; }
+    if (!b || b.health <= 0) { sv.finished = true; out.finished = true; sv.cage = null; }
   }
   return out;
 }
@@ -546,16 +656,28 @@ export function dropLoot(run, enemy, rng = Math.random) {
   else if (rng() < LOOT.magnet) run.pickups.push({ id: nextPickupId++, kind: 'magnet', x: enemy.x, y: enemy.y, amount: 1, collected: false, pulled: false, age: 0 });
 }
 
+// Every gem and coin on the water starts flying to the ship.
+export function sweepPickups(run) {
+  for (const q of run.pickups) if (!q.collected && (q.kind === 'gem' || q.kind === 'coin')) q.pulled = true;
+}
+
 // Pulls nearby gems/coins to the boat and collects what reaches it.
 // Returns { xp, salvage, repaired, chests, magnet } for this frame.
 export function stepPickups(run, dt, boatRadius = 11) {
   const out = { xp: 0, salvage: 0, repaired: 0, chests: 0, magnet: false, collected: 0 };
   const b = run.boat;
   const reach = SURVIVAL.pickupRadius * (run.sv.stats?.pickup ?? 1);
+  const drift = SURVIVAL.gemDrift;
   for (const p of run.pickups) {
     if (p.collected) continue;
     p.age = (p.age || 0) + dt;
-    const dx = b.x - p.x; const dy = b.y - p.y; const d = Math.hypot(dx, dy);
+    let dx = b.x - p.x; let dy = b.y - p.y; let d = Math.hypot(dx, dy);
+    // Glass in sight drifts toward you.
+    if (!p.pulled && (p.kind === 'gem' || p.kind === 'coin') && d < drift.radius && d > 1) {
+      const step = drift.speed * dt * (1 + (1 - d / drift.radius));
+      p.x += (dx / d) * step; p.y += (dy / d) * step;
+      dx = b.x - p.x; dy = b.y - p.y; d = Math.hypot(dx, dy);
+    }
     if (p.kind === 'chest') {
       if (d < boatRadius + 14) { p.collected = true; out.chests++; }
       continue;
@@ -578,7 +700,7 @@ export function stepPickups(run, dt, boatRadius = 11) {
         out.repaired += b.health - before;
       } else if (p.kind === 'magnet') {
         out.magnet = true;
-        for (const q of run.pickups) if (!q.collected && (q.kind === 'gem' || q.kind === 'coin')) q.pulled = true;
+        sweepPickups(run);
       }
     }
   }
@@ -654,6 +776,21 @@ function crowdCentre(enemies, e, r = 50) {
   return n ? { x: sx / n, y: sy / n, n } : { x: e.x, y: e.y, n: 1 };
 }
 
+// Splits targets by the side they're on, keeping those within the
+// broadside arc. Returns [{ side: 1 | -1, list: [{ e, d, rake }] }].
+export function broadsideTargets(boat, targets) {
+  const B = SURVIVAL.broadside;
+  const by = { 1: [], '-1': [] };
+  for (const x of targets) {
+    let rel = Math.atan2(x.e.y - boat.y, x.e.x - boat.x) - (boat.heading || 0);
+    rel = Math.atan2(Math.sin(rel), Math.cos(rel));
+    const off = Math.abs(Math.abs(rel) - Math.PI / 2);
+    // Close in, a broadside can still depress its guns onto anything.
+    if (off <= B.arc || x.d < x.e.radius + 30) by[rel >= 0 ? 1 : -1].push({ ...x, rake: off <= B.rake });
+  }
+  return [1, -1].filter((k) => by[k].length).map((k) => ({ side: k, list: by[k] }));
+}
+
 // Fires every core weapon whose reload is up and has something to shoot.
 // `visible` is what your crew can see (fog and darkness hide the rest).
 // Returns the weapon ids that fired (for sounds and muzzle flashes).
@@ -666,15 +803,28 @@ export function fireWeapons(run, dt, visible, rng = Math.random) {
     if (sv.timers[id] > 0) continue;
     const t = targetsFor(run, visible, id, st.range);
     if (!t.length) { sv.timers[id] = 0.12; continue; }
+    const kind = SV_WEAPONS[id].kind;
+    // Broadsides (2026-10-22): the guns fire from the ship's sides, so
+    // Cannonballs only reach what's off the beam; bow and stern are blind.
+    const sides = kind === 'cannon' ? broadsideTargets(b, t) : null;
+    if (sides && !sides.length) { sv.timers[id] = 0.08; continue; }
     sv.timers[id] = st.cooldown;
-    fired.push({ id, heading: Math.atan2(t[0].e.y - b.y, t[0].e.x - b.x) });
-    switch (SV_WEAPONS[id].kind) {
+    if (sides) for (const s of sides) fired.push({ id, heading: b.heading + s.side * Math.PI / 2, side: s.side, rake: s.list.some((x) => x.rake) });
+    else fired.push({ id, heading: Math.atan2(t[0].e.y - b.y, t[0].e.x - b.x) });
+    switch (kind) {
       case 'cannon': {
-        for (let i = 0; i < st.count; i++) {
-          const tg = t[i % t.length].e;
-          const aim = interceptHeading(b.x, b.y, tg, st.speed);
-          const fan = i >= t.length ? (Math.floor(i / t.length) % 2 ? 1 : -1) * 0.12 * Math.ceil(i / t.length) : 0;
-          shot(run, id, b.x, b.y, aim.heading + fan, st.speed, { damage: st.damage, range: st.range * 1.1, pierce: st.pierce, radius: st.radius ?? 3.6 });
+        // A full volley from every side that has a target.
+        const R = SURVIVAL.broadside;
+        for (const s of sides) {
+          const L = s.list;
+          const px = Math.cos(b.heading + s.side * Math.PI / 2); const py = Math.sin(b.heading + s.side * Math.PI / 2);
+          for (let i = 0; i < st.count; i++) {
+            const pick = L[i % L.length];
+            const ox = b.x + px * 7 + Math.cos(b.heading) * (i % 3 - 1) * 5; const oy = b.y + py * 7 + Math.sin(b.heading) * (i % 3 - 1) * 5;
+            const aim = interceptHeading(ox, oy, pick.e, st.speed);
+            const fan = i >= L.length ? (Math.floor(i / L.length) % 2 ? 1 : -1) * 0.12 * Math.ceil(i / L.length) : 0;
+            shot(run, id, ox, oy, aim.heading + fan, st.speed, { damage: st.damage * (pick.rake ? R.rakeMult : 1), range: st.range * 1.1, pierce: st.pierce, radius: st.radius ?? 3.6, extra: pick.rake ? { rake: true } : undefined });
+          }
         }
         break;
       }
@@ -782,9 +932,10 @@ export function stepWeaponExtras(run, dt) {
       if (!hittable(e) || e.invulnerable || passesOverLand(e)) continue;
       if (Math.hypot(e.x - pool.x, e.y - pool.y) > pool.r + e.radius * 0.5) continue;
       const counter = currentCounter(e) === 'flame_barrels';
-      const dmg = pool.burn * (counter ? SURVIVAL.counterBonus : 1);
+      const glance = !counter && (e.offCounterMult ?? 1) < 1;
+      const dmg = pool.burn * (counter ? SURVIVAL.counterBonus : (e.offCounterMult ?? 1));
       const killed = applyDamageToEnemy(e, dmg);
-      events.push({ enemy: e, weaponId: 'flame_barrels', damage: dmg, killed, counter, burn: true });
+      events.push({ enemy: e, weaponId: 'flame_barrels', damage: dmg, killed, counter, glance, burn: true });
     }
   }
   sv.pools = sv.pools.filter((p) => p.t < p.duration);
@@ -799,9 +950,9 @@ export function stepWeaponExtras(run, dt) {
         if (Math.hypot(e.x - p.x, e.y - p.y) > e.radius + 9) continue;
         e._bladeCd = o.every;
         const counter = currentCounter(e) === 'chain_shot';
-        const dmg = o.damage * sv.stats.damageMult * (counter ? SURVIVAL.counterBonus : 1);
+        const dmg = o.damage * sv.stats.damageMult * (counter ? SURVIVAL.counterBonus : (e.offCounterMult ?? 1));
         const killed = applyDamageToEnemy(e, dmg);
-        events.push({ enemy: e, weaponId: 'chain_shot', damage: dmg, killed, counter });
+        events.push({ enemy: e, weaponId: 'chain_shot', damage: dmg, killed, counter, glance: !counter && (e.offCounterMult ?? 1) < 1 });
       }
     }
     for (const e of run.enemies) if (e._bladeCd > 0) e._bladeCd -= dt;

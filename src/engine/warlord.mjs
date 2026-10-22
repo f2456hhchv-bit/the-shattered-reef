@@ -13,6 +13,7 @@
 // normal enemy AI. Nothing here draws (engine/warlordArt.mjs does).
 
 import { resolveCoastCollision } from './boat.mjs';
+import { SURVIVAL } from '../data/survival.mjs';
 
 const TAU = Math.PI * 2;
 
@@ -47,6 +48,10 @@ export function initLord(e, { levelIndex = 0, stage = 1, boss = false }, rng = M
     timers: {}, novaWindup: 0, novaSpin: rng() * TAU,
     charge: null, // { state: 'aim' | 'run', t, ax, ay, dx, dy }
     shieldsLeft: kit.includes('shield') ? [...LORD_TRAITS.shield.at] : [], shieldTime: 0,
+    // The fight's phases (2026-10-22): at 2/3 and 1/3 hull it calls its
+    // crew, the sea turns (main/survivalLoop start a weather event), and at
+    // 1/3 it's enraged. After every move its guard drops (`exposed`).
+    phasesLeft: [0.66, 0.33], phase: 0, exposed: 0,
   };
   for (const k of kit) if (LORD_TRAITS[k].every) lord.timers[k] = range(rng, LORD_TRAITS[k].every) * pace * 0.6;
   e.lord = lord;
@@ -66,6 +71,26 @@ export function stepLord(run, e, dt, rng, spawnCrew, shots, boatRadius = 11) {
   if (!L || e.health <= 0) return out;
   const boat = run.boat;
   const fast = e.enraged ? 0.7 : 1;
+  const G = SURVIVAL.lordGuard;
+  const expose = (s) => { if (L.exposed <= 0) out.exposed = true; L.exposed = Math.max(L.exposed, s); };
+  if (L.exposed > 0) L.exposed -= dt;
+  if (e.takenMult != null) e.takenMult = L.exposed > 0 ? G.exposed : G.guarded;
+  // The last fight comes to you: a standoff gunner that drifts out of
+  // range is drawn back in (it once kited a player for nine minutes).
+  if (!L.charge && !e.tether) {
+    const dx = boat.x - e.x; const dy = boat.y - e.y; const d = Math.hypot(dx, dy);
+    if (d > 230) {
+      const pull = Math.max(e.speed || 0, 90) * (d > 420 ? 1.6 : 1) * dt;
+      e.x += (dx / d) * pull; e.y += (dy / d) * pull;
+      if (run.coast && !e.flies) resolveCoastCollision(e, e.radius, run.coast);
+    }
+  }
+  if (L.phasesLeft.length && e.health / e.maxHealth <= L.phasesLeft[0]) {
+    L.phasesLeft.shift(); L.phase += 1;
+    out.phase = L.phase;
+    if (L.phase >= 2) e.enraged = true;
+    if (!L.kit.includes('shield')) out.escort = callCrew(e, spawnCrew, LORD_TRAITS.escort.count);
+  }
 
   // Shield: thresholds on hull.
   if (L.shieldTime > 0) {
@@ -88,7 +113,7 @@ export function stepLord(run, e, dt, rng, spawnCrew, shots, boatRadius = 11) {
     L.timers[k] -= dt / fast;
     if (L.timers[k] > 0) continue;
     L.timers[k] = range(rng, T.every) * L.pace;
-    if (k === 'escort') out.escort = callCrew(e, spawnCrew, T.count);
+    if (k === 'escort') { out.escort = callCrew(e, spawnCrew, T.count); expose(G.exposedFor * 0.6); }
     else if (k === 'nova') { L.novaWindup = T.windup; L.novaMax = T.windup; }
     else if (k === 'charge') {
       // Mark the lane at where you are now; the lord holds still to aim.
@@ -113,6 +138,7 @@ export function stepLord(run, e, dt, rng, spawnCrew, shots, boatRadius = 11) {
         });
       }
       out.nova = n;
+      expose(G.exposedFor);
     }
   }
 
@@ -142,9 +168,15 @@ export function stepLord(run, e, dt, rng, spawnCrew, shots, boatRadius = 11) {
         // Shove the boat aside.
         boat.vx += C.dx * 140; boat.vy += C.dy * 140;
       }
-      if (C.t <= 0 || impact > 60) { L.charge = null; e.vx *= 0.3; e.vy *= 0.3; if (impact > 60) out.chargeCrash = true; }
+      if (C.t <= 0 || impact > 60) {
+        L.charge = null; e.vx *= 0.3; e.vy *= 0.3;
+        // Crashing into the shore leaves it reeling for longer.
+        if (impact > 60) out.chargeCrash = true;
+        expose(G.exposedFor * (impact > 60 ? 1.6 : 1));
+      }
     }
   }
+  if (e.takenMult != null) e.takenMult = L.exposed > 0 ? G.exposed : G.guarded;
   return out;
 }
 

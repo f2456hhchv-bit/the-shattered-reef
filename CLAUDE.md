@@ -3147,6 +3147,104 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
     CLUTTER line now caps it at about 6 parts and bans small fittings
     unless the item names them.
 
+- **Phase:** gameplay pass (project owner, 2026-10-22: "We need to improve
+  the gameplay... It's ok but it's nothing special"; then "Do all now" on
+  six suggestions from a sim study).
+- **What the sims showed first** (30 headless levels, before any change):
+  - about 70% of the XP sat uncollected on the water
+  - the first card came at about 15s, and ships were only level 9 by
+    minute 5
+  - builds stayed thin and evolutions were rare
+  - every level rebuilt the build from scratch
+  - wave 1 had about 20% dead time
+  - warlords died in 8-21s
+  - counters were an invisible ×1.75 bonus
+- **Just shipped:**
+  - **XP flow:**
+    - pickup radius 46 → 92px
+    - glass within 300px drifts toward the ship (`SURVIVAL.gemDrift`)
+    - every new wave sweeps all glass in (`sweepPickups`, `out.sweep`)
+    - the first five levels cost 3/5/7/10/13 XP (`EARLY_XP`)
+    - wave 1 spawns at once (every 0.9s, batch 3)
+    Result: first card at about 8s, ship level about 20 by the end of
+    level 1.
+  - **The build carries through a stage** (`snapshotBuild`/`applyBuild`,
+    `createSurvivalRun({ build, retry })`):
+    - Next level keeps every weapon, evolution, upgrade, armament, ship
+      level and card tool, with a fresh hull.
+    - A sinking retries the level with the build you arrived with
+      (`run.carryIn`).
+    - It's kept in `meta.stageBuild`, so it survives a trip to the
+      harbour; it's sanitised on load and cleared when the stage is won.
+    - A later level started without a carried build gets a head start of
+      `catchUpPicks` (6) picks per level skipped.
+    - Since builds now grow, later levels push harder (`waveScaling` per
+      level: count +32%, HP +42%, damage +12%, and the crowd ramps in 2
+      waves). The stage crowd is now ×2.7/3/3.3/3.7 for stages 1-4+
+      (was 2/2.75/3.5/4).
+  - **Broadsides:**
+    - Cannonballs only fire at what's off the beam (`broadsideTargets`,
+      ±62°); bow and stern are blind except at point blank.
+    - Each side with a target fires its own volley.
+    - Within 22° of the beam a volley rakes for ×1.5 (gold numbers, a
+      little shake).
+    - Faint arc wedges under the ship flash when the guns fire
+      (`drawBroadsideArcs`), with a one-off hint toast.
+  - **Counters as a choice:**
+    - Each wave has a headline specialist (`chooseFeature`, 55% of
+      specialist spawns), previewed 8s before the wave as "Next wave:
+      Reef Shark — weak to Grapeshot ✓/✗".
+    - Specialists take ×0.7 from non-counter weapons (`offCounterMult`,
+      `hitFlags` in combat.mjs), shown as grey ▼ numbers with a one-off
+      toast naming the counter.
+    - Reroll and banish on every card screen: 2 rerolls and 1 banish to
+      start, +1 of each per level, carried through the stage. A banished
+      card is gone for the stage.
+  - **The last fight is an event:**
+    - When the warlord or boss arrives, a storm wall (`sv.cage`, r 330)
+      closes round you and it. The crowd inside is thrown clear, wave 10
+      spawns thin out, and a hazard weather event starts (`stirTheSea`,
+      never fog).
+    - The lord is guarded (×0.45 damage taken) except for 2.6s after
+      each move (×1.6, gold flicker, `L.exposed`).
+    - At ⅔ and ⅓ hull it changes phase: crew, new weather, and enraged
+      at ⅓.
+    - A lord that drifts out of range is pulled back in.
+    - HP: warlords ×220 (+15% per level), bosses ×42.
+  - **Fixed (found by the sims):** a gale could blow the ship through the
+    outer coast and off the map, where every shot died at once (one sim
+    ran 9 minutes like that). The ship is now clamped inside the chart.
+  - Tests: new `tests/gameplay.test.mjs` (11); the director scaling test
+    now expects tougher later levels. 494/494.
+  - `tools/survival-sim.mjs stage <runs> <stage>` plays a whole stage with
+    the build carried and up to 3 retries per level. It reports the first
+    card's time and the boss fight length; the bot now engages the last
+    fight instead of kiting it.
+  - Playtested at 390×844 and 844×390 with no console errors:
+    - reroll and banish
+    - wave preview toast
+    - cage, hazard, exposed flicker
+    - Next level carried the build
+    - harbour level start used the stored build
+    - head start on a level with no build
+- **Sim results** (bot never dashes, starter ship, no meta):
+  - Level 1-1, 8 runs: 4/8 cleared (was 1/4 to 2/4 before the pass);
+    warlord fights 24-139s, median about 60s.
+  - A whole stage 1, 3 runs: 3/3 cleared. Ship level 19-25 at level 1,
+    70-77 at level 5. Boss fights 73-115s; warlord fights grow from about
+    25s to about 65s across levels 1-4.
+  - A whole stage 2, 2 runs: 2/2 cleared.
+  - Stage 3 level 1: 0/6, as it was before the pass (0/4, median 100s);
+    the bot now lasts longer (median 140s). The frost roster
+    is a difficulty cliff for a bot that never dashes. Judge it by hand
+    with meta upgrades before retuning.
+  - Stage 6: 0/3 cleared; one run reached level 5.
+- **Next up:** the owner plays a full stage. Things to judge:
+  - is the broadside arc readable
+  - fight length in the cage
+  - whether ×0.7 off-counter feels like counters matter or like a nerf
+  - whether 6 head-start picks per level is too much tapping
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -3867,6 +3965,18 @@ Starting fresh below for the new game.)*
   type.
 
 
+- 2026-10-22: A stage is now one build across five levels, not five fresh
+  builds. The sims showed the same weak two-minute opening five times per
+  stage, and evolutions rarely happened. Retrying keeps the build you
+  arrived with, so a sinking costs the level, not the stage.
+- 2026-10-22: Cannonballs fire broadside. It's the one mechanic that makes
+  this a naval game rather than a reskin, and it turns steering into
+  aiming. The arc is wide (only bow and stern ±28° are blind) so kiting
+  still works; raking the beam is the skill reward.
+- 2026-10-22: The last fight happens in a cage with guard windows rather
+  than with more HP alone. More HP alone would make a longer bar; the cage
+  stops kiting and the crowd from soaking shots (both seen in the sims),
+  and the guard turns the fight into dodge-then-punish.
 ## Known open questions (do not silently resolve — ask)
 
 - See the PRD's "Open Risks & Provisional Decisions" section

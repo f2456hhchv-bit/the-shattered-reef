@@ -5,8 +5,11 @@
 // combat, enemy AI, armaments, weather, darkness and rendering all work
 // on it unchanged.
 //
-// A stage is LEVELS_PER_STAGE levels in one biome; each level is its own
-// run. Clearing a level unlocks the next (engine/meta.mjs).
+// A stage is LEVELS_PER_STAGE levels in one biome. Since 2026-10-22 the
+// build carries from level to level through a stage (`build`, from
+// survival.snapshotBuild); a sinking retries the level with the build you
+// arrived with (`run.carryIn`). Clearing a level unlocks the next
+// (engine/meta.mjs).
 
 import { makeSeededRng } from './rng.mjs';
 import { DEV } from './devTuning.mjs';
@@ -16,7 +19,7 @@ import { encodeLevelCode, mixSeed } from './levels.mjs';
 import { createBoat } from './boat.mjs';
 import { createWeaponState } from './combat.mjs';
 import { createWeather } from './weather.mjs';
-import { createSurvivalState, recomputeStats } from './survival.mjs';
+import { createSurvivalState, recomputeStats, applyBuild, snapshotBuild, grantCatchUp } from './survival.mjs';
 import { BASELINE_LOADOUT, biomeForStage, LEVELS_PER_STAGE, TILE_SIZE } from './run.mjs';
 import { BIOMES } from '../data/biomes.mjs';
 import { SURVIVAL, SV_WEAPONS } from '../data/survival.mjs';
@@ -74,7 +77,7 @@ function applyWorld(run, world) {
 // `locked`: weapon/armament ids kept out of the level-up pool (engine/
 // progression.mjs lockedPool). `daily`: { key, mod } for a daily voyage,
 // whose modifier effects (mod.fx) are applied here. `livery`: sail colours.
-export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1, levelIndex = 0, level = null, locked = [], daily = null, livery = null } = {}) {
+export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1, levelIndex = 0, level = null, locked = [], daily = null, livery = null, build = null, retry = false } = {}) {
   const lvl = level || survivalLevel(seed, stage, levelIndex);
   const world = buildSurvivalWorld(lvl);
   const hull = loadout.hull;
@@ -160,6 +163,10 @@ export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1,
   }
   recomputeStats(run);
   run.boat.health = run.boat.maxHull;
+  // The stage's build: carried in, or a head start of picks on a later level.
+  if (build) applyBuild(run, build, { fresh: !retry });
+  else run.catchUp = grantCatchUp(run, levelIndex);
+  run.carryIn = snapshotBuild(run);
   // Treasure floating by the wrecks and landmarks.
   for (const c of world.chests) run.pickups.push({ id: nextChestId++, kind: 'chest', x: c.x, y: c.y, amount: 1, collected: false, age: 0, map: true });
   run.weather = createWeather(lvl.biomeId);

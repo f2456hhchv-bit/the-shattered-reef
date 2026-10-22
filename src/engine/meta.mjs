@@ -83,6 +83,9 @@ export function loadMeta(storage) {
       && (!meta.ownedFactions.includes(meta.selectedFaction) || !isKnownFaction(meta.selectedFaction))) {
       meta.selectedFaction = null;
     }
+    // The stage's carried build (survival, 2026-10-22): drop anything malformed.
+    const sb = meta.stageBuild;
+    if (!(sb && typeof sb === 'object' && Number.isInteger(sb.stage) && Number.isInteger(sb.levelIndex) && sb.build && typeof sb.build.weapons === 'object')) meta.stageBuild = null;
     if (!Number.isFinite(meta.salvage)) meta.salvage = 0;
     if (!Number.isFinite(meta.krakenScales)) meta.krakenScales = 0;
     if (!Number.isInteger(meta.highestStageUnlocked) || meta.highestStageUnlocked < 1) meta.highestStageUnlocked = 1;

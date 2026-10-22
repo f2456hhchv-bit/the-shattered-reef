@@ -24,9 +24,31 @@ export const SURVIVAL = Object.freeze({
   counterBonus: 1.75, // damage vs. the enemies a weapon counters
   spawnMargin: 70, // px beyond the screen edge enemies appear
   recycleBeyond: 1.7, // × spawn distance: further than this, a straggler is moved back in
-  pickupRadius: 46, // px: gems and coins within this start flying to you
-  bossHp: 6, // × a stage boss's voyage hull (it has a whole build to face)
-  warlordHp: 14, // × the toughest enemy in the level's pool
+  pickupRadius: 92, // px: gems and coins within this start flying to you
+  // Glass further out creeps toward the ship (2026-10-22 sims: ~70% of the
+  // XP was being left on the water), and every new wave sweeps it all in.
+  gemDrift: { radius: 300, speed: 46 },
+  bossHp: 42, // × a stage boss's voyage hull (it has a whole stage's build to face)
+  warlordHp: 220, // × the toughest enemy in the level's pool…
+  warlordHpPerLevel: 0.15, // …× (1 + this × level index): the build grows through a stage
+  // The last fight is an event (2026-10-22): a warlord/boss is armoured
+  // (takes `guarded` of your damage) except for `exposedFor` seconds after
+  // each move it makes, when it takes `exposed`. Fights last ~60-90s.
+  lordGuard: { guarded: 0.45, exposed: 1.6, exposedFor: 2.6 },
+  // When the last fight arrives a storm wall closes round you both
+  // (Survivor-style boss cage): you can't run, it can't kite.
+  cage: { r: 330 },
+  // Specialists shrug off weapons that don't counter them (shown grey).
+  offCounter: 0.7,
+  // Cannonballs fire broadside: from the beam out to `arc` either way.
+  // Within `rake` of the beam a volley rakes for `rakeMult`.
+  broadside: { arc: 62 * Math.PI / 180, rake: 22 * Math.PI / 180, rakeMult: 1.5 },
+  // Card tools: rerolls and banishes a fresh build starts with, and how
+  // many each level adds (they carry through the stage).
+  rerolls: [2, 1], banishes: [1, 1],
+  // Starting a later level without the stage's carried build: this many
+  // picks per level skipped, taken at once before the first wave.
+  catchUpPicks: 6,
   eliteHp: 4.5,
   levelClearSalvage: [24, 8], // base + per level index, × stage multiplier
   sinkKeepsSalvage: 0.5, // fraction of the level's Salvage kept when you sink
@@ -36,8 +58,9 @@ export const SURVIVAL = Object.freeze({
   // first waves build up to it so a fresh build isn't swamped at once.
   // Full crowd per stage: a fresh captain on stage 1 meets ×2, and it
   // reaches the owner's ×4 by stage 4 (stage 5+ stays at ×4).
-  crowdByStage: [2, 2.75, 3.5, 4],
-  crowdRampWaves: 4,
+  crowdByStage: [2.7, 3, 3.3, 3.7],
+  crowdRampWaves: 4, // level 1; later levels (carried build) ramp in 2
+
   // Four times the kills would mean four times the XP, so later ship
   // levels need up to this much more (the first few stay quick, so the
   // opening build comes together before the crowd peaks).
@@ -45,16 +68,16 @@ export const SURVIVAL = Object.freeze({
 });
 
 // How much of the full crowd a wave gets (0-based wave index).
-export function crowdRamp(waveIndex) {
-  return Math.min(1, waveIndex / SURVIVAL.crowdRampWaves);
+export function crowdRamp(waveIndex, levelIndex = 0) {
+  return Math.min(1, waveIndex / (levelIndex > 0 ? 2 : SURVIVAL.crowdRampWaves));
 }
 export function stageCrowd(stage) {
   const t = SURVIVAL.crowdByStage;
   return t[Math.min(t.length, Math.max(1, stage)) - 1];
 }
 // Enemies afloat and spawn speed both scale by the crowd.
-export function crowdMult(waveIndex, stage = 1) {
-  return 1 + (stageCrowd(stage) - 1) * crowdRamp(waveIndex);
+export function crowdMult(waveIndex, stage = 1, levelIndex = 0) {
+  return 1 + (stageCrowd(stage) - 1) * crowdRamp(waveIndex, levelIndex);
 }
 export const spawnPaceMult = crowdMult;
 // Horde coins thin out as the crowd grows (by its square root: the owner
@@ -68,7 +91,9 @@ export function hordeCoinChance(stage = 1) {
 export const DASH = Object.freeze({ speed: 390, time: 0.2, iframes: 0.34, cooldown: 3.6, minCooldown: 1.6 });
 
 // XP to reach the next ship level from `lv` (1-based).
+const EARLY_XP = [3, 5, 7, 10, 13]; // the first cards come fast
 export function xpToNext(lv, stage = 1) {
+  if (lv <= EARLY_XP.length) return EARLY_XP[lv - 1];
   const scale = Math.max(1, Math.min(stageCrowd(stage) * SURVIVAL.xpPerCrowd, 1 + (lv - 1) * 0.3));
   return Math.round((5 + 3.4 * (lv - 1) + Math.pow(lv - 1, 1.55)) * scale);
 }
@@ -90,7 +115,7 @@ export const SV_WEAPONS = {
     id: W.CANNONBALLS, name: 'Cannonballs', icon: '⚫', kind: 'cannon',
     blurb: 'Fires at the nearest enemies.',
     levels: [
-      { damage: 14, cooldown: 0.75, count: 1, pierce: 0, speed: 360, range: 260, desc: 'A cannon that fires at the nearest enemy' },
+      { damage: 14, cooldown: 0.75, count: 1, pierce: 0, speed: 360, range: 260, desc: 'Broadside guns: fire from your sides at what lies off the beam' },
       { damage: 14, cooldown: 0.7, count: 2, pierce: 0, speed: 360, range: 260, desc: '+1 cannonball per volley' },
       { damage: 19, cooldown: 0.65, count: 2, pierce: 0, speed: 370, range: 270, desc: '+35% damage, faster reload' },
       { damage: 19, cooldown: 0.6, count: 3, pierce: 1, speed: 380, range: 280, desc: '+1 cannonball; shots pass through one enemy' },
@@ -209,7 +234,7 @@ export const PASSIVE_MAX = 5;
 // (seconds) sends an elite at you on a timer.
 export const FINAL_STRETCH = 7;
 export const WAVES = [
-  { every: 1.4, batch: 2, alive: 16, special: 0.0 },
+  { every: 0.9, batch: 3, alive: 20, special: 0.0 },
   { every: 1.15, batch: 2, alive: 22, special: 0.1 },
   { every: 1.0, batch: 3, alive: 28, special: 0.14, event: 'encircle' },
   { every: 0.95, batch: 3, alive: 34, special: 0.18 },
@@ -218,20 +243,21 @@ export const WAVES = [
   { every: 0.72, batch: 4, alive: 50, special: 0.28, event: 'encircle' },
   { every: 0.66, batch: 4, alive: 56, special: 0.3, event: 'elite2', hunters: 20 },
   { every: 0.6, batch: 5, alive: 62, special: 0.34, hunters: 18 },
-  { every: 0.85, batch: 4, alive: 48, special: 0.3, event: 'boss' }, // until the warlord/boss sinks
+  { every: 1.6, batch: 2, alive: 16, special: 0.3, event: 'boss' }, // until the warlord/boss sinks: a duel in the storm cage, a thin crowd
 ];
 
 // How a level and a stage push the waves (kept gentle on purpose: more,
 // faster and more varied, barely tougher).
 export function waveScaling(stage, levelIndex, waveIndex) {
   const L = levelIndex; const S = Math.max(1, stage) - 1;
-  // Every level starts from a fresh build, so a later level's opening
-  // waves stay close to level 1's; the extra pressure builds as it goes.
-  const ramp = 0.3 + 0.7 * Math.min(1, waveIndex / 8);
+  // The build carries through a stage (2026-10-22), so a later level opens
+  // with most of its extra pressure already on.
+  const ramp = (L > 0 ? 0.65 : 0.3) + (L > 0 ? 0.35 : 0.7) * Math.min(1, waveIndex / 8);
   return {
-    count: (1 + 0.14 * L * ramp) * (1 + 0.05 * Math.min(S, 10) * ramp),
-    rate: 1 + (0.08 * L + 0.03 * Math.min(S, 10)) * ramp,
-    health: 1 + 0.035 * waveIndex + 0.04 * L,
+    count: (1 + 0.32 * L * ramp) * (1 + 0.05 * Math.min(S, 10) * ramp),
+    rate: 1 + (0.14 * L + 0.03 * Math.min(S, 10)) * ramp,
+    health: 1 + 0.035 * waveIndex + 0.42 * L,
+    damage: 1 + 0.12 * L,
     speed: 1 + 0.025 * L + 0.01 * waveIndex,
   };
 }

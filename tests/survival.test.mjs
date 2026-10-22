@@ -167,7 +167,7 @@ test('director: level 5 brings the stage boss; elites come on wave 5', () => {
   assert.equal(run.sv.bossDefId, boss.defId);
 });
 
-test('director: later levels and stages bring more enemies, barely tougher ones', () => {
+test('director: later levels bring more and tougher enemies (the build carries), never sponges', () => {
   const count = (stage, levelIndex) => {
     const run = createSurvivalRun(11, undefined, { stage, levelIndex });
     const rng = makeSeededRng(5);
@@ -178,7 +178,8 @@ test('director: later levels and stages bring more enemies, barely tougher ones'
   };
   const l1 = count(1, 0); const l5 = count(1, 4);
   assert.ok(l5.n > l1.n * 1.2, `more enemies on level 5 (${l1.n} → ${l5.n})`);
-  assert.ok(l5.hp < l1.hp * 1.35, 'not bullet sponges');
+  assert.ok(l5.hp > l1.hp * 1.3, `tougher on level 5: the build carried through the stage (${l1.hp.toFixed(2)} → ${l5.hp.toFixed(2)})`);
+  assert.ok(l5.hp < l1.hp * 2.8, 'not bullet sponges');
 });
 
 test('xp: ship levels need a little more each time, and level-ups queue', () => {

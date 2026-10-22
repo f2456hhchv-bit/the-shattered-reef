@@ -69,6 +69,15 @@ function drawLord(ctx, e, t) {
     ctx.beginPath(); ctx.arc(0, 0, r + 6, 0, TAU); ctx.fill();
   }
 
+  // Guard down: a bright gold flicker — the moment to hit it.
+  if (L.exposed > 0) {
+    const k = Math.min(1, L.exposed / 0.4) * (0.6 + 0.4 * Math.sin(t * 18));
+    ctx.strokeStyle = `rgba(255, 230, 120, ${0.9 * k})`; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(0, 0, r + 4, 0, TAU); ctx.stroke();
+    ctx.fillStyle = `rgba(255, 230, 120, ${0.18 * k})`;
+    ctx.beginPath(); ctx.arc(0, 0, r + 4, 0, TAU); ctx.fill();
+  }
+
   // Ward: a gilded bubble with a turning rune band.
   if (L.shieldTime > 0) {
     const R = r + 18;
@@ -130,4 +139,53 @@ function drawLord(ctx, e, t) {
     }
     ctx.restore();
   }
+}
+
+// The storm wall round the last fight (engine/survival.mjs sv.cage): a
+// ring of churning white water and spray that closes in as it forms.
+export function drawCage(ctx, cage, t) {
+  if (!cage) return;
+  const form = Math.min(1, (cage.t || 0) / 0.9);
+  const r = cage.r + (1 - form) * (1 - form) * 260;
+  ctx.save();
+  ctx.translate(cage.x, cage.y);
+  // Dark water beyond the wall.
+  const g = ctx.createRadialGradient(0, 0, r - 6, 0, 0, r + 90);
+  g.addColorStop(0, 'rgba(10, 30, 50, 0)');
+  g.addColorStop(0.12, `rgba(10, 30, 50, ${0.38 * form})`);
+  g.addColorStop(1, `rgba(10, 30, 50, ${0.55 * form})`);
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, r + 90, 0, Math.PI * 2); ctx.arc(0, 0, r - 6, 0, Math.PI * 2, true); ctx.fill();
+  // The churning wall: two counter-turning foam rings.
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = `rgba(235, 248, 255, ${0.75 * form})`; ctx.lineWidth = 5;
+  ctx.setLineDash([22, 14]); ctx.lineDashOffset = -t * 60;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = `rgba(160, 210, 240, ${0.55 * form})`; ctx.lineWidth = 3;
+  ctx.setLineDash([8, 18]); ctx.lineDashOffset = t * 45;
+  ctx.beginPath(); ctx.arc(0, 0, r + 9, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  // Spray flecks riding the wall.
+  ctx.fillStyle = `rgba(255, 255, 255, ${0.7 * form})`;
+  for (let i = 0; i < 36; i++) {
+    const a = (i / 36) * Math.PI * 2 + t * 0.35 + Math.sin(i * 7.3) * 0.05;
+    const rr = r + Math.sin(t * 3 + i * 2.1) * 5;
+    ctx.beginPath(); ctx.arc(Math.cos(a) * rr, Math.sin(a) * rr, 1.6 + (i % 3) * 0.6, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Your broadside arcs: two faint wedges off the beam, where Cannonballs bear.
+export function drawBroadsideArcs(ctx, boat, arc, raking, alpha = 0.1) {
+  ctx.save();
+  ctx.translate(boat.x, boat.y);
+  ctx.rotate(boat.heading || 0);
+  for (const side of [1, -1]) {
+    const mid = side * Math.PI / 2;
+    ctx.fillStyle = `rgba(255, 236, 170, ${alpha})`;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 70, mid - arc, mid + arc); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = `rgba(255, 214, 92, ${alpha * 1.4})`;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 70, mid - raking, mid + raking); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
 }
