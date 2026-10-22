@@ -32,6 +32,11 @@ function fakeStorage(initial = {}) {
   };
 }
 
+// A captain who has sailed far enough for every shop to be open, with no
+// crew aboard, so these tests see only the system under test (shop gates
+// and crew passives have their own tests in gameplay/depth tests).
+function veteran() { return { ...createDefaultMeta(), highestStageUnlocked: 10, crewAboard: [] }; }
+
 test('tuningForHull: the Sloop matches the baseline tuning/hull exactly', () => {
   const t = tuningForHull(SHIP_HULLS[HULL_IDS.SLOOP]);
   assert.deepEqual(t, DEFAULT_BOAT_TUNING);
@@ -80,7 +85,7 @@ test('loadMeta returns defaults when storage is empty, and never throws on corru
 
 test('saveMeta then loadMeta round-trips a modified meta state', () => {
   const storage = fakeStorage();
-  const meta = createDefaultMeta();
+  const meta = veteran();
   meta.salvage = 250;
   purchaseHull(meta, HULL_IDS.LONGBOAT);
   purchaseCargoTier(meta, CARGO_TIER_IDS.CHAIN_LOCKER);
@@ -103,7 +108,7 @@ test('loadMeta merges an older/partial save onto current defaults rather than dr
 });
 
 test('purchaseHull: refuses without enough Salvage, refuses a re-purchase, otherwise deducts cost and owns it', () => {
-  const meta = createDefaultMeta();
+  const meta = veteran();
   const poor = purchaseHull(meta, HULL_IDS.LONGBOAT);
   assert.equal(poor.ok, false);
   assert.equal(poor.reason, 'cannot_afford');
@@ -121,7 +126,7 @@ test('purchaseHull: refuses without enough Salvage, refuses a re-purchase, other
 });
 
 test('selectHull only switches to an owned hull', () => {
-  const meta = createDefaultMeta();
+  const meta = veteran();
   assert.equal(selectHull(meta, HULL_IDS.SKIFF), false, 'not owned yet');
   assert.equal(meta.selectedHull, HULL_IDS.SLOOP);
   meta.ownedHulls.push(HULL_IDS.SKIFF);
@@ -130,8 +135,8 @@ test('selectHull only switches to an owned hull', () => {
 });
 
 test('purchaseCargoTier and purchaseCharm follow the same afford/already-owned rules', () => {
-  const meta = createDefaultMeta();
-  meta.salvage = 1000;
+  const meta = veteran();
+  meta.salvage = 100000;
   assert.equal(purchaseCargoTier(meta, CARGO_TIER_IDS.DEEP_STORES).ok, true);
   assert.equal(purchaseCargoTier(meta, CARGO_TIER_IDS.DEEP_STORES).ok, false);
   assert.equal(purchaseCharm(meta, CHARM_IDS.LAST_GASP).ok, true);
@@ -139,8 +144,8 @@ test('purchaseCargoTier and purchaseCharm follow the same afford/already-owned r
 });
 
 test('resolveLoadout turns owned unlocks into the plain loadout createRun expects', () => {
-  const meta = createDefaultMeta();
-  meta.salvage = 1000;
+  const meta = veteran();
+  meta.salvage = 100000;
   purchaseHull(meta, HULL_IDS.SKIFF);
   selectHull(meta, HULL_IDS.SKIFF);
   purchaseCargoTier(meta, CARGO_TIER_IDS.CHAIN_LOCKER);
@@ -154,7 +159,7 @@ test('resolveLoadout turns owned unlocks into the plain loadout createRun expect
 });
 
 test('a fresh meta state resolves to BASELINE_LOADOUT-equivalent stats', () => {
-  const loadout = resolveLoadout(createDefaultMeta());
+  const loadout = resolveLoadout(veteran());
   assert.equal(loadout.hull.id, BASELINE_LOADOUT.hull.id);
   assert.deepEqual(loadout.extraHeldWeapons, BASELINE_LOADOUT.extraHeldWeapons);
   assert.equal(loadout.startingAmmoMultiplier, BASELINE_LOADOUT.startingAmmoMultiplier);
@@ -162,7 +167,7 @@ test('a fresh meta state resolves to BASELINE_LOADOUT-equivalent stats', () => {
 });
 
 test('recordRunResult banks Salvage into meta and tracks best-run stats across runs', () => {
-  const meta = createDefaultMeta();
+  const meta = veteran();
   recordRunResult(meta, { bankedSalvage: 40, outcome: 'sunk', reefIndex: 1, reefCount: 3 });
   assert.equal(meta.salvage, 40);
   assert.equal(meta.stats.runsPlayed, 1);
@@ -183,8 +188,8 @@ test('recordRunResult banks Salvage into meta and tracks best-run stats across r
 // --- run.mjs integration: hull selection, cargo loadout, charms --------
 
 test('createRun applies a selected hull\'s maxHull and tuning', () => {
-  const meta = createDefaultMeta();
-  meta.salvage = 1000;
+  const meta = veteran();
+  meta.salvage = 100000;
   purchaseHull(meta, HULL_IDS.LONGBOAT);
   selectHull(meta, HULL_IDS.LONGBOAT);
   const run = createRun(1, resolveLoadout(meta));
@@ -194,8 +199,8 @@ test('createRun applies a selected hull\'s maxHull and tuning', () => {
 });
 
 test('createRun applies a Cargo Loadout\'s extra held weapons and starting ammo bonus', () => {
-  const meta = createDefaultMeta();
-  meta.salvage = 1000;
+  const meta = veteran();
+  meta.salvage = 100000;
   purchaseCargoTier(meta, CARGO_TIER_IDS.CHAIN_LOCKER);
   purchaseCargoTier(meta, CARGO_TIER_IDS.FORWARD_MAGAZINE);
   const run = createRun(2, resolveLoadout(meta));
@@ -204,8 +209,8 @@ test('createRun applies a Cargo Loadout\'s extra held weapons and starting ammo 
 });
 
 test('the Last Gasp charm revives the boat at 1 hull exactly once per run instead of ending it', () => {
-  const meta = createDefaultMeta();
-  meta.salvage = 1000;
+  const meta = veteran();
+  meta.salvage = 100000;
   purchaseCharm(meta, CHARM_IDS.LAST_GASP);
   const run = createRun(3, resolveLoadout(meta));
 
@@ -229,8 +234,8 @@ test('without Last Gasp, checkSunk ends the run on the first 0-hull frame as bef
 });
 
 test('the First Haul charm boosts Salvage gained only on the first reef', () => {
-  const meta = createDefaultMeta();
-  meta.salvage = 1000;
+  const meta = veteran();
+  meta.salvage = 100000;
   purchaseCharm(meta, CHARM_IDS.FIRST_HAUL);
   const run = createRun(5, resolveLoadout(meta));
 
@@ -246,23 +251,23 @@ test('the First Haul charm boosts Salvage gained only on the first reef', () => 
 // --- Playable factions (post-slice) --------------------------------------
 
 test('createDefaultMeta starts unaligned, owning no factions', () => {
-  const meta = createDefaultMeta();
+  const meta = veteran();
   assert.deepEqual(meta.ownedFactions, []);
   assert.equal(meta.selectedFaction, null);
 });
 
 test('purchaseFaction respects cost/ownership, selectFaction respects ownership (or null for unaligned)', () => {
-  const meta = createDefaultMeta();
+  const meta = veteran();
   meta.salvage = 50;
   let res = purchaseFaction(meta, FACTION_IDS.REAVERS);
   assert.equal(res.ok, false);
   assert.equal(res.reason, 'cannot_afford');
 
-  meta.salvage = 1000;
+  meta.salvage = 100000;
   res = purchaseFaction(meta, FACTION_IDS.REAVERS);
   assert.equal(res.ok, true);
   assert.ok(meta.ownedFactions.includes(FACTION_IDS.REAVERS));
-  assert.equal(meta.salvage, 1000 - PLAYABLE_FACTIONS[FACTION_IDS.REAVERS].cost);
+  assert.equal(meta.salvage, 100000 - PLAYABLE_FACTIONS[FACTION_IDS.REAVERS].cost);
 
   assert.equal(purchaseFaction(meta, FACTION_IDS.REAVERS).ok, false, 'cannot buy the same faction twice');
 
@@ -274,7 +279,7 @@ test('purchaseFaction respects cost/ownership, selectFaction respects ownership 
 });
 
 test('resolveLoadout with no faction selected matches the baseline exactly (backward compatible)', () => {
-  const meta = createDefaultMeta();
+  const meta = veteran();
   const loadout = resolveLoadout(meta);
   assert.equal(loadout.faction, null);
   assert.equal(loadout.hull.id, HULL_IDS.SLOOP);
@@ -282,8 +287,8 @@ test('resolveLoadout with no faction selected matches the baseline exactly (back
 });
 
 test('resolveLoadout with a faction selected overrides the hull, adds its weapon bias, and grants its passive charm', () => {
-  const meta = createDefaultMeta();
-  meta.salvage = 1000;
+  const meta = veteran();
+  meta.salvage = 100000;
   purchaseFaction(meta, FACTION_IDS.IRON_ACCORD);
   selectFaction(meta, FACTION_IDS.IRON_ACCORD);
   const faction = getPlayableFaction(FACTION_IDS.IRON_ACCORD);
@@ -297,8 +302,8 @@ test('resolveLoadout with a faction selected overrides the hull, adds its weapon
 });
 
 test('a faction\'s weapon bias does not duplicate one already granted by an owned Cargo Loadout tier', () => {
-  const meta = createDefaultMeta();
-  meta.salvage = 1000;
+  const meta = veteran();
+  meta.salvage = 100000;
   const faction = getPlayableFaction(FACTION_IDS.REAVERS); // grants Chain Shot
   assert.equal(faction.extraHeldWeapon, WEAPON_IDS.CHAIN_SHOT, 'precondition: this test needs an overlap to be meaningful');
   // Chain Locker also grants Chain Shot.
@@ -312,8 +317,8 @@ test('a faction\'s weapon bias does not duplicate one already granted by an owne
 });
 
 test('a faction\'s granted passive stacks with (does not replace) a separately owned charm', () => {
-  const meta = createDefaultMeta();
-  meta.salvage = 1000;
+  const meta = veteran();
+  meta.salvage = 100000;
   purchaseCharm(meta, CHARM_IDS.FIRST_HAUL);
   purchaseFaction(meta, FACTION_IDS.REAVERS); // grants Last Gasp
   selectFaction(meta, FACTION_IDS.REAVERS);
@@ -324,8 +329,8 @@ test('a faction\'s granted passive stacks with (does not replace) a separately o
 });
 
 test('selecting a faction actually reaches a real run: hull, held weapon, and combat-triangle faction all land on run', () => {
-  const meta = createDefaultMeta();
-  meta.salvage = 1000;
+  const meta = veteran();
+  meta.salvage = 100000;
   purchaseFaction(meta, FACTION_IDS.REAVERS);
   selectFaction(meta, FACTION_IDS.REAVERS);
   const faction = getPlayableFaction(FACTION_IDS.REAVERS);
@@ -339,14 +344,14 @@ test('selecting a faction actually reaches a real run: hull, held weapon, and co
 // --- Workshop / Crafting (post-slice) ------------------------------------
 
 test('createDefaultMeta starts with no Kraken Scales and no Workshop upgrades', () => {
-  const meta = createDefaultMeta();
+  const meta = veteran();
   assert.equal(meta.krakenScales, 0);
   assert.deepEqual(meta.ownedWorkshopUpgrades, []);
 });
 
 test('purchaseWorkshopUpgrade requires BOTH enough Salvage and enough Kraken Scales', () => {
-  const meta = createDefaultMeta();
-  meta.salvage = 1000;
+  const meta = veteran();
+  meta.salvage = 100000;
   meta.krakenScales = 0;
   let res = purchaseWorkshopUpgrade(meta, WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS);
   assert.equal(res.ok, false);
@@ -357,20 +362,20 @@ test('purchaseWorkshopUpgrade requires BOTH enough Salvage and enough Kraken Sca
   assert.equal(res.ok, true);
   assert.ok(meta.ownedWorkshopUpgrades.includes(WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS));
   assert.equal(meta.krakenScales, 0, 'the Kraken Scale should be spent');
-  assert.equal(meta.salvage, 1000 - WORKSHOP_UPGRADES[WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS].salvageCost);
+  assert.equal(meta.salvage, 100000 - WORKSHOP_UPGRADES[WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS].salvageCost);
 
   assert.equal(purchaseWorkshopUpgrade(meta, WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS).ok, false, 'cannot craft the same upgrade twice');
 });
 
 test('resolveLoadout with no Workshop upgrades owned matches baseline (no crafted multipliers, no extra hull)', () => {
-  const meta = createDefaultMeta();
+  const meta = veteran();
   const loadout = resolveLoadout(meta);
   assert.deepEqual(loadout.craftedDamageMultipliers, {});
   assert.equal(loadout.extraMaxHull, 0);
 });
 
 test('resolveLoadout resolves owned Workshop upgrades into per-weapon multipliers and a flat hull bonus', () => {
-  const meta = createDefaultMeta();
+  const meta = veteran();
   meta.salvage = 10000;
   meta.krakenScales = 10;
   purchaseWorkshopUpgrade(meta, WORKSHOP_UPGRADE_IDS.REINFORCED_BARRELS); // Cannonballs x1.2
@@ -386,13 +391,13 @@ test('resolveLoadout resolves owned Workshop upgrades into per-weapon multiplier
 });
 
 test('recordRunResult awards exactly one Kraken Scale when run.bossDefeated is true, none otherwise', () => {
-  const meta = createDefaultMeta();
+  const meta = veteran();
   const run = createRun(12);
   run.bossDefeated = true;
   recordRunResult(meta, run);
   assert.equal(meta.krakenScales, 1);
 
-  const meta2 = createDefaultMeta();
+  const meta2 = veteran();
   const run2 = createRun(13);
   run2.bossDefeated = false;
   recordRunResult(meta2, run2);
@@ -483,7 +488,7 @@ test('shops: new Armory, Charm and Workshop items all reach the run', async () =
   const M = await import('../src/data/meta.mjs');
   const { createDefaultMeta, resolveLoadout } = await import('../src/engine/meta.mjs');
   const { createRun, addSalvage } = await import('../src/engine/run.mjs');
-  const meta = createDefaultMeta();
+  const meta = veteran();
   meta.ownedCargoTiers = M.CARGO_TIER_LIST.map((t) => t.id);
   meta.ownedCharms = M.CHARM_LIST.map((c) => c.id);
   meta.ownedWorkshopUpgrades = M.WORKSHOP_UPGRADE_LIST.map((u) => u.id);

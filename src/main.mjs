@@ -66,6 +66,15 @@ import {
   drawSurvivalPickups, drawFirePools, drawOrbitBlades, drawHullBar, drawRings, drawSinkers, drawLandmarks, drawSeaIslands, drawProps, drawEdgeArrows, drawVignette, drawFlotsam,
 } from './engine/survivalArt.mjs';
 import { drawLords, drawCage, drawBroadsideArcs } from './engine/warlordArt.mjs';
+import { PROLOGUE, CHAPTER_BY_STAGE, UNDERTOW_TIDE, CHARACTERS } from './data/story.mjs';
+import { drawKeyEffects } from './engine/keyArt.mjs';
+import { KEYS } from './data/keys.mjs';
+import { SHIP_PERSONA, WAKE_BY_ID } from './data/shop.mjs';
+import { recordDepth, nanaLine, storyUnseen, markStory, meetsRequires } from './engine/depth.mjs';
+import { keyReady } from './engine/keys.mjs';
+import { createStoryScene } from './ui/storyScene.mjs';
+import { createBarks } from './ui/barks.mjs';
+import { renderCrewPanel, renderKeysSection, renderGunsmith, renderRefits, renderWakes, renderStoryTab } from './ui/depthPanels.mjs';
 import { loadCreatureSprites } from './engine/creatureSprites.mjs';
 import { loadFxSprites } from './engine/fxSprites.mjs';
 import { loadShipSprites, shipSpriteReady, hasShipSprite, whenShipSpriteReady } from './engine/shipSprites.mjs';
@@ -139,6 +148,31 @@ export function startApp(root) {
   let dashQueued = false;
   dashBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); dashQueued = true; unlockAudio(); });
   addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ShiftLeft') { dashQueued = true; e.preventDefault(); } });
+  // The key (2026-10-22): a special attack that charges as you sink enemies.
+  const keyBtn = document.createElement('button');
+  keyBtn.id = 'key-btn'; keyBtn.type = 'button'; keyBtn.setAttribute('aria-label', 'Turn the key');
+  keyBtn.innerHTML = '<span>⚓</span><small>KEY</small>';
+  root.appendChild(keyBtn);
+  let keyQueued = false;
+  keyBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); keyQueued = true; unlockAudio(); });
+  addEventListener('keydown', (e) => { if (e.code === 'KeyQ' || e.code === 'KeyE') { keyQueued = true; e.preventDefault(); } });
+  let keyShown = '';
+  function updateKeyButton() {
+    const K = run.key; if (!K) { keyBtn.hidden = true; return; }
+    const frac = Math.round(Math.min(1, K.charge / K.need) * 40) / 40;
+    const sig = `${K.id}:${frac}`;
+    if (sig === keyShown) return;
+    if (!keyShown.startsWith(`${K.id}:`)) { keyBtn.querySelector('span').textContent = KEYS[K.id].icon; keyBtn.style.setProperty('--kc', KEYS[K.id].colour); }
+    keyShown = sig;
+    keyBtn.hidden = false;
+    keyBtn.style.setProperty('--cd', `${frac * 360}deg`);
+    keyBtn.classList.toggle('ready', frac >= 1);
+  }
+  // Story scenes and crew barks (2026-10-22).
+  const storyScene = createStoryScene(root);
+  const barks = createBarks(root);
+  const CHARACTER_EMOJI = (id) => CHARACTERS[id]?.emoji || '🙂';
+  const CHARACTER_LINES = (id) => CHARACTERS[id]?.bio || '';
   let dashShown = -1;
   function updateDashButton() {
     const d = run.dash; if (!d) return;
@@ -258,6 +292,7 @@ export function startApp(root) {
   root.appendChild(evoFlash);
   function evolutionMoment(v) {
     evoSlow = 1.4;
+    setTimeout(() => barks.say(run.crew, 'evolve'), 900);
     evoFlash.hidden = false; evoFlash.classList.remove('go'); void evoFlash.offsetWidth; evoFlash.classList.add('go');
     setTimeout(() => { evoFlash.hidden = true; }, 900);
     showBanner({ eyebrow: `✦ Evolution ${evolutionsUsed(run)}/${SURVIVAL.maxEvolutions}`, title: `${v.icon} ${v.name}`, chips: [v.desc], cls: 'evo', ms: 3000 });
@@ -334,6 +369,7 @@ export function startApp(root) {
     <div id="quest-row">
       <button type="button" id="daily-chip" class="quest-chip"><span>📅</span><b>Daily</b><small id="daily-chip-sub"></small><i class="bc-badge" hidden>!</i></button>
       <button type="button" id="contracts-chip" class="quest-chip"><span>📜</span><b>Contracts</b><small id="contracts-chip-sub"></small></button>
+      <button type="button" id="crew-chip" class="quest-chip"><span class="crew-faces"></span><b>Crew</b><small id="crew-chip-sub"></small></button>
     </div>
     <div id="base-chips"></div>
     <div id="voyage-card">
@@ -372,6 +408,11 @@ export function startApp(root) {
             <h3 class="hub-subhead">Liveries</h3>
             <p class="hub-section-note">Sail, trim and flag colours for whichever hull you sail. Some are only earned through achievements.</p>
             <div id="hub-liveries" class="hub-list"></div>
+            <div id="hub-refits" class="hub-list"></div>
+            <div id="hub-wakes" class="hub-list"></div>
+          </section>
+          <section class="hub-section" data-panel="crew">
+            <div id="hub-crew" class="hub-list"></div>
           </section>
           <section class="hub-section" data-panel="daily">
             <div id="hub-daily"></div>
@@ -383,8 +424,11 @@ export function startApp(root) {
           <section class="hub-section" data-panel="cargo">
             <p class="hub-section-note">Permanent: every tier you own is loaded on every voyage.</p>
             <div id="hub-cargo" class="hub-list"></div>
+            <div id="hub-gunsmith" class="hub-list"></div>
           </section>
           <section class="hub-section" data-panel="charms">
+            <div id="hub-keys" class="hub-list"></div>
+            <h3 class="hub-subhead">Charms</h3>
             <p class="hub-section-note">Permanent: every charm you own works on every voyage.</p>
             <div id="hub-charms" class="hub-list"></div>
           </section>
@@ -402,10 +446,12 @@ export function startApp(root) {
           <section class="hub-section" data-panel="log">
             <div class="log-tabs" role="tablist">
               <button type="button" role="tab" data-tab="record" aria-selected="true">Record</button>
+              <button type="button" role="tab" data-tab="story" aria-selected="false">Story</button>
               <button type="button" role="tab" data-tab="achievements" aria-selected="false">Achievements</button>
               <button type="button" role="tab" data-tab="bestiary" aria-selected="false">Bestiary</button>
             </div>
             <div data-tabpane="record"><div id="hub-log" class="log-grid"></div></div>
+            <div data-tabpane="story" hidden><div id="hub-story" class="hub-list"></div></div>
             <div data-tabpane="achievements" hidden><div id="hub-achievements" class="ach-grid"></div></div>
             <div data-tabpane="bestiary" hidden><p id="bestiary-note" class="hub-section-note"></p><div id="hub-bestiary"></div></div>
           </section>
@@ -435,9 +481,10 @@ export function startApp(root) {
   // One chip per building: the name, what it's for, and a "!" badge when
   // something in that panel is affordable right now (real, not decorative).
   const PANEL_TITLES = {
-    hulls: ['Shipyard', 'Choose the hull you sail in'],
-    cargo: ['Armory', 'Cargo loadouts — start voyages better armed'],
-    charms: ['Charm Shrine', "Captain's charms — permanent blessings"],
+    hulls: ['Shipyard', 'Your ships, their refits and their colours'],
+    cargo: ['Armory', 'Cargo loadouts and the Gunsmith'],
+    charms: ['Charm Shrine', 'The Marlowe keys, and charms for every voyage'],
+    crew: ['Your Crew', 'Who sails with you, and what they bring'],
     factions: ['Faction Hall', 'Sail under a flag — and its rivalries'],
     workshop: ['Workshop', 'Craft upgrades from Kraken Scales'],
     log: ["Captain's Log", 'Your record, achievements and bestiary'],
@@ -460,6 +507,7 @@ export function startApp(root) {
   hubOverlay.querySelector('#captain-chip').addEventListener('click', () => openPanel('log'));
   hubOverlay.querySelector('#daily-chip').addEventListener('click', () => openPanel('daily'));
   hubOverlay.querySelector('#contracts-chip').addEventListener('click', () => openPanel('contracts'));
+  hubOverlay.querySelector('#crew-chip').addEventListener('click', () => openPanel('crew'));
   const questRow = hubOverlay.querySelector('#quest-row');
   for (const tab of hubOverlay.querySelectorAll('.log-tabs button')) {
     tab.addEventListener('click', () => {
@@ -839,6 +887,7 @@ export function startApp(root) {
     collect.hidden = false; collect.style.animationDelay = `${0.4 + n * 0.32}s`;
     upgradeOverlay.hidden = false;
     playTreasure();
+    setTimeout(() => barks.say(run.crew, 'chest'), 600);
     res.items.forEach((_, i) => setTimeout(() => playPickupSalvage(), 280 + i * 320));
     const evo = res.items.find((it) => it.card.kind === 'evolve');
     collect.onclick = () => {
@@ -1098,14 +1147,17 @@ export function startApp(root) {
     for (const hull of SHIP_HULL_LIST) {
       const owned = meta.ownedHulls.includes(hull.id);
       const selected = meta.selectedHull === hull.id;
-      const disabled = selected || (!owned && !canAfford(meta, hull.cost));
-      const label = selected ? 'Selected' : owned ? 'Select' : `Buy ${hull.cost} ⚓`;
+      const gated = !owned && !meetsRequires(meta, hull.requires);
+      const disabled = selected || gated || (!owned && !canAfford(meta, hull.cost));
+      const label = selected ? 'Selected' : owned ? 'Select' : gated ? `🔒 Stage ${hull.requires}` : `Buy ${fmtN(hull.cost)} ⚓`;
+      const persona = SHIP_PERSONA[hull.id];
       const row = document.createElement('div');
       row.className = 'hub-item';
       row.innerHTML = `
         <canvas class="hull-preview" width="112" height="112" aria-hidden="true"></canvas>
         <div class="hub-item-info">
-          <span class="hub-item-name">${hull.name}${selected ? ' ✓' : ''}</span>
+          <span class="hub-item-name">${persona ? `${persona.shipName} · ` : ''}${hull.name}${selected ? ' ✓' : ''}</span>
+          ${persona ? `<span class="ship-temper">“${persona.temper}”</span>` : ''}
           <span class="hub-item-desc">${hull.description}</span>
           <span class="hull-gun">Starts with ${SV_WEAPONS[HULL_START_WEAPON[hull.id] || 'cannonballs'].icon} ${SV_WEAPONS[HULL_START_WEAPON[hull.id] || 'cannonballs'].name}</span>
           <span class="hull-stats">🛡️ ${hull.maxHull} · ⛵ ${Math.round(hull.maxSpeedMult * 100)}% · ↻ ${Math.round(hull.turnRateMult * 100)}%${hull.perk ? ` · <b>${hull.perk}</b>` : ''}</span>
@@ -1129,7 +1181,8 @@ export function startApp(root) {
     hubCargo.innerHTML = '';
     for (const tier of CARGO_TIER_LIST) {
       const owned = meta.ownedCargoTiers.includes(tier.id);
-      const disabled = owned || !canAfford(meta, tier.cost);
+      const gated = !owned && !meetsRequires(meta, tier.requires);
+      const disabled = owned || gated || !canAfford(meta, tier.cost);
       const row = document.createElement('div');
       row.className = 'hub-item';
       row.innerHTML = `
@@ -1137,7 +1190,7 @@ export function startApp(root) {
           <span class="hub-item-name">${tier.name}${owned ? ' ✓' : ''}</span>
           <span class="hub-item-desc">${tier.description}</span>
         </div>
-        <button type="button" class="hub-item-btn" data-cargo-id="${tier.id}"${disabled ? ' disabled' : ''}>${owned ? 'Owned' : `Buy ${tier.cost} ⚓`}</button>
+        <button type="button" class="hub-item-btn" data-cargo-id="${tier.id}"${disabled ? ' disabled' : ''}>${owned ? 'Owned' : gated ? `🔒 Stage ${tier.requires}` : `Buy ${fmtN(tier.cost)} ⚓`}</button>
       `;
       row.querySelector('button').addEventListener('click', () => {
         purchaseCargoTier(meta, tier.id);
@@ -1150,7 +1203,8 @@ export function startApp(root) {
     hubCharms.innerHTML = '';
     for (const charm of CHARM_LIST) {
       const owned = meta.ownedCharms.includes(charm.id);
-      const disabled = owned || !canAfford(meta, charm.cost);
+      const gated = !owned && !meetsRequires(meta, charm.requires);
+      const disabled = owned || gated || !canAfford(meta, charm.cost);
       const row = document.createElement('div');
       row.className = 'hub-item';
       row.innerHTML = `
@@ -1158,7 +1212,7 @@ export function startApp(root) {
           <span class="hub-item-name">${charm.name}${owned ? ' ✓' : ''}</span>
           <span class="hub-item-desc">${charm.description}</span>
         </div>
-        <button type="button" class="hub-item-btn" data-charm-id="${charm.id}"${disabled ? ' disabled' : ''}>${owned ? 'Owned' : `Buy ${charm.cost} ⚓`}</button>
+        <button type="button" class="hub-item-btn" data-charm-id="${charm.id}"${disabled ? ' disabled' : ''}>${owned ? 'Owned' : gated ? `🔒 Stage ${charm.requires}` : `Buy ${fmtN(charm.cost)} ⚓`}</button>
       `;
       row.querySelector('button').addEventListener('click', () => {
         purchaseCharm(meta, charm.id);
@@ -1188,8 +1242,9 @@ export function startApp(root) {
     for (const faction of PLAYABLE_FACTION_LIST) {
       const owned = meta.ownedFactions.includes(faction.id);
       const selected = meta.selectedFaction === faction.id;
-      const disabled = selected || (!owned && !canAfford(meta, faction.cost));
-      const label = selected ? 'Selected' : owned ? 'Select' : `Buy ${faction.cost} ⚓`;
+      const gated = !owned && !meetsRequires(meta, faction.requires);
+      const disabled = selected || gated || (!owned && !canAfford(meta, faction.cost));
+      const label = selected ? 'Selected' : owned ? 'Select' : gated ? `🔒 Stage ${faction.requires}` : `Buy ${fmtN(faction.cost)} ⚓`;
       const row = document.createElement('div');
       row.className = 'hub-item';
       row.innerHTML = `
@@ -1218,7 +1273,8 @@ export function startApp(root) {
     hubWorkshop.innerHTML = '';
     for (const upgrade of WORKSHOP_UPGRADE_LIST) {
       const owned = meta.ownedWorkshopUpgrades.includes(upgrade.id);
-      const disabled = owned || !canAffordWorkshopUpgrade(meta, upgrade);
+      const gated = !owned && !meetsRequires(meta, upgrade.requires);
+      const disabled = owned || gated || !canAffordWorkshopUpgrade(meta, upgrade);
       const row = document.createElement('div');
       row.className = 'hub-item';
       row.innerHTML = `
@@ -1226,7 +1282,7 @@ export function startApp(root) {
           <span class="hub-item-name">${upgrade.name}${owned ? ' ✓' : ''}</span>
           <span class="hub-item-desc">${upgrade.description}</span>
         </div>
-        <button type="button" class="hub-item-btn" data-upgrade-id="${upgrade.id}"${disabled ? ' disabled' : ''}>${owned ? 'Owned' : `Craft ${upgrade.salvageCost} ⚓ + ${upgrade.krakenScaleCost} 🦑`}</button>
+        <button type="button" class="hub-item-btn" data-upgrade-id="${upgrade.id}"${disabled ? ' disabled' : ''}>${owned ? 'Owned' : gated ? `🔒 Stage ${upgrade.requires}` : `Craft ${fmtN(upgrade.salvageCost)} ⚓ + ${upgrade.krakenScaleCost} 🦑`}</button>
       `;
       row.querySelector('button').addEventListener('click', () => {
         purchaseWorkshopUpgrade(meta, upgrade.id);
@@ -1235,6 +1291,23 @@ export function startApp(root) {
       });
       hubWorkshop.appendChild(row);
     }
+    renderDepth();
+  }
+  const fmtN = (n) => Math.round(n).toLocaleString('en-GB');
+  // Story, crew, keys and the levelled tracks (ui/depthPanels.mjs).
+  function renderDepth() {
+    const changed = () => { saveMeta(window.localStorage, meta); renderHub(); };
+    let hullId = 'sloop';
+    try { hullId = resolveLoadout(meta).hull.id; } catch { /* baseline */ }
+    renderCrewPanel(hubOverlay.querySelector('#hub-crew'), meta, { onChange: changed, onTalk: (id) => storyScene.play([[id, CHARACTER_LINES(id)]]) });
+    renderKeysSection(hubOverlay.querySelector('#hub-keys'), meta, { onChange: changed });
+    renderGunsmith(hubOverlay.querySelector('#hub-gunsmith'), meta, { onChange: changed });
+    renderRefits(hubOverlay.querySelector('#hub-refits'), meta, hullId, { onChange: changed });
+    renderWakes(hubOverlay.querySelector('#hub-wakes'), meta, { onChange: changed });
+    renderStoryTab(hubOverlay.querySelector('#hub-story'), meta, { onReplay: (script, title) => storyScene.play(script, { title, eyebrow: 'The story so far' }) });
+    const faces = hubOverlay.querySelector('#crew-chip .crew-faces');
+    faces.replaceChildren(...meta.crewAboard.map((id) => { const s = document.createElement('i'); s.textContent = CHARACTER_EMOJI(id); return s; }));
+    hubOverlay.querySelector('#crew-chip-sub').textContent = `${meta.crewAboard.length}/${meta.crewSlots} aboard`;
   }
 
   // "!" on a building's chip when something in its panel is affordable now.
@@ -1721,7 +1794,7 @@ export function startApp(root) {
     damageNumbers = createDamageNumberPool();
     sinkers.length = 0; rings.length = 0; wake.length = 0;
     shake.trauma = 0; hitStop.remaining = 0;
-    dockKey = ''; stripKey = ''; announcedWeather = null;
+    dockKey = ''; stripKey = ''; announcedWeather = null; keyShown = ''; barks.clear();
     hubOverlay.classList.remove('show');
     document.body.classList.remove('in-hub');
     document.body.classList.add('in-run');
@@ -1761,11 +1834,35 @@ export function startApp(root) {
     pendingChoice = null;
     enterLevelView();
     saveCurrentVoyage();
-    sailing = true;
-    startCountdown();
-    if (!run.sv.orders?.length && meta.tutorialDone) offerOrders();
-    if (run.faction) showMatchupBriefing(run.faction);
-    else showToast(`${stageLevelText()} — survive 10 waves! ⚔`, { ms: 2400 });
+    sailing = false;
+    const go = () => {
+      sailing = true;
+      startCountdown();
+      if (!run.sv.orders?.length && meta.tutorialDone) offerOrders();
+      if (run.faction) showMatchupBriefing(run.faction);
+      else showToast(`${stageLevelText()} — survive 10 waves! ⚔`, { ms: 2400 });
+      setTimeout(() => barks.say(run.crew, 'start'), 2600);
+      if (tutorialQueued) { tutorialQueued = false; startTutorial(); }
+    };
+    const sc = levelScenes(stage, levelIndex);
+    const tell = () => storyScene.play(sc.script, { title: sc.title, eyebrow: sc.eyebrow, onDone: () => { for (const k of sc.keys) markStory(meta, k); saveMeta(window.localStorage, meta); go(); } });
+    // The opening sequence plays first; the story waits for it to clear.
+    if (sc) { if (introOpen) afterIntro.push(tell); else tell(); } else go();
+  }
+  let introOpen = false; const afterIntro = [];
+  let tutorialQueued = false;
+  // The story told on the way out (data/story.mjs): the prologue once, then
+  // each stage's chapter the first time you sail its first level.
+  function levelScenes(stage, levelIndex) {
+    const script = []; const keys = []; let title = null; let eyebrow = '';
+    if (storyUnseen(meta, 'prologue')) { script.push(...PROLOGUE); keys.push('prologue'); title = 'The Shattered Reef'; eyebrow = 'Prologue'; }
+    const ch = CHAPTER_BY_STAGE[stage];
+    if (levelIndex === 0 && storyUnseen(meta, `intro:${stage}`)) {
+      if (ch) { script.push(...ch.intro); title = ch.title; eyebrow = `Stage ${stage}`; }
+      else if (stage > 10) { script.push(UNDERTOW_TIDE[(stage - 11) % UNDERTOW_TIDE.length]); title = stageName(stage); eyebrow = `Stage ${stage} · beyond the Reef`; }
+      if (ch || stage > 10) keys.push(`intro:${stage}`);
+    }
+    return script.length ? { script, keys, title, eyebrow } : null;
   }
   // Setting sail with a level still saved: that one is abandoned (half its
   // Salvage is kept, as if you'd sunk), after asking.
@@ -1966,6 +2063,8 @@ export function startApp(root) {
       if (P.bestiaryNew.length) lines.push(['📖', `Bestiary: ${P.bestiaryNew.map((id) => getEnemy(id).name).join(', ')}`]);
       for (const st of P.bestiarySets) lines.push(['📖', `Stage ${st} bestiary complete! +${st * 60} ⚓`]);
       for (const id of P.poolUnlocks || []) lines.push(['✨', `${poolName(id)} now appears in level-ups`]);
+      if (lastDepth?.key) lines.push([KEYS[lastDepth.key].icon, `The ${KEYS[lastDepth.key].name} is yours — carry it from the Charm Shrine`]);
+      if (lastDepth?.recruit) lines.push(['👥', `${CHARACTERS[lastDepth.recruit].name} joins your crew`]);
     }
     rw.replaceChildren(...lines.map(([i, t]) => { const p = document.createElement('p'); p.className = 'sum-reward'; p.textContent = `${i} ${t}`; return p; }));
     if (P?.achievements?.length) {
@@ -2000,17 +2099,26 @@ export function startApp(root) {
       lastResult = recordLevelResult(meta, run);
       rememberStageBuild();
     }
+    lastDepth = recordDepth(meta, run);
     lastProgress = recordProgress(meta, run);
     lastProgress.poolUnlocks = newlyUnlocked(wonBefore, levelsWonTotal(meta));
     if (!meta.tutorialDone) meta.tutorialDone = true;
     saveMeta(window.localStorage, meta);
     clearVoyage(window.localStorage); voyageActive = false;
-    showRunSummary();
+    lastRunForNana = run;
+    // A stage boss's first sinking: its chapter's ending before the summary.
+    const ch = lastDepth?.chapter;
+    if (ch && storyUnseen(meta, `outro:${ch.stage}`)) {
+      storyScene.play(ch.outro, { title: `${KEYS[ch.key].icon} The ${KEYS[ch.key].name}`, eyebrow: `Stage ${ch.stage} · ${ch.title}`, onDone: () => { markStory(meta, `outro:${ch.stage}`); saveMeta(window.localStorage, meta); showRunSummary(); } });
+    } else showRunSummary();
   }
+  let lastDepth = null; let lastRunForNana = null;
   summaryBtn.addEventListener('click', () => {
     clearVoyage(window.localStorage); voyageActive = false;
     summaryOverlay.classList.remove('show');
     openHub();
+    // The Anchor Key brought you home: Nana has a word (after Hades).
+    setTimeout(() => barks.sayLine('nana', nanaLine(lastRunForNana)), 500);
   });
   summaryRetryBtn.addEventListener('click', () => {
     summaryOverlay.classList.remove('show');
@@ -2070,6 +2178,11 @@ export function startApp(root) {
     chest: () => { run.sv.pendingChests += 1; maybeOfferChoice(); },
     pick: (i = 0) => { const b = upgradeOverlay.querySelectorAll('.up-card')[i]; if (b) b.click(); return !!b; },
     raw: () => run.sv,
+    key: () => run.key ? { id: run.key.id, charge: run.key.charge, need: run.key.need, uses: run.key.uses, active: run.key.active.map((x) => x.kind) } : null,
+    fillKey: () => { if (run.key) run.key.charge = run.key.need; },
+    crew: () => run.crew,
+    scene: () => storyScene.isOpen(),
+    advanceScene: () => storyScene.advance(),
     rushers: () => run.enemies.filter((e) => e.rush && e.health > 0).length,
     flotsam: () => run.flotsam || [],
     toCrate: () => { const f = (run.flotsam || [])[0]; if (f) { run.boat.x = f.x - 40; run.boat.y = f.y; run.boat.vx = 120; run.boat.vy = 0; run.boat.heading = 0; } return !!f; },
@@ -2271,7 +2384,23 @@ export function startApp(root) {
         playReefCleared();
       }
     }
-    if (d.rush) { showToast('🌊 A shoal sweeps past — mow them down!', { ms: 1800 }); playWeatherWarning(); }
+    if (d.rush) { showToast('🌊 A shoal sweeps past — mow them down!', { ms: 1800 }); playWeatherWarning(); barks.say(run.crew, 'rush'); }
+    if (d.boss) setTimeout(() => barks.say(run.crew, 'boss'), 1800);
+    // The key.
+    if (ev.keyUsed) {
+      const k = ev.keyUsed; const col = hexRgb(k.colour).join(", ");
+      rings.push({ x: k.x, y: k.y, life: 0.7, maxLife: 0.7, r: Math.max(90, k.r || 160), color: col });
+      rings.push({ x: k.x, y: k.y, life: 0.45, maxLife: 0.45, r: 50, color: '255, 255, 255' });
+      for (const a of k.arcs || []) lightning.push({ ...a, life: 0.35, maxLife: 0.35, jag: Array.from({ length: 9 }, Math.random) });
+      addShake(shake, 0.55); triggerHitStop(hitStop, 0.06); playEvolve();
+      showBanner({ eyebrow: `${KEYS[k.key].icon} ${KEYS[k.key].name}`, title: KEYS[k.key].power, chips: [], cls: 'combo', ms: 1300 });
+      barks.say(run.crew, 'key');
+    }
+    for (const f of ev.keyFx || []) { rings.push({ x: f.x, y: f.y, life: 0.6, maxLife: 0.6, r: f.r, color: hexRgb(f.colour).join(", ") }); spawnExplosion(particles, f.x, f.y, f.r * 0.5, Math.random); addShake(shake, 0.4); playExplosion(); }
+    if (ev.keyFull && !hintsShown.keyFull) { hintsShown.keyFull = true; showToast(`${KEYS[run.key.id].icon} Your key is charged — tap it to turn it!`, { ms: 2600 }); }
+    if (ev.keyFull) playPickupWeapon();
+    if (ev.cheated) { barks.sayLine('hollis', 'Not today, Captain! Back you come.'); flashHit(); playRevive(); addShake(shake, 0.5); }
+    { const hf = b.health / b.maxHull; if (hf < 0.3 && !run._lowBarked) { run._lowBarked = true; barks.say(run.crew, 'low'); } else if (hf > 0.6) run._lowBarked = false; }
     if (d.preview) { showToast(`Next wave: ${featureLine(d.preview)}`, { ms: 2600 }); playStrikeMark(); }
     if (d.finalStretch) {
       showBanner({ eyebrow: '🌩 The tide turns', title: 'Final stretch', chips: ['Elite hunters every 20s', 'Hold on until the warlord'], cls: 'dark', ms: 2600 });
@@ -2376,6 +2505,7 @@ export function startApp(root) {
     if (tut && !live && !upgradeOverlay.hidden) stepTutorial(0, { x: 0, y: 0 });
     if (evoSlow > 0) { evoSlow -= rawDt; if (live) dt *= 0.3 + 0.7 * Math.max(0, 1 - evoSlow / 1.4) ** 2; }
     broadsideFlash -= rawDt * 3;
+    barks.tick(rawDt);
     killSoundCd -= rawDt; hitSoundCd -= rawDt; explosionSoundCd -= rawDt; coinSoundCd -= rawDt; hullFlash = Math.max(0, hullFlash - rawDt * 2);
 
     if (live && dt > 0 && run.sv) {
@@ -2383,11 +2513,11 @@ export function startApp(root) {
       if (autosaveTimer > 6) { autosaveTimer = 0; saveCurrentVoyage(); }
       const stick = joystick.getVector();
       stepTutorial(rawDt, stick);
-      const ev = stepSurvivalFrame(run, dt, { x: stick.x, y: stick.y, dash: dashQueued }, { spawnDist: spawnDistance(), biome: runBiome, rng: Math.random, t: now / 1000 });
-      dashQueued = false;
+      const ev = stepSurvivalFrame(run, dt, { x: stick.x, y: stick.y, dash: dashQueued, key: keyQueued }, { spawnDist: spawnDistance(), biome: runBiome, rng: Math.random, t: now / 1000 });
+      dashQueued = false; keyQueued = false;
       feedback(ev, now);
       playMusic(musicFor(run.level?.biomeId, run.sv.wave >= FINAL_STRETCH));
-      updateSurvivalHud(); renderDock(); renderUpgradeStrip(); updateDashButton();
+      updateSurvivalHud(); renderDock(); renderUpgradeStrip(); updateDashButton(); updateKeyButton();
       const sunkResult = checkSunk(run);
       if (sunkResult === true) {
         sailing = false;
@@ -2467,7 +2597,7 @@ export function startApp(root) {
     drawProps(ctx, run.props || [], view.visible);
     drawLandmarks(ctx, run.landmarks || [], view.visible, t);
     drawWeatherWorld(ctx, run.weather, t);
-    drawWake(ctx, wake);
+    drawWake(ctx, wake, run.wake && run.wake !== 'foam' ? WAKE_BY_ID[run.wake] : null);
     if (run.sv) drawFirePools(ctx, run.sv.pools, view.visible, t);
     drawFlotsam(ctx, run.flotsam, view.visible, t);
     drawSurvivalPickups(ctx, run.pickups, view.visible, t);
@@ -2481,6 +2611,7 @@ export function startApp(root) {
     for (const e of run.enemies) if (e.isBoss && e.enraged && e.health > 0) drawEnrage(ctx, e, t);
     drawLords(ctx, visibleOnly(run.enemies, view.visible), t);
     drawCage(ctx, run.sv?.cage, t);
+    drawKeyEffects(ctx, run, t);
     drawLighting(view.visible, t);
     drawEnemyProjectiles(ctx, run.enemyProjectiles, t);
     drawProjectiles(ctx, run.weapons.projectiles, (p) => getWeapon(p.weaponId).color, t);
@@ -2574,15 +2705,17 @@ export function startApp(root) {
   const freshCaptain = !meta.tutorialDone && meta.stats.runsPlayed === 0 && !peekVoyage(window.localStorage);
   if ((freshCaptain && !qp.has('notutorial') && !navigator.webdriver) || qp.has('tutorial')) {
     selectedStage = 1; selectedLevel = 0;
+    tutorialQueued = true; // starts once the story hands over (go() in startRun)
+    introOpen = !navigator.webdriver || new URLSearchParams(window.location.search).has('intro');
     startRun(1, 0);
-    startTutorial();
   }
   // Opening sequence (ui/intro.mjs): a short painted scene that covers the
   // harbour's build, then washes over into it. Skipped under automation
   // (playtest scripts) unless ?intro is in the URL.
   const params = new URLSearchParams(window.location.search);
   if (!navigator.webdriver || params.has('intro')) {
-    createIntro(root, { prepare: () => { ensureBase(); layoutBase(); } });
+    introOpen = true;
+    createIntro(root, { prepare: () => { ensureBase(); layoutBase(); }, onDone: () => { introOpen = false; for (const f of afterIntro.splice(0)) f(); } });
   }
 }
 

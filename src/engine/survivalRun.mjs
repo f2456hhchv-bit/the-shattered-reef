@@ -19,6 +19,7 @@ import { encodeLevelCode, mixSeed } from './levels.mjs';
 import { createBoat } from './boat.mjs';
 import { createWeaponState } from './combat.mjs';
 import { createWeather } from './weather.mjs';
+import { createKeyState } from './keys.mjs';
 import { createSurvivalState, recomputeStats, applyBuild, snapshotBuild, grantCatchUp, seedFlotsam } from './survival.mjs';
 import { BASELINE_LOADOUT, biomeForStage, LEVELS_PER_STAGE, TILE_SIZE } from './run.mjs';
 import { BIOMES } from '../data/biomes.mjs';
@@ -85,6 +86,10 @@ export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1,
   const fx = loadout.charmEffects || {};
   let tuning = tuningForHull(hull);
   if (loadout.speedMult && loadout.speedMult !== 1) tuning = { ...tuning, maxSpeed: tuning.maxSpeed * loadout.speedMult, acceleration: tuning.acceleration * loadout.speedMult };
+  if (loadout.turnMult && loadout.turnMult !== 1) tuning = { ...tuning, turnRate: tuning.turnRate * loadout.turnMult };
+  // Story, keys, crew, refits and mastery (engine/depth.mjs resolveDepth).
+  const depth = loadout.depth || { key: { id: 'anchor', level: 1 }, crew: [], crewFx: {}, refit: {}, mastery: {}, wake: 'foam' };
+  const cfx = depth.crewFx || {};
   const maxHull = hull.maxHull + (loadout.extraMaxHull || 0);
   const run = {
     mode: 'survival',
@@ -131,17 +136,26 @@ export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1,
   run.baseStats = {
     tuning,
     maxHull,
-    pickupMult: perks.pickupReach || 1,
+    pickupMult: (perks.pickupReach || 1) * (cfx.pickupMult || 1),
+    regen: cfx.regen || 0,
     ram: perks.ramDamage || 0,
     contactTaken: perks.contactDamageTaken ?? 1,
     extraCannonballs: perks.extraCannonballs || 0,
     // Steady Hands (a voyage ammo charm) becomes a steadier gun crew here.
     cooldownMult: loadout.charms.steadyHands ? 0.95 : 1,
-    damageMult: daily?.mod?.fx?.damageDealt ?? 1,
+    damageMult: (daily?.mod?.fx?.damageDealt ?? 1) * (loadout.damageMult || 1),
     takenMult: daily?.mod?.fx?.damageTaken ?? 1,
-    dashMult: daily?.mod?.fx?.dashMult ?? 1,
+    dashMult: (daily?.mod?.fx?.dashMult ?? 1) * (cfx.dashMult || 1),
   };
   run.sv = createSurvivalState({ stage, levelIndex, biomeId: lvl.biomeId });
+  run.crew = [...(depth.crew || [])];
+  run.mastery = { ...(depth.mastery || {}) };
+  run.wake = depth.wake || 'foam';
+  run.rakeBonus = cfx.rakeBonus || 0;
+  run.cheatDeath = cfx.cheatDeath || 0;
+  run.boat.statusFade = cfx.statusFade || 1;
+  run.lanternMult *= cfx.lantern || 1;
+  run.key = createKeyState(depth.key?.id || 'anchor', depth.key?.level || 1, cfx.keyCharge || 1);
   // Each hull's own starting gun (data/survival.mjs HULL_START_WEAPON).
   run.sv.weapons[HULL_START_WEAPON[hull.id] || 'cannonballs'] = 1;
   run.poolLocked = new Set(locked);
@@ -154,6 +168,7 @@ export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1,
     run.sv.xpMult = fx.xpMult ?? 1;
     run.sv.enemySpeed = fx.enemySpeed ?? 1;
   }
+  run.sv.xpMult = (run.sv.xpMult || 1) * (cfx.xpMult || 1);
   // Meta weapons start at level 1 (Cargo Loadouts, a faction's weapon bias,
   // Armory armament fittings), up to the six weapon slots.
   for (const id of loadout.extraHeldWeapons || []) {

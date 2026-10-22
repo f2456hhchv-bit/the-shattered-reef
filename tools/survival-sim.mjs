@@ -13,6 +13,7 @@ import { createSurvivalRun, completeLevel, sinkLevel } from '../src/engine/survi
 import { stepSurvivalFrame, BOAT_RADIUS } from '../src/engine/survivalLoop.mjs';
 import { rollChoices, applyChoice, timeToBoss, snapshotBuild, openChest, rollOrders, applyOrder } from '../src/engine/survival.mjs';
 import { checkSunk } from '../src/engine/run.mjs';
+import { keyReady } from '../src/engine/keys.mjs';
 import { sampleField } from '../src/engine/terrain.mjs';
 import { makeSeededRng } from '../src/engine/rng.mjs';
 import { getBiome } from '../src/data/biomes.mjs';
@@ -103,7 +104,8 @@ export function playLevel(seed, { stage = 1, levelIndex = 0, maxSeconds = 900, d
   while (t < maxSeconds) {
     t += dt; ctx.t = t;
     const hullBefore = run.boat.health;
-    const ev = stepSurvivalFrame(run, dt, botInput(run), ctx);
+    // The bot turns its key as soon as it's charged.
+    const ev = stepSurvivalFrame(run, dt, { ...botInput(run), key: keyReady(run) }, ctx);
     dmg.wall += ev.wallDamage; dmg.dot += ev.dot;
     for (const h of ev.shots.hits) dmg.shots += h.damage;
     for (const c of ev.contacts) dmg.contact += c.damage;

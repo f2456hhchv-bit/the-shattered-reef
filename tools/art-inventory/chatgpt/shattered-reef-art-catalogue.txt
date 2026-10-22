@@ -1,4 +1,4 @@
-THE SHATTERED REEF · ART CATALOGUE (2026-10-18)
+THE SHATTERED REEF · ART CATALOGUE (2026-10-22)
 One line per asset: CODE Name (FORMAT): what it looks like (where the game uses it).
 Each batch heading gives its rule: ONE KIT (pieces of one matching set) or ONE OF A KIND (every image a new design).
 Finished batches are left out.
@@ -10,6 +10,54 @@ A6b The Caldera Wyrm, flying (TOP-DOWN): open the project file style-creatures-s
 G7 Frost Wisp (FRONT): ONLY: one round pale blue flame shaped like a teardrop with one curl at the tip, two dark eyes (3 parts)
 G8 Siren (FRONT): ONLY: one round grey rock, a mermaid sitting on it (round head, teal hair as one smooth shape, green tail as one smooth curve round the rock), two dark eyes. No hands, shells or jewellery
 G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above. ONLY: one round body, one round head with two ears at the top, two wings spread flat out to the sides, each wing one smooth shape with an orange edge (6 parts). No wing fingers or veins
+
+== Batch V · Characters: story portraits (new 2026-10-22) · ONE OF A KIND · match style-creatures-ships.png ==
+FORMAT: PORTRAIT = one character from the chest up, facing us and turned a little, filling a square canvas. The game crops it to a circle: head and shoulders inside the middle circle, eyes a little above the centre, nothing important in the corners. A clay toy figure like the creatures: big round head, simple dot eyes, a small smile or frown, 3-4 flat colours. Transparent background.
+V1 Captain Marlowe (PORTRAIT): the player, a young captain. ONLY: round face, short messy red-brown hair as one shape, a navy tricorn hat, a navy coat, an old iron key on a cord round the neck (5 parts) (story scenes, the captain chip, crew panel; drops straight in)
+V2 Nana Isolde (PORTRAIT): the old Keeper, the captain's grandmother. ONLY: round wrinkle-free face, white hair in one round bun, small round glasses, a purple shawl, a ring of three old keys pinned to the shawl (5 parts) (story scenes, her harbour lines)
+V3 Barnaby Crump, cook (PORTRAIT): round, loud and kind. ONLY: big round face, a bushy ginger beard as one shape, a white chef's hat, an orange apron, a wooden spoon held up (5 parts)
+V4 Juno Flint, gunner (PORTRAIT): a sharp-eyed young woman. ONLY: round face, black hair in a short ponytail, a red bandana, a dark red jacket, one brass eyepiece over one eye (5 parts)
+V5 Professor Ottoline Quill, navigator (PORTRAIT): an owl scholar. ONLY: a round brown owl head and body as one shape, big round glasses, a tall blue scholar's hat with one quill feather in its band, a blue robe collar (4 parts)
+V6 Skerry, selkie lookout (PORTRAIT): a cross selkie girl. ONLY: round face with a frown, dark hair, a grey sealskin hood whose top is a seal's head with two eyes, one grey flipper raised (4 parts)
+V7 Hollis the Unburied, ghost navigator (PORTRAIT): a friendly drowned cabin boy. ONLY: a pale mint ghost body that fades out at the bottom, a too-big navy cabin boy's cap, two dot eyes, a small smile (4 parts)
+V8 Cinder, salamander shipwright (PORTRAIT): a fire-lizard kid. ONLY: an orange lizard head with a round snout, black goggles pushed up on the head, a scorched brown apron, a small hammer over one shoulder (4 parts)
+V9 Moth, lantern-keeper (PORTRAIT): a calm blind girl. ONLY: round face with closed eyes drawn as two curves, a dusty-gold hooded cloak, a small brass lantern with a yellow flame held up (flat colour, no glow) (4 parts)
+V10 Bram Toadwhistle, herbalist (PORTRAIT): a frog doctor. ONLY: a green frog head with big round eyes, round spectacles, a small green cap, a brown satchel strap across the chest, one leaf (5 parts)
+V11 Brassbottom, deep diver (PORTRAIT): a hermit crab. ONLY: a round brass diving helmet with one round window showing two eyes, a coiled orange shell behind it, two red claws (4 parts)
+V12 Saffi Dunerunner, sand-sailor (PORTRAIT): a grinning desert sailor. ONLY: round tanned face, a sand-coloured scarf wrapped round the head, round goggles on the forehead, one gold earring (4 parts)
+V13 Glim, crystal sprite (PORTRAIT): ONLY: a round smooth lilac crystal body like a gem pebble, two dot eyes, a wide smile, two tiny round wings (4 parts)
+V14 Vesper Gloam, the rival captain (PORTRAIT): proud and dangerous. ONLY: pale face, long black hair as one shape, a big black captain's hat with one purple feather, a high-collared dark purple coat (4 parts) (story scenes; she captains the Black Gale)
+V15 Admiral Corwin Steele, Iron Accord (PORTRAIT): a stern admiral. ONLY: a square face, a grey moustache, a steel-grey bicorne hat, an iron-grey coat with one gold shoulder plate (4 parts)
+V16 The Undertow (PORTRAIT): the voice under the sea, not a person. ONLY: a round blob of black ink with soft wavy edges, two pale lilac eyes (3 parts)
+
+== Batch Y · The Keys (new 2026-10-22) · ONE KIT · match style-icons.png ==
+Y1 Anchor Key (FRONT): a chunky old iron key, standing upright, bow at the top. Its bow (handle) is an anchor; a short shank; two square teeth. A small red ribbon tied below the bow. Every key below has this same shank, teeth and size: only the bow and colour change (key button, Charm Shrine, story; needs a small hook)
+Y2 Tide Key (FRONT): sea-blue; the bow is one curling wave
+Y3 Storm Key (FRONT): yellow; the bow is a lightning bolt inside a ring
+Y4 Frost Key (FRONT): icy pale blue; the bow is a six-point snowflake
+Y5 Ghost Key (FRONT): pale mint; the bow is a little round ghost
+Y6 Ember Key (FRONT): orange-red; the bow is a flame
+Y7 Lantern Key (FRONT): gold; the bow is a small lantern
+Y8 Mire Key (FRONT): green; the bow is a round mushroom
+Y9 Deep Key (FRONT): indigo; the bow is a spiral
+Y10 Bone Key (FRONT): bone-white; the bow is a round skull
+Y11 Prism Key (FRONT): lilac crystal; the bow is a smooth gem
+
+== Batch J · Story, crew and shop pieces (new 2026-10-22) · ONE KIT · match style-icons.png ==
+J1 Story card (9-SLICE): the speech box for story scenes: dark navy face, a thick plain white border (the game tints it to the speaker's colour), well-rounded corners
+J2 Bark bubble (3-SLICE): a short speech bubble pill with a small tail at the left end, white rim, navy face (crew lines during play)
+J3 Portrait ring (RING): a round white frame with a darker lip along its bottom, empty middle (every portrait sits inside it)
+J4 Key button (RING): a round navy button with a thick gold rim, the middle filled navy and plain (the KEY button in play; the key icon goes on top)
+J5 Key charge ring (RING): a thick gold ring only, empty middle (the game sweeps it round as the key charges)
+J6 Heart, full (FRONT): a chunky red heart (crew bond)
+J7 Heart, empty (FRONT): the same heart, empty, a pale outline only (crew bond still to earn)
+J8 Logbook (FRONT): an open leather logbook (Story tab, replay a scene)
+J9 Hull plating (FRONT): a riveted steel shield plate with three big rivets (Shipyard refit: Plating)
+J10 Rigging (FRONT): a coil of rope round a pulley block (Shipyard refit: Rigging)
+J11 Gun deck (FRONT): three cannonballs stacked in a pyramid (Shipyard refit: Gun deck)
+J12 Hammock (FRONT): a striped hammock slung between two posts (Crew Quarters)
+J13 Keysmith (FRONT): a small anvil with a key lying on it (Keysmith upgrades)
+J14 Wake sparkles (PARTICLE): 4 shapes in a row: a bubble ring, a four-point sparkle, a teardrop ember, a soft wisp (the cosmetic wakes; tinted per wake)
 
 == Batch K · UI kit (one family; start with K1 and K9) · ONE KIT · match style-icons.png ==
 K1 Panel (9-SLICE): the main navy panel, like the harbour mockup's navy cards: navy face, thick dark outline, a lighter band along the top edge, a darker lip along the bottom edge, well-rounded corners (building panels, voyage card, pause menu, run summary, stage sheet)
@@ -264,6 +312,29 @@ U6a Gold star (FLAT): a filled chunky gold star (ratings and weapon levels; repl
 U6b Empty star (FLAT): the same star as a grey outline, empty inside (replaces the text empty star)
 U7 Elite chest (FRONT): the treasure chest in gold with a red gem (elite drop)
 U8 Warlord crown (FRONT): a small spiky gold crown (worn by wave-10 warlords)
+
+== Batch Z · Key powers (new 2026-10-22) · ONE OF A KIND · match style-icons.png ==
+FORMAT: STRIP = an animation: 12 frames of one effect in 2 rows of 6 equal cells, frame 1 at top left, reading left to right, then the second row. The same centre point in every cell; no grid lines.
+Z1 Anchor Drop (STRIP): a white ring of water bursting out from the centre, growing to the cell edges and breaking into spray
+Z2 Rogue Tide (STRIP): a big blue wave crest rising from the bottom of the cell, rolling up and crashing into foam at the top
+Z3 Calling Thunder (STRIP): a yellow lightning bolt dropping onto the centre, a white flash, then a splash ring
+Z4 Hard Freeze (STRIP): pale blue ice spikes shooting out from the centre in a ring, then settling as a frosty star
+Z5 Ghost Ship (STRIP): pale mint mist swirling round the centre and fading (loops)
+Z6 Ring of Fire (STRIP): one flame jumping up from the water and settling into a burning pool (the game places ten in a ring)
+Z7 Lamplight (STRIP): a gold sunburst ring spreading out from the centre and fading
+Z8 Bog Breath (STRIP): a green poison cloud puffing up and rolling (loops)
+Z9 Maelstrom (STRIP): an indigo whirlpool spinning; frames 10-12 burst outward
+Z10 Sandstorm (STRIP): a swirl of sand going round the centre (loops)
+Z11 Prism Split (STRIP): a lilac crystal flash in the centre splitting into three beams
+
+== Batch S2 · Figureheads (new 2026-10-22) · ONE OF A KIND · match style-creatures-ships.png ==
+S2a The Little Wren (FRONT): the Sloop's carved figurehead: a small brown wren, wings swept back (Shipyard, beside each ship's name; needs a small hook)
+S2b Old Thunder (FRONT): the Longboat's: a roaring green dragon head
+S2c Skipjack (FRONT): the Skiff's: a leaping blue fish
+S2d Twin Tails (FRONT): the Catamaran's: two brown otters holding paws
+S2e Lucky Lantern (FRONT): the Junk's: a painted round eye on a red bow board
+S2f Iron Nell (FRONT): the Steamer's: a brass bulldog head
+S2g The Grand Duchess (FRONT): the Galleon's: a crowned golden mermaid
 
 == Batch N · Straight-body redraws (before the animation build) · ONE OF A KIND · match style-creatures-ships.png ==
 N1 Stalker Eel (TOP-DOWN): a fat dark grey eel seen from directly above, dead straight from head (top) to tail (bottom), about a third as wide as it is long, two yellow eyes on top of the head

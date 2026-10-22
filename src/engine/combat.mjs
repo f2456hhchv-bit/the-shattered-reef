@@ -261,6 +261,8 @@ export function cleanupProjectiles(state) {
 export function applyDamageToEnemy(enemy, amount) {
   // A warlord's guard (survival): armoured, or exposed after a move.
   if (enemy.takenMult != null) amount *= enemy.takenMult;
+  // Frozen solid by the Frost Key: brittle.
+  if (enemy.frozenT > 0) amount *= enemy.frozenTaken || 1.5;
   enemy.health = Math.max(0, enemy.health - amount);
   return enemy.health <= 0;
 }

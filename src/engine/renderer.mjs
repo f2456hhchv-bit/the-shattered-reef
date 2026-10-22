@@ -123,20 +123,40 @@ export function drawSealedExit(ctx, worldX, worldY, radius, t) {
 
 // Wake (2026-09-28): foam V trailing the boat. `wake` points are pushed
 // by main.mjs as the boat moves; each fades out over its own life.
-export function drawWake(ctx, wake) {
+// `style` (data/shop.mjs WAKES, a cosmetic bought in the Shipyard) tints
+// the foam and can add bubbles or sparkle.
+const WAKE_RGB_CACHE = new Map();
+function wakeRgb(hex) {
+  let v = WAKE_RGB_CACHE.get(hex);
+  if (!v) { const n = parseInt(hex.slice(1), 16); v = `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`; WAKE_RGB_CACHE.set(hex, v); }
+  return v;
+}
+export function drawWake(ctx, wake, style = null) {
   ctx.lineCap = 'round';
+  const cols = style?.colours?.length ? style.colours : null;
+  let i = 0;
   for (const w of wake) {
+    i++;
     const a = Math.max(0, w.life / w.maxLife);
     const spread = (1 - a) * 9 + 3;
     const nx = -Math.sin(w.heading); const ny = Math.cos(w.heading);
-    ctx.fillStyle = `rgba(235, 252, 246, ${a * 0.55})`;
+    const rgb = cols ? wakeRgb(cols[(i + Math.floor(w.x / 40)) % cols.length]) : '235, 252, 246';
+    ctx.fillStyle = `rgba(${rgb}, ${a * (cols ? 0.7 : 0.55)})`;
     for (const side of [-1, 1]) {
       ctx.beginPath();
       ctx.arc(w.x + nx * spread * side, w.y + ny * spread * side, 1.2 + (1 - a) * 1.6, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.fillStyle = `rgba(235, 252, 246, ${a * 0.18})`;
+    ctx.fillStyle = `rgba(${rgb}, ${a * 0.18})`;
     ctx.beginPath(); ctx.arc(w.x, w.y, 2 + (1 - a) * 3, 0, Math.PI * 2); ctx.fill();
+    if (style?.bubbles && i % 2 === 0) {
+      ctx.strokeStyle = `rgba(${rgb}, ${a * 0.8})`; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.arc(w.x + nx * spread * 0.6 * (i % 4 === 0 ? 1 : -1), w.y + ny * spread * 0.6, 1.5 + (1 - a) * 2.5, 0, Math.PI * 2); ctx.stroke();
+    }
+    if (style?.sparkle && i % 3 === 0 && a > 0.3) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${a * 0.9})`;
+      ctx.beginPath(); ctx.arc(w.x + nx * spread * 1.4 * (i % 2 ? 1 : -1), w.y + ny * spread * 1.4 * (i % 2 ? 1 : -1), 1.1, 0, Math.PI * 2); ctx.fill();
+    }
   }
 }
 

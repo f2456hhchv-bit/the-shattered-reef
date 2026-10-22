@@ -560,3 +560,14 @@ export function workshopBonusesFor(ownedUpgradeIds) {
   }
   return { damageMultipliers, extraMaxHull, armamentDamageMult, speedMult };
 }
+
+// --- Pacing (2026-10-22): every one-off is priced on one curve ------------
+// data/shop.mjs PRICES holds [cost, requires-stage] for everything here, so
+// the whole economy is tuned in one table. `requires` = the highest stage
+// you've reached (meta.highestStageUnlocked) before it can be bought.
+import { PRICES } from './shop.mjs';
+for (const [id, [cost, req]] of Object.entries(PRICES.hulls)) if (SHIP_HULLS[id]) { SHIP_HULLS[id].cost = cost; SHIP_HULLS[id].requires = req; }
+for (const [id, [cost, req]] of Object.entries(PRICES.cargo)) if (CARGO_TIERS[id]) { CARGO_TIERS[id].cost = cost; CARGO_TIERS[id].requires = req; }
+for (const [id, [cost, req]] of Object.entries(PRICES.charms)) if (CHARMS[id]) { CHARMS[id].cost = cost; CHARMS[id].requires = req; }
+for (const [id, [cost, req]] of Object.entries(PRICES.factions)) if (PLAYABLE_FACTIONS[id]) { PLAYABLE_FACTIONS[id].cost = cost; PLAYABLE_FACTIONS[id].requires = req; }
+for (const [id, [cost, req]] of Object.entries(PRICES.workshop)) if (WORKSHOP_UPGRADES[id]) { WORKSHOP_UPGRADES[id].salvageCost = cost; WORKSHOP_UPGRADES[id].requires = req; }

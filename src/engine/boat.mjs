@@ -267,8 +267,10 @@ export function statusTuning(tuning, boat, weatherTurn = 1) {
 // Ticks every status down; burn and poison deal their damage here.
 // Returns the hull lost this step (0 if none) for the HUD feedback.
 export function tickBoatStatus(boat, dt) {
-  if (boat.turnJamRemaining > 0) boat.turnJamRemaining = Math.max(0, boat.turnJamRemaining - dt);
-  if (boat.chillRemaining > 0) boat.chillRemaining = Math.max(0, boat.chillRemaining - dt);
+  // Bram's remedies (a crew passive): statuses wear off `statusFade` × faster.
+  const fade = dt * (boat.statusFade || 1);
+  if (boat.turnJamRemaining > 0) boat.turnJamRemaining = Math.max(0, boat.turnJamRemaining - fade);
+  if (boat.chillRemaining > 0) boat.chillRemaining = Math.max(0, boat.chillRemaining - fade);
   let dot = 0;
   const a = boat.afflictions;
   if (a) {
@@ -276,7 +278,7 @@ export function tickBoatStatus(boat, dt) {
       if (!(a[k] > 0)) continue;
       const step = Math.min(dt, a[k]);
       if (AFFLICTIONS[k]?.dps) dot += AFFLICTIONS[k].dps * step;
-      a[k] = Math.max(0, a[k] - dt);
+      a[k] = Math.max(0, a[k] - fade);
     }
   }
   if (dot > 0) boat.health = Math.max(0, boat.health - dot);

@@ -3,6 +3,7 @@
 // Pure logic over a survival run (engine/survivalRun.mjs builds one); no
 // DOM or Canvas. Content lives in data/survival.mjs.
 
+import { masteryFx } from './depth.mjs';
 import { initLord } from './warlord.mjs';
 import { DEV } from './devTuning.mjs';
 import { DASH, SYNERGIES, FINAL_STRETCH } from '../data/survival.mjs';
@@ -85,7 +86,7 @@ export function recomputeStats(run) {
     salvageMult: 1 + t.salvage,
     projSpeed: 1 + t.projSpeed,
     rangeMult: 1 + t.range,
-    regen: t.regen,
+    regen: t.regen + (base.regen || 0),
     ram: t.ram + (base.ram || 0),
     contactTaken: Math.max(0.4, (1 + t.contact) * (base.contactTaken ?? 1)),
     dashCooldown: Math.max(DASH.minCooldown * (sv.orders?.includes('ram') ? 0.7 : 1), DASH.cooldown * (1 + t.dash) * (base.dashMult ?? 1) * (sv.orders?.includes('ram') ? 0.7 : 1)),
@@ -925,15 +926,21 @@ export function weaponStats(run, id) {
   if (!lv) return null;
   const base = sv.evolved[id] ? w.evolve.stats : w.levels[lv - 1];
   const st = sv.stats;
+  // Workshop crafts and the crew's favourite guns (craftedDamageMultipliers),
+  // Gunsmith mastery (run.mastery) and a turned key's buff (run.keyBuff).
   const crafted = run.craftedDamageMultipliers?.[id] || 1;
+  const mf = masteryFx(run.mastery?.[id] || 0);
+  const mDamage = mf.damage; const mCool = mf.cooldown; const mShot = mf.extraShot;
+  const kb = run.keyBuff || { reload: 1, damage: 1, pierce: 0 };
   return {
     ...base,
-    damage: base.damage * st.damageMult * crafted,
-    burn: base.burn != null ? base.burn * st.damageMult * crafted : undefined,
-    cooldown: base.cooldown * st.cooldownMult,
+    damage: base.damage * st.damageMult * crafted * mDamage * kb.damage,
+    burn: base.burn != null ? base.burn * st.damageMult * crafted * mDamage * kb.damage : undefined,
+    cooldown: base.cooldown * st.cooldownMult * mCool * kb.reload,
     range: base.range * st.rangeMult,
     speed: base.speed * st.projSpeed,
-    count: base.count + (id === 'cannonballs' ? (run.baseStats.extraCannonballs || 0) : 0),
+    pierce: (base.pierce || 0) + kb.pierce,
+    count: base.count + mShot + (id === 'cannonballs' ? (run.baseStats.extraCannonballs || 0) : 0),
     ...(hasOrder(run, 'powder') ? { blast: base.blast != null ? base.blast * 1.4 : undefined, pool: base.pool != null ? base.pool * 1.4 : undefined } : {}),
   };
 }
@@ -1015,7 +1022,8 @@ export function fireWeapons(run, dt, visible, rng = Math.random) {
     // Broadsides (2026-10-22): the guns fire from the ship's sides, so
     // Cannonballs only reach what's off the beam; bow and stern are blind.
     const doctrine = hasOrder(run, 'rake');
-    const sides = kind === 'cannon' ? broadsideTargets(b, t, doctrine ? { rake: 40 * Math.PI / 180 } : undefined) : null;
+    const rake = (doctrine ? 40 * Math.PI / 180 : SURVIVAL.broadside.rake) + (run.rakeBonus || 0);
+    const sides = kind === 'cannon' ? broadsideTargets(b, t, { rake }) : null;
     if (sides && !sides.length) { sv.timers[id] = 0.08; continue; }
     sv.timers[id] = st.cooldown;
     if (sides) for (const s of sides) fired.push({ id, heading: b.heading + s.side * Math.PI / 2, side: s.side, rake: s.list.some((x) => x.rake) });

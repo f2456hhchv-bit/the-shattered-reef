@@ -7,6 +7,7 @@
 // in-memory fake.
 
 import { defaultProgression, sanitizeProgression } from './progression.mjs';
+import { defaultDepth, sanitizeDepth, resolveDepth, meetsRequires } from './depth.mjs';
 import {
   HULL_IDS, getHull,
   CARGO_TIER_LIST, cargoLoadoutFor,
@@ -49,6 +50,8 @@ export function createDefaultMeta() {
     tdStats: { played: 0, won: 0, kills: 0 },
     // Engagement pass (2026-10-04): engine/progression.mjs.
     ...defaultProgression(),
+    // Story, keys, crew and the levelled shop tracks (2026-10-22): engine/depth.mjs.
+    ...defaultDepth(),
   };
 }
 
@@ -104,6 +107,7 @@ export function loadMeta(storage) {
     }
     meta.tdStats = { ...defaults.tdStats, ...(parsed.tdStats && typeof parsed.tdStats === 'object' ? parsed.tdStats : {}) };
     sanitizeProgression(meta, parsed);
+    sanitizeDepth(meta, parsed);
     return meta;
   } catch {
     return defaults;
@@ -129,6 +133,7 @@ export function canAfford(meta, cost) {
 export function purchaseHull(meta, hullId) {
   if (meta.ownedHulls.includes(hullId)) return { ok: false, reason: 'already_owned' };
   const hull = getHull(hullId);
+  if (!meetsRequires(meta, hull.requires)) return { ok: false, reason: 'locked' };
   if (!canAfford(meta, hull.cost)) return { ok: false, reason: 'cannot_afford' };
   meta.salvage -= hull.cost;
   meta.ownedHulls.push(hullId);
@@ -145,6 +150,7 @@ export function purchaseCargoTier(meta, tierId) {
   if (meta.ownedCargoTiers.includes(tierId)) return { ok: false, reason: 'already_owned' };
   const tier = CARGO_TIER_LIST.find((t) => t.id === tierId);
   if (!tier) return { ok: false, reason: 'unknown' };
+  if (!meetsRequires(meta, tier.requires)) return { ok: false, reason: 'locked' };
   if (!canAfford(meta, tier.cost)) return { ok: false, reason: 'cannot_afford' };
   meta.salvage -= tier.cost;
   meta.ownedCargoTiers.push(tierId);
@@ -154,6 +160,7 @@ export function purchaseCargoTier(meta, tierId) {
 export function purchaseFaction(meta, factionId) {
   if (meta.ownedFactions.includes(factionId)) return { ok: false, reason: 'already_owned' };
   const faction = getPlayableFaction(factionId); // throws on an unknown id
+  if (!meetsRequires(meta, faction.requires)) return { ok: false, reason: 'locked' };
   if (!canAfford(meta, faction.cost)) return { ok: false, reason: 'cannot_afford' };
   meta.salvage -= faction.cost;
   meta.ownedFactions.push(factionId);
@@ -179,6 +186,7 @@ export function canAffordWorkshopUpgrade(meta, upgrade) {
 export function purchaseWorkshopUpgrade(meta, upgradeId) {
   if (meta.ownedWorkshopUpgrades.includes(upgradeId)) return { ok: false, reason: 'already_owned' };
   const upgrade = getWorkshopUpgrade(upgradeId); // throws on an unknown id
+  if (!meetsRequires(meta, upgrade.requires)) return { ok: false, reason: 'locked' };
   if (!canAffordWorkshopUpgrade(meta, upgrade)) return { ok: false, reason: 'cannot_afford' };
   meta.salvage -= upgrade.salvageCost;
   meta.krakenScales -= upgrade.krakenScaleCost;
@@ -190,6 +198,7 @@ export function purchaseCharm(meta, charmId) {
   if (meta.ownedCharms.includes(charmId)) return { ok: false, reason: 'already_owned' };
   const charm = CHARM_LIST.find((c) => c.id === charmId);
   if (!charm) return { ok: false, reason: 'unknown' };
+  if (!meetsRequires(meta, charm.requires)) return { ok: false, reason: 'locked' };
   if (!canAfford(meta, charm.cost)) return { ok: false, reason: 'cannot_afford' };
   meta.salvage -= charm.cost;
   meta.ownedCharms.push(charmId);
@@ -216,7 +225,13 @@ export function resolveLoadout(meta) {
     extraHeldWeapons.push(faction.extraHeldWeapon);
   }
   const grantedCharm = faction ? faction.grantsCharm : null;
-  const { damageMultipliers, extraMaxHull, armamentDamageMult, speedMult } = workshopBonusesFor(meta.ownedWorkshopUpgrades);
+  const { damageMultipliers, extraMaxHull: workshopHull, armamentDamageMult, speedMult: workshopSpeed } = workshopBonusesFor(meta.ownedWorkshopUpgrades);
+  // Depth (2026-10-22): the crew aboard, the hull's refits, gun mastery and
+  // the equipped key (engine/depth.mjs).
+  const depth = resolveDepth(meta, hull.id);
+  for (const [w, m] of Object.entries(depth.crewFx.weapon)) damageMultipliers[w] = (damageMultipliers[w] || 1) * m;
+  const extraMaxHull = workshopHull + depth.refit.hull + Math.round(depth.crewFx.hull);
+  const speedMult = workshopSpeed * (1 + depth.refit.speed) * depth.crewFx.speedMult;
   return {
     hull,
     extraHeldWeapons,
@@ -224,6 +239,9 @@ export function resolveLoadout(meta) {
     startingArmaments,
     armamentDamageMult,
     speedMult,
+    turnMult: 1 + depth.refit.turn,
+    damageMult: 1 + depth.refit.damage,
+    depth,
     charmEffects: charmEffectsFor([...meta.ownedCharms, ...(grantedCharm ? [grantedCharm] : [])]),
     faction: meta.selectedFaction, // for the combat-triangle multiplier (data/factions.mjs)
     craftedDamageMultipliers: damageMultipliers, // Workshop upgrades — data/meta.mjs

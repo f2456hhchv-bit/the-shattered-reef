@@ -179,12 +179,13 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
     <div class="brief">
       <div class="box todo"><h3>Restyle priority, in order</h3><ol>
         <li><b>Creatures and bosses</b> (G, A), in progress: 9 creatures (G1-G9) and all 12 bosses left. Every prompt spells out exactly what the creature looks like from its view.</li>
+        <li><b>The story's faces and keys</b> (V, Y, J), new: 16 character portraits for the story scenes and crew (they drop straight in; until then each shows an emoji), the 11 keys, and the story card, bark bubble, key button and shop icons. Start with V1, V2 and V3: you meet them first.</li>
         <li><b>UI kit</b> (K): the panels, cards, buttons, chips, tabs, bars, pips and dock tiles that every screen and the HUD are built from. Start with K1 (panel) and K9 (gold button); once they're right, attach them to every later kit chat so the set stays one family.</li>
         <li><b>Terrain surfaces</b> (L): land, shore and water fill most of the screen in play. Tropical first (L1-L3): I add texture sampling to the terrain renderer when they arrive, then the other nine biomes and the harbour follow.</li>
         <li><b>Island outlines</b> (O2) and <b>icons</b> (D, E): 30 islands that aren't round; the missing icons, including the arrows and pause bars the UI still writes as text; then the stand-ins.</li>
-        <li><b>What you read in a fight</b>: markers and rings (M), shots (X, X2) and weather particles (Q).</li>
+        <li><b>What you read in a fight</b>: markers and rings (M), shots (X, X2), weather particles (Q) and the key powers (Z; code draws them until then).</li>
         <li><b>Props</b> (P), <b>towers</b> (T), <b>landmarks</b> (F), <b>title and crests</b> (U).</li>
-        <li>Low: straight-body redraws (N, needed before the animation build), weather objects (W), Reef Defence extras (R).</li>
+        <li>Low: straight-body redraws (N, needed before the animation build), weather objects (W), Reef Defence extras (R), ship figureheads (S2).</li>
         <li>Done: chart islands (I), pads and rock islets (O), harbour buildings (B), player ships (S; enemy ships follow), pickups (C) and effect animations (H).</li></ol></div>
       <div class="box todo"><h3>Animation (the last build stage)</h3><ul>
         <li>Everything should end up feeling alive. The plan is to animate in code from one still image per creature, so the art has to be drawn in a pose code can move.</li>
@@ -289,6 +290,33 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1
         <dl><dt>In the game</dt><dd>Stood on its spot with a soft shadow at its base, flipped to face its target, bobbed or swayed by code.</dd>
           <dt>When it arrives</dt><dd>Keyed, trimmed, and given a foot point so it stands on the ground.</dd></dl>
         <details><summary>Exact prompt wording</summary><pre data-fmt="FRONT"></pre></details>
+      </article>
+
+      <article class="fmt">
+        <h3>PORTRAIT <small>chest up, cropped round</small></h3>
+        <p class="use">The story's characters (V): story scenes, crew lines in play, the crew panel.</p>
+        <figure>
+          <svg class="dg" viewBox="0 0 320 160" role="img" aria-label="A character drawn from the chest up on a square canvas. The game crops it to a circle and puts it in a round frame, so the head and shoulders must sit inside the middle circle.">
+            <defs><g id="dgp" stroke="#0d1526" stroke-width="2" stroke-linejoin="round">
+              <path d="M-34 44 Q-34 14 0 12 Q34 14 34 44 Z" fill="#2f5d8c"/>
+              <circle cx="0" cy="-8" r="24" fill="#f2c9a0"/>
+              <path d="M-26 -14 Q-20 -40 0 -38 Q22 -40 26 -14 Q10 -24 -26 -14 Z" fill="#8a4a2a"/>
+              <circle cx="-8" cy="-6" r="2.6" fill="#0d1526" stroke="none"/><circle cx="8" cy="-6" r="2.6" fill="#0d1526" stroke="none"/>
+              <path d="M-6 6 Q0 10 6 6" fill="none"/>
+            </g><clipPath id="dgpc"><circle cx="232" cy="80" r="52"/></clipPath></defs>
+            <text class="k" x="65" y="12" text-anchor="middle">the image</text>
+            <rect x="10" y="18" width="110" height="124" fill="none" stroke="#93aab3" stroke-width="1.2" stroke-dasharray="3 3"/>
+            <circle cx="65" cy="80" r="52" fill="none" stroke="#e8b54b" stroke-width="1.4" stroke-dasharray="4 3"/>
+            <use href="#dgp" transform="translate(65 86) scale(1.15)"/>
+            <g clip-path="url(#dgpc)"><rect x="176" y="24" width="112" height="112" fill="#6d5bd0"/><use href="#dgp" transform="translate(232 86) scale(1.15)"/></g>
+            <circle cx="232" cy="80" r="52" fill="none" stroke="#fff" stroke-width="4"/>
+            <text class="w" x="232" y="152" text-anchor="middle">in its round frame</text>
+          </svg>
+          <figcaption>Square canvas, head and shoulders inside the middle circle (dashed gold). The game crops to that circle and sets it on the character's colour.</figcaption>
+        </figure>
+        <dl><dt>In the game</dt><dd>Story scenes, crew lines during play, the crew panel and the harbour. Until a portrait arrives, the character's emoji sits on their colour.</dd>
+          <dt>When it arrives</dt><dd>Keyed, trimmed and saved as assets/portraits/&lt;id&gt;.png; its id goes in data/portraits.mjs. No other code change.</dd></dl>
+        <details><summary>Exact prompt wording</summary><pre data-fmt="PORTRAIT"></pre></details>
       </article>
 
       <article class="fmt">
@@ -683,13 +711,14 @@ const FMT = {
   RING: `RING = a FLAT round marker centred on a square canvas, its outer edge touching the canvas edges, even all the way round so it can spin. Empty (transparent) in the middle unless the item says to fill it. Solid colours: the game sets how see-through it is.`,
   SEAMLESS: `SEAMLESS = a square tile of the surface itself (like a patch cut from the harbour's grass or water), seen from straight above and filling the whole canvas edge to edge: no shape, no outline, no border, no darker or lighter edges. It must repeat: anything that runs off the right edge comes back on the left, and the same top to bottom. Big soft simple shapes in 2-3 close shades of one colour; calm, not busy.`,
   SHORE: `SHORE = a cut across one coastline, seen from above, filling a square canvas edge to edge in straight horizontal bands. Top edge: open water. Then, going down: a thin foam line, the raised rim (lit along its top), a small dark groove, then the flat land top filling the bottom third. Every column is identical, like a ruler: no rocks, plants, bumps or breaks.`,
+  PORTRAIT: `PORTRAIT = one character from the chest up, facing us and turned a little, filling a square canvas. The game crops it to a circle: head and shoulders inside the middle circle, eyes a little above the centre, nothing important in the corners. A clay toy figure like the creatures: big round head, simple dot eyes, a small smile or frown, 3-4 flat colours. Transparent background.`,
   SET: `SET = several separate pieces in one image, in one row, the same size, evenly spaced and not touching.`,
   PARTICLE: `PARTICLE = a SET of small simple shapes that the game copies hundreds of times. Each one is a single solid shape with no inner detail, centred in its own space. Draw them white unless the item names a colour; the game tints them.`,
   STRIP: `STRIP = an animation: 12 frames of one effect in 2 rows of 6 equal cells, frame 1 at top left, reading left to right, then the second row. The same centre point in every cell; no grid lines.`,
   DIGITS: `DIGITS = a SET of chunky characters in this exact order: 0 1 2 3 4 5 6 7 8 9 + - × % ▲ ▼. All the same height, white with a thick dark outline, no other colour (the game tints them).`,
 };
 const NEEDS = { '9-SLICE': ['FLAT'], '3-SLICE': ['FLAT'], BAR: ['FLAT'], RING: ['FLAT'], PARTICLE: ['SET'], DIGITS: ['SET'] };
-const FORDER = ['TOP-DOWN', 'FRONT', 'ISLAND', 'FLAT', '9-SLICE', '3-SLICE', 'BAR', 'RING', 'SEAMLESS', 'SHORE', 'SET', 'PARTICLE', 'STRIP', 'DIGITS'];
+const FORDER = ['TOP-DOWN', 'FRONT', 'PORTRAIT', 'ISLAND', 'FLAT', '9-SLICE', '3-SLICE', 'BAR', 'RING', 'SEAMLESS', 'SHORE', 'SET', 'PARTICLE', 'STRIP', 'DIGITS'];
 function formatsIn(lines) {
   const used = new Set();
   for (const l of lines) for (const m of l.matchAll(/\(([A-Z0-9 ,-]+)\)/g)) for (const t of m[1].split(/[ ,]+/)) if (FMT[t]) { used.add(t); (NEEDS[t] || []).forEach((n) => used.add(n)); }
@@ -711,6 +740,50 @@ const BATCHES = [
   "G7 Frost Wisp (FRONT): ONLY: one round pale blue flame shaped like a teardrop with one curl at the tip, two dark eyes (3 parts)",
   "G8 Siren (FRONT): ONLY: one round grey rock, a mermaid sitting on it (round head, teal hair as one smooth shape, green tail as one smooth curve round the rock), two dark eyes. No hands, shells or jewellery",
   "G9 Cinder Bat (TOP-DOWN): a charcoal bat seen from directly above. ONLY: one round body, one round head with two ears at the top, two wings spread flat out to the sides, each wing one smooth shape with an orange edge (6 parts). No wing fingers or veins"], 'unique'],
+ ['V', 'Characters: story portraits (new 2026-10-22)', 'high', [
+  "V1 Captain Marlowe (PORTRAIT): the player, a young captain. ONLY: round face, short messy red-brown hair as one shape, a navy tricorn hat, a navy coat, an old iron key on a cord round the neck (5 parts) (story scenes, the captain chip, crew panel; drops straight in)",
+  "V2 Nana Isolde (PORTRAIT): the old Keeper, the captain's grandmother. ONLY: round wrinkle-free face, white hair in one round bun, small round glasses, a purple shawl, a ring of three old keys pinned to the shawl (5 parts) (story scenes, her harbour lines)",
+  "V3 Barnaby Crump, cook (PORTRAIT): round, loud and kind. ONLY: big round face, a bushy ginger beard as one shape, a white chef's hat, an orange apron, a wooden spoon held up (5 parts)",
+  "V4 Juno Flint, gunner (PORTRAIT): a sharp-eyed young woman. ONLY: round face, black hair in a short ponytail, a red bandana, a dark red jacket, one brass eyepiece over one eye (5 parts)",
+  "V5 Professor Ottoline Quill, navigator (PORTRAIT): an owl scholar. ONLY: a round brown owl head and body as one shape, big round glasses, a tall blue scholar's hat with one quill feather in its band, a blue robe collar (4 parts)",
+  "V6 Skerry, selkie lookout (PORTRAIT): a cross selkie girl. ONLY: round face with a frown, dark hair, a grey sealskin hood whose top is a seal's head with two eyes, one grey flipper raised (4 parts)",
+  "V7 Hollis the Unburied, ghost navigator (PORTRAIT): a friendly drowned cabin boy. ONLY: a pale mint ghost body that fades out at the bottom, a too-big navy cabin boy's cap, two dot eyes, a small smile (4 parts)",
+  "V8 Cinder, salamander shipwright (PORTRAIT): a fire-lizard kid. ONLY: an orange lizard head with a round snout, black goggles pushed up on the head, a scorched brown apron, a small hammer over one shoulder (4 parts)",
+  "V9 Moth, lantern-keeper (PORTRAIT): a calm blind girl. ONLY: round face with closed eyes drawn as two curves, a dusty-gold hooded cloak, a small brass lantern with a yellow flame held up (flat colour, no glow) (4 parts)",
+  "V10 Bram Toadwhistle, herbalist (PORTRAIT): a frog doctor. ONLY: a green frog head with big round eyes, round spectacles, a small green cap, a brown satchel strap across the chest, one leaf (5 parts)",
+  "V11 Brassbottom, deep diver (PORTRAIT): a hermit crab. ONLY: a round brass diving helmet with one round window showing two eyes, a coiled orange shell behind it, two red claws (4 parts)",
+  "V12 Saffi Dunerunner, sand-sailor (PORTRAIT): a grinning desert sailor. ONLY: round tanned face, a sand-coloured scarf wrapped round the head, round goggles on the forehead, one gold earring (4 parts)",
+  "V13 Glim, crystal sprite (PORTRAIT): ONLY: a round smooth lilac crystal body like a gem pebble, two dot eyes, a wide smile, two tiny round wings (4 parts)",
+  "V14 Vesper Gloam, the rival captain (PORTRAIT): proud and dangerous. ONLY: pale face, long black hair as one shape, a big black captain's hat with one purple feather, a high-collared dark purple coat (4 parts) (story scenes; she captains the Black Gale)",
+  "V15 Admiral Corwin Steele, Iron Accord (PORTRAIT): a stern admiral. ONLY: a square face, a grey moustache, a steel-grey bicorne hat, an iron-grey coat with one gold shoulder plate (4 parts)",
+  "V16 The Undertow (PORTRAIT): the voice under the sea, not a person. ONLY: a round blob of black ink with soft wavy edges, two pale lilac eyes (3 parts)"], 'unique'],
+ ['Y', 'The Keys (new 2026-10-22)', 'high', [
+  "Y1 Anchor Key (FRONT): a chunky old iron key, standing upright, bow at the top. Its bow (handle) is an anchor; a short shank; two square teeth. A small red ribbon tied below the bow. Every key below has this same shank, teeth and size: only the bow and colour change (key button, Charm Shrine, story; needs a small hook)",
+  'Y2 Tide Key (FRONT): sea-blue; the bow is one curling wave',
+  'Y3 Storm Key (FRONT): yellow; the bow is a lightning bolt inside a ring',
+  'Y4 Frost Key (FRONT): icy pale blue; the bow is a six-point snowflake',
+  'Y5 Ghost Key (FRONT): pale mint; the bow is a little round ghost',
+  'Y6 Ember Key (FRONT): orange-red; the bow is a flame',
+  'Y7 Lantern Key (FRONT): gold; the bow is a small lantern',
+  'Y8 Mire Key (FRONT): green; the bow is a round mushroom',
+  'Y9 Deep Key (FRONT): indigo; the bow is a spiral',
+  'Y10 Bone Key (FRONT): bone-white; the bow is a round skull',
+  'Y11 Prism Key (FRONT): lilac crystal; the bow is a smooth gem'], 'kit'],
+ ['J', 'Story, crew and shop pieces (new 2026-10-22)', 'high', [
+  "J1 Story card (9-SLICE): the speech box for story scenes: dark navy face, a thick plain white border (the game tints it to the speaker's colour), well-rounded corners",
+  "J2 Bark bubble (3-SLICE): a short speech bubble pill with a small tail at the left end, white rim, navy face (crew lines during play)",
+  "J3 Portrait ring (RING): a round white frame with a darker lip along its bottom, empty middle (every portrait sits inside it)",
+  "J4 Key button (RING): a round navy button with a thick gold rim, the middle filled navy and plain (the KEY button in play; the key icon goes on top)",
+  "J5 Key charge ring (RING): a thick gold ring only, empty middle (the game sweeps it round as the key charges)",
+  "J6 Heart, full (FRONT): a chunky red heart (crew bond)",
+  "J7 Heart, empty (FRONT): the same heart, empty, a pale outline only (crew bond still to earn)",
+  "J8 Logbook (FRONT): an open leather logbook (Story tab, replay a scene)",
+  "J9 Hull plating (FRONT): a riveted steel shield plate with three big rivets (Shipyard refit: Plating)",
+  "J10 Rigging (FRONT): a coil of rope round a pulley block (Shipyard refit: Rigging)",
+  "J11 Gun deck (FRONT): three cannonballs stacked in a pyramid (Shipyard refit: Gun deck)",
+  "J12 Hammock (FRONT): a striped hammock slung between two posts (Crew Quarters)",
+  "J13 Keysmith (FRONT): a small anvil with a key lying on it (Keysmith upgrades)",
+  "J14 Wake sparkles (PARTICLE): 4 shapes in a row: a bubble ring, a four-point sparkle, a teardrop ember, a soft wisp (the cosmetic wakes; tinted per wake)"], 'kit'],
  ['K', 'UI kit (one family; start with K1 and K9)', 'high', [
   "K1 Panel (9-SLICE): the main navy panel, like the harbour mockup's navy cards: navy face, thick dark outline, a lighter band along the top edge, a darker lip along the bottom edge, well-rounded corners (building panels, voyage card, pause menu, run summary, stage sheet)",
   'K2 Inset well (9-SLICE): a sunken darker navy box pressed into the panel, its shadow along the top inside edge (shop rows, stat boxes, the mini-map frame, log rows)',
@@ -952,6 +1025,26 @@ const BATCHES = [
   'U6b Empty star (FLAT): the same star as a grey outline, empty inside (replaces the text empty star)',
   'U7 Elite chest (FRONT): the treasure chest in gold with a red gem (elite drop)',
   'U8 Warlord crown (FRONT): a small spiky gold crown (worn by wave-10 warlords)'], 'kit'],
+ ['Z', 'Key powers (new 2026-10-22)', 'medium', [
+  "Z1 Anchor Drop (STRIP): a white ring of water bursting out from the centre, growing to the cell edges and breaking into spray",
+  "Z2 Rogue Tide (STRIP): a big blue wave crest rising from the bottom of the cell, rolling up and crashing into foam at the top",
+  "Z3 Calling Thunder (STRIP): a yellow lightning bolt dropping onto the centre, a white flash, then a splash ring",
+  "Z4 Hard Freeze (STRIP): pale blue ice spikes shooting out from the centre in a ring, then settling as a frosty star",
+  "Z5 Ghost Ship (STRIP): pale mint mist swirling round the centre and fading (loops)",
+  "Z6 Ring of Fire (STRIP): one flame jumping up from the water and settling into a burning pool (the game places ten in a ring)",
+  "Z7 Lamplight (STRIP): a gold sunburst ring spreading out from the centre and fading",
+  "Z8 Bog Breath (STRIP): a green poison cloud puffing up and rolling (loops)",
+  "Z9 Maelstrom (STRIP): an indigo whirlpool spinning; frames 10-12 burst outward",
+  "Z10 Sandstorm (STRIP): a swirl of sand going round the centre (loops)",
+  "Z11 Prism Split (STRIP): a lilac crystal flash in the centre splitting into three beams"], 'unique'],
+ ['S2', 'Figureheads (new 2026-10-22)', 'low', [
+  "S2a The Little Wren (FRONT): the Sloop's carved figurehead: a small brown wren, wings swept back (Shipyard, beside each ship's name; needs a small hook)",
+  'S2b Old Thunder (FRONT): the Longboat\'s: a roaring green dragon head',
+  'S2c Skipjack (FRONT): the Skiff\'s: a leaping blue fish',
+  'S2d Twin Tails (FRONT): the Catamaran\'s: two brown otters holding paws',
+  'S2e Lucky Lantern (FRONT): the Junk\'s: a painted round eye on a red bow board',
+  'S2f Iron Nell (FRONT): the Steamer\'s: a brass bulldog head',
+  'S2g The Grand Duchess (FRONT): the Galleon\'s: a crowned golden mermaid'], 'unique'],
  ['N', 'Straight-body redraws (before the animation build)', 'low', [
   'N1 Stalker Eel (TOP-DOWN): a fat dark grey eel seen from directly above, dead straight from head (top) to tail (bottom), about a third as wide as it is long, two yellow eyes on top of the head',
   'N2 Bog Leech (TOP-DOWN): one fat dark red leech seen from directly above, dead straight from top to bottom, plump like a bean, a round sucker mouth at the top end',
@@ -1005,10 +1098,13 @@ $('#batches').innerHTML = BATCHES.map((b, i) => {
 // One-time ChatGPT project: these instructions (under ChatGPT's 8,000-character
 // project limit) plus the catalogue file let the owner just type a code.
 const CAT_FILE = 'shattered-reef-art-catalogue.txt';
+// Formats only a few batches use are spelled out on those batch headings in
+// the catalogue, not in the instructions, to keep under the 8,000 limit.
+const IN_CATALOGUE = new Set(['STRIP', 'PORTRAIT']);
 const PROJECT = [`You make the game art for my mobile game, The Shattered Reef. The project file ${CAT_FILE} lists every asset by code (G1, K9, P5a…). I type a code and you make that asset. I may also type "next", or attach an image with a code.
 EVERY TIME I TYPE A CODE:
 1. Find that code's line in ${CAT_FILE} and quote it word for word. If it isn't there, say so and stop; never guess an item.
-2. Follow the rule on its batch heading (ONE KIT or ONE OF A KIND) and the format in brackets after its name.
+2. Follow the rule on its batch heading (ONE KIT or ONE OF A KIND), any FORMAT: line under that heading, and the format in brackets after its name.
 3. Write the image prompt SHORT: the item's line, its format, and "simple soft toy, smooth rounded plastic, only these parts: …" listing the line's parts. Add no adjectives, details, poses or extra parts of your own.
 4. Make exactly one image. Then count its parts against the list; if it has extra parts, facets or texture, say so and redraw it once, simpler.
 "next" = the code after the one you last made in this chat. If you haven't made one yet, ask me for a code.
@@ -1017,7 +1113,7 @@ STYLE REFERENCE: project files style-creatures-ships.png, style-world.png, style
   BASE.split('\n').slice(1).join('\n'),
   `ONE OF A KIND batches: every image is a new design; never reuse the outline, pose or layout of an earlier image in this chat.
 ONE KIT batches: the pieces are one set: same outline thickness, corner roundness, light and colour family; change only what the item asks for.`,
-  'FORMATS (strict, the game depends on them):\n' + FORDER.filter((f) => f !== 'STRIP').map((f) => FMT[f]).join('\n'),
+  'FORMATS (strict, the game depends on them):\n' + FORDER.filter((f) => !IN_CATALOGUE.has(f)).map((f) => FMT[f]).join('\n'),
   `QUICK FIXES (I may reply with one word):
 busy = redraw with only the parts the line lists, all smooth, no facets; same subject and view.
 simpler = chunkier blocks, flat matte colours, no texture or lines; same pose.
@@ -1028,12 +1124,12 @@ family = match the attached kit piece: same outline, lip, corners and colours.
 again = make the same code again.`].join('\n');
 const OPEN = BATCHES.filter((b) => b[2] !== 'done');
 // Which baseline sheet each batch matches most closely.
-const SHEET_OF = (c) => /^(A|G|N|S)$/.test(c) ? 'style-creatures-ships.png' : /^(P|T|F|W|O2|L|B|I|O)$/.test(c) ? 'style-world.png' : 'style-icons.png';
-const CATALOGUE = [`THE SHATTERED REEF · ART CATALOGUE (2026-10-18)`,
+const SHEET_OF = (c) => /^(A|G|N|S|V|S2)$/.test(c) ? 'style-creatures-ships.png' : /^(P|T|F|W|O2|L|B|I|O)$/.test(c) ? 'style-world.png' : 'style-icons.png';
+const CATALOGUE = [`THE SHATTERED REEF · ART CATALOGUE (2026-10-22)`,
   'One line per asset: CODE Name (FORMAT): what it looks like (where the game uses it).',
   'Each batch heading gives its rule: ONE KIT (pieces of one matching set) or ONE OF A KIND (every image a new design).',
   'Finished batches are left out.', '',
-  ...OPEN.flatMap((b) => [`== Batch ${b[0]} · ${b[1]} · ${b[4] === 'kit' ? 'ONE KIT' : 'ONE OF A KIND'} · match ${SHEET_OF(b[0])} ==`, ...b[3], ''])].join('\n');
+  ...OPEN.flatMap((b) => [`== Batch ${b[0]} · ${b[1]} · ${b[4] === 'kit' ? 'ONE KIT' : 'ONE OF A KIND'} · match ${SHEET_OF(b[0])} ==`, ...formatsIn(b[3]).filter((f) => IN_CATALOGUE.has(f)).map((f) => `FORMAT: ${FMT[f]}`), ...b[3], ''])].join('\n');
 TEXTS.project = PROJECT; TEXTS.catalogue = CATALOGUE;
 $('#p-project').textContent = PROJECT;
 $('#p-catalogue').textContent = CATALOGUE;

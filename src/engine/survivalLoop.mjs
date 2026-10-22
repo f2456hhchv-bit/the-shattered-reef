@@ -20,6 +20,7 @@ import {
 } from './survival.mjs';
 import { addLevelSalvage } from './survivalRun.mjs';
 import { stepLord } from './warlord.mjs';
+import { useKey, stepKeyEffects, keyBuffs, chargeKey, splitShots, frozenSnapshot, holdFrozen } from './keys.mjs';
 import { getEnemy } from '../data/enemies.mjs';
 import { DASH, FLOTSAM } from '../data/survival.mjs';
 import { DEV } from './devTuning.mjs';
@@ -90,6 +91,8 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   const tuning = statusTuning(run.tuning, boat, wmods.turn);
   stepBoat(boat, input, dt, tuning);
   ev.dashed = stepDash(run, input, dt);
+  // Turning the key (a special attack; engine/keys.mjs).
+  if (input.key && run.key) ev.keyUsed = useKey(run, ev.hits, rng);
   ev.weather = stepWeather(run, dt, rng);
   const impact = resolveCoastCollision(boat, BOAT_RADIUS, run.coast);
   ev.wallDamage = run.dash.t > 0 ? 0 : applyWallImpactDamage(boat, impact);
@@ -114,11 +117,13 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   // Becalmed (a flotsam find): the sea holds every enemy still.
   const calm = (sv.becalm || 0) > 0;
   if (calm) sv.becalm -= dt;
+  const frozen = frozenSnapshot(run.enemies);
   if (!calm) {
     updateEnemies(run.enemies, boat, dt, run.grid, run.tileSize, run.coast);
     for (const e of stepSummons(run.enemies, dt, rng)) { e.hunting = true; e.xp = 1; ev.summoned++; }
     stepRushers(run, dt);
   } else for (const e of run.enemies) { e.vx = 0; e.vy = 0; }
+  holdFrozen(run.enemies, frozen);
   separateEnemies(run.enemies);
   sv.recycleTimer = (sv.recycleTimer || 0) - dt;
   if (sv.recycleTimer <= 0) { sv.recycleTimer = 0.8; recycleStragglers(run, ctx, rng); }
@@ -126,7 +131,10 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
 
   // Your guns.
   const visible = visibleEnemies(run, ctx.biome);
+  run.keyBuff = keyBuffs(run);
+  const shotsBefore = run.weapons.projectiles.length;
   ev.fired = fireWeapons(run, dt, visible, rng);
+  splitShots(run, shotsBefore);
   const world = { grid: run.grid, tileSize: run.tileSize, coast: run.coast, ricochet: run.ricochet || 0 };
   const arm = stepArmaments(run, dt, world, { rng, t: ctx.t || 0 });
   ev.armFired = arm.fired;
@@ -159,6 +167,8 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
       ev.hits.push({ enemy: e, weaponId: 'cannonballs', damage: dmg, killed, ram: true });
     }
   }
+  const kfx = stepKeyEffects(run, dt);
+  ev.hits.push(...kfx.hits); ev.keyFx = kfx.fx;
   // Iron Ram: touching an enemy hurts it.
   if (run.ramDamage) {
     for (const e of run.enemies) {
@@ -231,6 +241,7 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
     e._looted = true; sv.kills++; tallyKill(sv, e); ev.kills.push(e); dropLoot(run, e, rng);
   }
   if (run.enemies.length > 40) run.enemies = run.enemies.filter((e) => e.health > 0);
+  ev.keyFull = chargeKey(run, ev.kills);
 
   // Sea glass, coins, chests.
   ev.pickups = stepPickups(run, dt, BOAT_RADIUS);
@@ -241,6 +252,15 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   if (boat.health < hpStart) sv.hullLost = (sv.hullLost || 0) + (hpStart - boat.health);
   if (ev.pickups.salvage) ev.pickups.salvageGained = addLevelSalvage(run, ev.pickups.salvage);
   if (ev.weather.salvage) addLevelSalvage(run, ev.weather.salvage);
+  // Whoever hurt you last (Nana asks about it when the key drags you home).
+  for (const h of ev.shots.hits) { const src = run.enemies.find((e) => e.id === h.shot.sourceId); if (src) sv.lastHurtBy = src.defId; }
+  for (const c of ev.contacts) sv.lastHurtBy = c.enemy.defId;
+  for (const l of ev.lord) if (l.rammed) sv.lastHurtBy = l.e.defId;
+  // Hollis (a crew passive): once a level, a sinking blow leaves you at 1 hull.
+  if (boat.health <= 0 && (run.cheatDeath || 0) > 0) {
+    run.cheatDeath -= 1; boat.health = 1; run.dash.iframes = Math.max(run.dash.iframes, 1.2);
+    ev.cheated = true;
+  }
   // Dev god mode: weather, burns and walls can't sink you either.
   if (DEV.god) { boat.health = boat.maxHull; boat.afflictions = {}; }
   return ev;

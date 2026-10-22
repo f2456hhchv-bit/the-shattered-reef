@@ -3306,6 +3306,91 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   The sim bot takes a random one (`ORDER=<id>` env forces one). 1 more
   test; 501/501.
 
+- **Phase:** depth pass: story, keys, crew, shop tracks and unlock pace
+  (project owner, 2026-10-22: "What's the story? We started with a One
+  Piece / Locke & Key idea and it feels like neither... colourful
+  characters, ships with personality... start building depth"; then
+  "you shouldn't be able to unlock everything in a full day's play. Some
+  QoL early, but the true end game ones are grinders").
+- **The story** (`data/story.mjs`): the Great Reef was a coral crown round
+  the Heartlock, a sea-floor door that keeps the Undertow shut. The
+  Marlowes kept its ten keys. Twenty years ago someone turned one, the
+  Reef shattered into the ten seas, and whatever swallowed a key became a
+  boss. You're the youngest Marlowe; Nana Isolde gives you the Anchor Key,
+  which "always brings a Marlowe home", so sinking pulls you back to the
+  harbour (Keyhouse Cove). That's the in-world reason for retries.
+  - 17 characters, a prologue and 10 chapters (intro on a stage's first
+    level, outro after its boss). Each chapter returns one key and
+    recruits one crewmate. Rival Vesper Gloam (Black Gale) runs through
+    it; Admiral Steele (Iron Accord) arrives at stage 7; the Undertow
+    speaks at stage 10 and past it.
+  - Shown by `ui/storyScene.mjs`: portrait, name, typed line, tap to
+    advance, Skip. It waits for the opening sequence, and the tutorial
+    waits for it.
+  - After Hades: Nana comments on whatever sank you when you come home
+    (`nanaLine`), and the crew talk during play (`ui/barks.mjs`; start,
+    boss, low hull, evolution, key, chest, rush; one at a time, 9s apart).
+  - The Log has a Story tab to replay any scene you've seen.
+- **Keys** (`data/keys.mjs`, `engine/keys.mjs`, art in `engine/keyArt.mjs`):
+  a special attack after HoloCure's. Carry one; sinks charge it (horde 1,
+  specialists 3, elites 12, lords nothing); the KEY button (Q/E) turns it.
+  Eleven powers: shockwave, forward wave, lightning on the 12 nearest,
+  freeze (×1.5 damage taken), ghost (i-frames + pierce), fire ring,
+  reload/damage buff, poison aura, whirlpool, sandstorm slow, split shots.
+  Lords take half and are never frozen, pushed or slowed. The Keysmith
+  (Charm Shrine) levels each to 5.
+- **Crew** (`data/crew.mjs`): 11 crewmates, 2 berths (a third is Crew
+  Quarters: 6,000 + 5 Scales, stage 5). Each has a passive (Barnaby
+  grapeshot + regen, Juno cannons + wider rake, Ottoline XP, Skerry dash,
+  Hollis cheats death once a level, Cinder flame + hull, Moth pickup
+  reach, Bram status fade + regen, Brassbottom depth charges, Saffi speed
+  + chain, Glim key charge). Bond grows +1 per win and +0.25 per sinking
+  aboard; each of 5 bond levels makes the passive 10% stronger.
+- **Shop depth** (`data/shop.mjs`, `engine/depth.mjs`, panels in
+  `ui/depthPanels.mjs`):
+  - Every ship has a name, a figurehead and a temper (`SHIP_PERSONA`), shown
+    in the Shipyard.
+  - Refits per hull (Plating +8 hull, Rigging +3% speed/turn, Gun deck +5%
+    damage), 10 levels each.
+  - Gunsmith mastery per weapon (Armory): +6% damage a level, faster
+    reload at 5, an extra shot at 10.
+  - Wakes (cosmetic, Shipyard): 7, up to 15,000.
+  - All one-off prices live in one table (`PRICES`, applied over
+    `data/meta.mjs`) with a `requires` stage; locked rows show "🔒 Stage N".
+- **Unlock pace** (`tools/economy.mjs`, `node tools/economy.mjs [--list]`):
+  - QoL (cheap, stage 1): about 0.4h of play.
+  - QoL + mid game: about 8h, set by the stage gates.
+  - Everything: at least ~32h, even farming bosses flat out (~2 Scales/h in
+    normal play, so 100h+). That's ~308,000 Salvage and 223 Kraken Scales.
+  - How: levelled tracks cost ×1.5-1.9 per level; levels 3+ wait for
+    cleared stages (cap 2 + 2 per stage); levels 8-10 also cost Scales,
+    which only stage bosses drop.
+  - Income measured with the sim: a cleared level pays ~1,700-2,800 Salvage
+    at stages 1-4 and ~1,300 at stage 7.
+  - `tests/depth.test.mjs` guards it: QoL ≤ 2h, everything ≥ 24h.
+- **Art inventory** (republished): new batches V (16 character
+  portraits, new PORTRAIT format), Y (11 keys), J (story card, bark bubble,
+  key button and charge ring, bond hearts, shop icons, wake sparkles), Z
+  (11 key-power STRIPs) and S2 (7 figureheads). Formats only a few batches
+  use (STRIP, PORTRAIT) are spelled out on their catalogue batch headings,
+  so the project instructions stay at 7,509 characters. The owner must
+  re-paste the instructions and re-upload the catalogue.
+  - Portraits drop straight in: add the id to `data/portraits.mjs`.
+  - Keys, figureheads and the J pieces each need a small hook on arrival.
+- Also fixed: the harbour's quest row ran off the right edge on phones;
+  story Skip sat over the HUD; mastery maths now has one source
+  (`masteryFx`).
+- Tests: new `tests/depth.test.mjs` (14). 515/515.
+- Playtested at 390×844, 360×640 and 844×390 with no console errors:
+  - prologue, then the tutorial
+  - harbour chips, crew, shrine, armory and shipyard panels
+  - a Gunsmith purchase
+  - key charge and use
+- **Next up:** the owner plays it. To judge:
+  - how often barks fire
+  - key charge rates (55-95 sinks)
+  - whether the stage gates feel fair
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in
@@ -4044,6 +4129,16 @@ Starting fresh below for the new game.)*
   instead of diluting it.
 - 2026-10-22: Hulls start with different guns, so unlocking a hull opens a
   different opening game, not just different stats.
+- 2026-10-22: The story borrows One Piece's shape (a crew gathered sea by
+  sea, a rival captain, a treasure at the end) and Locke & Key's heart (a
+  family of keepers, magic keys, a voice in the dark). The keys are both
+  the plot and the special attack, so every chapter's reward changes how
+  you play. Sinking is a story beat (the Anchor Key brings you home; Nana
+  remarks on it), not just a fail screen.
+- 2026-10-22: Unlock pace (owner): cheap QoL early; the mid game is gated
+  by stage reached, not by Salvage; the end game is levelled tracks with
+  steep costs and Kraken Scales. Scales only come from stage bosses, so the
+  grind is in playing boss fights rather than in idle farming.
 ## Known open questions (do not silently resolve — ask)
 
 - See the PRD's "Open Risks & Provisional Decisions" section
@@ -4083,6 +4178,10 @@ Starting fresh below for the new game.)*
 - **Real-phone frame rate:** the owner ran ~4× the old crowd on his
   phone with no glitches (2026-10-06). The caverns/abyss darkness layer and fire pools are
   the heaviest effects.
+- **Unlock pace is an estimate** (2026-10-22): `tools/economy.mjs` uses
+  bot-measured Salvage per level and an assumed play rate. Real players
+  may earn faster (better dodging) or slower (harbour time). Retune
+  `PACE` once there's real play data.
 - **The enemy matchup pips add clutter to Skimmer packs** (one pip per
   Skimmer, 3-5 per pack). Fine at current densities; revisit with real
   art.
