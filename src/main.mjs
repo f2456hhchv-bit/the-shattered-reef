@@ -58,7 +58,7 @@ import {
   unlockAudio, setMuted, isMuted, audioLevel, playFire, playHit, playKill, playExplosion, playWallImpact, playPickupWeapon, playPickupSalvage, playReefCleared, playVictory, playSunk, playRevive, playBossPhaseChange, playBossDefeated, playDash, playEvolve, playSynergy, playAchievement, playTap, playTreasure, playZap, playThunder, playWeatherWarning, playStrikeMark,
 } from './audio/audio.mjs';
 import { createSurvivalRun, buildSurvivalWorld, survivalLevel, completeLevel, sinkLevel, addLevelSalvage } from './engine/survivalRun.mjs';
-import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, recomputeStats, orbitBlades, evolutionsUsed, activeSynergies, snapshotBuild, rerollChoices, banishChoice, openChest } from './engine/survival.mjs';
+import { rollChoices, applyChoice, describeChoice, addXp, timeToBoss, recomputeStats, orbitBlades, evolutionsUsed, activeSynergies, snapshotBuild, rerollChoices, banishChoice, openChest, rollOrders, applyOrder } from './engine/survival.mjs';
 import { stepSurvivalFrame } from './engine/survivalLoop.mjs';
 import { DEV, loadDev, devActive } from './engine/devTuning.mjs';
 import { createDevPanel } from './ui/devPanel.mjs';
@@ -75,7 +75,7 @@ import {
 } from './engine/progression.mjs';
 import { LIVERIES, ACHIEVEMENTS, POOL_UNLOCKS } from './data/progression.mjs';
 import { LORD_TRAITS, lordName } from './engine/warlord.mjs';
-import { SURVIVAL, WAVES, SV_WEAPONS, SV_WEAPON_MAX, PASSIVE_BY_ID, FINAL_STRETCH, HULL_START_WEAPON } from './data/survival.mjs';
+import { SURVIVAL, WAVES, SV_WEAPONS, SV_WEAPON_MAX, PASSIVE_BY_ID, FINAL_STRETCH, HULL_START_WEAPON, ORDER_BY_ID } from './data/survival.mjs';
 import { createDefenceMode } from './td/tdMode.mjs';
 import { renderTowerYard, towerYardBuyable } from './ui/towerYard.mjs';
 
@@ -852,6 +852,36 @@ export function startApp(root) {
       saveCurrentVoyage();
       setTimeout(maybeOfferChoice, 140);
     };
+  }
+  // Captain's Orders (2026-10-22, after Vampire Survivors' Arcanas): one
+  // standing order for the whole stage, chosen before it starts.
+  function offerOrders() {
+    const opts = rollOrders(run);
+    if (!opts.length) return;
+    sailing = false; pendingChoice = null;
+    joystick.reset?.();
+    upgradeOverlay.classList.remove('treasure', 't1', 't3', 't5');
+    upgradeOverlay.querySelector('.up-collect').hidden = true;
+    upgradeOverlay.querySelector('.up-tools').hidden = true;
+    upgradeOverlay.querySelector('.up-hint').hidden = true;
+    upgradeOverlay.querySelector('#up-title').textContent = 'Captain\'s Orders 📜';
+    upgradeOverlay.querySelector('.up-sub').textContent = 'One standing order for this whole stage.';
+    upgradeOverlay.querySelector('#up-cards').replaceChildren(...opts.map((o) => {
+      const b = cardEl({ kind: 'order', id: o.id }, { icon: o.icon, name: o.name, kindLabel: 'Standing order', desc: o.desc, level: 0, max: 0, counters: [] });
+      b.addEventListener('click', () => {
+        if (upgradeOverlay.hidden) return;
+        applyOrder(run, o.id);
+        upgradeOverlay.hidden = true;
+        upgradeOverlay.querySelector('.up-tools').hidden = false;
+        playPickupWeapon(); spawnLevelRing(true);
+        showToast(`${o.icon} ${o.name} — for the whole stage`);
+        renderUpgradeStrip(); updateDashButton();
+        sailing = true; startCountdown(); saveCurrentVoyage();
+        setTimeout(maybeOfferChoice, 140);
+      });
+      return b;
+    }));
+    upgradeOverlay.hidden = false;
   }
   function offerChoices(title, sub, choices) {
     if (!choices.length) return false;
@@ -1733,6 +1763,7 @@ export function startApp(root) {
     saveCurrentVoyage();
     sailing = true;
     startCountdown();
+    if (!run.sv.orders?.length && meta.tutorialDone) offerOrders();
     if (run.faction) showMatchupBriefing(run.faction);
     else showToast(`${stageLevelText()} — survive 10 waves! ⚔`, { ms: 2400 });
   }
@@ -1761,7 +1792,9 @@ export function startApp(root) {
     enterLevelView();
     if (run.over) { sailing = false; showRunSummary(); return; }
     sailing = true;
-    if (got.pendingChoice && got.pendingChoice.choices?.length) {
+    if (!run.sv.orders?.length && !run.daily && meta.tutorialDone) {
+      offerOrders();
+    } else if (got.pendingChoice && got.pendingChoice.choices?.length) {
       offerChoices(got.pendingChoice.title, got.pendingChoice.sub, got.pendingChoice.choices);
     } else {
       startCountdown();
@@ -1790,6 +1823,7 @@ export function startApp(root) {
       ...Object.entries(sv.weapons).map(([id, n]) => (sv.evolved[id] ? `${SV_WEAPONS[id].evolve.icon} ${SV_WEAPONS[id].evolve.name}` : `${SV_WEAPONS[id].icon} ${SV_WEAPONS[id].name} Lv ${n}`)),
       ...Object.entries(run.armaments || {}).map(([id, n]) => `${ARMAMENT_BY_ID[id].icon} ${ARMAMENT_BY_ID[id].name} Lv ${n}`),
       ...Object.entries(sv.passives).map(([id, n]) => `${PASSIVE_BY_ID[id].icon} ${PASSIVE_BY_ID[id].name} Lv ${n}`),
+      ...(sv.orders || []).map((id) => `📜 ${ORDER_BY_ID[id].name}`),
     ];
     kit.replaceChildren(...items.map((t) => { const s = document.createElement('span'); s.textContent = t; return s; }));
     kit.hidden = !items.length;

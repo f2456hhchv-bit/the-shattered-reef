@@ -3290,6 +3290,22 @@ quests/NPCs/dialogue, cosmetics, audio beyond hooks, any backend.
   - characters with unique passives, not just guns
   - more map secrets (hidden coves, a merchant ship)
 
+- **Captain's Orders** (same day, the first idea in the research pass's
+  "next up"). `ORDERS` in `data/survival.mjs`; `rollOrders`/`applyOrder`/
+  `hasOrder` in `survival.mjs`. Before a stage's first level (or any start
+  without a carried build) you pick one of three standing orders. It's
+  stored in `sv.orders`, carried in the stage build and shown in the pause
+  kit; skipped on the tutorial run and daily voyages. The seven orders:
+  - Broadside Doctrine: raking ±40°, ×1.9
+  - Powder Monkeys: blasts and fire pools +40%
+  - Wreckers' Creed: double flotsam and crate coin
+  - Fortune's Wake: +30% glass, +15% enemies
+  - Know Thy Enemy: counters ×2.4, off-counter ×0.5
+  - Treasure Fleet: every chest holds at least 3
+  - Boarding Party: dash 30% sooner, and the dash hits for 40
+  The sim bot takes a random one (`ORDER=<id>` env forces one). 1 more
+  test; 501/501.
+
 ## Decisions log
 
 *(Entries from the archived card-game project's own decisions log live in

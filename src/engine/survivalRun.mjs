@@ -164,11 +164,11 @@ export function createSurvivalRun(seed, loadout = BASELINE_LOADOUT, { stage = 1,
   }
   recomputeStats(run);
   run.boat.health = run.boat.maxHull;
+  seedFlotsam(run, makeSeededRng((lvl.seed ^ 0x5f3759df) >>> 0));
   // The stage's build: carried in, or a head start of picks on a later level.
   if (build) applyBuild(run, build, { fresh: !retry });
   else run.catchUp = grantCatchUp(run, levelIndex);
   run.carryIn = snapshotBuild(run);
-  seedFlotsam(run, makeSeededRng((lvl.seed ^ 0x5f3759df) >>> 0));
   // Treasure floating by the wrecks and landmarks.
   for (const c of world.chests) run.pickups.push({ id: nextChestId++, kind: 'chest', x: c.x, y: c.y, amount: 1, collected: false, age: 0, map: true });
   run.weather = createWeather(lvl.biomeId);

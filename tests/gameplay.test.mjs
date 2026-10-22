@@ -237,3 +237,22 @@ test('each hull starts with its own gun', () => {
     assert.ok(run.sv.weapons[gun] >= 1, `${hull} → ${gun}`);
   }
 });
+
+import { rollOrders, applyOrder, hasOrder, counterBonus } from '../src/engine/survival.mjs';
+test('captain\'s orders: three to choose from, they bite, and they carry with the build', () => {
+  const run = createSurvivalRun(30);
+  const opts = rollOrders(run, makeSeededRng(1));
+  assert.equal(opts.length, 3); assert.equal(new Set(opts.map((o) => o.id)).size, 3);
+  const n0 = run.flotsam.length;
+  assert.ok(applyOrder(run, 'salvage'));
+  assert.equal(run.flotsam.length, n0 * 2, 'twice the flotsam');
+  assert.ok(!applyOrder(run, 'salvage'), 'not twice');
+  assert.ok(!rollOrders(run, makeSeededRng(2)).some((o) => o.id === 'salvage'));
+  applyOrder(run, 'specialist');
+  assert.equal(counterBonus(run), 2.4);
+  const next = createSurvivalRun(31, undefined, { stage: 1, levelIndex: 1, build: snapshotBuild(run) });
+  assert.ok(hasOrder(next, 'salvage') && hasOrder(next, 'specialist'));
+  assert.equal(next.flotsam.length, n0 * 2, 'the order holds on the next level');
+  const r2 = createSurvivalRun(32); applyOrder(r2, 'treasure'); r2.sv.chestsThisLevel = 5;
+  for (let i = 0; i < 30; i++) assert.ok(openChest(r2, makeSeededRng(i)).items.length >= 3);
+});

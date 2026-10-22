@@ -11,7 +11,7 @@
 
 import { createSurvivalRun, completeLevel, sinkLevel } from '../src/engine/survivalRun.mjs';
 import { stepSurvivalFrame, BOAT_RADIUS } from '../src/engine/survivalLoop.mjs';
-import { rollChoices, applyChoice, timeToBoss, snapshotBuild, openChest } from '../src/engine/survival.mjs';
+import { rollChoices, applyChoice, timeToBoss, snapshotBuild, openChest, rollOrders, applyOrder } from '../src/engine/survival.mjs';
 import { checkSunk } from '../src/engine/run.mjs';
 import { sampleField } from '../src/engine/terrain.mjs';
 import { makeSeededRng } from '../src/engine/rng.mjs';
@@ -92,6 +92,8 @@ export function playLevel(seed, { stage = 1, levelIndex = 0, maxSeconds = 900, d
   const rng = makeSeededRng(seed ^ 0x9e3779b9);
   const run = createSurvivalRun(seed, loadout, { stage, levelIndex, build, retry });
   let firstUp = null;
+  // A standing order for the stage (random: the bot has no favourite).
+  if (!run.sv.orders?.length) applyOrder(run, (process.env.ORDER || rollOrders(run, rng)[0].id), rng);
   // Head-start picks (a later level without a carried build).
   while (run.sv.pendingLevelUps > 0) { run.sv.pendingLevelUps--; applyChoice(run, botPick(run, rng)); }
   const biome = getBiome(run.level.biomeId);

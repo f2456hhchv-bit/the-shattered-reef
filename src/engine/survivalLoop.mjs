@@ -16,7 +16,7 @@ import { stepArmaments, chainLightning } from './armaments.mjs';
 import { updateEnemyGuns, stepEnemyProjectiles } from './enemyGuns.mjs';
 import { ambientLight, viewRadius, canSee } from './ambient.mjs';
 import {
-  spawnCrew, applySynergies, sweepPickups, confineToCage, stepRushers, stepFlotsam, powderKeg, stepDirector, recycleStragglers, separateEnemies, knockBack, fireWeapons, afterHits, stepWeaponExtras, dropLoot, stepPickups, addXp,
+  spawnCrew, applySynergies, sweepPickups, confineToCage, stepRushers, stepFlotsam, powderKeg, hasOrder, stepDirector, recycleStragglers, separateEnemies, knockBack, fireWeapons, afterHits, stepWeaponExtras, dropLoot, stepPickups, addXp,
 } from './survival.mjs';
 import { addLevelSalvage } from './survivalRun.mjs';
 import { stepLord } from './warlord.mjs';
@@ -147,6 +147,17 @@ export function stepSurvivalFrame(run, dt, input, ctx) {
   for (const e of run.enemies) {
     const b = stepBurn(e, dt);
     if (b) ev.hits.push({ ...b, burn: true });
+  }
+  // Boarding Party (a Captain's Order): the dash smashes what it passes.
+  if (run.dash.t > 0 && hasOrder(run, 'ram')) {
+    for (const e of run.enemies) {
+      if (e.health <= 0 || e.invulnerable || e.warded || e._dashHit === run.dash.uses) continue;
+      if (Math.hypot(e.x - boat.x, e.y - boat.y) > e.radius + BOAT_RADIUS + 10) continue;
+      e._dashHit = run.dash.uses;
+      const dmg = 40 * (sv.stats?.damageMult ?? 1);
+      const killed = applyDamageToEnemy(e, dmg);
+      ev.hits.push({ enemy: e, weaponId: 'cannonballs', damage: dmg, killed, ram: true });
+    }
   }
   // Iron Ram: touching an enemy hurts it.
   if (run.ramDamage) {

@@ -300,6 +300,20 @@ export const FLOTSAM = Object.freeze({
 // between the hard ones.
 export const RUSH = Object.freeze({ waves: [1, 3, 5, 7], at: 13, count: [16, 34], speed: 1.7, life: 10, spacing: 16 });
 
+// Captain's Orders (2026-10-22, after Vampire Survivors' Arcanas): at the
+// start of a stage you pick one of three standing orders that bend the
+// whole stage's build. It carries with the build.
+export const ORDERS = [
+  { id: 'rake', icon: '⚓', name: 'Broadside Doctrine', desc: 'Raking arc widened to ±40°; a raking volley hits ×1.9' },
+  { id: 'powder', icon: '💥', name: 'Powder Monkeys', desc: 'Depth Charge blasts and fire pools are 40% bigger' },
+  { id: 'salvage', icon: '📦', name: 'Wreckers\' Creed', desc: 'Twice the flotsam adrift, and crates spill twice the coin' },
+  { id: 'greed', icon: '💎', name: 'Fortune\'s Wake', desc: '+30% sea glass, but 15% more enemies' },
+  { id: 'specialist', icon: '🎯', name: 'Know Thy Enemy', desc: 'Counters hit ×2.4 — but off-counter hits only ×0.5' },
+  { id: 'treasure', icon: '💰', name: 'Treasure Fleet', desc: 'Every chest holds at least 3 treasures' },
+  { id: 'ram', icon: '🐏', name: 'Boarding Party', desc: 'Dash 30% sooner; your dash smashes what it passes (40 damage)' },
+];
+export const ORDER_BY_ID = Object.fromEntries(ORDERS.map((o) => [o.id, o]));
+
 // Every hull starts a level with its own gun (2026-10-22: unlocks should
 // open new ways to play, not just add stats).
 export const HULL_START_WEAPON = Object.freeze({
